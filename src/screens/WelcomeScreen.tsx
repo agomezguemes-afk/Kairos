@@ -1,28 +1,106 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 export default function WelcomeScreen() {
+  const navigation = useNavigation<any>();
+  
+  // Animaciones para el botón principal
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 50,
+    }).start();
+    
+    Animated.timing(opacityAnim, {
+      toValue: 0.9,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 50,
+    }).start();
+    
+    Animated.timing(opacityAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Animación para el texto de login
+  const loginScaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handleLoginPressIn = () => {
+    Animated.spring(loginScaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 40,
+    }).start();
+  };
+
+  const handleLoginPressOut = () => {
+    Animated.spring(loginScaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 40,
+    }).start();
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Stack</Text>
-        <Text style={styles.subtitle}>
-          All in One Coach
-        </Text>
-        <Text style={styles.description}>
-          Seguimiento inteligente que evoluciona contigo.{'\n'}
-          Análisis de rendimiento y rutinas adaptadas.
-        </Text>
-        
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Comenzar</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.linkButton}>
-          <Text style={styles.linkText}>Ya tengo cuenta</Text>
-        </TouchableOpacity>
+      {/* Header centrado verticalmente */}
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>GymBud</Text>
+        <Text style={styles.subtitle}>Tu entrenador inteligente</Text>
       </View>
-      <Text style={styles.footer}>v1.0.0 - Beta</Text>
+
+      {/* Footer + botones en la parte inferior */}
+      <View style={styles.footerContainer}>
+        <Pressable
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          onPress={() => navigation.navigate('Setup')}
+          style={{ width: '100%' }}
+        >
+          <Animated.View
+            style={[
+              styles.button,
+              {
+                transform: [{ scale: scaleAnim }],
+                opacity: opacityAnim,
+              },
+            ]}
+          >
+            <Text style={styles.buttonText}>Empezar</Text>
+          </Animated.View>
+        </Pressable>
+
+        <Pressable
+          onPressIn={handleLoginPressIn}
+          onPressOut={handleLoginPressOut}
+          onPress={() => console.log('Iniciar sesión')}
+        >
+          <Animated.View style={{ transform: [{ scale: loginScaleAnim }] }}>
+            <Text style={styles.loginText}>Iniciar sesión</Text>
+          </Animated.View>
+        </Pressable>
+
+        <Text style={styles.footer}>v1.0.0 · Beta</Text>
+      </View>
     </View>
   );
 }
@@ -31,54 +109,54 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0d',
+    justifyContent: 'space-between',
+    paddingHorizontal: 30,
   },
-  content: {
+  headerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
+  },
+  footerContainer: {
+    alignItems: 'center',
+    paddingBottom: 30,
   },
   title: {
     fontSize: 48,
     fontWeight: 'bold',
     color: '#3b82f6',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 20,
     color: '#a0a0a0',
-    marginBottom: 30,
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 50,
   },
   button: {
     backgroundColor: '#3b82f6',
     paddingVertical: 16,
     paddingHorizontal: 60,
     borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
-  linkButton: {
-    padding: 10,
-  },
-  linkText: {
-    color: '#3b82f6',
+  loginText: {
+    color: '#fff',
     fontSize: 16,
+    textDecorationLine: 'underline',
+    marginBottom: 24,
   },
   footer: {
-    textAlign: 'center',
-    color: '#333',
-    paddingBottom: 30,
+    color: '#666',
     fontSize: 12,
   },
 });
