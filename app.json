@@ -13,15 +13,23 @@
     },
     "ios": {
       "supportsTablet": true,
+<<<<<<< HEAD
       "bundleIdentifier": "com.stack.app",
       "jsEngine": "jsc"
+=======
+      "bundleIdentifier": "com.yourcompany.stack"
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0d"
       },
+<<<<<<< HEAD
       "jsEngine": "jsc"
+=======
+      "package": "com.yourcompany.stack"
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
     },
     "web": {
       "favicon": "./assets/favicon.png"

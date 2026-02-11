@@ -1,9 +1,17 @@
+<<<<<<< HEAD
 import React, { useState, useRef, useEffect } from 'react';
 import AnimatedButton from '../Buttons/AnimatedButton';
+=======
+import React, { useState, useEffect, useRef } from 'react';
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
 import {
   View,
   Text,
   StyleSheet,
+<<<<<<< HEAD
+=======
+  Pressable,
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
   ScrollView,
   Animated,
   TextInput,
@@ -92,7 +100,12 @@ export default function SetupScreen({ navigation }: any) {
     } else {
       // Último paso → Navegar al Dashboard
       console.log('Datos completos:', data);
+<<<<<<< HEAD
       navigation.navigate('Dashboard');
+=======
+      // TODO: Guardar en AsyncStorage o Supabase
+      navigation.navigate('Dashboard'); // Cambiar cuando tengas el Dashboard
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
     }
   };
 
@@ -118,7 +131,11 @@ export default function SetupScreen({ navigation }: any) {
     }
   };
 
+<<<<<<< HEAD
   // Color del botón según validación (movido aquí, dentro del componente)
+=======
+  // Color del botón según validación
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
   const buttonBackgroundColor = isStepValid() ? '#3b82f6' : '#555';
 
   return (
@@ -128,6 +145,7 @@ export default function SetupScreen({ navigation }: any) {
     >
       {/* Header con progreso */}
       <View style={styles.header}>
+<<<<<<< HEAD
         <AnimatedButton
           title="←"
           onPress={handleBack}
@@ -136,6 +154,11 @@ export default function SetupScreen({ navigation }: any) {
           style={styles.backButton}
           textStyle={styles.backText}
         />
+=======
+        <Pressable onPress={handleBack} style={styles.backButton}>
+          <Text style={styles.backText}>←</Text>
+        </Pressable>
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
         <View style={styles.progressContainer}>
           {[1, 2, 3, 4].map((step) => (
             <View
@@ -147,7 +170,11 @@ export default function SetupScreen({ navigation }: any) {
             />
           ))}
         </View>
+<<<<<<< HEAD
         <View style={styles.backButtonPlaceholder} />
+=======
+        <View style={styles.backButton} />
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
       </View>
 
       <Animated.View
@@ -168,12 +195,27 @@ export default function SetupScreen({ navigation }: any) {
 
       {/* Botón Continuar */}
       <View style={styles.footer}>
+<<<<<<< HEAD
         <AnimatedButton
           title={currentStep === 4 ? 'Finalizar' : 'Continuar'}
           onPress={handleNext}
           disabled={!isStepValid()}
           variant="primary"
         />
+=======
+        <Pressable
+          style={[
+            styles.continueButton,
+            { backgroundColor: buttonBackgroundColor },
+          ]}
+          onPress={handleNext}
+          disabled={!isStepValid()}
+        >
+          <Text style={styles.continueButtonText}>
+            {currentStep === 4 ? 'Finalizar' : 'Continuar'}
+          </Text>
+        </Pressable>
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
       </View>
     </KeyboardAvoidingView>
   );
@@ -208,6 +250,7 @@ function Step1({ data, setData }: any) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Nivel</Text>
         <View style={styles.row}>
+<<<<<<< HEAD
           <AnimatedButton
             title="Principiante"
             emoji="🌱"
@@ -235,6 +278,23 @@ function Step1({ data, setData }: any) {
             width="auto"
             style={styles.optionButton}
           />
+=======
+          {['Principiante', 'Intermedio', 'Avanzado'].map((item) => (
+            <Pressable
+              key={item}
+              style={[
+                styles.option,
+                data.nivel === item && styles.optionSelected,
+              ]}
+              onPress={() => setData({ ...data, nivel: item })}
+            >
+              <Text style={styles.optionEmoji}>
+                {item === 'Principiante' ? '🌱' : item === 'Intermedio' ? '💪' : '🏆'}
+              </Text>
+              <Text style={styles.optionText}>{item}</Text>
+            </Pressable>
+          ))}
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
         </View>
       </View>
 
@@ -242,6 +302,7 @@ function Step1({ data, setData }: any) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Objetivo</Text>
         <View style={styles.row}>
+<<<<<<< HEAD
           <AnimatedButton
             title="Ganar músculo"
             onPress={() => setData({ ...data, objetivo: 'Ganar músculo' })}
@@ -266,6 +327,20 @@ function Step1({ data, setData }: any) {
             width="auto"
             style={styles.optionButton}
           />
+=======
+          {['Ganar músculo', 'Perder grasa', 'Definición'].map((item) => (
+            <Pressable
+              key={item}
+              style={[
+                styles.option,
+                data.objetivo === item && styles.optionSelected,
+              ]}
+              onPress={() => setData({ ...data, objetivo: item })}
+            >
+              <Text style={styles.optionText}>{item}</Text>
+            </Pressable>
+          ))}
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
         </View>
       </View>
 
@@ -273,6 +348,7 @@ function Step1({ data, setData }: any) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Días de entrenamiento</Text>
         <View style={styles.row}>
+<<<<<<< HEAD
           <AnimatedButton
             title="2–3"
             onPress={() => setData({ ...data, frecuencia: '2–3' })}
@@ -297,6 +373,20 @@ function Step1({ data, setData }: any) {
             width="auto"
             style={styles.optionButton}
           />
+=======
+          {['2–3', '4–5', '6+'].map((item) => (
+            <Pressable
+              key={item}
+              style={[
+                styles.option,
+                data.frecuencia === item && styles.optionSelected,
+              ]}
+              onPress={() => setData({ ...data, frecuencia: item })}
+            >
+              <Text style={styles.optionText}>{item}</Text>
+            </Pressable>
+          ))}
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
         </View>
       </View>
     </View>
@@ -367,6 +457,7 @@ function Step3({ data, setData }: any) {
         <Text style={styles.sectionTitle}>¿Cuánto tiempo llevas entrenando?</Text>
         <View style={styles.column}>
           {['Menos de 6 meses', '6-12 meses', '1-2 años', 'Más de 2 años'].map((item) => (
+<<<<<<< HEAD
             <AnimatedButton
               key={item}
               title={item}
@@ -375,6 +466,18 @@ function Step3({ data, setData }: any) {
               variant="option"
               style={styles.fullOptionButton}
             />
+=======
+            <Pressable
+              key={item}
+              style={[
+                styles.optionFull,
+                data.experiencia === item && styles.optionSelected,
+              ]}
+              onPress={() => setData({ ...data, experiencia: item })}
+            >
+              <Text style={styles.optionText}>{item}</Text>
+            </Pressable>
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
           ))}
         </View>
       </View>
@@ -383,6 +486,7 @@ function Step3({ data, setData }: any) {
         <Text style={styles.sectionTitle}>¿Tienes alguna lesión o limitación?</Text>
         <View style={styles.column}>
           {['No', 'Rodillas', 'Hombros', 'Espalda', 'Otra'].map((item) => (
+<<<<<<< HEAD
             <AnimatedButton
               key={item}
               title={item}
@@ -391,6 +495,18 @@ function Step3({ data, setData }: any) {
               variant="option"
               style={styles.fullOptionButton}
             />
+=======
+            <Pressable
+              key={item}
+              style={[
+                styles.optionFull,
+                data.lesiones === item && styles.optionSelected,
+              ]}
+              onPress={() => setData({ ...data, lesiones: item })}
+            >
+              <Text style={styles.optionText}>{item}</Text>
+            </Pressable>
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
           ))}
         </View>
       </View>
@@ -452,6 +568,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   backButton: {
+<<<<<<< HEAD
     paddingVertical: 8,
     paddingHorizontal: 12,
     minWidth: 40,
@@ -463,6 +580,16 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 24,
     fontWeight: '600',
+=======
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backText: {
+    fontSize: 28,
+    color: '#fff',
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
   },
   progressContainer: {
     flexDirection: 'row',
@@ -512,12 +639,45 @@ const styles = StyleSheet.create({
   column: {
     gap: 12,
   },
+<<<<<<< HEAD
   optionButton: {
     flex: 1,
     minHeight: 60,
   },
   fullOptionButton: {
     width: '100%',
+=======
+  option: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 60,
+  },
+  optionFull: {
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionSelected: {
+    backgroundColor: '#3b82f6',
+  },
+  optionEmoji: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  optionText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+    textAlign: 'center',
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
   },
   input: {
     backgroundColor: '#1a1a1d',
@@ -533,6 +693,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
+<<<<<<< HEAD
+=======
+  continueButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  continueButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
   summaryCard: {
     backgroundColor: '#1a1a1d',
     borderRadius: 16,
@@ -571,4 +744,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> 5bcc65205956b5acdd0b4049749b663822733ed5
