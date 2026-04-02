@@ -1,29 +1,36 @@
 // KAIROS — Block Library Screen
-// Main screen: shows compact BlockCards with swipe-to-delete.
-// Tapping a card opens BlockDetailModal for full editing.
-// FAB opens BlockCreationSheet.
-// All state is persisted in AsyncStorage.
+// Desktop-style grid of block icons (4 columns).
+// Long-press + drag to reorder. Tap to open detail. FAB to create.
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   Alert,
   ActivityIndicator,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  FadeInDown,
   FadeIn,
+  FadeInDown,
 } from 'react-native-reanimated';
+import DraggableFlatList, {
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { BlockCard } from '../components/BlockCard';
+import BlockAppIcon from '../components/BlockAppIcon';
 import BlockCreationSheet, {
   type BlockCreationOptions,
 } from '../components/BlockCreationSheet';
@@ -34,7 +41,6 @@ import type {
   ExerciseCard as ExerciseCardType,
   ExerciseSet,
   FieldValue,
-  Discipline,
 } from '../types/core';
 import {
   createWorkoutBlock,
@@ -46,6 +52,11 @@ import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 const STORAGE_KEY = 'kairos_blocks_v1';
 const MOCK_USER_ID = 'user_001';
 
+const COLUMNS = 4;
+const SCREEN_W = Dimensions.get('window').width;
+const H_PAD = Spacing.screen.horizontal;
+const ICON_SLOT = Math.floor((SCREEN_W - H_PAD * 2) / COLUMNS);
+
 // ======================== SCREEN ========================
 
 export default function BlockLibraryScreen() {
@@ -54,10 +65,12 @@ export default function BlockLibraryScreen() {
   const [showCreation, setShowCreation] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
-  // The selected block is always the live version from state
   const selectedBlock = useMemo(
-    () => (selectedBlockId ? blocks.find((b) => b.id === selectedBlockId) ?? null : null),
-    [selectedBlockId, blocks]
+    () =>
+      selectedBlockId
+        ? blocks.find((b) => b.id === selectedBlockId) ?? null
+        : null,
+    [selectedBlockId, blocks],
   );
 
   // ======================== PERSISTENCE ========================
@@ -87,7 +100,6 @@ export default function BlockLibraryScreen() {
     load();
   }, []);
 
-  // Helper: update blocks state + persist
   const updateBlocks = useCallback(
     (updater: (prev: WorkoutBlockType[]) => WorkoutBlockType[]) => {
       setBlocks((prev) => {
@@ -96,43 +108,61 @@ export default function BlockLibraryScreen() {
         return next;
       });
     },
-    [saveBlocks]
+    [saveBlocks],
   );
 
   // ======================== BLOCK HANDLERS ========================
 
   const handleCreateBlock = useCallback(
     (opts: BlockCreationOptions) => {
-      const newBlock = createWorkoutBlock(MOCK_USER_ID, blocks.length, opts.discipline, {
-        name: opts.name,
-        icon: opts.icon,
-        color: opts.color,
-      });
-      // Apply cover
+      const newBlock = createWorkoutBlock(
+        MOCK_USER_ID,
+        blocks.length,
+        opts.discipline,
+        { name: opts.name, icon: opts.icon, color: opts.color },
+      );
       const blockWithCover: WorkoutBlockType = { ...newBlock, cover: opts.cover };
       updateBlocks((prev) => [...prev, blockWithCover]);
     },
-    [blocks.length, updateBlocks]
+    [blocks.length, updateBlocks],
   );
 
   const handleDeleteBlock = useCallback(
     (blockId: string) => {
-      updateBlocks((prev) => prev.filter((b) => b.id !== blockId));
-      // If detail modal is open for this block, close it
-      setSelectedBlockId((id) => (id === blockId ? null : id));
+      Alert.alert('Eliminar bloque', '¿Seguro que quieres eliminar este bloque?', [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            updateBlocks((prev) => prev.filter((b) => b.id !== blockId));
+            setSelectedBlockId((id) => (id === blockId ? null : id));
+          },
+        },
+      ]);
     },
-    [updateBlocks]
+    [updateBlocks],
   );
 
   const handleUpdateBlock = useCallback(
     (blockId: string, updates: Partial<WorkoutBlockType>) => {
       updateBlocks((prev) =>
         prev.map((b) =>
-          b.id === blockId ? { ...b, ...updates, updated_at: new Date().toISOString() } : b
-        )
+          b.id === blockId
+            ? { ...b, ...updates, updated_at: new Date().toISOString() }
+            : b,
+        ),
       );
     },
-    [updateBlocks]
+    [updateBlocks],
+  );
+
+  const handleDragEnd = useCallback(
+    (data: WorkoutBlockType[]) => {
+      setBlocks(data);
+      saveBlocks(data);
+    },
+    [saveBlocks],
   );
 
   // ======================== EXERCISE HANDLERS ========================
@@ -142,12 +172,20 @@ export default function BlockLibraryScreen() {
       updateBlocks((prev) =>
         prev.map((block) => {
           if (block.id !== blockId) return block;
-          const ex = createExerciseCard(blockId, block.exercises.length, block.discipline);
-          return { ...block, exercises: [...block.exercises, ex], updated_at: new Date().toISOString() };
-        })
+          const ex = createExerciseCard(
+            blockId,
+            block.exercises.length,
+            block.discipline,
+          );
+          return {
+            ...block,
+            exercises: [...block.exercises, ex],
+            updated_at: new Date().toISOString(),
+          };
+        }),
       );
     },
-    [updateBlocks]
+    [updateBlocks],
   );
 
   const handleDeleteExercise = useCallback(
@@ -160,10 +198,10 @@ export default function BlockLibraryScreen() {
             exercises: block.exercises.filter((ex) => ex.id !== exerciseId),
             updated_at: new Date().toISOString(),
           };
-        })
+        }),
       );
     },
-    [updateBlocks]
+    [updateBlocks],
   );
 
   const handleUpdateExercise = useCallback(
@@ -174,12 +212,12 @@ export default function BlockLibraryScreen() {
           exercises: block.exercises.map((ex) =>
             ex.id === exerciseId
               ? { ...ex, ...updates, updated_at: new Date().toISOString() }
-              : ex
+              : ex,
           ),
-        }))
+        })),
       );
     },
-    [updateBlocks]
+    [updateBlocks],
   );
 
   // ======================== SET HANDLERS ========================
@@ -198,10 +236,10 @@ export default function BlockLibraryScreen() {
             };
             return { ...ex, sets: newSets, updated_at: new Date().toISOString() };
           }),
-        }))
+        })),
       );
     },
-    [updateBlocks]
+    [updateBlocks],
   );
 
   const handleToggleSetComplete = useCallback(
@@ -220,10 +258,10 @@ export default function BlockLibraryScreen() {
             };
             return { ...ex, sets: newSets, updated_at: new Date().toISOString() };
           }),
-        }))
+        })),
       );
     },
-    [updateBlocks]
+    [updateBlocks],
   );
 
   const handleAddSet = useCallback(
@@ -234,12 +272,16 @@ export default function BlockLibraryScreen() {
           exercises: block.exercises.map((ex) => {
             if (ex.id !== exerciseId) return ex;
             const newSet = createEmptySet(exerciseId, ex.sets.length, ex.fields);
-            return { ...ex, sets: [...ex.sets, newSet], updated_at: new Date().toISOString() };
+            return {
+              ...ex,
+              sets: [...ex.sets, newSet],
+              updated_at: new Date().toISOString(),
+            };
           }),
-        }))
+        })),
       );
     },
-    [updateBlocks]
+    [updateBlocks],
   );
 
   const handleRemoveSet = useCallback(
@@ -250,13 +292,16 @@ export default function BlockLibraryScreen() {
           exercises: block.exercises.map((ex) => {
             if (ex.id !== exerciseId) return ex;
             const filtered = ex.sets.filter((_, i) => i !== setIndex);
-            const reordered: ExerciseSet[] = filtered.map((s, i) => ({ ...s, order: i }));
+            const reordered: ExerciseSet[] = filtered.map((s, i) => ({
+              ...s,
+              order: i,
+            }));
             return { ...ex, sets: reordered, updated_at: new Date().toISOString() };
           }),
-        }))
+        })),
       );
     },
-    [updateBlocks]
+    [updateBlocks],
   );
 
   // ======================== FAB ========================
@@ -266,10 +311,21 @@ export default function BlockLibraryScreen() {
     transform: [{ scale: fabScale.value }],
   }));
 
-  const handleFabPressIn = () => { fabScale.value = withSpring(0.88, { damping: 15 }); };
-  const handleFabPressOut = () => { fabScale.value = withSpring(1, { damping: 15 }); };
+  // ======================== RENDER ITEM ========================
 
-  // ======================== RENDER ========================
+  const renderItem = useCallback(
+    ({ item, drag }: RenderItemParams<WorkoutBlockType>) => (
+      <BlockAppIcon
+        block={item}
+        size={ICON_SLOT}
+        onPress={(b) => setSelectedBlockId(b.id)}
+        drag={drag}
+      />
+    ),
+    [],
+  );
+
+  // ======================== LOADING ========================
 
   if (isLoading) {
     return (
@@ -279,10 +335,12 @@ export default function BlockLibraryScreen() {
     );
   }
 
+  // ======================== MAIN RENDER ========================
+
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <Animated.View entering={FadeInDown.delay(80).duration(400)} style={styles.header}>
+      <Animated.View entering={FadeInDown.delay(60).duration(350)} style={styles.header}>
         <View>
           <Text style={styles.brand}>Kairos</Text>
           <Text style={styles.subtitle}>
@@ -293,31 +351,23 @@ export default function BlockLibraryScreen() {
         </View>
       </Animated.View>
 
-      {/* Block list */}
+      {/* Grid or empty state */}
       {blocks.length > 0 ? (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+        <DraggableFlatList<WorkoutBlockType>
+          data={blocks}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          onDragEnd={({ data }) => handleDragEnd(data)}
+          numColumns={COLUMNS}
+          contentContainerStyle={styles.gridContent}
           showsVerticalScrollIndicator={false}
-        >
-          {blocks.map((block, i) => (
-            <Animated.View
-              key={block.id}
-              entering={FadeInDown.delay(i * 60).duration(350)}
-            >
-              <BlockCard
-                block={block}
-                onPress={(b) => setSelectedBlockId(b.id)}
-                onDelete={handleDeleteBlock}
-              />
-            </Animated.View>
-          ))}
-          <View style={{ height: 120 }} />
-        </ScrollView>
+          activationDistance={8}
+          ListFooterComponent={<View style={{ height: 120 }} />}
+        />
       ) : (
-        <Animated.View entering={FadeIn.delay(200).duration(500)} style={styles.empty}>
-          <View style={styles.emptyIcon}>
-            <Text style={{ fontSize: 34 }}>📂</Text>
+        <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.empty}>
+          <View style={styles.emptyIconBox}>
+            <Text style={{ fontSize: 36 }}>🏋️</Text>
           </View>
           <Text style={styles.emptyTitle}>Sin bloques todavía</Text>
           <Text style={styles.emptyDesc}>
@@ -336,8 +386,8 @@ export default function BlockLibraryScreen() {
       {blocks.length > 0 && (
         <Animated.View style={[styles.fab, fabStyle]}>
           <Pressable
-            onPressIn={handleFabPressIn}
-            onPressOut={handleFabPressOut}
+            onPressIn={() => { fabScale.value = withSpring(0.88, { damping: 15 }); }}
+            onPressOut={() => { fabScale.value = withSpring(1, { damping: 15 }); }}
             onPress={() => setShowCreation(true)}
             style={styles.fabInner}
           >
@@ -374,14 +424,19 @@ export default function BlockLibraryScreen() {
 // ======================== STYLES ========================
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background.void },
-  loadingScreen: { flex: 1, backgroundColor: Colors.background.void, alignItems: 'center', justifyContent: 'center' },
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background.void,
+  },
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: Colors.background.void,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingHorizontal: Spacing.screen.horizontal,
+    paddingHorizontal: H_PAD,
     paddingTop: Spacing.screen.top,
     paddingBottom: Spacing.lg,
   },
@@ -397,11 +452,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  scroll: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: Spacing.screen.horizontal,
-    paddingTop: 4,
-    gap: Spacing.gap.sections,
+  gridContent: {
+    paddingHorizontal: H_PAD,
+    paddingTop: 8,
   },
 
   // Empty state
@@ -409,20 +462,21 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.screen.horizontal * 2,
+    paddingHorizontal: H_PAD * 2,
   },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+  emptyIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: Radius.xl,
     backgroundColor: Colors.accent.muted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.xl,
+    ...Shadows.subtle,
   },
   emptyTitle: {
     fontSize: Typography.size.heading,
-    fontWeight: Typography.weight.medium,
+    fontWeight: Typography.weight.semibold,
     color: Colors.text.primary,
     marginBottom: Spacing.sm,
   },
@@ -449,7 +503,7 @@ const styles = StyleSheet.create({
   // FAB
   fab: {
     position: 'absolute',
-    bottom: 32,
+    bottom: Platform.OS === 'ios' ? 32 : 24,
     right: 24,
   },
   fabInner: {
@@ -460,7 +514,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Colors.accent.primary,
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.4,
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 14,
     elevation: 10,
