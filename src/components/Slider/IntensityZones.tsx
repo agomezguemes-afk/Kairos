@@ -17,15 +17,71 @@ const INTENSITY_ZONES = [
   { label: 'Maratón', emoji: '🏃‍♂️', color: '#8b5cf6', min: 120, max: 180 },
 ];
 
-interface IntensityZonesProps {
-  currentMinutes: number;
+interface ZoneItemProps {
+  zone: typeof INTENSITY_ZONES[number];
+  isActive: boolean;
+  isPast: boolean;
 }
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 const AnimatedText = Animated.createAnimatedComponent(Text);
 
+const ZoneItem = React.memo(({ zone, isActive, isPast }: ZoneItemProps) => {
+  const zoneStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: withSpring(isActive ? 1.05 : 1, { damping: 15 }) },
+    ],
+    backgroundColor: isActive ? `${zone.color}20` : 'transparent',
+  }));
+
+  const emojiStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: withSpring(isActive ? 1.2 : 1, { damping: 12 }) },
+    ],
+    opacity: withSpring(isPast ? 1 : 0.5, { damping: 15 }),
+  }));
+
+  const textStyle = useAnimatedStyle(() => ({
+    color: isActive ? zone.color : '#9ca3af',
+    fontWeight: isActive ? '700' : '500',
+    opacity: withSpring(isPast ? 1 : 0.6, { damping: 15 }),
+  }));
+
+  return (
+    <AnimatedView style={[styles.zone, zoneStyle]}>
+      <AnimatedText style={[styles.emoji, emojiStyle]}>
+        {zone.emoji}
+      </AnimatedText>
+      <AnimatedText style={[styles.label, textStyle]}>
+        {zone.label}
+      </AnimatedText>
+    </AnimatedView>
+  );
+});
+
+interface SegmentProps {
+  zone: typeof INTENSITY_ZONES[number];
+  isActive: boolean;
+  isPast: boolean;
+}
+
+const Segment = React.memo(({ zone, isActive, isPast }: SegmentProps) => {
+  const segmentStyle = useAnimatedStyle(() => ({
+    backgroundColor: withSpring(
+      isPast ? zone.color : '#374151',
+      { damping: 20 }
+    ),
+    flex: withSpring(isActive ? 1.2 : 1, { damping: 15 }),
+  }));
+
+  return <AnimatedView style={[styles.progressSegment, segmentStyle]} />;
+});
+
+interface IntensityZonesProps {
+  currentMinutes: number;
+}
+
 export default function IntensityZones({ currentMinutes }: IntensityZonesProps) {
-  // Determinar qué zona está activa
   const activeZoneIndex = INTENSITY_ZONES.findIndex(
     zone => currentMinutes >= zone.min && currentMinutes < zone.max
   );
@@ -33,69 +89,29 @@ export default function IntensityZones({ currentMinutes }: IntensityZonesProps) 
   return (
     <View style={styles.container}>
       <View style={styles.zonesContainer}>
-        {INTENSITY_ZONES.map((zone, index) => {
-          const isActive = index === activeZoneIndex;
-          const isPast = currentMinutes >= zone.min;
-          
-          const zoneStyle = useAnimatedStyle(() => ({
-            transform: [
-              { scale: withSpring(isActive ? 1.05 : 1, { damping: 15 }) },
-            ],
-            backgroundColor: isActive ? `${zone.color}20` : 'transparent',
-          }));
-          
-          const emojiStyle = useAnimatedStyle(() => ({
-            transform: [
-              { scale: withSpring(isActive ? 1.2 : 1, { damping: 12 }) },
-            ],
-            opacity: withSpring(isPast ? 1 : 0.5, { damping: 15 }),
-          }));
-          
-          const textStyle = useAnimatedStyle(() => ({
-            color: isActive ? zone.color : '#9ca3af',
-            fontWeight: isActive ? '700' : '500',
-            opacity: withSpring(isPast ? 1 : 0.6, { damping: 15 }),
-          }));
-
-          return (
-            <AnimatedView 
-              key={zone.label} 
-              style={[styles.zone, zoneStyle]}
-            >
-              <AnimatedText style={[styles.emoji, emojiStyle]}>
-                {zone.emoji}
-              </AnimatedText>
-              <AnimatedText style={[styles.label, textStyle]}>
-                {zone.label}
-              </AnimatedText>
-            </AnimatedView>
-          );
-        })}
+        {INTENSITY_ZONES.map((zone, index) => (
+          <ZoneItem
+            key={zone.label}
+            zone={zone}
+            isActive={index === activeZoneIndex}
+            isPast={currentMinutes >= zone.min}
+          />
+        ))}
       </View>
-      
-      {/* Línea de progreso */}
+
       <View style={styles.progressLine}>
-        {INTENSITY_ZONES.map((zone, index) => {
-          const isActive = index === activeZoneIndex;
-          const isPast = index <= activeZoneIndex;
-          
-          const segmentStyle = useAnimatedStyle(() => ({
-            backgroundColor: withSpring(
-              isPast ? zone.color : '#374151', 
-              { damping: 20 }
-            ),
-            flex: withSpring(isActive ? 1.2 : 1, { damping: 15 }),
-          }));
-          
-          return (
-            <React.Fragment key={`segment-${index}`}>
-              <AnimatedView style={[styles.progressSegment, segmentStyle]} />
-              {index < INTENSITY_ZONES.length - 1 && (
-                <View style={styles.segmentDivider} />
-              )}
-            </React.Fragment>
-          );
-        })}
+        {INTENSITY_ZONES.map((zone, index) => (
+          <React.Fragment key={`segment-${index}`}>
+            <Segment
+              zone={zone}
+              isActive={index === activeZoneIndex}
+              isPast={index <= activeZoneIndex}
+            />
+            {index < INTENSITY_ZONES.length - 1 && (
+              <View style={styles.segmentDivider} />
+            )}
+          </React.Fragment>
+        ))}
       </View>
     </View>
   );

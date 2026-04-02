@@ -14,14 +14,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.stack.app",
-      "jsEngine": "jsc"
+      "jsEngine": "hermes"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0d"
       },
-      "jsEngine": "jsc"
+      "jsEngine": "hermes"
     },
     "web": {
       "favicon": "./assets/favicon.png"

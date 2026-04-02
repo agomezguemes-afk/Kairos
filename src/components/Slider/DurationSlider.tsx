@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   StyleSheet,
@@ -10,12 +10,9 @@ import Animated, {
   withSpring,
   withTiming,
   runOnJS,
-  useAnimatedGestureHandler,  // Asegúrate de que esté importado
+  useAnimatedReaction,
 } from 'react-native-reanimated';
-import {
-  PanGestureHandler,
-  GestureHandlerRootView,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SLIDER_WIDTH = SCREEN_WIDTH - 48;
@@ -30,42 +27,48 @@ interface DurationSliderProps {
   onValueChange: (value: number) => void;
 }
 
-const AnimatedView = Animated.createAnimatedComponent(View);
-
 export default function DurationSlider({ value, onValueChange }: DurationSliderProps) {
   const translateX = useSharedValue((value / MAX_VALUE) * SLIDER_WIDTH);
   const thumbScale = useSharedValue(1);
   const rippleScale = useSharedValue(0);
   const rippleOpacity = useSharedValue(0);
+  const isSliding = useSharedValue(false);
+  const savedTranslateX = useSharedValue(0);
 
-  useEffect(() => {
-    const newPosition = (value / MAX_VALUE) * SLIDER_WIDTH;
-    translateX.value = withSpring(newPosition, {
-      damping: 15,
-      stiffness: 150,
-    });
-  }, [value]);
+  useAnimatedReaction(
+    () => value,
+    (newValue) => {
+      if (!isSliding.value) {
+        const newPosition = (newValue / MAX_VALUE) * SLIDER_WIDTH;
+        translateX.value = withSpring(newPosition, {
+          damping: 15,
+          stiffness: 150,
+        });
+      }
+    }
+  );
 
   const calculateValueFromPosition = (position: number) => {
+    'worklet';
     const percentage = position / SLIDER_WIDTH;
     const rawValue = percentage * MAX_VALUE;
     const snappedValue = Math.round(rawValue / STEP) * STEP;
     return Math.max(MIN_VALUE, Math.min(snappedValue, MAX_VALUE));
   };
 
-  // Verifica que esté dentro del componente y use el hook correctamente
-  const gestureHandler = useAnimatedGestureHandler({
-    onStart: (_, ctx: any) => {
-      ctx.startX = translateX.value;
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      isSliding.value = true;
+      savedTranslateX.value = translateX.value;
       thumbScale.value = withSpring(1.1, { damping: 10 });
-    },
-    onActive: (event, ctx) => {
-      let newX = ctx.startX + event.translationX;
+    })
+    .onUpdate((event) => {
+      let newX = savedTranslateX.value + event.translationX;
       newX = Math.max(0, Math.min(newX, SLIDER_WIDTH));
       translateX.value = newX;
       runOnJS(onValueChange)(calculateValueFromPosition(newX));
-    },
-    onEnd: () => {
+    })
+    .onEnd(() => {
       const snappedValue = calculateValueFromPosition(translateX.value);
       const snappedPosition = (snappedValue / MAX_VALUE) * SLIDER_WIDTH;
       translateX.value = withSpring(snappedPosition, {
@@ -73,12 +76,12 @@ export default function DurationSlider({ value, onValueChange }: DurationSliderP
         stiffness: 150,
       });
       thumbScale.value = withSpring(1, { damping: 10 });
+      isSliding.value = false;
       rippleScale.value = 1;
       rippleOpacity.value = 1;
       rippleScale.value = withTiming(2, { duration: 400 });
       rippleOpacity.value = withTiming(0, { duration: 400 });
-    },
-  });
+    });
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [
@@ -97,11 +100,12 @@ export default function DurationSlider({ value, onValueChange }: DurationSliderP
   }));
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.sliderContainer}>
         <View style={styles.track}>
-          <AnimatedView style={[styles.trackFill, fillStyle]} />
+          <Animated.View style={[styles.trackFill, fillStyle]} />
         </View>
+
         <View style={styles.markersContainer}>
           {[0, 30, 60, 90, 120, 150, 180].map((marker) => (
             <View
@@ -122,16 +126,17 @@ export default function DurationSlider({ value, onValueChange }: DurationSliderP
             </View>
           ))}
         </View>
-        <PanGestureHandler onGestureEvent={gestureHandler}>
-          <AnimatedView style={[styles.thumbContainer, thumbStyle]}>
-            <AnimatedView style={[styles.ripple, rippleStyle]} />
+
+        <GestureDetector gesture={panGesture}>
+          <Animated.View style={[styles.thumbContainer, thumbStyle]}>
+            <Animated.View style={[styles.ripple, rippleStyle]} />
             <View style={styles.thumb}>
               <View style={styles.thumbInner} />
             </View>
-          </AnimatedView>
-        </PanGestureHandler>
+          </Animated.View>
+        </GestureDetector>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }
 

@@ -64,8 +64,8 @@ export default function WelcomeScreen() {
     <View style={styles.container}>
       {/* Header centrado verticalmente */}
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>GymBud</Text>
-        <Text style={styles.subtitle}>Tu entrenador inteligente</Text>
+        <Text style={styles.title}>Kairos</Text>
+        <Text style={styles.subtitle}>The Training OS</Text>
       </View>
 
       {/* Footer + botones en la parte inferior */}

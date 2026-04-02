@@ -1,23 +1,25 @@
+// KAIROS — App Navigator (Updated for V3)
+// CAMBIO: WorkoutTab reemplazado por BlockLibraryScreen
+
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 
-// Screens
+// Screens existentes (no tocar)
 import WelcomeScreen from '../screens/WelcomeScreen';
 import SetupScreen from '../screens/SetupScreen';
 
-// Tabs (las crearemos después)
+// Tabs
 import HomeTab from '../screens/tabs/HomeTab';
-import WorkoutTab from '../screens/tabs/WorkoutTab';
+import BlockLibraryScreen from '../screens/BlockLibraryScreen';
 import ProgressTab from '../screens/tabs/ProgressTab';
 import ProfileTab from '../screens/tabs/ProfileTab';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Tab Navigator (Dashboard con 4 tabs)
 function DashboardTabs() {
   return (
     <Tab.Navigator
@@ -31,7 +33,7 @@ function DashboardTabs() {
           paddingBottom: 30,
           paddingTop: 10,
         },
-        tabBarActiveTintColor: '#3b82f6',
+        tabBarActiveTintColor: '#C9A96E',
         tabBarInactiveTintColor: '#666',
         tabBarLabelStyle: {
           fontSize: 12,
@@ -49,10 +51,10 @@ function DashboardTabs() {
       />
       <Tab.Screen
         name="WorkoutTab"
-        component={WorkoutTab}
+        component={BlockLibraryScreen}
         options={{
-          tabBarLabel: 'Entrenar',
-          tabBarIcon: () => <Text style={{ fontSize: 24 }}>💪</Text>,
+          tabBarLabel: 'Blocks',
+          tabBarIcon: () => <Text style={{ fontSize: 24 }}>📂</Text>,
         }}
       />
       <Tab.Screen
@@ -75,15 +77,10 @@ function DashboardTabs() {
   );
 }
 
-// Stack Navigator principal
 export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Setup" component={SetupScreen} />
         <Stack.Screen name="Dashboard" component={DashboardTabs} />
