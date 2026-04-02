@@ -209,4 +209,77 @@ Sprint 5 (social features) – Friends, challenges.
 
 When you deviate, document your reasoning and the expected benefit.
 
-This document is a living guide. Your creativity is the only limit. Build something remarkable. 🚀
+## Vision: Kairos as a Personal Operating System for Physical Wellness
+
+Kairos is **not a traditional fitness tracker**. It is a **personal OS** where the user builds their own wellness ecosystem from scratch, with the same freedom and modularity as an iPhone home screen.
+
+### Core metaphor: "Apps" as activity groups
+
+- The user’s main screen (Space) contains **custom "apps"** – each app represents a physical activity domain (e.g., Strength, Running, Yoga, Football, Mobility).
+- Tapping an app opens a **second-level canvas** where the user can freely arrange **blocks** (training sessions, notes, routines, progress charts) – like a mix of Notion and Craft.
+- Inside each block, the user adds **exercises** with dynamic fields (weight, reps, distance, pace, RPE, etc.). The exercise design is flexible, but we will refine its personality later.
+
+### User freedom (Notion + Craft level)
+
+- **Customizable layout** – Users can resize, reorder, and nest blocks. They can drag blocks to reposition them on the canvas (like widgets on iOS).
+- **Inline editing** – Tap any text to edit (name, notes, fields). No modals.
+- **Visual personalization** – Each app/block can have its own icon, color, cover image, and size (small/medium/large widget).
+- **Blocks as windows** – When expanded, blocks rise with a depth effect (shared element transition), blurring the background. Users can resize them by dragging corners.
+
+### AI as a constant copilot
+
+The AI is present **at every stage** without being intrusive:
+
+- **Creation assistant** – User types “Create a 12-week marathon plan” → AI generates a complete structure (apps, blocks, exercises, sets). User can accept, modify, or reject.
+- **In-workout advisor** – After each set, the AI analyses performance and suggests adjustments (e.g., “Increase weight by 2.5kg next set” or “Try adding one more rep”).
+- **Exercise recommendations** – Based on user’s history, the AI proposes new exercises to overcome plateaus or diversify training.
+- **Progress analysis** – Weekly summaries with insights (strengths, weaknesses, recovery patterns). Shown as cards in the AI Lab, not as pushy notifications.
+
+### Gamification (future, but planned)
+
+Once the interface is polished, we will add:
+
+- Badges for streaks, volume, diversity, PRs – each with AI‑generated personalized messages.
+- Record cards (digital collectibles) for every personal best.
+- A progress tree that grows with the user’s accumulated effort.
+
+### Visual identity refresh
+
+- **Background: white** (instead of dark/black) to align with minimalism and clarity.
+- **Accent color: gold (#C9A96E)** – retained as the signature Kairos colour, used for buttons, highlights, and important UI elements.
+- **Subtle depth** – soft shadows, very light borders, and a faint noise texture for richness.
+- **Typography** – Clean sans‑serif (SF Pro, Inter) with generous spacing.
+
+### Current status (what has been implemented)
+
+- Dynamic fields for exercises.
+- Basic `ExerciseCardV2` and `WorkoutBlockV2` components.
+- Reanimated + Gesture Handler configured (with worklets plugin installed).
+- Deletion at block/exercise/set level (added recently).
+- Icon picker and color picker (basic).
+- AsyncStorage offline persistence.
+
+### Immediate next steps (prioritised)
+
+1. **White background + gold accents** – Update design tokens (`Colors.background.void` → white, keep gold).
+2. **App-level containers** – Create `ActivityApp` component (the “app” on the home screen) that holds blocks.
+3. **Canvas layout** – Allow users to drag and resize blocks within an app (like widgets). Use `react-native-draggable-grid` or similar.
+4. **AI mock services** – Implement the AI Lab screen with natural language input and mock responses.
+5. **Polish exercise design** – Make the exercise cards visually distinctive (maybe a card flip or micro‑animations).
+
+### What you (Claude Code) are free to do
+
+- Propose new interaction patterns (e.g., haptic feedback, spring animations).
+- Change the design system if you find a better way to achieve the “white+gold” premium look.
+- Integrate external libraries that improve the experience (e.g., `react-native-reanimated-gesture-handler`, `react-native-draggable-grid`).
+- Implement AI features using mock data first (we will later connect to real APIs).
+
+### What to avoid
+
+- Heavy modals – prefer inline editing or bottom sheets.
+- Generic UI – always aim for Craft/Notion level of polish.
+- Hardcoded colours – use tokens.
+
+---
+
+**This document evolves with the project. Keep it updated.** 🚀

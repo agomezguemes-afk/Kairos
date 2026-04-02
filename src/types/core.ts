@@ -254,6 +254,10 @@ export function createExerciseCard(
 
 export type BlockStatus = 'draft' | 'in_progress' | 'completed' | 'partial';
 
+export type BlockCover =
+  | { type: 'color'; value: string }
+  | { type: 'gradient'; from: string; to: string };
+
 export interface BlockTag {
   id: string;
   name: string;
@@ -277,6 +281,7 @@ export interface WorkoutBlock {
   times_performed: number;
   sort_order: number;
   size: 'small' | 'medium' | 'large';
+  cover: BlockCover | null;
   created_at: ISOTimestamp;
   updated_at: ISOTimestamp;
 }
@@ -307,6 +312,7 @@ export function createWorkoutBlock(
     times_performed: 0,
     sort_order: sortOrder,
     size: 'medium',
+    cover: null,
     created_at: now,
     updated_at: now,
   };

@@ -6,7 +6,12 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  interpolate,
+  type SharedValue,
 } from 'react-native-reanimated';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import ExerciseCard from './ExerciseCard';
 import type {
   WorkoutBlock as WorkoutBlockType,
@@ -55,6 +60,45 @@ ProgressBar.displayName = 'ProgressBar';
 const pbStyles = StyleSheet.create({
   track: { height: 3, backgroundColor: Colors.border.subtle, borderRadius: 2, overflow: 'hidden', flex: 1 },
   fill: { height: '100%', borderRadius: 2 },
+});
+
+// ======================== EXERCISE DELETE ACTION ========================
+
+const ExerciseDeleteAction: React.FC<{
+  progress: SharedValue<number>;
+  onDelete: () => void;
+}> = React.memo(({ progress, onDelete }) => {
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.5, 1], [0, 0.7, 1]),
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.85, 1]) }],
+  }));
+  return (
+    <Animated.View style={[exDeleteStyles.wrap, animStyle]}>
+      <Pressable
+        onPress={onDelete}
+        style={({ pressed }) => [exDeleteStyles.btn, pressed && exDeleteStyles.btnPressed]}
+      >
+        <Text style={exDeleteStyles.icon}>🗑</Text>
+        <Text style={exDeleteStyles.label}>Eliminar</Text>
+      </Pressable>
+    </Animated.View>
+  );
+});
+ExerciseDeleteAction.displayName = 'ExerciseDeleteAction';
+
+const exDeleteStyles = StyleSheet.create({
+  wrap: { width: 80, alignSelf: 'stretch', justifyContent: 'center', paddingVertical: 2 },
+  btn: {
+    flex: 1,
+    backgroundColor: '#E84545',
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  btnPressed: { opacity: 0.8 },
+  icon: { fontSize: 18, marginBottom: 2 },
+  label: { fontSize: 10, fontWeight: '600', color: '#fff' },
 });
 
 // ======================== MAIN ========================
@@ -171,43 +215,59 @@ const WorkoutBlockComponent: React.FC<WorkoutBlockProps> = ({
 
       {/* Exercise list */}
       <View style={styles.list}>
-        {block.exercises.map((ex: ExerciseCardType) => (
-          <View key={ex.id} style={styles.exerciseRow}>
-            <View style={styles.exerciseCardWrap}>
-              <ExerciseCard
-                exercise={ex}
-                onUpdateSetValue={onUpdateSetValue}
-                onToggleSetComplete={onToggleSetComplete}
-                onAddSet={onAddSet}
-                onRemoveSet={onRemoveSet}
-                onUpdateExercise={onUpdateExercise}
-                isActive={isActive}
-                onDeleteExercise={onDeleteExercise ? (exId: string) => onDeleteExercise(block.id, exId) : undefined}
-              />
-            </View>
-            {isDetailView && onDeleteExercise && (
-              <Pressable
-                onPress={() => {
-                  Alert.alert(
-                    'Delete exercise?',
-                    'This will remove the exercise and all its sets.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Delete', style: 'destructive', onPress: () => onDeleteExercise(block.id, ex.id) },
-                    ]
-                  );
-                }}
-                hitSlop={8}
-                style={({ pressed }) => [styles.deleteExBtn, pressed && styles.deleteExBtnPressed]}
+        {block.exercises.map((ex: ExerciseCardType) => {
+          const swipeRef = React.createRef<SwipeableMethods>();
+          const card = (
+            <ExerciseCard
+              exercise={ex}
+              onUpdateSetValue={onUpdateSetValue}
+              onToggleSetComplete={onToggleSetComplete}
+              onAddSet={onAddSet}
+              onRemoveSet={onRemoveSet}
+              onUpdateExercise={onUpdateExercise}
+              isActive={isActive}
+            />
+          );
+
+          if (isDetailView && onDeleteExercise) {
+            return (
+              <ReanimatedSwipeable
+                key={ex.id}
+                ref={swipeRef}
+                friction={2}
+                rightThreshold={60}
+                overshootRight={false}
+                renderRightActions={(progress: SharedValue<number>) => (
+                  <ExerciseDeleteAction
+                    progress={progress}
+                    onDelete={() => {
+                      swipeRef.current?.close();
+                      Alert.alert(
+                        'Eliminar ejercicio',
+                        `¿Seguro que quieres eliminar "${ex.name}"?\nSe borrarán todas sus series.`,
+                        [
+                          { text: 'Cancelar', style: 'cancel' },
+                          {
+                            text: 'Eliminar',
+                            style: 'destructive',
+                            onPress: () => onDeleteExercise!(block.id, ex.id),
+                          },
+                        ]
+                      );
+                    }}
+                  />
+                )}
               >
-                <Text style={styles.deleteExIcon}>×</Text>
-              </Pressable>
-            )}
-          </View>
-        ))}
+                {card}
+              </ReanimatedSwipeable>
+            );
+          }
+
+          return <React.Fragment key={ex.id}>{card}</React.Fragment>;
+        })}
         {isActive && (
           <Pressable onPress={() => onAddExercise(block.id)} style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}>
-            <Text style={styles.addBtnText}>+ Add exercise</Text>
+            <Text style={styles.addBtnText}>+ Añadir ejercicio</Text>
           </Pressable>
         )}
       </View>
@@ -243,6 +303,12 @@ const styles = StyleSheet.create({
   addBtn: { paddingVertical: Spacing.md, borderWidth: 0.5, borderColor: Colors.border.subtle, borderStyle: 'dashed', borderRadius: Radius.md, alignItems: 'center' },
   addBtnPressed: { backgroundColor: Colors.background.elevated, borderColor: Colors.accent.dim },
   addBtnText: { fontSize: Typography.size.caption, fontWeight: Typography.weight.medium, color: Colors.text.disabled },
+  // (legacy stubs kept to avoid TS errors if referenced elsewhere)
+  exerciseRow: {},
+  exerciseCardWrap: { flex: 1 },
+  deleteExBtn: {},
+  deleteExBtnPressed: {},
+  deleteExIcon: {},
 });
 
 export default React.memo(WorkoutBlockComponent);

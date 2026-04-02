@@ -18,7 +18,11 @@ import Animated, {
   withSpring,
   withTiming,
   interpolate,
+  type SharedValue,
 } from 'react-native-reanimated';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import type {
   ExerciseCard as ExerciseCardType,
   ExerciseSet,
@@ -139,6 +143,43 @@ const Checkbox: React.FC<{
 
 Checkbox.displayName = 'Checkbox';
 
+// ======================== SET DELETE ACTION ========================
+
+const SetDeleteAction: React.FC<{
+  progress: SharedValue<number>;
+  onDelete: () => void;
+}> = React.memo(({ progress, onDelete }) => {
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.5, 1], [0, 0.6, 1]),
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.85, 1]) }],
+  }));
+  return (
+    <Animated.View style={[setDeleteStyles.wrap, animStyle]}>
+      <Pressable
+        onPress={onDelete}
+        style={({ pressed }) => [setDeleteStyles.btn, pressed && setDeleteStyles.btnPressed]}
+      >
+        <Text style={setDeleteStyles.icon}>×</Text>
+      </Pressable>
+    </Animated.View>
+  );
+});
+SetDeleteAction.displayName = 'SetDeleteAction';
+
+const setDeleteStyles = StyleSheet.create({
+  wrap: { width: 52, alignSelf: 'stretch', justifyContent: 'center', paddingVertical: 2 },
+  btn: {
+    flex: 1,
+    backgroundColor: 'rgba(232,69,69,0.85)',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  btnPressed: { opacity: 0.75 },
+  icon: { fontSize: 20, fontWeight: '700', color: '#fff', lineHeight: 22 },
+});
+
 // ======================== SET ROW ========================
 
 const SetRow: React.FC<{
@@ -151,19 +192,29 @@ const SetRow: React.FC<{
   onToggleComplete: () => void;
   onRemoveSet: (setIndex: number) => void;
 }> = React.memo(({ set, index, fields, isActive, totalSets, onUpdateValue, onToggleComplete, onRemoveSet }) => {
+  const swipeRef = useRef<SwipeableMethods>(null);
+
   const visibleFields: FieldDefinition[] = fields
     .filter((f: FieldDefinition): boolean => f.type === 'number')
     .sort((a: FieldDefinition, b: FieldDefinition): number => a.order - b.order);
 
-  const handleRemove = (): void => {
+  const handleRemove = useCallback((): void => {
+    swipeRef.current?.close();
     if (totalSets <= 1) {
-      Alert.alert("Can't delete", 'A set is the minimum. Add another set first.');
+      Alert.alert('Mínimo 1 serie', 'Añade otra serie antes de eliminar esta.');
       return;
     }
-    onRemoveSet(index);
-  };
+    Alert.alert(
+      'Eliminar serie',
+      `¿Eliminar la serie ${index + 1}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => onRemoveSet(index) },
+      ]
+    );
+  }, [totalSets, index, onRemoveSet]);
 
-  return (
+  const rowContent = (
     <View style={[styles.setRow, set.completed && styles.setRowDone]}>
       <Text style={[styles.setNumber, set.completed && styles.setNumberDone]}>
         {index + 1}
@@ -183,16 +234,23 @@ const SetRow: React.FC<{
         onToggle={onToggleComplete}
         isActive={isActive}
       />
-      {isActive && (
-        <Pressable
-          onPress={handleRemove}
-          hitSlop={8}
-          style={({ pressed }) => [styles.removeSetBtn, pressed && styles.removeSetBtnPressed]}
-        >
-          <Text style={styles.removeSetIcon}>×</Text>
-        </Pressable>
-      )}
     </View>
+  );
+
+  if (!isActive) return rowContent;
+
+  return (
+    <ReanimatedSwipeable
+      ref={swipeRef}
+      friction={2}
+      rightThreshold={50}
+      overshootRight={false}
+      renderRightActions={(progress: SharedValue<number>) => (
+        <SetDeleteAction progress={progress} onDelete={handleRemove} />
+      )}
+    >
+      {rowContent}
+    </ReanimatedSwipeable>
   );
 });
 
@@ -338,7 +396,7 @@ const ExerciseCardComponent: React.FC<ExerciseCardProps> = ({
                 {f.unit ?? f.name}
               </Text>
             ))}
-            <View style={{ width: 28 }} />
+            <View style={{ width: 24 }} />
           </View>
 
           {/* Rows */}
