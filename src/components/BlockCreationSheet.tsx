@@ -38,7 +38,7 @@ const EMOJI_OPTIONS: Record<Discipline, string[]> = {
   mobility:    ['🧘','🌸','🍃','☯️','🌊','🌙','✨','🦋','🌺','💫','🕊️','🌿'],
   team_sport:  ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🥅','🏟️','🤝','🏆','🥋'],
   cycling:     ['🚴','🚵','🛣️','⚙️','🔧','🏔️','💨','⚡','🎯','🔄','🌄','🏁'],
-  swimming:    ['🏊','🌊','💧','🐋','🏖️','🔵','💙','🌀','🫧','⛵','🐬','🌊'],
+  swimming:    ['🏊','🌊','💧','🐋','🏖️','🔵','💙','🌀','🫧','⛵','🐬','🦈'],
   general:     ['💪','🎯','🏅','⭐','🌟','✨','🎖️','🏆','💎','🔮','⚡','🎨'],
 };
 
@@ -387,7 +387,7 @@ export default function BlockCreationSheet({
                   label="Gradiente"
                   selected={cover?.type === 'gradient'}
                   color={color}
-                  onPress={() => setCover({ type: 'gradient', from: color, to: '#0A0A0F' })}
+                  onPress={() => setCover({ type: 'gradient', from: color, to: Colors.background.void })}
                   preview={
                     <View style={[styles.coverPreviewBox, styles.coverGradientPreview, { borderColor: `${color}40` }]}>
                       <View style={[styles.coverHalf, { backgroundColor: color }]} />

@@ -26,17 +26,22 @@ function DashboardTabs() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#0a0a0d',
-          borderTopColor: '#1a1a1d',
-          borderTopWidth: 1,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: 'rgba(0,0,0,0.08)',
+          borderTopWidth: 0.5,
           height: 90,
           paddingBottom: 30,
           paddingTop: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          elevation: 8,
         },
         tabBarActiveTintColor: '#C9A96E',
-        tabBarInactiveTintColor: '#666',
+        tabBarInactiveTintColor: '#ADADAD',
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
         },
       }}

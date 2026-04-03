@@ -13,7 +13,7 @@ export default function ProgressTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0d',
+    backgroundColor: '#F7F7F5',
     paddingHorizontal: 24,
     paddingTop: 60,
     alignItems: 'center',
@@ -22,11 +22,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#fff',
+    color: '#1A1A1A',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#aaa',
+    color: '#9E9E9E',
   },
 });

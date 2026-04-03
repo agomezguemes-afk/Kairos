@@ -1,11 +1,11 @@
-// KAIROS DESIGN SYSTEM — TOKENS
+// KAIROS DESIGN SYSTEM — TOKENS (Light theme: white + gold)
 
 export const Colors = {
   background: {
-    void: '#0A0A0F',
-    surface: '#14141A',
-    elevated: '#1E1E26',
-    overlay: '#2A2A34',
+    void: '#F7F7F5',       // main screen background (warm off-white)
+    surface: '#FFFFFF',    // cards, sheets, modals
+    elevated: '#F0EFEC',   // slightly raised surfaces
+    overlay: '#E8E7E3',    // overlays, pressed states
   },
   accent: {
     primary: '#C9A96E',
@@ -14,27 +14,28 @@ export const Colors = {
     dim: 'rgba(201, 169, 110, 0.08)',
   },
   text: {
-    primary: '#F0F0F0',
-    secondary: '#A0A0A8',
-    tertiary: '#666670',
-    disabled: '#444450',
-    inverse: '#0A0A0F',
+    primary: '#1A1A1A',
+    secondary: '#6B6B6B',
+    tertiary: '#9E9E9E',
+    disabled: '#C4C4C4',
+    inverse: '#FFFFFF',     // text on dark/colored backgrounds
+    onAccent: '#FFFFFF',    // text on gold accent
   },
   border: {
-    subtle: 'rgba(255, 255, 255, 0.05)',
-    light: 'rgba(255, 255, 255, 0.08)',
-    medium: 'rgba(255, 255, 255, 0.12)',
-    strong: 'rgba(255, 255, 255, 0.20)',
+    subtle: 'rgba(0, 0, 0, 0.05)',
+    light: 'rgba(0, 0, 0, 0.08)',
+    medium: 'rgba(0, 0, 0, 0.12)',
+    strong: 'rgba(0, 0, 0, 0.20)',
   },
   semantic: {
-    success: '#1DB88E',
-    successMuted: 'rgba(29, 184, 142, 0.15)',
-    error: '#E84545',
-    errorMuted: 'rgba(232, 69, 69, 0.15)',
-    warning: '#F0A030',
-    warningMuted: 'rgba(240, 160, 48, 0.15)',
-    info: '#5B8DEF',
-    infoMuted: 'rgba(91, 141, 239, 0.15)',
+    success: '#1AA870',
+    successMuted: 'rgba(26, 168, 112, 0.12)',
+    error: '#D94040',
+    errorMuted: 'rgba(217, 64, 64, 0.12)',
+    warning: '#E08C20',
+    warningMuted: 'rgba(224, 140, 32, 0.12)',
+    info: '#4A7DE8',
+    infoMuted: 'rgba(74, 125, 232, 0.12)',
   },
 } as const;
 
@@ -88,6 +89,7 @@ export const Radius = {
   md: 12,
   lg: 16,
   xl: 20,
+  '2xl': 24,
   full: 9999,
 } as const;
 
@@ -101,17 +103,24 @@ export const Shadows = {
   },
   subtle: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
     elevation: 2,
   },
   card: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.10,
     shadowRadius: 8,
     elevation: 4,
+  },
+  icon: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 6,
   },
 } as const;
 

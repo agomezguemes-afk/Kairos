@@ -4,8 +4,10 @@
 
 export type ISOTimestamp = string;
 
+let _idCounter = 0;
 export function generateId(): string {
-  return `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  _idCounter += 1;
+  return `${Date.now()}_${_idCounter}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 // ======================== FIELD SYSTEM ========================

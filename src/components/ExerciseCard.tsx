@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   fieldDone: { color: Colors.text.secondary },
   checkbox: { width: 18, height: 18, borderRadius: 5, borderWidth: 0.5, borderColor: Colors.border.medium, alignItems: 'center', justifyContent: 'center' },
   checkboxDone: { backgroundColor: Colors.semantic.success, borderColor: Colors.semantic.success },
-  checkmark: { fontSize: 11, fontWeight: '700', color: Colors.background.void },
+  checkmark: { fontSize: 11, fontWeight: '700', color: Colors.text.inverse },
   addBtn: { paddingVertical: 8, borderWidth: 0.5, borderColor: Colors.border.subtle, borderStyle: 'dashed', borderRadius: Radius.sm, alignItems: 'center', marginTop: Spacing.sm },
   addBtnPressed: { backgroundColor: Colors.background.overlay, borderColor: Colors.accent.dim },
   addBtnText: { fontSize: Typography.size.caption, fontWeight: Typography.weight.medium, color: Colors.text.disabled },

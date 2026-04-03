@@ -301,7 +301,7 @@ const LastSessionCard = React.memo(({ session }: LastSessionCardProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0d',
+    backgroundColor: '#F7F7F5',
   },
   content: {
     paddingHorizontal: 24,
@@ -310,24 +310,27 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: '#9E9E9E',
     marginBottom: 8,
   },
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#fff',
+    color: '#1A1A1A',
     marginBottom: 24,
   },
-  
+
   // Card base
   card: {
-    backgroundColor: '#18181b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#27272a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -340,15 +343,15 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: '#1A1A1A',
     marginBottom: 4,
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#6B6B6B',
     lineHeight: 20,
   },
-  
+
   // Streak card
   streakEmoji: {
     fontSize: 40,
@@ -357,13 +360,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#27272a',
+    borderTopColor: 'rgba(0,0,0,0.06)',
   },
   streakMeta: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#9E9E9E',
   },
-  
+
   // Stats card
   statsGrid: {
     flexDirection: 'row',
@@ -378,28 +381,31 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#3b82f6',
+    color: '#C9A96E',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#9E9E9E',
     textAlign: 'center',
   },
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: '#27272a',
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
-  
+
   // Weekly view
   weeklySection: {
-    backgroundColor: '#18181b',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#27272a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
   weeklyHeader: {
     flexDirection: 'row',
@@ -409,12 +415,12 @@ const styles = StyleSheet.create({
   },
   weeklyStats: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#9E9E9E',
   },
   weeklyList: {
     marginTop: 8,
   },
-  
+
   // Day item
   dayItem: {
     flexDirection: 'row',
@@ -423,7 +429,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   dayItemToday: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: 'rgba(201, 169, 110, 0.08)',
     paddingHorizontal: 12,
     marginHorizontal: -12,
     borderRadius: 8,
@@ -443,15 +449,15 @@ const styles = StyleSheet.create({
   dayName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: '#1A1A1A',
     marginBottom: 2,
   },
   dayNameToday: {
-    color: '#3b82f6',
+    color: '#C9A96E',
   },
   dayDate: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#9E9E9E',
   },
   dayDescription: {
     fontSize: 14,
@@ -461,15 +467,15 @@ const styles = StyleSheet.create({
   },
   daySeparator: {
     height: 1,
-    backgroundColor: '#27272a',
+    backgroundColor: 'rgba(0,0,0,0.05)',
     marginVertical: 4,
   },
-  
+
   // Last session
   lastTrainingName: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#3b82f6',
+    color: '#C9A96E',
     marginTop: 8,
     marginBottom: 8,
   },
