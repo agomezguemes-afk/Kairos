@@ -175,7 +175,7 @@ export default function AILabScreen({ navigation }: any) {
           <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>
             Misiones completadas
           </Text>
-          {completedMissions.slice(0, 5).map((m, i) => (
+          {completedMissions.slice(0, 5).map((m) => (
             <View key={m.id} style={styles.completedItem}>
               <Text style={styles.completedEmoji}>{m.emoji}</Text>
               <View style={styles.completedText}>

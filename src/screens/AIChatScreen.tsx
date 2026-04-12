@@ -236,7 +236,7 @@ function AssistantBubble({ text, index }: { text: string; index: number }) {
   );
 }
 
-function UserBubble({ text, index }: { text: string; index: number }) {
+function UserBubble({ text }: { text: string; index: number }) {
   return (
     <Animated.View
       entering={FadeInRight.delay(50).duration(300)}
