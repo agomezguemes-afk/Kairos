@@ -48,6 +48,7 @@ import {
   createEmptySet,
 } from '../types/core';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
+import { useGamification } from '../context/GamificationContext';
 
 const STORAGE_KEY = 'kairos_blocks_v1';
 const MOCK_USER_ID = 'user_001';
@@ -64,6 +65,7 @@ export default function BlockLibraryScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreation, setShowCreation] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const { onSetCompleted, onBlockCreated } = useGamification();
 
   const selectedBlock = useMemo(
     () =>
@@ -122,9 +124,14 @@ export default function BlockLibraryScreen() {
         { name: opts.name, icon: opts.icon, color: opts.color },
       );
       const blockWithCover: WorkoutBlockType = { ...newBlock, cover: opts.cover };
-      updateBlocks((prev) => [...prev, blockWithCover]);
+      updateBlocks((prev) => {
+        const updated = [...prev, blockWithCover];
+        // Fire gamification check for block creation
+        onBlockCreated(updated);
+        return updated;
+      });
     },
-    [blocks.length, updateBlocks],
+    [blocks.length, updateBlocks, onBlockCreated],
   );
 
   const handleDeleteBlock = useCallback(
@@ -244,8 +251,8 @@ export default function BlockLibraryScreen() {
 
   const handleToggleSetComplete = useCallback(
     (exerciseId: string, setIndex: number) => {
-      updateBlocks((prev) =>
-        prev.map((block) => ({
+      updateBlocks((prev) => {
+        const updated = prev.map((block) => ({
           ...block,
           exercises: block.exercises.map((ex) => {
             if (ex.id !== exerciseId) return ex;
@@ -258,10 +265,29 @@ export default function BlockLibraryScreen() {
             };
             return { ...ex, sets: newSets, updated_at: new Date().toISOString() };
           }),
-        })),
-      );
+        }));
+
+        // Gamification: if set was just completed (toggled ON), check streak/badges/PR
+        const wasCompleted = prev.some((b) =>
+          b.exercises.some((ex) =>
+            ex.id === exerciseId && ex.sets[setIndex] && !ex.sets[setIndex].completed,
+          ),
+        );
+        if (wasCompleted) {
+          // Find the exercise and the newly completed set
+          for (const block of updated) {
+            const ex = block.exercises.find((e) => e.id === exerciseId);
+            if (ex) {
+              onSetCompleted(ex, ex.sets[setIndex], updated);
+              break;
+            }
+          }
+        }
+
+        return updated;
+      });
     },
-    [updateBlocks],
+    [updateBlocks, onSetCompleted],
   );
 
   const handleAddSet = useCallback(

@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 
 type StepData = {
   nivel: string;
@@ -118,8 +119,7 @@ export default function SetupScreen({ navigation }: any) {
     }
   };
 
-  // Color del botón según validación (movido aquí, dentro del componente)
-  const buttonBackgroundColor = isStepValid() ? '#3b82f6' : '#555';
+  const buttonBackgroundColor = isStepValid() ? Colors.accent.primary : Colors.text.disabled;
 
   return (
     <KeyboardAvoidingView
@@ -317,7 +317,7 @@ function Step2({ data, setData }: any) {
         <TextInput
           style={styles.input}
           placeholder="Ej: 25"
-          placeholderTextColor="#666"
+          placeholderTextColor={Colors.text.disabled}
           keyboardType="numeric"
           value={data.edad}
           onChangeText={(text) => setData({ ...data, edad: text })}
@@ -330,7 +330,7 @@ function Step2({ data, setData }: any) {
         <TextInput
           style={styles.input}
           placeholder="Ej: 75"
-          placeholderTextColor="#666"
+          placeholderTextColor={Colors.text.disabled}
           keyboardType="numeric"
           value={data.peso}
           onChangeText={(text) => setData({ ...data, peso: text })}
@@ -343,7 +343,7 @@ function Step2({ data, setData }: any) {
         <TextInput
           style={styles.input}
           placeholder="Ej: 175"
-          placeholderTextColor="#666"
+          placeholderTextColor={Colors.text.disabled}
           keyboardType="numeric"
           value={data.altura}
           onChangeText={(text) => setData({ ...data, altura: text })}
@@ -441,15 +441,15 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0d',
+    backgroundColor: Colors.background.void,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: Spacing.screen.horizontal,
+    paddingTop: Spacing.screen.top,
+    paddingBottom: Spacing.xl,
   },
   backButton: {
     paddingVertical: 8,
@@ -462,55 +462,55 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: Typography.weight.semibold,
   },
   progressContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
   },
   progressDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#333',
+    backgroundColor: Colors.border.light,
   },
   progressDotActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: Colors.accent.primary,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingHorizontal: Spacing.screen.horizontal,
+    paddingBottom: Spacing.xl,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
+    fontSize: Typography.size.hero,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#aaa',
+    fontSize: Typography.size.body,
+    color: Colors.text.secondary,
     marginBottom: 40,
   },
   section: {
-    marginBottom: 32,
+    marginBottom: Spacing['3xl'],
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.md,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: Spacing.sm,
   },
   column: {
-    gap: 12,
+    gap: Spacing.md,
   },
   optionButton: {
     flex: 1,
@@ -520,54 +520,56 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   input: {
-    backgroundColor: '#1a1a1d',
+    backgroundColor: Colors.background.surface,
     borderWidth: 1,
-    borderColor: '#3b82f6',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    color: '#fff',
-    fontSize: 16,
+    borderColor: Colors.accent.light,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    color: Colors.text.primary,
+    fontSize: Typography.size.body,
+    ...Shadows.subtle,
   },
   footer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.screen.horizontal,
     paddingBottom: 40,
   },
   summaryCard: {
-    backgroundColor: '#1a1a1d',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: Colors.background.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    marginBottom: Spacing['2xl'],
+    ...Shadows.card,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2d',
+    borderBottomColor: Colors.border.subtle,
   },
   summaryLabel: {
-    color: '#aaa',
-    fontSize: 15,
+    color: Colors.text.secondary,
+    fontSize: Typography.size.body,
   },
   summaryValue: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
+    color: Colors.text.primary,
+    fontSize: Typography.size.body,
+    fontWeight: Typography.weight.semibold,
   },
   readyBox: {
-    backgroundColor: '#1a2a3a',
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: Colors.accent.muted,
+    borderRadius: Radius.lg,
+    padding: Spacing['2xl'],
     alignItems: 'center',
   },
   readyEmoji: {
     fontSize: 48,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   readyText: {
-    color: '#fff',
-    fontSize: 16,
+    color: Colors.text.primary,
+    fontSize: Typography.size.body,
     textAlign: 'center',
     lineHeight: 22,
   },

@@ -21,8 +21,9 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { BlurView } from 'expo-blur';
 import WorkoutBlock from './WorkoutBlock';
-import { Colors, Typography, Spacing, Radius } from '../theme/index';
+import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 import type {
   WorkoutBlock as WorkoutBlockType,
   ExerciseCard as ExerciseCardType,
@@ -120,8 +121,11 @@ export default function BlockDetailModal({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={handleClose}>
-      {/* Dimmed backdrop */}
-      <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
+      {/* Blur + dim backdrop */}
+      <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents="none">
+        <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={styles.backdrop} />
+      </Animated.View>
       <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
 
       {/* Sheet */}
@@ -190,7 +194,7 @@ export default function BlockDetailModal({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: Colors.background.scrim,
   },
   sheet: {
     position: 'absolute',
@@ -199,11 +203,12 @@ const styles = StyleSheet.create({
     right: 0,
     height: SHEET_H,
     backgroundColor: Colors.background.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: Radius['2xl'],
+    borderTopRightRadius: Radius['2xl'],
     borderTopWidth: 0.5,
     borderColor: Colors.border.light,
     overflow: 'hidden',
+    ...Shadows.modal,
   },
   handleBar: {
     alignItems: 'center',

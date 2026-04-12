@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
+import { Colors, Typography, Radius } from '../theme/index';
 
 interface AnimatedButtonProps {
   title: string;
@@ -37,11 +38,9 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
   icon,
   emoji,
 }) => {
-  // Animaciones que SÍ soportan native driver
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(selected ? 1 : 0.7)).current;
 
-  // Animar fade cuando cambia la selección
   useEffect(() => {
     if (variant === 'option') {
       Animated.timing(fadeAnim, {
@@ -72,37 +71,36 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
     }).start();
   };
 
-  // Estilos estáticos según variante
   const getVariantStyles = () => {
     switch (variant) {
       case 'secondary':
         return {
-          backgroundColor: disabled ? '#555' : '#374151',
-          borderColor: disabled ? '#666' : '#374151',
-          textColor: '#fff',
+          backgroundColor: disabled ? Colors.text.disabled : Colors.background.elevated,
+          borderColor: disabled ? Colors.text.disabled : Colors.background.elevated,
+          textColor: Colors.text.primary,
         };
       case 'outline':
         return {
           backgroundColor: 'transparent',
-          borderColor: disabled ? '#666' : '#3b82f6',
-          textColor: disabled ? '#666' : '#3b82f6',
+          borderColor: disabled ? Colors.text.disabled : Colors.accent.primary,
+          textColor: disabled ? Colors.text.disabled : Colors.accent.primary,
         };
       case 'primary':
         return {
-          backgroundColor: disabled ? '#555' : '#3b82f6',
-          borderColor: disabled ? '#555' : '#3b82f6',
-          textColor: '#fff',
+          backgroundColor: disabled ? Colors.text.disabled : Colors.accent.primary,
+          borderColor: disabled ? Colors.text.disabled : Colors.accent.primary,
+          textColor: Colors.text.inverse,
         };
       case 'option':
       default:
         return {
-          backgroundColor: selected 
-            ? 'rgba(59, 130, 246, 0.8)' 
-            : 'rgba(59, 130, 246, 0.15)',
-          borderColor: selected 
-            ? 'rgba(59, 130, 246, 0.9)' 
-            : 'rgba(59, 130, 246, 0.3)',
-          textColor: selected ? '#fff' : '#e5e7eb',
+          backgroundColor: selected
+            ? Colors.accent.primary
+            : Colors.accent.muted,
+          borderColor: selected
+            ? Colors.accent.primary
+            : Colors.accent.light,
+          textColor: selected ? Colors.text.inverse : Colors.text.primary,
         };
     }
   };
@@ -141,9 +139,9 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
         ]}
       >
         {loading ? (
-          <ActivityIndicator 
-            color={variant === 'outline' ? '#3b82f6' : '#fff'} 
-            size="small" 
+          <ActivityIndicator
+            color={variant === 'outline' ? Colors.accent.primary : Colors.text.inverse}
+            size="small"
           />
         ) : (
           <View style={styles.content}>
@@ -168,14 +166,14 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    borderWidth: 2,
+    borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
   },
@@ -201,12 +199,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: Typography.size.body,
+    fontWeight: Typography.weight.semibold,
     textAlign: 'center',
   },
   optionText: {
-    fontSize: 14,
+    fontSize: Typography.size.caption,
   },
 });
 

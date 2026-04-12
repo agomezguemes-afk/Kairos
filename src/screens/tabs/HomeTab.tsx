@@ -9,6 +9,7 @@ import {
 import { useTraining } from '../../context/TrainingContext';
 import { getTrainingName } from '../../utils/trainingLogic';
 import { DayEntry } from '../../types/progress';
+import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 export default function HomeTab() {
   const { stats, streak, currentWeek } = useTraining();
@@ -242,9 +243,9 @@ const DayItem = React.memo(({ day, dayIndex }: DayItemProps) => {
   }, [day, isFuture]);
 
   const textColor = useMemo(() => {
-    if (isFuture) return '#64748b';
-    if (day.type === 'empty') return '#94a3b8';
-    return '#fff';
+    if (isFuture) return Colors.text.disabled;
+    if (day.type === 'empty') return Colors.text.tertiary;
+    return Colors.text.primary;
   }, [day.type, isFuture]);
 
   return (
@@ -301,36 +302,32 @@ const LastSessionCard = React.memo(({ session }: LastSessionCardProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F5',
+    backgroundColor: Colors.background.void,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingHorizontal: Spacing.screen.horizontal,
+    paddingTop: Spacing.screen.top,
     paddingBottom: 40,
   },
   greeting: {
-    fontSize: 16,
-    color: '#9E9E9E',
-    marginBottom: 8,
+    fontSize: Typography.size.body,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.sm,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 24,
+    fontSize: Typography.size.hero,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.gap.sections,
   },
 
   // Card base
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: Colors.background.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    marginBottom: Spacing.lg,
+    ...Shadows.card,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -338,17 +335,17 @@ const styles = StyleSheet.create({
   },
   cardHeaderText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: Spacing.md,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 4,
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.xs,
   },
   cardSubtitle: {
-    fontSize: 14,
-    color: '#6B6B6B',
+    fontSize: Typography.size.caption,
+    color: Colors.text.secondary,
     lineHeight: 20,
   },
 
@@ -357,14 +354,14 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   streakMetaContainer: {
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    borderTopColor: Colors.border.subtle,
   },
   streakMeta: {
-    fontSize: 14,
-    color: '#9E9E9E',
+    fontSize: Typography.size.caption,
+    color: Colors.text.tertiary,
   },
 
   // Stats card
@@ -372,7 +369,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Spacing.lg,
   },
   statItem: {
     flex: 1,
@@ -380,45 +377,41 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#C9A96E',
-    marginBottom: 4,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+    marginBottom: Spacing.xs,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#9E9E9E',
+    fontSize: Typography.size.micro,
+    color: Colors.text.tertiary,
     textAlign: 'center',
   },
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: Colors.border.light,
   },
 
   // Weekly view
   weeklySection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: Colors.background.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    marginBottom: Spacing.lg,
+    ...Shadows.card,
   },
   weeklyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   weeklyStats: {
-    fontSize: 14,
-    color: '#9E9E9E',
+    fontSize: Typography.size.caption,
+    color: Colors.text.tertiary,
   },
   weeklyList: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
 
   // Day item
@@ -426,13 +419,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
   },
   dayItemToday: {
-    backgroundColor: 'rgba(201, 169, 110, 0.08)',
-    paddingHorizontal: 12,
-    marginHorizontal: -12,
-    borderRadius: 8,
+    backgroundColor: Colors.accent.dim,
+    paddingHorizontal: Spacing.md,
+    marginHorizontal: -Spacing.md,
+    borderRadius: Radius.xs,
   },
   dayLeft: {
     flexDirection: 'row',
@@ -441,42 +434,42 @@ const styles = StyleSheet.create({
   },
   dayIndicator: {
     fontSize: 16,
-    marginRight: 12,
+    marginRight: Spacing.md,
   },
   dayDateContainer: {
-    marginRight: 16,
+    marginRight: Spacing.lg,
   },
   dayName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    fontSize: Typography.size.caption,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.text.primary,
     marginBottom: 2,
   },
   dayNameToday: {
-    color: '#C9A96E',
+    color: Colors.accent.primary,
   },
   dayDate: {
-    fontSize: 12,
-    color: '#9E9E9E',
+    fontSize: Typography.size.micro,
+    color: Colors.text.tertiary,
   },
   dayDescription: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: Typography.size.caption,
+    fontWeight: Typography.weight.medium,
     flex: 2,
     textAlign: 'right',
   },
   daySeparator: {
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    marginVertical: 4,
+    backgroundColor: Colors.border.subtle,
+    marginVertical: Spacing.xs,
   },
 
   // Last session
   lastTrainingName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#C9A96E',
-    marginTop: 8,
-    marginBottom: 8,
+    fontSize: Typography.size.heading - 2,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
 });

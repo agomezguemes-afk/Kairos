@@ -6,6 +6,17 @@ export const Colors = {
     surface: '#FFFFFF',    // cards, sheets, modals
     elevated: '#F0EFEC',   // slightly raised surfaces
     overlay: '#E8E7E3',    // overlays, pressed states
+    scrim: 'rgba(0, 0, 0, 0.35)',  // backdrop behind modals
+  },
+  discipline: {
+    strength: '#E84545',
+    running: '#5B8DEF',
+    calisthenics: '#1DB88E',
+    mobility: '#8B5CF6',
+    team_sport: '#F0A030',
+    cycling: '#06B6D4',
+    swimming: '#3B82F6',
+    general: '#C9A96E',
   },
   accent: {
     primary: '#C9A96E',
@@ -122,6 +133,20 @@ export const Shadows = {
     shadowRadius: 10,
     elevation: 6,
   },
+  elevated: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modal: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 12,
+  },
 } as const;
 
 export const Animation = {
@@ -129,6 +154,8 @@ export const Animation = {
     gentle: { damping: 20, stiffness: 150, mass: 1 },
     snappy: { damping: 15, stiffness: 250, mass: 0.8 },
     bouncy: { damping: 10, stiffness: 200, mass: 0.6 },
+    ios: { damping: 18, stiffness: 300, mass: 0.7 },      // iOS-like responsive
+    tabIcon: { damping: 12, stiffness: 400, mass: 0.5 },   // quick tab press
   },
   duration: {
     instant: 100,

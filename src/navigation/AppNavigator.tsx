@@ -1,21 +1,27 @@
-// KAIROS — App Navigator (Updated for V3)
-// CAMBIO: WorkoutTab reemplazado por BlockLibraryScreen
+// KAIROS — App Navigator
+// Conditional root: onboarding flow vs main dashboard.
+// 5-tab layout: Home, Blocks, Logros, Progress, Profile.
+// Badges and PRCards are stack screens on top of the tabs.
 
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
 
-// Screens existentes (no tocar)
 import WelcomeScreen from '../screens/WelcomeScreen';
-import SetupScreen from '../screens/SetupScreen';
+import OnboardingChatScreen from '../screens/OnboardingChatScreen';
 
-// Tabs
 import HomeTab from '../screens/tabs/HomeTab';
 import BlockLibraryScreen from '../screens/BlockLibraryScreen';
+import AchievementsTab from '../screens/tabs/AchievementsTab';
 import ProgressTab from '../screens/tabs/ProgressTab';
 import ProfileTab from '../screens/tabs/ProfileTab';
+import BadgesScreen from '../screens/BadgesScreen';
+import PRCardsScreen from '../screens/PRCardsScreen';
+import CustomTabBar from '../components/CustomTabBar';
+import { useUserProfile } from '../context/UserProfileContext';
+import { Colors } from '../theme/index';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -23,72 +29,49 @@ const Tab = createBottomTabNavigator();
 function DashboardTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: 'rgba(0,0,0,0.08)',
-          borderTopWidth: 0.5,
-          height: 90,
-          paddingBottom: 30,
-          paddingTop: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          elevation: 8,
-        },
-        tabBarActiveTintColor: '#C9A96E',
-        tabBarInactiveTintColor: '#ADADAD',
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
-      }}
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen
-        name="HomeTab"
-        component={HomeTab}
-        options={{
-          tabBarLabel: 'Inicio',
-          tabBarIcon: () => <Text style={{ fontSize: 24 }}>🏠</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="WorkoutTab"
-        component={BlockLibraryScreen}
-        options={{
-          tabBarLabel: 'Blocks',
-          tabBarIcon: () => <Text style={{ fontSize: 24 }}>📂</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="ProgressTab"
-        component={ProgressTab}
-        options={{
-          tabBarLabel: 'Progreso',
-          tabBarIcon: () => <Text style={{ fontSize: 24 }}>📊</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileTab}
-        options={{
-          tabBarLabel: 'Perfil',
-          tabBarIcon: () => <Text style={{ fontSize: 24 }}>👤</Text>,
-        }}
-      />
+      <Tab.Screen name="HomeTab" component={HomeTab} />
+      <Tab.Screen name="WorkoutTab" component={BlockLibraryScreen} />
+      <Tab.Screen name="AchievementsTab" component={AchievementsTab} />
+      <Tab.Screen name="ProgressTab" component={ProgressTab} />
+      <Tab.Screen name="ProfileTab" component={ProfileTab} />
     </Tab.Navigator>
   );
 }
 
 export default function AppNavigator() {
+  const { isLoading, isOnboardingComplete } = useUserProfile();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.background.void, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={Colors.accent.primary} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
-        <Stack.Screen name="Setup" component={SetupScreen} />
-        <Stack.Screen name="Dashboard" component={DashboardTabs} />
+        {isOnboardingComplete ? (
+          <>
+            <Stack.Screen name="Dashboard" component={DashboardTabs} />
+            <Stack.Screen name="Badges" component={BadgesScreen} />
+            <Stack.Screen name="PRCards" component={PRCardsScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen
+              name="Onboarding"
+              component={OnboardingChatScreen}
+              options={{ gestureEnabled: false }}
+            />
+            <Stack.Screen name="Dashboard" component={DashboardTabs} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,162 +1,147 @@
+// KAIROS — Welcome Screen
+// Minimalist first screen with app name, tagline, and two CTAs.
+// Shown only when the user has not completed onboarding.
+
 import React, { useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 
-export default function WelcomeScreen() {
-  const navigation = useNavigation<any>();
-  
-  // Animaciones para el botón principal
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(1)).current;
+export default function WelcomeScreen({ navigation }: any) {
+  const insets = useSafeAreaInsets();
 
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
-      friction: 6,
-      tension: 50,
-    }).start();
-    
-    Animated.timing(opacityAnim, {
-      toValue: 0.9,
-      duration: 100,
-      useNativeDriver: true,
-    }).start();
-  };
+  // Button animations (RN Animated — lightweight, no worklet needed here)
+  const ctaScale = useRef(new Animated.Value(1)).current;
+  const loginScale = useRef(new Animated.Value(1)).current;
 
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      friction: 4,
-      tension: 50,
-    }).start();
-    
-    Animated.timing(opacityAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  // Animación para el texto de login
-  const loginScaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handleLoginPressIn = () => {
-    Animated.spring(loginScaleAnim, {
-      toValue: 0.98,
-      useNativeDriver: true,
-      friction: 8,
-      tension: 40,
-    }).start();
-  };
-
-  const handleLoginPressOut = () => {
-    Animated.spring(loginScaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      friction: 6,
-      tension: 40,
-    }).start();
-  };
+  const springDown = (anim: Animated.Value) =>
+    Animated.spring(anim, { toValue: 0.96, useNativeDriver: true, friction: 6, tension: 60 }).start();
+  const springUp = (anim: Animated.Value) =>
+    Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 4, tension: 50 }).start();
 
   return (
-    <View style={styles.container}>
-      {/* Header centrado verticalmente */}
-      <View style={styles.headerContainer}>
-        <Text style={styles.title}>Kairos</Text>
-        <Text style={styles.subtitle}>The Training OS</Text>
+    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      {/* Centered branding */}
+      <View style={styles.center}>
+        {/* Logo mark */}
+        <View style={styles.logoMark}>
+          <Text style={styles.logoLetter}>K</Text>
+        </View>
+
+        <Text style={styles.appName}>Kairos</Text>
+        <Text style={styles.tagline}>The Training OS</Text>
       </View>
 
-      {/* Footer + botones en la parte inferior */}
-      <View style={styles.footerContainer}>
+      {/* Bottom CTAs */}
+      <View style={styles.footer}>
         <Pressable
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onPress={() => navigation.navigate('Setup')}
-          style={{ width: '100%' }}
+          onPressIn={() => springDown(ctaScale)}
+          onPressOut={() => springUp(ctaScale)}
+          onPress={() => navigation.navigate('Onboarding')}
         >
-          <Animated.View
-            style={[
-              styles.button,
-              {
-                transform: [{ scale: scaleAnim }],
-                opacity: opacityAnim,
-              },
-            ]}
-          >
-            <Text style={styles.buttonText}>Empezar</Text>
+          <Animated.View style={[styles.primaryBtn, { transform: [{ scale: ctaScale }] }]}>
+            <Text style={styles.primaryBtnText}>Crear cuenta</Text>
           </Animated.View>
         </Pressable>
 
         <Pressable
-          onPressIn={handleLoginPressIn}
-          onPressOut={handleLoginPressOut}
-          onPress={() => console.log('Iniciar sesión')}
+          onPressIn={() => springDown(loginScale)}
+          onPressOut={() => springUp(loginScale)}
+          onPress={() => {
+            // TODO: Replace with real auth flow
+            navigation.navigate('Onboarding');
+          }}
         >
-          <Animated.View style={{ transform: [{ scale: loginScaleAnim }] }}>
-            <Text style={styles.loginText}>Iniciar sesión</Text>
+          <Animated.View style={[styles.secondaryBtn, { transform: [{ scale: loginScale }] }]}>
+            <Text style={styles.secondaryBtnText}>Iniciar sesi&#243;n</Text>
           </Animated.View>
         </Pressable>
 
-        <Text style={styles.footer}>v1.0.0 · Beta</Text>
+        <Text style={styles.version}>v1.0.0 · Beta</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: '#0a0a0d',
+    backgroundColor: Colors.background.void,
     justifyContent: 'space-between',
-    paddingHorizontal: 30,
+    paddingHorizontal: Spacing.screen.horizontal + 10,
   },
-  headerContainer: {
+  center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  footerContainer: {
+  logoMark: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: Colors.accent.primary,
     alignItems: 'center',
-    paddingBottom: 30,
+    justifyContent: 'center',
+    marginBottom: Spacing.xl,
+    ...Shadows.elevated,
+    shadowColor: Colors.accent.primary,
   },
-  title: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#3b82f6',
-    marginBottom: 8,
+  logoLetter: {
+    fontSize: 36,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.inverse,
+    marginTop: -2,
   },
-  subtitle: {
-    fontSize: 20,
-    color: '#a0a0a0',
+  appName: {
+    fontSize: 44,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    letterSpacing: -1,
+    marginBottom: Spacing.xs,
   },
-  button: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 16,
-    paddingHorizontal: 60,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  loginText: {
-    color: '#fff',
-    fontSize: 16,
-    textDecorationLine: 'underline',
-    marginBottom: 24,
+  tagline: {
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.medium,
+    color: Colors.text.tertiary,
+    letterSpacing: 0.5,
   },
   footer: {
-    color: '#666',
-    fontSize: 12,
+    alignItems: 'center',
+    paddingBottom: 20,
+    gap: Spacing.md,
+  },
+  primaryBtn: {
+    width: '100%',
+    backgroundColor: Colors.accent.primary,
+    paddingVertical: Spacing.lg + 2,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    minWidth: 280,
+    ...Shadows.card,
+    shadowColor: Colors.accent.primary,
+  },
+  primaryBtnText: {
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.text.inverse,
+  },
+  secondaryBtn: {
+    width: '100%',
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    minWidth: 280,
+    borderWidth: 1.5,
+    borderColor: Colors.border.medium,
+  },
+  secondaryBtnText: {
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.medium,
+    color: Colors.text.primary,
+  },
+  version: {
+    fontSize: Typography.size.micro,
+    color: Colors.text.disabled,
+    marginTop: Spacing.sm,
   },
 });
