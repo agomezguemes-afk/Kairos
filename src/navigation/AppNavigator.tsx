@@ -19,6 +19,7 @@ import ProgressTab from '../screens/tabs/ProgressTab';
 import ProfileTab from '../screens/tabs/ProfileTab';
 import BadgesScreen from '../screens/BadgesScreen';
 import PRCardsScreen from '../screens/PRCardsScreen';
+import ProgressTreeScreen from '../screens/ProgressTreeScreen';
 import CustomTabBar from '../components/CustomTabBar';
 import { useUserProfile } from '../context/UserProfileContext';
 import { Colors } from '../theme/index';
@@ -60,6 +61,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Dashboard" component={DashboardTabs} />
             <Stack.Screen name="Badges" component={BadgesScreen} />
             <Stack.Screen name="PRCards" component={PRCardsScreen} />
+            <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
           </>
         ) : (
           <>

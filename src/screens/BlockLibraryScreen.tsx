@@ -49,6 +49,7 @@ import {
 } from '../types/core';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 import { useGamification } from '../context/GamificationContext';
+import { useTree } from '../context/TreeContext';
 
 const STORAGE_KEY = 'kairos_blocks_v1';
 const MOCK_USER_ID = 'user_001';
@@ -66,6 +67,7 @@ export default function BlockLibraryScreen() {
   const [showCreation, setShowCreation] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const { onSetCompleted, onBlockCreated } = useGamification();
+  const { onTreeSetCompleted, onTreePRCreated } = useTree();
 
   const selectedBlock = useMemo(
     () =>
@@ -278,7 +280,12 @@ export default function BlockLibraryScreen() {
           for (const block of updated) {
             const ex = block.exercises.find((e) => e.id === exerciseId);
             if (ex) {
-              onSetCompleted(ex, ex.sets[setIndex], updated);
+              const completedSet = ex.sets[setIndex];
+              onSetCompleted(ex, completedSet, updated).then(({ prCard }) => {
+                // Update tree metrics
+                onTreeSetCompleted(ex, completedSet);
+                if (prCard) onTreePRCreated();
+              });
               break;
             }
           }
@@ -287,7 +294,7 @@ export default function BlockLibraryScreen() {
         return updated;
       });
     },
-    [updateBlocks, onSetCompleted],
+    [updateBlocks, onSetCompleted, onTreeSetCompleted, onTreePRCreated],
   );
 
   const handleAddSet = useCallback(

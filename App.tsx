@@ -5,6 +5,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { TrainingProvider } from './src/context/TrainingContext';
 import { UserProfileProvider } from './src/context/UserProfileContext';
 import { GamificationProvider } from './src/context/GamificationContext';
+import { TreeProvider } from './src/context/TreeContext';
 
 export default function App() {
   return (
@@ -12,9 +13,11 @@ export default function App() {
       <SafeAreaProvider>
         <UserProfileProvider>
           <GamificationProvider>
-            <TrainingProvider>
-              <AppNavigator />
-            </TrainingProvider>
+            <TreeProvider>
+              <TrainingProvider>
+                <AppNavigator />
+              </TrainingProvider>
+            </TreeProvider>
           </GamificationProvider>
         </UserProfileProvider>
       </SafeAreaProvider>

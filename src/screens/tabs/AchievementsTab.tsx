@@ -8,14 +8,19 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useGamification } from '../../context/GamificationContext';
+import { useTree } from '../../context/TreeContext';
 import { BADGE_DEFINITIONS } from '../../types/gamification';
 import type { BadgeId } from '../../types/gamification';
+import { TREE_CONFIGS } from '../../types/tree';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 export default function AchievementsTab({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { streak, badges, prCards } = useGamification();
+  const { treeType, progress } = useTree();
   const unlockedIds = new Set<BadgeId>(badges.map((b) => b.id));
+
+  const treeConfig = treeType ? TREE_CONFIGS[treeType] : null;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 16 }]}>
@@ -34,8 +39,32 @@ export default function AchievementsTab({ navigation }: any) {
         </View>
       </Animated.View>
 
+      {/* Progress tree */}
+      <Animated.View entering={FadeInUp.delay(90).duration(350)}>
+        <Pressable
+          onPress={() => navigation.navigate('ProgressTree')}
+          style={({ pressed }) => [styles.sectionCard, pressed && { opacity: 0.8 }]}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={{ fontSize: 20 }}>{treeConfig?.emoji ?? '🌱'}</Text>
+            <Text style={styles.sectionTitle}>
+              {treeConfig ? `${treeConfig.name}` : 'Tu Árbol'}
+            </Text>
+            {progress && (
+              <Text style={styles.sectionCount}>Nivel {progress.level}/5</Text>
+            )}
+            <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
+          </View>
+          <Text style={styles.prPreview}>
+            {treeConfig
+              ? `${treeConfig.symbol} · Crece con ${treeConfig.metricLabel.toLowerCase()}`
+              : 'Elige un árbol para empezar'}
+          </Text>
+        </Pressable>
+      </Animated.View>
+
       {/* Badges preview */}
-      <Animated.View entering={FadeInUp.delay(120).duration(350)}>
+      <Animated.View entering={FadeInUp.delay(150).duration(350)}>
         <Pressable
           onPress={() => navigation.navigate('Badges')}
           style={({ pressed }) => [styles.sectionCard, pressed && { opacity: 0.8 }]}
@@ -66,7 +95,7 @@ export default function AchievementsTab({ navigation }: any) {
       </Animated.View>
 
       {/* PR Cards */}
-      <Animated.View entering={FadeInUp.delay(180).duration(350)}>
+      <Animated.View entering={FadeInUp.delay(210).duration(350)}>
         <Pressable
           onPress={() => navigation.navigate('PRCards')}
           style={({ pressed }) => [styles.sectionCard, pressed && { opacity: 0.8 }]}
