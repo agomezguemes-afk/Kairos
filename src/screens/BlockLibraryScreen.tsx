@@ -50,6 +50,7 @@ import {
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 import { useGamification } from '../context/GamificationContext';
 import { useTree } from '../context/TreeContext';
+import { useMission } from '../context/MissionContext';
 
 const STORAGE_KEY = 'kairos_blocks_v1';
 const MOCK_USER_ID = 'user_001';
@@ -66,8 +67,9 @@ export default function BlockLibraryScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreation, setShowCreation] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const { onSetCompleted, onBlockCreated } = useGamification();
+  const { streak, onSetCompleted, onBlockCreated, onMissionCompleted } = useGamification();
   const { onTreeSetCompleted, onTreePRCreated } = useTree();
+  const { updateMissionProgress, recordPRForMission } = useMission();
 
   const selectedBlock = useMemo(
     () =>
@@ -284,7 +286,14 @@ export default function BlockLibraryScreen() {
               onSetCompleted(ex, completedSet, updated).then(({ prCard }) => {
                 // Update tree metrics
                 onTreeSetCompleted(ex, completedSet);
-                if (prCard) onTreePRCreated();
+                if (prCard) {
+                  onTreePRCreated();
+                  recordPRForMission();
+                }
+                // Update mission progress
+                updateMissionProgress(updated, streak).then((completed) => {
+                  if (completed) onMissionCompleted(updated);
+                });
               });
               break;
             }
@@ -294,7 +303,7 @@ export default function BlockLibraryScreen() {
         return updated;
       });
     },
-    [updateBlocks, onSetCompleted, onTreeSetCompleted, onTreePRCreated],
+    [updateBlocks, onSetCompleted, onTreeSetCompleted, onTreePRCreated, updateMissionProgress, recordPRForMission, onMissionCompleted, streak],
   );
 
   const handleAddSet = useCallback(

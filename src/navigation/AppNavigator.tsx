@@ -15,11 +15,12 @@ import OnboardingChatScreen from '../screens/OnboardingChatScreen';
 import HomeTab from '../screens/tabs/HomeTab';
 import BlockLibraryScreen from '../screens/BlockLibraryScreen';
 import AchievementsTab from '../screens/tabs/AchievementsTab';
-import ProgressTab from '../screens/tabs/ProgressTab';
+import AILabScreen from '../screens/AILabScreen';
 import ProfileTab from '../screens/tabs/ProfileTab';
 import BadgesScreen from '../screens/BadgesScreen';
 import PRCardsScreen from '../screens/PRCardsScreen';
 import ProgressTreeScreen from '../screens/ProgressTreeScreen';
+import AIChatScreen from '../screens/AIChatScreen';
 import CustomTabBar from '../components/CustomTabBar';
 import { useUserProfile } from '../context/UserProfileContext';
 import { Colors } from '../theme/index';
@@ -36,7 +37,7 @@ function DashboardTabs() {
       <Tab.Screen name="HomeTab" component={HomeTab} />
       <Tab.Screen name="WorkoutTab" component={BlockLibraryScreen} />
       <Tab.Screen name="AchievementsTab" component={AchievementsTab} />
-      <Tab.Screen name="ProgressTab" component={ProgressTab} />
+      <Tab.Screen name="AILabTab" component={AILabScreen} />
       <Tab.Screen name="ProfileTab" component={ProfileTab} />
     </Tab.Navigator>
   );
@@ -62,6 +63,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Badges" component={BadgesScreen} />
             <Stack.Screen name="PRCards" component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
+            <Stack.Screen name="AIChat" component={AIChatScreen} />
           </>
         ) : (
           <>

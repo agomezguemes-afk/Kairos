@@ -86,6 +86,7 @@ export function checkBadges(
   tryUnlock('volume_100', stats.totalCompletedSets >= 100);
   tryUnlock('explorer_5', stats.uniqueExerciseIds.length >= 5);
   tryUnlock('block_creator', stats.userCreatedBlocks >= 1);
+  tryUnlock('mission_complete', stats.completedMissions >= 1);
 
   return newBadges;
 }
@@ -195,5 +196,6 @@ export function computeStats(
     uniqueExerciseIds: Array.from(uniqueExerciseIds),
     userCreatedBlocks,
     streak,
+    completedMissions: 0, // Updated externally when missions are completed
   };
 }

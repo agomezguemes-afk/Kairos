@@ -22,7 +22,8 @@ export type BadgeId =
   | 'streak_30'
   | 'volume_100'
   | 'explorer_5'
-  | 'block_creator';
+  | 'block_creator'
+  | 'mission_complete';
 
 export interface BadgeDefinition {
   id: BadgeId;
@@ -73,6 +74,12 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     emoji: '⭐',
     description: 'Crea tu primer bloque personalizado',
   },
+  {
+    id: 'mission_complete',
+    name: 'Misionero',
+    emoji: '🎯',
+    description: 'Completa tu primera misión semanal',
+  },
 ];
 
 // ======================== PR CARDS ========================
@@ -102,4 +109,5 @@ export interface GamificationStats {
   uniqueExerciseIds: string[];
   userCreatedBlocks: number;
   streak: Streak;
+  completedMissions: number;
 }

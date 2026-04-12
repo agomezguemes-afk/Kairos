@@ -35,6 +35,7 @@ const KEYS = {
   prCards: '@kairos_pr_cards',
   exerciseBest: '@kairos_exercise_best',
   blockCount: '@kairos_user_block_count',
+  missionCount: '@kairos_completed_mission_count',
 } as const;
 
 // ======================== CONTEXT TYPE ========================
@@ -61,6 +62,11 @@ interface GamificationContextType {
    */
   onBlockCreated: (allBlocks: WorkoutBlock[]) => Promise<{ newBadges: Badge[] }>;
 
+  /**
+   * Call when a mission is completed (for mission_complete badge).
+   */
+  onMissionCompleted: (allBlocks: WorkoutBlock[]) => Promise<{ newBadges: Badge[] }>;
+
   /** Reset all gamification data (dev). */
   resetGamification: () => Promise<void>;
 }
@@ -75,24 +81,27 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   const [prCards, setPRCards] = useState<PRCard[]>([]);
   const [bestMap, setBestMap] = useState<ExerciseBestMap>({});
   const [blockCount, setBlockCount] = useState(0);
+  const [missionCount, setMissionCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   // ---- Load from storage ----
   useEffect(() => {
     (async () => {
       try {
-        const [rawStreak, rawBadges, rawPR, rawBest, rawCount] = await Promise.all([
+        const [rawStreak, rawBadges, rawPR, rawBest, rawCount, rawMissionCount] = await Promise.all([
           AsyncStorage.getItem(KEYS.streak),
           AsyncStorage.getItem(KEYS.badges),
           AsyncStorage.getItem(KEYS.prCards),
           AsyncStorage.getItem(KEYS.exerciseBest),
           AsyncStorage.getItem(KEYS.blockCount),
+          AsyncStorage.getItem(KEYS.missionCount),
         ]);
         if (rawStreak) setStreak(JSON.parse(rawStreak));
         if (rawBadges) setBadges(JSON.parse(rawBadges));
         if (rawPR) setPRCards(JSON.parse(rawPR));
         if (rawBest) setBestMap(JSON.parse(rawBest));
         if (rawCount) setBlockCount(JSON.parse(rawCount));
+        if (rawMissionCount) setMissionCount(JSON.parse(rawMissionCount));
       } catch (e) {
         console.warn('Kairos: Error loading gamification data', e);
       } finally {
@@ -116,6 +125,9 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   }, []);
   const persistBlockCount = useCallback(async (c: number) => {
     try { await AsyncStorage.setItem(KEYS.blockCount, JSON.stringify(c)); } catch {}
+  }, []);
+  const persistMissionCount = useCallback(async (c: number) => {
+    try { await AsyncStorage.setItem(KEYS.missionCount, JSON.stringify(c)); } catch {}
   }, []);
 
   // ======================== SET COMPLETED ========================
@@ -178,6 +190,27 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     [blockCount, streak, badges, persistBlockCount, persistBadges],
   );
 
+  // ======================== MISSION COMPLETED ========================
+
+  const onMissionCompleted = useCallback(
+    async (allBlocks: WorkoutBlock[]): Promise<{ newBadges: Badge[] }> => {
+      const newCount = missionCount + 1;
+      setMissionCount(newCount);
+      persistMissionCount(newCount);
+
+      const stats = { ...computeStats(allBlocks, blockCount, streak), completedMissions: newCount };
+      const newBadges = checkBadges(stats, badges);
+      if (newBadges.length > 0) {
+        const allBadges = [...badges, ...newBadges];
+        setBadges(allBadges);
+        persistBadges(allBadges);
+      }
+
+      return { newBadges };
+    },
+    [missionCount, blockCount, streak, badges, persistMissionCount, persistBadges],
+  );
+
   // ======================== RESET ========================
 
   const resetGamification = useCallback(async () => {
@@ -186,6 +219,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     setPRCards([]);
     setBestMap({});
     setBlockCount(0);
+    setMissionCount(0);
     await Promise.all(
       Object.values(KEYS).map((k) => AsyncStorage.removeItem(k)),
     );
@@ -201,9 +235,10 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       isLoading,
       onSetCompleted,
       onBlockCreated,
+      onMissionCompleted,
       resetGamification,
     }),
-    [streak, badges, prCards, isLoading, onSetCompleted, onBlockCreated, resetGamification],
+    [streak, badges, prCards, isLoading, onSetCompleted, onBlockCreated, onMissionCompleted, resetGamification],
   );
 
   return (
