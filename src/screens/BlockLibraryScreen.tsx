@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
 } from 'react';
 import {
   View,
@@ -39,21 +40,16 @@ import BlockDetailModal from '../components/BlockDetailModal';
 import type {
   WorkoutBlock as WorkoutBlockType,
   ExerciseCard as ExerciseCardType,
-  ExerciseSet,
   FieldValue,
-} from '../types/core';
-import {
-  createWorkoutBlock,
-  createExerciseCard,
-  createEmptySet,
 } from '../types/core';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 import { useGamification } from '../context/GamificationContext';
 import { useTree } from '../context/TreeContext';
 import { useMission } from '../context/MissionContext';
+import { useWorkoutStore } from '../store/workoutStore';
+import KairosIcon from '../components/KairosIcon';
 
-const STORAGE_KEY = 'kairos_blocks_v1';
-const MOCK_USER_ID = 'user_001';
+const LEGACY_STORAGE_KEY = 'kairos_blocks_v1';
 
 const COLUMNS = 4;
 const SCREEN_W = Dimensions.get('window').width;
@@ -62,14 +58,93 @@ const ICON_SLOT = Math.floor((SCREEN_W - H_PAD * 2) / COLUMNS);
 
 // ======================== SCREEN ========================
 
-export default function BlockLibraryScreen() {
-  const [blocks, setBlocks] = useState<WorkoutBlockType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function BlockLibraryScreen({ route }: any) {
+  // ---- Store subscription (single source of truth) ----
+  const blocks = useWorkoutStore((s) => s.blocks);
+  const storeAddBlock = useWorkoutStore((s) => s.addBlock);
+  const storeUpdateBlock = useWorkoutStore((s) => s.updateBlock);
+  const storeDeleteBlock = useWorkoutStore((s) => s.deleteBlock);
+  const storeReorderBlocks = useWorkoutStore((s) => s.reorderBlocks);
+  const storeReplaceAllBlocks = useWorkoutStore((s) => s.replaceAllBlocks);
+  const storeAddExercise = useWorkoutStore((s) => s.addExercise);
+  const storeDeleteExercise = useWorkoutStore((s) => s.deleteExercise);
+  const storeUpdateExercise = useWorkoutStore((s) => s.updateExercise);
+  const storeUpdateSetValue = useWorkoutStore((s) => s.updateSetValue);
+  const storeToggleSetComplete = useWorkoutStore((s) => s.toggleSetComplete);
+  const storeAddSet = useWorkoutStore((s) => s.addSet);
+  const storeRemoveSet = useWorkoutStore((s) => s.removeSet);
+
+  const pendingHighlight = useWorkoutStore((s) => s.pendingHighlight);
+  const clearHighlight = useWorkoutStore((s) => s.setHighlight);
+
+  const [isLoading, setIsLoading] = useState(
+    !useWorkoutStore.persist.hasHydrated(),
+  );
   const [showCreation, setShowCreation] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const { streak, onSetCompleted, onBlockCreated, onMissionCompleted } = useGamification();
   const { onTreeSetCompleted, onTreePRCreated } = useTree();
   const { updateMissionProgress, recordPRForMission } = useMission();
+
+  const highlightTargetId = route?.params?.highlightBlockId ?? pendingHighlight;
+  const listRef = useRef<any>(null);
+
+  // ---- One-time legacy migration from kairos_blocks_v1 ----
+  // Older builds persisted blocks to their own AsyncStorage key; hydrate the
+  // Zustand store from that key on first run so existing users don't lose data.
+  useEffect(() => {
+    let cancelled = false;
+
+    const migrate = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+        if (!raw) return;
+        const parsed: WorkoutBlockType[] = JSON.parse(raw);
+        if (!cancelled && parsed.length > 0 && useWorkoutStore.getState().blocks.length === 0) {
+          storeReplaceAllBlocks(parsed);
+        }
+        await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
+      } catch (e) {
+        console.warn('Kairos: legacy block migration failed', e);
+      }
+    };
+
+    if (useWorkoutStore.persist.hasHydrated()) {
+      migrate();
+      setIsLoading(false);
+    } else {
+      const unsub = useWorkoutStore.persist.onFinishHydration(() => {
+        migrate();
+        if (!cancelled) setIsLoading(false);
+      });
+      return () => {
+        cancelled = true;
+        unsub();
+      };
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [storeReplaceAllBlocks]);
+
+  // ---- Highlight scroll ----
+  useEffect(() => {
+    if (!highlightTargetId || blocks.length === 0) return;
+    const idx = blocks.findIndex((b) => b.id === highlightTargetId);
+    if (idx >= 0) {
+      setTimeout(() => {
+        try {
+          listRef.current?.scrollToIndex({
+            index: idx,
+            animated: true,
+            viewPosition: 0.3,
+          });
+        } catch {}
+      }, 300);
+    }
+    const timer = setTimeout(() => clearHighlight(null), 2000);
+    return () => clearTimeout(timer);
+  }, [highlightTargetId, blocks, clearHighlight]);
 
   const selectedBlock = useMemo(
     () =>
@@ -79,63 +154,23 @@ export default function BlockLibraryScreen() {
     [selectedBlockId, blocks],
   );
 
-  // ======================== PERSISTENCE ========================
-
-  const saveBlocks = useCallback(async (updated: WorkoutBlockType[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Kairos: Error saving blocks', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed: WorkoutBlockType[] = JSON.parse(raw);
-          setBlocks(parsed);
-        }
-      } catch (e) {
-        console.warn('Kairos: Error loading blocks', e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, []);
-
-  const updateBlocks = useCallback(
-    (updater: (prev: WorkoutBlockType[]) => WorkoutBlockType[]) => {
-      setBlocks((prev) => {
-        const next = updater(prev);
-        saveBlocks(next);
-        return next;
-      });
-    },
-    [saveBlocks],
-  );
-
   // ======================== BLOCK HANDLERS ========================
 
   const handleCreateBlock = useCallback(
     (opts: BlockCreationOptions) => {
-      const newBlock = createWorkoutBlock(
-        MOCK_USER_ID,
-        blocks.length,
-        opts.discipline,
-        { name: opts.name, icon: opts.icon, color: opts.color },
-      );
-      const blockWithCover: WorkoutBlockType = { ...newBlock, cover: opts.cover };
-      updateBlocks((prev) => {
-        const updated = [...prev, blockWithCover];
-        // Fire gamification check for block creation
-        onBlockCreated(updated);
-        return updated;
+      const id = storeAddBlock(opts.discipline, {
+        name: opts.name,
+        icon: opts.icon,
+        color: opts.color,
+        cover: opts.cover ?? undefined,
       });
+      // Fire gamification check for block creation against the fresh state
+      const next = useWorkoutStore.getState().blocks;
+      onBlockCreated(next);
+      // Surface highlight so the new block is visible
+      if (id) clearHighlight(id);
     },
-    [blocks.length, updateBlocks, onBlockCreated],
+    [storeAddBlock, onBlockCreated, clearHighlight],
   );
 
   const handleDeleteBlock = useCallback(
@@ -146,204 +181,126 @@ export default function BlockLibraryScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
-            updateBlocks((prev) => prev.filter((b) => b.id !== blockId));
+            storeDeleteBlock(blockId);
             setSelectedBlockId((id) => (id === blockId ? null : id));
           },
         },
       ]);
     },
-    [updateBlocks],
+    [storeDeleteBlock],
   );
 
   const handleUpdateBlock = useCallback(
     (blockId: string, updates: Partial<WorkoutBlockType>) => {
-      updateBlocks((prev) =>
-        prev.map((b) =>
-          b.id === blockId
-            ? { ...b, ...updates, updated_at: new Date().toISOString() }
-            : b,
-        ),
-      );
+      storeUpdateBlock(blockId, updates);
     },
-    [updateBlocks],
+    [storeUpdateBlock],
   );
 
   const handleDragEnd = useCallback(
     (data: WorkoutBlockType[]) => {
-      setBlocks(data);
-      saveBlocks(data);
+      storeReorderBlocks(data);
     },
-    [saveBlocks],
+    [storeReorderBlocks],
   );
 
   // ======================== EXERCISE HANDLERS ========================
 
   const handleAddExercise = useCallback(
     (blockId: string) => {
-      updateBlocks((prev) =>
-        prev.map((block) => {
-          if (block.id !== blockId) return block;
-          const ex = createExerciseCard(
-            blockId,
-            block.exercises.length,
-            block.discipline,
-          );
-          return {
-            ...block,
-            exercises: [...block.exercises, ex],
-            updated_at: new Date().toISOString(),
-          };
-        }),
-      );
+      const block = useWorkoutStore.getState().blocks.find((b) => b.id === blockId);
+      if (!block) return;
+      storeAddExercise(blockId, { discipline: block.discipline });
     },
-    [updateBlocks],
+    [storeAddExercise],
   );
 
   const handleDeleteExercise = useCallback(
     (blockId: string, exerciseId: string) => {
-      updateBlocks((prev) =>
-        prev.map((block) => {
-          if (block.id !== blockId) return block;
-          return {
-            ...block,
-            exercises: block.exercises.filter((ex) => ex.id !== exerciseId),
-            updated_at: new Date().toISOString(),
-          };
-        }),
-      );
+      storeDeleteExercise(blockId, exerciseId);
     },
-    [updateBlocks],
+    [storeDeleteExercise],
   );
 
   const handleUpdateExercise = useCallback(
     (exerciseId: string, updates: Partial<ExerciseCardType>) => {
-      updateBlocks((prev) =>
-        prev.map((block) => ({
-          ...block,
-          exercises: block.exercises.map((ex) =>
-            ex.id === exerciseId
-              ? { ...ex, ...updates, updated_at: new Date().toISOString() }
-              : ex,
-          ),
-        })),
-      );
+      const owner = useWorkoutStore
+        .getState()
+        .blocks.find((b) => b.exercises.some((ex) => ex.id === exerciseId));
+      if (!owner) return;
+      storeUpdateExercise(owner.id, exerciseId, updates);
     },
-    [updateBlocks],
+    [storeUpdateExercise],
   );
 
   // ======================== SET HANDLERS ========================
 
+  const findBlockIdForExercise = useCallback((exerciseId: string): string | null => {
+    const owner = useWorkoutStore
+      .getState()
+      .blocks.find((b) => b.exercises.some((ex) => ex.id === exerciseId));
+    return owner?.id ?? null;
+  }, []);
+
   const handleUpdateSetValue = useCallback(
     (exerciseId: string, setIndex: number, fieldId: string, value: FieldValue) => {
-      updateBlocks((prev) =>
-        prev.map((block) => ({
-          ...block,
-          exercises: block.exercises.map((ex) => {
-            if (ex.id !== exerciseId) return ex;
-            const newSets = [...ex.sets];
-            newSets[setIndex] = {
-              ...newSets[setIndex],
-              values: { ...newSets[setIndex].values, [fieldId]: value },
-            };
-            return { ...ex, sets: newSets, updated_at: new Date().toISOString() };
-          }),
-        })),
-      );
+      const blockId = findBlockIdForExercise(exerciseId);
+      if (!blockId) return;
+      storeUpdateSetValue(blockId, exerciseId, setIndex, fieldId, value);
     },
-    [updateBlocks],
+    [findBlockIdForExercise, storeUpdateSetValue],
   );
 
   const handleToggleSetComplete = useCallback(
     (exerciseId: string, setIndex: number) => {
-      updateBlocks((prev) => {
-        const updated = prev.map((block) => ({
-          ...block,
-          exercises: block.exercises.map((ex) => {
-            if (ex.id !== exerciseId) return ex;
-            const newSets = [...ex.sets];
-            const s = newSets[setIndex];
-            newSets[setIndex] = {
-              ...s,
-              completed: !s.completed,
-              completed_at: !s.completed ? new Date().toISOString() : null,
-            };
-            return { ...ex, sets: newSets, updated_at: new Date().toISOString() };
-          }),
-        }));
+      const blockId = findBlockIdForExercise(exerciseId);
+      if (!blockId) return;
 
-        // Gamification: if set was just completed (toggled ON), check streak/badges/PR
-        const wasCompleted = prev.some((b) =>
-          b.exercises.some((ex) =>
-            ex.id === exerciseId && ex.sets[setIndex] && !ex.sets[setIndex].completed,
-          ),
-        );
-        if (wasCompleted) {
-          // Find the exercise and the newly completed set
-          for (const block of updated) {
-            const ex = block.exercises.find((e) => e.id === exerciseId);
-            if (ex) {
-              const completedSet = ex.sets[setIndex];
-              onSetCompleted(ex, completedSet, updated).then(({ prCard }) => {
-                // Update tree metrics
-                onTreeSetCompleted(ex, completedSet);
-                if (prCard) {
-                  onTreePRCreated();
-                  recordPRForMission();
-                }
-                // Update mission progress
-                updateMissionProgress(updated, streak).then((completed) => {
-                  if (completed) onMissionCompleted(updated);
-                });
-              });
-              break;
-            }
-          }
+      const toggled = storeToggleSetComplete(blockId, exerciseId, setIndex);
+      if (!toggled || !toggled.wasCompleted) return;
+
+      // Gamification pipeline — run against the freshly committed state
+      const freshBlocks = useWorkoutStore.getState().blocks;
+      onSetCompleted(toggled.exercise, toggled.set, freshBlocks).then(({ prCard }) => {
+        onTreeSetCompleted(toggled.exercise, toggled.set);
+        if (prCard) {
+          onTreePRCreated();
+          recordPRForMission();
         }
-
-        return updated;
+        updateMissionProgress(freshBlocks, streak).then((completed) => {
+          if (completed) onMissionCompleted(freshBlocks);
+        });
       });
     },
-    [updateBlocks, onSetCompleted, onTreeSetCompleted, onTreePRCreated, updateMissionProgress, recordPRForMission, onMissionCompleted, streak],
+    [
+      findBlockIdForExercise,
+      storeToggleSetComplete,
+      onSetCompleted,
+      onTreeSetCompleted,
+      onTreePRCreated,
+      recordPRForMission,
+      updateMissionProgress,
+      onMissionCompleted,
+      streak,
+    ],
   );
 
   const handleAddSet = useCallback(
     (exerciseId: string) => {
-      updateBlocks((prev) =>
-        prev.map((block) => ({
-          ...block,
-          exercises: block.exercises.map((ex) => {
-            if (ex.id !== exerciseId) return ex;
-            const newSet = createEmptySet(exerciseId, ex.sets.length, ex.fields);
-            return {
-              ...ex,
-              sets: [...ex.sets, newSet],
-              updated_at: new Date().toISOString(),
-            };
-          }),
-        })),
-      );
+      const blockId = findBlockIdForExercise(exerciseId);
+      if (!blockId) return;
+      storeAddSet(blockId, exerciseId);
     },
-    [updateBlocks],
+    [findBlockIdForExercise, storeAddSet],
   );
 
   const handleRemoveSet = useCallback(
     (exerciseId: string, setIndex: number) => {
-      updateBlocks((prev) =>
-        prev.map((block) => ({
-          ...block,
-          exercises: block.exercises.map((ex) => {
-            if (ex.id !== exerciseId) return ex;
-            const filtered = ex.sets.filter((_, i) => i !== setIndex);
-            const reordered: ExerciseSet[] = filtered.map((s, i) => ({
-              ...s,
-              order: i,
-            }));
-            return { ...ex, sets: reordered, updated_at: new Date().toISOString() };
-          }),
-        })),
-      );
+      const blockId = findBlockIdForExercise(exerciseId);
+      if (!blockId) return;
+      storeRemoveSet(blockId, exerciseId, setIndex);
     },
-    [updateBlocks],
+    [findBlockIdForExercise, storeRemoveSet],
   );
 
   // ======================== FAB ========================
@@ -362,9 +319,10 @@ export default function BlockLibraryScreen() {
         size={ICON_SLOT}
         onPress={(b) => setSelectedBlockId(b.id)}
         drag={drag}
+        isHighlighted={item.id === highlightTargetId}
       />
     ),
-    [],
+    [highlightTargetId],
   );
 
   // ======================== LOADING ========================
@@ -396,6 +354,7 @@ export default function BlockLibraryScreen() {
       {/* Grid or empty state */}
       {blocks.length > 0 ? (
         <DraggableFlatList<WorkoutBlockType>
+          ref={listRef}
           data={blocks}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
@@ -409,7 +368,7 @@ export default function BlockLibraryScreen() {
       ) : (
         <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.empty}>
           <View style={styles.emptyIconBox}>
-            <Text style={{ fontSize: 36 }}>🏋️</Text>
+            <KairosIcon name="weightlifting" size={36} color={Colors.text.tertiary} />
           </View>
           <Text style={styles.emptyTitle}>Sin bloques todavía</Text>
           <Text style={styles.emptyDesc}>
