@@ -14,7 +14,8 @@ import { createEmptyProfile } from '../types/profile';
 
 interface SupabaseProfileRow {
   id: string;
-  display_name: string | null;
+  name: string | null;           // your existing column (kept as-is)
+  display_name: string | null;   // added via ALTER TABLE
   fitness_level: string | null;
   primary_goal: string | null;
   disciplines: string[] | null;
@@ -32,7 +33,7 @@ interface SupabaseProfileRow {
 function rowToProfile(row: SupabaseProfileRow): UserProfile {
   return {
     id: row.id,
-    displayName: row.display_name,
+    displayName: row.display_name ?? row.name,  // prefer new column, fall back to old
     fitnessLevel: (row.fitness_level as FitnessLevel | null) ?? null,
     primaryGoal: (row.primary_goal as FitnessGoal | null) ?? null,
     disciplines: (row.disciplines ?? []) as Discipline[],
@@ -51,6 +52,7 @@ function rowToProfile(row: SupabaseProfileRow): UserProfile {
 function profileToRow(profile: UserProfile): Omit<SupabaseProfileRow, 'created_at'> {
   return {
     id: profile.id,
+    name: profile.displayName,           // keep old column in sync
     display_name: profile.displayName,
     fitness_level: profile.fitnessLevel,
     primary_goal: profile.primaryGoal,
@@ -117,12 +119,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false, error: error.message });
       return error;
     }
-    // Create a blank profile row so FK constraints are satisfied immediately
     if (data.user) {
-      const blank = createEmptyProfile();
-      blank.id = data.user.id;
-      await supabase.from('profiles').upsert(profileToRow(blank));
-      set({ session: data.session, profile: blank, isLoading: false });
+      // The handle_new_user trigger already created the profile row.
+      // Just load it so we have it in state.
+      set({ session: data.session });
+      await get().loadProfile(data.user.id);
+      set({ isLoading: false });
     } else {
       set({ isLoading: false });
     }
