@@ -16,7 +16,7 @@ import { processMessage as mockProcessMessage, type AIChatContext } from './aiCh
 // ======================== CONFIG ========================
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'llama3-70b-8192';
 const REQUEST_TIMEOUT_MS = 20_000;
 
 const VALID_DISCIPLINES: readonly Discipline[] = [
@@ -461,6 +461,7 @@ export async function processWithGroq(
     const snapshot = buildUserContextSnapshot(raw);
     const { system, user } = buildPrompt(snapshot, userText, conversationHistory);
     const { message, actions } = await callGroqAPI(system, user);
+    console.log('[Kai/Groq] OK — actions:', actions.length);
 
     return {
       id: generateId(),
@@ -470,11 +471,22 @@ export async function processWithGroq(
       timestamp: Date.now(),
     };
   } catch (e) {
-    console.warn('Kairos: Groq failed, falling back to mock', e);
+    // Surface the full error detail so it's easy to diagnose (key issues, rate
+    // limits, model-not-found, JSON parse failures, etc.) without crashing the
+    // chat. A user-visible error hint is embedded in the fallback message.
+    const detail = e instanceof Error ? e.message : String(e);
+    console.error('[Kai/Groq] call failed:', detail);
+
     const fallback = await mockProcessMessage(userText, toMockContext(raw));
     return {
       ...fallback,
-      content: fallback.content,
+      // Prefix the mock response with a subtle error note so it's visible
+      // during development without polluting the production experience once
+      // the key is correctly set.
+      content:
+        process.env.NODE_ENV !== 'production'
+          ? `⚠️ Groq offline (${detail})\n\n${fallback.content}`
+          : fallback.content,
     };
   }
 }
