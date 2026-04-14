@@ -16,7 +16,9 @@ import { processMessage as mockProcessMessage, type AIChatContext } from './aiCh
 // ======================== CONFIG ========================
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama3-70b-8192';
+// llama-3.3-70b-versatile: Groq's recommended replacement for the decommissioned
+// llama3-70b-8192. Free tier, 128k context window, JSON mode supported.
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const REQUEST_TIMEOUT_MS = 20_000;
 
 const VALID_DISCIPLINES: readonly Discipline[] = [
