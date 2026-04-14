@@ -47,13 +47,17 @@ import { generateId } from '../types/core';
 import type { AIMessage } from '../types/ai';
 import { useWorkoutStore } from '../store/workoutStore';
 import { useUserProfile } from '../context/UserProfileContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 
 export default function AIChatScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { streak, badges, prCards } = useGamification();
   const { activeMission } = useMission();
-  const { profile } = useUserProfile();
+  const { profile: localProfile } = useUserProfile();
+  const supabaseProfile = useAuthStore((s) => s.profile);
+  // Prefer the Supabase profile (richer, synced) with local context as fallback
+  const profile = supabaseProfile ?? localProfile;
   const scrollRef = useRef<ScrollView>(null);
 
   const dispatchAIActions = useWorkoutStore((s) => s.dispatchAIActions);

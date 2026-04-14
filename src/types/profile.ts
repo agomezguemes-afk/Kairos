@@ -13,6 +13,8 @@ export type FitnessGoal =
   | 'muscle_gain'
   | 'flexibility';
 
+export type WorkoutPlace = 'home' | 'gym' | 'outdoors' | 'mixed';
+
 export interface UserProfile {
   id: string;
   displayName: string | null;
@@ -23,6 +25,8 @@ export interface UserProfile {
   age: number | null;
   weight: number | null; // kg
   height: number | null; // cm
+  injuries: string | null;
+  workoutPlace: WorkoutPlace | null;
   onboardingCompletedAt: string | null; // ISO timestamp
   createdAt: string;
   updatedAt: string;
@@ -40,36 +44,38 @@ export function createEmptyProfile(): UserProfile {
     age: null,
     weight: null,
     height: null,
+    injuries: null,
+    workoutPlace: null,
     onboardingCompletedAt: null,
     createdAt: now,
     updatedAt: now,
   };
 }
 
-export const FITNESS_LEVEL_OPTIONS: { value: FitnessLevel; label: string; emoji: string }[] = [
-  { value: 'beginner', label: 'Principiante', emoji: '🌱' },
-  { value: 'intermediate', label: 'Intermedio', emoji: '💪' },
-  { value: 'advanced', label: 'Avanzado', emoji: '🏆' },
+export const FITNESS_LEVEL_OPTIONS: { value: FitnessLevel; label: string; icon: string }[] = [
+  { value: 'beginner', label: 'Principiante', icon: 'seedling' },
+  { value: 'intermediate', label: 'Intermedio', icon: 'strength' },
+  { value: 'advanced', label: 'Avanzado', icon: 'trophy' },
 ];
 
-export const FITNESS_GOAL_OPTIONS: { value: FitnessGoal; label: string; emoji: string }[] = [
-  { value: 'strength', label: 'Fuerza', emoji: '🏋️' },
-  { value: 'endurance', label: 'Resistencia', emoji: '🏃' },
-  { value: 'muscle_gain', label: 'Ganar músculo', emoji: '💪' },
-  { value: 'weight_loss', label: 'Perder grasa', emoji: '⚖️' },
-  { value: 'wellness', label: 'Bienestar general', emoji: '🧘' },
-  { value: 'flexibility', label: 'Flexibilidad', emoji: '🤸' },
+export const FITNESS_GOAL_OPTIONS: { value: FitnessGoal; label: string; icon: string }[] = [
+  { value: 'strength', label: 'Fuerza', icon: 'weightlifting' },
+  { value: 'endurance', label: 'Resistencia', icon: 'running' },
+  { value: 'muscle_gain', label: 'Ganar músculo', icon: 'strength' },
+  { value: 'weight_loss', label: 'Perder grasa', icon: 'pick.scale' },
+  { value: 'wellness', label: 'Bienestar general', icon: 'mobility' },
+  { value: 'flexibility', label: 'Flexibilidad', icon: 'calisthenics' },
 ];
 
-export const DISCIPLINE_OPTIONS: { value: Discipline; label: string; emoji: string }[] = [
-  { value: 'strength', label: 'Strength', emoji: '🏋️' },
-  { value: 'running', label: 'Running', emoji: '🏃' },
-  { value: 'calisthenics', label: 'Calisthenics', emoji: '🤸' },
-  { value: 'mobility', label: 'Mobility', emoji: '🧘' },
-  { value: 'team_sport', label: 'Team sport', emoji: '⚽' },
-  { value: 'cycling', label: 'Cycling', emoji: '🚴' },
-  { value: 'swimming', label: 'Swimming', emoji: '🏊' },
-  { value: 'general', label: 'General', emoji: '💪' },
+export const DISCIPLINE_OPTIONS: { value: Discipline; label: string; icon: string }[] = [
+  { value: 'strength', label: 'Strength', icon: 'weightlifting' },
+  { value: 'running', label: 'Running', icon: 'running' },
+  { value: 'calisthenics', label: 'Calisthenics', icon: 'calisthenics' },
+  { value: 'mobility', label: 'Mobility', icon: 'mobility' },
+  { value: 'team_sport', label: 'Team sport', icon: 'team_sport' },
+  { value: 'cycling', label: 'Cycling', icon: 'cycling' },
+  { value: 'swimming', label: 'Swimming', icon: 'swimming' },
+  { value: 'general', label: 'General', icon: 'strength' },
 ];
 
 export const FREQUENCY_OPTIONS: { value: number; label: string }[] = [

@@ -37,7 +37,7 @@ export default function WelcomeScreen({ navigation }: any) {
         <Pressable
           onPressIn={() => springDown(ctaScale)}
           onPressOut={() => springUp(ctaScale)}
-          onPress={() => navigation.navigate('Onboarding')}
+          onPress={() => navigation.navigate('Auth')}
         >
           <Animated.View style={[styles.primaryBtn, { transform: [{ scale: ctaScale }] }]}>
             <Text style={styles.primaryBtnText}>Crear cuenta</Text>
@@ -47,10 +47,7 @@ export default function WelcomeScreen({ navigation }: any) {
         <Pressable
           onPressIn={() => springDown(loginScale)}
           onPressOut={() => springUp(loginScale)}
-          onPress={() => {
-            // TODO: Replace with real auth flow
-            navigation.navigate('Onboarding');
-          }}
+          onPress={() => navigation.navigate('Auth')}
         >
           <Animated.View style={[styles.secondaryBtn, { transform: [{ scale: loginScale }] }]}>
             <Text style={styles.secondaryBtnText}>Iniciar sesi&#243;n</Text>

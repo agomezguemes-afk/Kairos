@@ -1,15 +1,18 @@
 // KAIROS — App Navigator
-// Conditional root: onboarding flow vs main dashboard.
-// 5-tab layout: Home, Blocks, Logros, Progress, Profile.
-// Badges and PRCards are stack screens on top of the tabs.
+// Three-tier routing: unauthenticated → auth setup → main dashboard.
+// Auth state is read from useAuthStore (Supabase session).
 
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import type { RootStackParamList, DashboardTabParamList } from '../types/navigation';
 
+// Screens
 import WelcomeScreen from '../screens/WelcomeScreen';
+import AuthScreen from '../screens/AuthScreen';
+import ProfileSetupScreen from '../screens/ProfileSetupScreen';
 import OnboardingChatScreen from '../screens/OnboardingChatScreen';
 
 import HomeTab from '../screens/tabs/HomeTab';
@@ -22,11 +25,13 @@ import PRCardsScreen from '../screens/PRCardsScreen';
 import ProgressTreeScreen from '../screens/ProgressTreeScreen';
 import AIChatScreen from '../screens/AIChatScreen';
 import CustomTabBar from '../components/CustomTabBar';
+
+import { useAuthStore } from '../store/useAuthStore';
 import { useUserProfile } from '../context/UserProfileContext';
 import { Colors } from '../theme/index';
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<DashboardTabParamList>();
 
 function DashboardTabs() {
   return (
@@ -44,11 +49,20 @@ function DashboardTabs() {
 }
 
 export default function AppNavigator() {
-  const { isLoading, isOnboardingComplete } = useUserProfile();
+  const { session, isInitialized } = useAuthStore();
+  const { isLoading: profileLoading, isOnboardingComplete } = useUserProfile();
 
-  if (isLoading) {
+  // Wait for both Supabase session check AND local profile load
+  if (!isInitialized || profileLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background.void, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: Colors.background.void,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <ActivityIndicator color={Colors.accent.primary} />
       </View>
     );
@@ -57,23 +71,26 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isOnboardingComplete ? (
+        {!session ? (
+          // ── No session → auth gate ──────────────────────────────────
+          <>
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Auth" component={AuthScreen} />
+          </>
+        ) : !isOnboardingComplete ? (
+          // ── Authenticated, profile incomplete ──────────────────────
+          <>
+            <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+            <Stack.Screen name="Onboarding" component={OnboardingChatScreen} />
+          </>
+        ) : (
+          // ── Fully set up → main app ─────────────────────────────────
           <>
             <Stack.Screen name="Dashboard" component={DashboardTabs} />
             <Stack.Screen name="Badges" component={BadgesScreen} />
             <Stack.Screen name="PRCards" component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
             <Stack.Screen name="AIChat" component={AIChatScreen} />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="Welcome" component={WelcomeScreen} />
-            <Stack.Screen
-              name="Onboarding"
-              component={OnboardingChatScreen}
-              options={{ gestureEnabled: false }}
-            />
-            <Stack.Screen name="Dashboard" component={DashboardTabs} />
           </>
         )}
       </Stack.Navigator>
