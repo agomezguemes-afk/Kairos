@@ -15,7 +15,6 @@ import {
   StyleSheet,
   Pressable,
   Alert,
-  ActivityIndicator,
   Dimensions,
   Platform,
 } from 'react-native';
@@ -29,7 +28,6 @@ import Animated, {
 import DraggableFlatList, {
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import BlockAppIcon from '../components/BlockAppIcon';
 import BlockCreationSheet, {
@@ -49,8 +47,6 @@ import { useMission } from '../context/MissionContext';
 import { useWorkoutStore } from '../store/workoutStore';
 import KairosIcon from '../components/KairosIcon';
 
-const LEGACY_STORAGE_KEY = 'kairos_blocks_v1';
-
 const COLUMNS = 4;
 const SCREEN_W = Dimensions.get('window').width;
 const H_PAD = Spacing.screen.horizontal;
@@ -65,7 +61,6 @@ export default function BlockLibraryScreen({ route }: any) {
   const storeUpdateBlock = useWorkoutStore((s) => s.updateBlock);
   const storeDeleteBlock = useWorkoutStore((s) => s.deleteBlock);
   const storeReorderBlocks = useWorkoutStore((s) => s.reorderBlocks);
-  const storeReplaceAllBlocks = useWorkoutStore((s) => s.replaceAllBlocks);
   const storeAddExercise = useWorkoutStore((s) => s.addExercise);
   const storeDeleteExercise = useWorkoutStore((s) => s.deleteExercise);
   const storeUpdateExercise = useWorkoutStore((s) => s.updateExercise);
@@ -77,9 +72,6 @@ export default function BlockLibraryScreen({ route }: any) {
   const pendingHighlight = useWorkoutStore((s) => s.pendingHighlight);
   const clearHighlight = useWorkoutStore((s) => s.setHighlight);
 
-  const [isLoading, setIsLoading] = useState(
-    !useWorkoutStore.persist.hasHydrated(),
-  );
   const [showCreation, setShowCreation] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const { streak, onSetCompleted, onBlockCreated, onMissionCompleted } = useGamification();
@@ -88,44 +80,6 @@ export default function BlockLibraryScreen({ route }: any) {
 
   const highlightTargetId = route?.params?.highlightBlockId ?? pendingHighlight;
   const listRef = useRef<any>(null);
-
-  // ---- One-time legacy migration from kairos_blocks_v1 ----
-  // Older builds persisted blocks to their own AsyncStorage key; hydrate the
-  // Zustand store from that key on first run so existing users don't lose data.
-  useEffect(() => {
-    let cancelled = false;
-
-    const migrate = async () => {
-      try {
-        const raw = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
-        if (!raw) return;
-        const parsed: WorkoutBlockType[] = JSON.parse(raw);
-        if (!cancelled && parsed.length > 0 && useWorkoutStore.getState().blocks.length === 0) {
-          storeReplaceAllBlocks(parsed);
-        }
-        await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
-      } catch (e) {
-        console.warn('Kairos: legacy block migration failed', e);
-      }
-    };
-
-    if (useWorkoutStore.persist.hasHydrated()) {
-      migrate();
-      setIsLoading(false);
-    } else {
-      const unsub = useWorkoutStore.persist.onFinishHydration(() => {
-        migrate();
-        if (!cancelled) setIsLoading(false);
-      });
-      return () => {
-        cancelled = true;
-        unsub();
-      };
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [storeReplaceAllBlocks]);
 
   // ---- Highlight scroll ----
   useEffect(() => {
@@ -325,16 +279,6 @@ export default function BlockLibraryScreen({ route }: any) {
     [highlightTargetId],
   );
 
-  // ======================== LOADING ========================
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator color={Colors.accent.primary} />
-      </View>
-    );
-  }
-
   // ======================== MAIN RENDER ========================
 
   return (
@@ -428,12 +372,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.background.void,
-  },
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: Colors.background.void,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   header: {

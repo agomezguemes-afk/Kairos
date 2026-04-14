@@ -487,6 +487,27 @@ export const useWorkoutStore = create<WorkoutState>()(
     {
       name: 'kairos_workout_store',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        // One-time migration from the legacy `kairos_blocks_v1` key used by
+        // earlier builds of BlockLibraryScreen. Runs exactly once per device,
+        // after the persisted zustand state has been restored, so we can
+        // safely check whether migration is needed without race conditions.
+        if (!state) return;
+        AsyncStorage.getItem('kairos_blocks_v1')
+          .then((raw) => {
+            if (!raw) return;
+            try {
+              const parsed: WorkoutBlock[] = JSON.parse(raw);
+              if (parsed.length > 0 && state.blocks.length === 0) {
+                useWorkoutStore.setState({ blocks: parsed });
+              }
+            } catch (e) {
+              console.warn('Kairos: legacy block parse failed', e);
+            }
+            AsyncStorage.removeItem('kairos_blocks_v1').catch(() => {});
+          })
+          .catch((e) => console.warn('Kairos: legacy read failed', e));
+      },
     },
   ),
 );
