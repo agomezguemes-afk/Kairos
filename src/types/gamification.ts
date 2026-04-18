@@ -28,7 +28,7 @@ export type BadgeId =
 export interface BadgeDefinition {
   id: BadgeId;
   name: string;
-  emoji: string;
+  icon: string;
   description: string;
 }
 
@@ -41,43 +41,43 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     id: 'first_step',
     name: 'Primer paso',
-    emoji: '🏁',
+    icon: 'first_step',
     description: 'Completa tu primera serie',
   },
   {
     id: 'streak_7',
     name: 'Iniciado',
-    emoji: '🔥',
+    icon: 'streak',
     description: '7 días de racha consecutiva',
   },
   {
     id: 'streak_30',
     name: 'Constante',
-    emoji: '🔥🔥',
+    icon: 'streak_double',
     description: '30 días de racha consecutiva',
   },
   {
     id: 'volume_100',
     name: 'Volumen 1',
-    emoji: '💪',
+    icon: 'strength',
     description: '100 series completadas en total',
   },
   {
     id: 'explorer_5',
     name: 'Explorador',
-    emoji: '🎯',
+    icon: 'target',
     description: 'Usa 5 ejercicios diferentes',
   },
   {
     id: 'block_creator',
     name: 'Bloqueador',
-    emoji: '⭐',
+    icon: 'star',
     description: 'Crea tu primer bloque personalizado',
   },
   {
     id: 'mission_complete',
     name: 'Misionero',
-    emoji: '🎯',
+    icon: 'target',
     description: 'Completa tu primera misión semanal',
   },
 ];

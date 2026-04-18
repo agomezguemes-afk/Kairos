@@ -12,46 +12,47 @@ import Animated, {
   withDelay,
   withSpring,
 } from 'react-native-reanimated';
+import KairosIcon from '../KairosIcon';
 
 const INTENSITY_ZONES = [
-  { 
-    label: 'Recuperación', 
-    emoji: '🌱', 
+  {
+    label: 'Recuperación',
+    icon: 'seedling' as const,
     color: '#10b981',
     description: 'Activación suave',
-    min: 0, 
+    min: 0,
     max: 30,
   },
-  { 
-    label: 'Estándar', 
-    emoji: '💪', 
+  {
+    label: 'Estándar',
+    icon: 'strength' as const,
     color: '#3b82f6',
     description: 'Entreno balanceado',
-    min: 30, 
+    min: 30,
     max: 60,
   },
-  { 
-    label: 'Intenso', 
-    emoji: '🔥', 
+  {
+    label: 'Intenso',
+    icon: 'streak' as const,
     color: '#f59e0b',
     description: 'Alta intensidad',
-    min: 60, 
+    min: 60,
     max: 90,
   },
-  { 
-    label: 'Extremo', 
-    emoji: '🚀', 
+  {
+    label: 'Extremo',
+    icon: 'rocket' as const,
     color: '#ef4444',
     description: 'Desafío máximo',
-    min: 90, 
+    min: 90,
     max: 120,
   },
-  { 
-    label: 'Maratón', 
-    emoji: '🏃‍♂️', 
+  {
+    label: 'Maratón',
+    icon: 'running' as const,
     color: '#8b5cf6',
     description: 'Resistencia pura',
-    min: 120, 
+    min: 120,
     max: 180,
   },
 ];
@@ -66,7 +67,7 @@ const AnimatedText = Animated.createAnimatedComponent(Text);
 export default function DurationDisplay({ minutes }: DurationDisplayProps) {
   // Animaciones
   const scale = useSharedValue(1);
-  const emojiScale = useSharedValue(1);
+  const iconScale = useSharedValue(1);
   const textOpacity = useSharedValue(1);
   const borderWidth = useSharedValue(2);
   
@@ -85,7 +86,7 @@ export default function DurationDisplay({ minutes }: DurationDisplayProps) {
         withSpring(1, { damping: 10 })
       );
       
-      emojiScale.value = withSequence(
+      iconScale.value = withSequence(
         withTiming(1.3, { duration: 100 }),
         withSpring(1, { damping: 8 })
       );
@@ -123,8 +124,8 @@ export default function DurationDisplay({ minutes }: DurationDisplayProps) {
     borderColor: currentZone.color,
   }));
 
-  const emojiStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: emojiScale.value }],
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
   }));
 
   const textStyle = useAnimatedStyle(() => ({
@@ -133,9 +134,9 @@ export default function DurationDisplay({ minutes }: DurationDisplayProps) {
 
   return (
     <AnimatedView style={[styles.container, containerStyle]}>
-      <AnimatedText style={[styles.emoji, emojiStyle]}>
-        {currentZone.emoji}
-      </AnimatedText>
+      <Animated.View style={[styles.iconWrap, iconStyle]}>
+        <KairosIcon name={currentZone.icon} size={32} color={currentZone.color} />
+      </Animated.View>
       
       <View style={styles.textContainer}>
         <AnimatedText style={[styles.time, textStyle]}>
@@ -171,8 +172,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  emoji: {
-    fontSize: 32,
+  iconWrap: {
     marginRight: 16,
   },
   textContainer: {

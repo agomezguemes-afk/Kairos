@@ -7,15 +7,15 @@ export default function ProfileTab() {
       <Text style={styles.title}>Perfil</Text>
       
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>⚙️ Configuración</Text>
+        <Text style={styles.cardTitle}>Configuración</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>🔗 Integraciones</Text>
+        <Text style={styles.cardTitle}>Integraciones</Text>
       </View>
 
       <Pressable style={styles.logoutButton}>
-        <Text style={styles.logoutText}>🚪 Cerrar sesión</Text>
+        <Text style={styles.logoutText}>Cerrar sesión</Text>
       </Pressable>
     </View>
   );

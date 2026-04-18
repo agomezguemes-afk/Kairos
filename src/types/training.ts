@@ -16,7 +16,7 @@ export type TrainingType =
 export interface MuscleGroupOption {
   id: MuscleGroup;
   name: string;
-  emoji: string;
+  icon: string;
   category: 'upper' | 'lower';
 }
 
@@ -38,12 +38,12 @@ export interface TrainingStats {
 
 // Constantes
 export const MUSCLE_GROUPS: MuscleGroupOption[] = [
-  { id: 'pecho', name: 'Pecho', emoji: '💪', category: 'upper' },
-  { id: 'espalda', name: 'Espalda', emoji: '🦾', category: 'upper' },
-  { id: 'hombro', name: 'Hombro', emoji: '🏋️', category: 'upper' },
-  { id: 'biceps', name: 'Bíceps', emoji: '💪', category: 'upper' },
-  { id: 'triceps', name: 'Tríceps', emoji: '🔥', category: 'upper' },
-  { id: 'pierna', name: 'Pierna', emoji: '🦵', category: 'lower' },
+  { id: 'pecho', name: 'Pecho', icon: 'chest', category: 'upper' },
+  { id: 'espalda', name: 'Espalda', icon: 'back', category: 'upper' },
+  { id: 'hombro', name: 'Hombro', icon: 'shoulder', category: 'upper' },
+  { id: 'biceps', name: 'Bíceps', icon: 'biceps', category: 'upper' },
+  { id: 'triceps', name: 'Tríceps', icon: 'triceps', category: 'upper' },
+  { id: 'pierna', name: 'Pierna', icon: 'leg', category: 'lower' },
 ];
 
 export const DURATION_OPTIONS = [15, 30, 45, 60, 75, 90, 120];

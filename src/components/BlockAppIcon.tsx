@@ -3,24 +3,30 @@
 // Long-press triggers drag. All animations driven by the library's
 // useOnCellActiveAnimation so they are perfectly in sync with the gesture.
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  withDelay,
+  withSequence,
   interpolate,
+  interpolateColor,
   type WithSpringConfig,
 } from 'react-native-reanimated';
 import { useOnCellActiveAnimation } from 'react-native-draggable-flatlist';
 import type { WorkoutBlock } from '../types/core';
 import { Colors, Typography } from '../theme/index';
+import KairosIcon from './KairosIcon';
 
 interface BlockAppIconProps {
   block: WorkoutBlock;
   size: number;
   onPress: (block: WorkoutBlock) => void;
   drag: () => void;
+  isHighlighted?: boolean;
 }
 
 const DRAG_SPRING: WithSpringConfig = {
@@ -34,6 +40,7 @@ const BlockAppIcon: React.FC<BlockAppIconProps> = ({
   size,
   onPress,
   drag,
+  isHighlighted = false,
 }) => {
   // Provided by the library's CellProvider — animates 0 → 1 while dragging.
   const { onActiveAnim } = useOnCellActiveAnimation({
@@ -42,6 +49,41 @@ const BlockAppIcon: React.FC<BlockAppIconProps> = ({
 
   // Separate shared value for tap press feedback.
   const pressScale = useSharedValue(1);
+
+  // Highlight glow animation (0 → 1 → 0)
+  const glowProgress = useSharedValue(0);
+
+  useEffect(() => {
+    if (!isHighlighted) {
+      glowProgress.value = withTiming(0, { duration: 300 });
+      return;
+    }
+    glowProgress.value = withSequence(
+      withTiming(1, { duration: 350 }),
+      withDelay(1000, withTiming(0, { duration: 600 })),
+    );
+  }, [isHighlighted]);
+
+  // Highlight animated style — composites on top of existing styles
+  const highlightStyle = useAnimatedStyle(() => {
+    const borderColor = interpolateColor(
+      glowProgress.value,
+      [0, 1],
+      ['transparent', Colors.accent.primary],
+    );
+    const glowScale = interpolate(glowProgress.value, [0, 0.5, 1], [1, 1.025, 1.025]);
+
+    return {
+      borderWidth: 1.5,
+      borderColor,
+      shadowColor: Colors.accent.primary,
+      shadowOpacity: interpolate(glowProgress.value, [0, 1], [0, 0.5]),
+      shadowRadius: interpolate(glowProgress.value, [0, 1], [0, 12]),
+      shadowOffset: { width: 0, height: 0 },
+      elevation: interpolate(glowProgress.value, [0, 1], [0, 8]),
+      transform: [{ scale: glowScale }],
+    };
+  });
 
   // Combined wrapper animation: scale + slight tilt while dragging.
   const wrapperStyle = useAnimatedStyle(() => {
@@ -108,11 +150,10 @@ const BlockAppIcon: React.FC<BlockAppIconProps> = ({
               shadowOffset: { width: 0, height: 8 },
             },
             shadowStyle,
+            highlightStyle,
           ]}
         >
-          <Text style={[styles.emoji, { fontSize: emojiSize }]}>
-            {block.icon}
-          </Text>
+          <KairosIcon name={block.icon} size={emojiSize} color="#fff" />
 
           {/* Progress strip at the bottom of the icon */}
           {pct > 0 && (

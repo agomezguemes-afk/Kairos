@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGamification } from '../context/GamificationContext';
 import { BADGE_DEFINITIONS } from '../types/gamification';
 import type { BadgeId } from '../types/gamification';
+import KairosIcon from '../components/KairosIcon';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 
 export default function BadgesScreen() {
@@ -23,9 +24,15 @@ export default function BadgesScreen() {
     >
       {/* Streak banner */}
       <Animated.View entering={FadeInUp.delay(60).duration(350)} style={styles.streakBanner}>
-        <Text style={styles.streakEmoji}>
-          {streak.current >= 30 ? '🔥🔥🔥' : streak.current >= 7 ? '🔥🔥' : streak.current >= 1 ? '🔥' : '💤'}
-        </Text>
+        <View style={styles.streakIconRow}>
+          {streak.current >= 1 ? (
+            Array.from({ length: streak.current >= 30 ? 3 : streak.current >= 7 ? 2 : 1 }).map((_, i) => (
+              <KairosIcon key={i} name="streak" size={28} color={Colors.accent.primary} />
+            ))
+          ) : (
+            <KairosIcon name="sleep" size={28} color={Colors.text.tertiary} />
+          )}
+        </View>
         <View style={styles.streakInfo}>
           <Text style={styles.streakCount}>
             {streak.current} {streak.current === 1 ? 'día' : 'días'}
@@ -57,9 +64,13 @@ export default function BadgesScreen() {
               entering={FadeInUp.delay(120 + index * 60).duration(350)}
               style={[styles.badgeCard, !unlocked && styles.badgeCardLocked]}
             >
-              <Text style={[styles.badgeEmoji, !unlocked && styles.badgeEmojiLocked]}>
-                {def.emoji}
-              </Text>
+              <View style={styles.badgeIconWrap}>
+                <KairosIcon
+                  name={def.icon}
+                  size={32}
+                  color={unlocked ? Colors.accent.primary : Colors.text.disabled}
+                />
+              </View>
               <Text style={[styles.badgeName, !unlocked && styles.badgeNameLocked]}>
                 {def.name}
               </Text>
@@ -101,8 +112,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.gap.sections,
     ...Shadows.card,
   },
-  streakEmoji: {
-    fontSize: 32,
+  streakIconRow: {
+    flexDirection: 'row',
+    gap: 2,
     marginRight: Spacing.lg,
   },
   streakInfo: {
@@ -158,12 +170,8 @@ const styles = StyleSheet.create({
   badgeCardLocked: {
     opacity: 0.45,
   },
-  badgeEmoji: {
-    fontSize: 36,
+  badgeIconWrap: {
     marginBottom: Spacing.sm,
-  },
-  badgeEmojiLocked: {
-    // Greyed via parent opacity
   },
   badgeName: {
     fontSize: Typography.size.body,

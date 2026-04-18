@@ -7,6 +7,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGamification } from '../context/GamificationContext';
 import type { PRCard } from '../types/gamification';
+import KairosIcon from '../components/KairosIcon';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 
 export default function PRCardsScreen() {
@@ -39,7 +40,7 @@ export default function PRCardsScreen() {
         />
       ) : (
         <View style={styles.empty}>
-          <Text style={styles.emptyEmoji}>🏅</Text>
+          <KairosIcon name="badge" size={40} color={Colors.text.tertiary} />
           <Text style={styles.emptyTitle}>Sin récords todavía</Text>
           <Text style={styles.emptyDesc}>
             Completa series para registrar tus mejores marcas.

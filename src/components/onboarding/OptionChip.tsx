@@ -12,10 +12,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Colors, Typography, Spacing, Radius, Shadows, Animation } from '../../theme/index';
+import KairosIcon from '../KairosIcon';
 
 interface OptionChipProps {
   label: string;
-  emoji?: string;
+  icon?: string;
   selected?: boolean;
   onPress: () => void;
   /** Stagger index for enter animation. */
@@ -27,7 +28,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function OptionChip({
   label,
-  emoji,
+  icon,
   selected = false,
   onPress,
   index = 0,
@@ -67,7 +68,7 @@ export default function OptionChip({
         accessibilityRole="button"
         accessibilityState={{ selected }}
       >
-        {emoji ? <Text style={styles.emoji}>{emoji}</Text> : null}
+        {icon ? <KairosIcon name={icon} size={18} color={selected ? Colors.text.inverse : Colors.text.secondary} /> : null}
         <Text
           style={[
             styles.label,

@@ -16,7 +16,7 @@
     "@react-navigation/bottom-tabs": "^7.12.0",
     "@react-navigation/native": "^7.1.28",
     "@react-navigation/native-stack": "^7.12.0",
-    "@supabase/supabase-js": "^2.103.0",
+    "@supabase/supabase-js": "^2.39.0",
     "expo": "~54.0.33",
     "expo-blur": "~15.0.8",
     "expo-haptics": "~15.0.8",

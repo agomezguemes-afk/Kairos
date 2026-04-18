@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import AnimatedButton from '../Buttons/AnimatedButton';
+import KairosIcon from '../components/KairosIcon';
 import {
   View,
   Text,
@@ -210,7 +211,7 @@ function Step1({ data, setData }: any) {
         <View style={styles.row}>
           <AnimatedButton
             title="Principiante"
-            emoji="🌱"
+            icon={<KairosIcon name="seedling" size={20} color="#C9A96E" />}
             onPress={() => setData({ ...data, nivel: 'Principiante' })}
             selected={data.nivel === 'Principiante'}
             variant="option"
@@ -219,7 +220,7 @@ function Step1({ data, setData }: any) {
           />
           <AnimatedButton
             title="Intermedio"
-            emoji="💪"
+            icon={<KairosIcon name="strength" size={20} color="#C9A96E" />}
             onPress={() => setData({ ...data, nivel: 'Intermedio' })}
             selected={data.nivel === 'Intermedio'}
             variant="option"
@@ -228,7 +229,7 @@ function Step1({ data, setData }: any) {
           />
           <AnimatedButton
             title="Avanzado"
-            emoji="🏆"
+            icon={<KairosIcon name="trophy" size={20} color="#C9A96E" />}
             onPress={() => setData({ ...data, nivel: 'Avanzado' })}
             selected={data.nivel === 'Avanzado'}
             variant="option"
@@ -419,7 +420,7 @@ function Step4({ data }: any) {
       </View>
 
       <View style={styles.readyBox}>
-        <Text style={styles.readyEmoji}>🎯</Text>
+        <KairosIcon name="target" size={40} color="#C9A96E" />
         <Text style={styles.readyText}>
           Tu plan personalizado está listo. Comencemos a entrenar!
         </Text>

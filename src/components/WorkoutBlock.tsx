@@ -21,6 +21,7 @@ import type {
   FieldValue,
 } from '../types/core';
 import { calculateBlockStats, DISCIPLINE_CONFIGS } from '../types/core';
+import KairosIcon from './KairosIcon';
 import { Colors, Typography, Spacing, Radius, Shadows, Animation } from '../theme/index';
 
 // ======================== PROPS ========================
@@ -78,7 +79,7 @@ const ExerciseDeleteAction: React.FC<{
         onPress={onDelete}
         style={({ pressed }) => [exDeleteStyles.btn, pressed && exDeleteStyles.btnPressed]}
       >
-        <Text style={exDeleteStyles.icon}>🗑</Text>
+        <KairosIcon name="trash" size={20} color={Colors.text.inverse} />
         <Text style={exDeleteStyles.label}>Eliminar</Text>
       </Pressable>
     </Animated.View>

@@ -12,6 +12,7 @@ import { useTree } from '../../context/TreeContext';
 import { BADGE_DEFINITIONS } from '../../types/gamification';
 import type { BadgeId } from '../../types/gamification';
 import { TREE_CONFIGS } from '../../types/tree';
+import KairosIcon from '../../components/KairosIcon';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 export default function AchievementsTab({ navigation }: any) {
@@ -28,9 +29,15 @@ export default function AchievementsTab({ navigation }: any) {
 
       {/* Streak card */}
       <Animated.View entering={FadeInUp.delay(60).duration(350)} style={styles.streakCard}>
-        <Text style={styles.streakEmoji}>
-          {streak.current >= 30 ? '🔥🔥🔥' : streak.current >= 7 ? '🔥🔥' : streak.current >= 1 ? '🔥' : '💤'}
-        </Text>
+        <View style={styles.streakIconRow}>
+          {streak.current >= 1 ? (
+            Array.from({ length: streak.current >= 30 ? 3 : streak.current >= 7 ? 2 : 1 }).map((_, i) => (
+              <KairosIcon key={i} name="streak" size={24} color={Colors.accent.primary} />
+            ))
+          ) : (
+            <KairosIcon name="sleep" size={24} color={Colors.text.tertiary} />
+          )}
+        </View>
         <View>
           <Text style={styles.streakValue}>
             {streak.current} {streak.current === 1 ? 'día' : 'días'} de racha
@@ -46,7 +53,7 @@ export default function AchievementsTab({ navigation }: any) {
           style={({ pressed }) => [styles.sectionCard, pressed && { opacity: 0.8 }]}
         >
           <View style={styles.sectionHeader}>
-            <Text style={{ fontSize: 20 }}>{treeConfig?.emoji ?? '🌱'}</Text>
+            <KairosIcon name={treeConfig ? 'tree' : 'seedling'} size={20} color={Colors.accent.primary} />
             <Text style={styles.sectionTitle}>
               {treeConfig ? `${treeConfig.name}` : 'Tu Árbol'}
             </Text>
@@ -80,15 +87,13 @@ export default function AchievementsTab({ navigation }: any) {
           {/* Mini badge preview row */}
           <View style={styles.badgePreview}>
             {BADGE_DEFINITIONS.slice(0, 6).map((def) => (
-              <Text
+              <KairosIcon
                 key={def.id}
-                style={[
-                  styles.badgeMini,
-                  !unlockedIds.has(def.id) && styles.badgeMiniLocked,
-                ]}
-              >
-                {def.emoji}
-              </Text>
+                name={def.icon}
+                size={22}
+                color={unlockedIds.has(def.id) ? Colors.accent.primary : Colors.text.disabled}
+                style={styles.badgeMini}
+              />
             ))}
           </View>
         </Pressable>
@@ -144,8 +149,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     ...Shadows.card,
   },
-  streakEmoji: {
-    fontSize: 36,
+  streakIconRow: {
+    flexDirection: 'row',
+    gap: 2,
+    marginRight: Spacing.md,
   },
   streakValue: {
     fontSize: Typography.size.subheading,

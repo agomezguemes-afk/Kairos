@@ -8,13 +8,14 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
+import KairosIcon from '../KairosIcon';
 
 const INTENSITY_ZONES = [
-  { label: 'Recuperación', emoji: '🌱', color: '#10b981', min: 0, max: 30 },
-  { label: 'Estándar', emoji: '💪', color: '#3b82f6', min: 30, max: 60 },
-  { label: 'Intenso', emoji: '🔥', color: '#f59e0b', min: 60, max: 90 },
-  { label: 'Extremo', emoji: '🚀', color: '#ef4444', min: 90, max: 120 },
-  { label: 'Maratón', emoji: '🏃‍♂️', color: '#8b5cf6', min: 120, max: 180 },
+  { label: 'Recuperación', icon: 'seedling' as const, color: '#10b981', min: 0, max: 30 },
+  { label: 'Estándar', icon: 'strength' as const, color: '#3b82f6', min: 30, max: 60 },
+  { label: 'Intenso', icon: 'streak' as const, color: '#f59e0b', min: 60, max: 90 },
+  { label: 'Extremo', icon: 'rocket' as const, color: '#ef4444', min: 90, max: 120 },
+  { label: 'Maratón', icon: 'running' as const, color: '#8b5cf6', min: 120, max: 180 },
 ];
 
 interface ZoneItemProps {
@@ -34,7 +35,7 @@ const ZoneItem = React.memo(({ zone, isActive, isPast }: ZoneItemProps) => {
     backgroundColor: isActive ? `${zone.color}20` : 'transparent',
   }));
 
-  const emojiStyle = useAnimatedStyle(() => ({
+  const iconStyle = useAnimatedStyle(() => ({
     transform: [
       { scale: withSpring(isActive ? 1.2 : 1, { damping: 12 }) },
     ],
@@ -49,9 +50,9 @@ const ZoneItem = React.memo(({ zone, isActive, isPast }: ZoneItemProps) => {
 
   return (
     <AnimatedView style={[styles.zone, zoneStyle]}>
-      <AnimatedText style={[styles.emoji, emojiStyle]}>
-        {zone.emoji}
-      </AnimatedText>
+      <Animated.View style={[styles.iconWrap, iconStyle]}>
+        <KairosIcon name={zone.icon} size={20} color={zone.color} />
+      </Animated.View>
       <AnimatedText style={[styles.label, textStyle]}>
         {zone.label}
       </AnimatedText>
@@ -133,8 +134,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 70,
   },
-  emoji: {
-    fontSize: 20,
+  iconWrap: {
     marginBottom: 4,
   },
   label: {

@@ -259,7 +259,7 @@ export function MissionProvider({
         const record: CompletedMission = {
           id: updated.id,
           title: updated.title,
-          emoji: updated.emoji,
+          icon: updated.icon,
           category: updated.category,
           completedAt: updated.completedAt,
           weekId: updated.weekId,

@@ -25,22 +25,14 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors, Typography, Spacing, Radius } from '../theme/index';
 import type { Discipline, BlockCover } from '../types/core';
 import { DISCIPLINE_CONFIGS } from '../types/core';
+import KairosIcon, { ICON_PICKER_OPTIONS } from './KairosIcon';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_H * 0.88;
 
 // ======================== CONSTANTS ========================
 
-const EMOJI_OPTIONS: Record<Discipline, string[]> = {
-  strength:    ['🏋️','💪','🦾','⚡','🔥','🥊','🤜','🏆','⚖️','🎯','💥','🛡️'],
-  running:     ['🏃','👟','⏱️','🏁','🌬️','🦶','🗺️','🌅','💨','🏔️','🌍','🎽'],
-  calisthenics:['🤸','🧗','💫','🌀','⭕','🤲','🔄','🎭','🤼','🌊','🎪','🔱'],
-  mobility:    ['🧘','🌸','🍃','☯️','🌊','🌙','✨','🦋','🌺','💫','🕊️','🌿'],
-  team_sport:  ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🥅','🏟️','🤝','🏆','🥋'],
-  cycling:     ['🚴','🚵','🛣️','⚙️','🔧','🏔️','💨','⚡','🎯','🔄','🌄','🏁'],
-  swimming:    ['🏊','🌊','💧','🐋','🏖️','🔵','💙','🌀','🫧','⛵','🐬','🦈'],
-  general:     ['💪','🎯','🏅','⭐','🌟','✨','🎖️','🏆','💎','🔮','⚡','🎨'],
-};
+// Icon options now come from ICON_PICKER_OPTIONS in KairosIcon.tsx
 
 const BLOCK_COLORS = [
   '#E84545', '#F0A030', '#C9A96E', '#1DB88E',
@@ -79,7 +71,7 @@ const DisciplineTile: React.FC<{
         pressed && { opacity: 0.75 },
       ]}
     >
-      <Text style={styles.disciplineEmoji}>{cfg.icon}</Text>
+      <KairosIcon name={cfg.icon} size={28} color={cfg.color} />
       <Text style={styles.disciplineName}>{cfg.name}</Text>
     </Pressable>
   );
@@ -88,12 +80,12 @@ DisciplineTile.displayName = 'DisciplineTile';
 
 // ======================== EMOJI BUTTON ========================
 
-const EmojiBtn: React.FC<{
-  emoji: string;
+const IconBtn: React.FC<{
+  iconName: string;
   selected: boolean;
   color: string;
   onPress: () => void;
-}> = React.memo(({ emoji, selected, color, onPress }) => (
+}> = React.memo(({ iconName, selected, color, onPress }) => (
   <Pressable
     onPress={onPress}
     style={[
@@ -101,10 +93,10 @@ const EmojiBtn: React.FC<{
       selected && { backgroundColor: `${color}25`, borderColor: `${color}60` },
     ]}
   >
-    <Text style={styles.emojiBtnText}>{emoji}</Text>
+    <KairosIcon name={iconName} size={24} color={selected ? color : Colors.text.secondary} />
   </Pressable>
 ));
-EmojiBtn.displayName = 'EmojiBtn';
+IconBtn.displayName = 'IconBtn';
 
 // ======================== COLOR SWATCH ========================
 
@@ -309,7 +301,7 @@ export default function BlockCreationSheet({
                 <View style={[styles.previewStripe, { backgroundColor: color }]} />
                 <View style={styles.previewBody}>
                   <View style={[styles.previewIcon, { backgroundColor: `${color}25` }]}>
-                    <Text style={{ fontSize: 26 }}>{icon}</Text>
+                    <KairosIcon name={icon} size={26} color={color} />
                   </View>
                   <Text style={[styles.previewName, { color }]} numberOfLines={1}>
                     {name.trim() || cfg.name}
@@ -330,16 +322,16 @@ export default function BlockCreationSheet({
                 autoFocus
               />
 
-              {/* Emoji */}
+              {/* Icon */}
               <Text style={styles.fieldLabel}>Icono</Text>
               <View style={styles.emojiGrid}>
-                {EMOJI_OPTIONS[discipline].map((e) => (
-                  <EmojiBtn
-                    key={e}
-                    emoji={e}
-                    selected={icon === e}
+                {ICON_PICKER_OPTIONS[discipline].map((iconName) => (
+                  <IconBtn
+                    key={iconName}
+                    iconName={iconName}
+                    selected={icon === iconName}
                     color={color}
-                    onPress={() => setIcon(e)}
+                    onPress={() => setIcon(iconName)}
                   />
                 ))}
               </View>

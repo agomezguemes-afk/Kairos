@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Pressable, Animated, Text, StyleSheet, ViewStyle } from 'react-native';
 import { MuscleGroupOption } from '../types/training';
+import KairosIcon from './KairosIcon';
 
 // ========== PROPS INTERFACE ==========
 
@@ -117,9 +118,7 @@ const TrainingCardComponent: React.FC<TrainingCardProps> = ({
         ]}
       >
         <View style={styles.emojiContainer}>
-          <Text style={styles.emoji}>
-            {option.emoji}
-          </Text>
+          <KairosIcon name={option.icon} size={36} color="#fff" />
         </View>
         
         <View style={styles.nameContainer}>

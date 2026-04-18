@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import TrainingCard from '../../components/TrainingCard';
 import AnimatedButton from '../../Buttons/AnimatedButton';
+import KairosIcon from '../../components/KairosIcon';
 import { useTraining } from '../../context/TrainingContext';
 import {
   MuscleGroup,
@@ -76,7 +77,7 @@ export default function WorkoutTab() {
     if (mode === 'rest') {
       markRestDay();
       Alert.alert(
-        '¡Día de descanso registrado! 😴',
+        'Día de descanso registrado',
         'Tu racha se mantiene activa',
         [{ text: 'OK', onPress: () => setMode('none') }]
       );
@@ -102,7 +103,7 @@ export default function WorkoutTab() {
       });
 
       Alert.alert(
-        '¡Entrenamiento registrado! 💪',
+        'Entrenamiento registrado',
         `${trainingName} · ${selectedDuration} min`,
         [{
           text: 'OK',
@@ -192,7 +193,7 @@ export default function WorkoutTab() {
         >
           <AnimatedButton
             title="Día de descanso"
-            emoji="😴"
+            icon={<KairosIcon name="sleep" size={20} color="#C9A96E" />}
             onPress={toggleRestDay}
             disabled={mode === 'training'}
             selected={mode === 'rest'}

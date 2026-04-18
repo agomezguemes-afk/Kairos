@@ -45,7 +45,7 @@ function randInt(min: number, max: number): number {
 const MISSION_TEMPLATES: MissionTemplate[] = [
   {
     category: 'volume',
-    emoji: '📦',
+    icon: 'volume',
     titleFn: (t) => `Completa ${t} ${t === 1 ? 'bloque' : 'bloques'} esta semana`,
     descriptionFn: (t) =>
       `Abre y entrena en ${t} ${t === 1 ? 'bloque diferente' : 'bloques diferentes'} antes del domingo.`,
@@ -54,7 +54,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
   },
   {
     category: 'volume',
-    emoji: '🔢',
+    icon: 'numbers',
     titleFn: (t) => `Completa ${t} series en total`,
     descriptionFn: (t) =>
       `Marca al menos ${t} series como completadas esta semana.`,
@@ -63,7 +63,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
   },
   {
     category: 'pr',
-    emoji: '🏆',
+    icon: 'trophy',
     titleFn: () => 'Consigue un nuevo récord personal',
     descriptionFn: () =>
       'Supera tu mejor marca en cualquier ejercicio. ¡Supera tus límites!',
@@ -72,7 +72,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
   },
   {
     category: 'streak',
-    emoji: '🔥',
+    icon: 'streak',
     titleFn: (t) => `Mantén tu racha ${t} días`,
     descriptionFn: (t) =>
       `Entrena al menos ${t} días seguidos. ¡La constancia es la clave!`,
@@ -81,7 +81,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
   },
   {
     category: 'exploration',
-    emoji: '🧪',
+    icon: 'experiment',
     titleFn: () => 'Prueba un ejercicio nuevo',
     descriptionFn: () =>
       'Crea un ejercicio que nunca hayas hecho y completa al menos 1 serie.',
@@ -90,7 +90,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
   },
   {
     category: 'exploration',
-    emoji: '🌈',
+    icon: 'rainbow',
     titleFn: (t) => `Entrena ${t} disciplinas diferentes`,
     descriptionFn: (t) =>
       `Realiza series en bloques de ${t} disciplinas distintas esta semana.`,
@@ -99,7 +99,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
   },
   {
     category: 'consistency',
-    emoji: '📅',
+    icon: 'calendar',
     titleFn: (t) => `Entrena ${t} días esta semana`,
     descriptionFn: (t) =>
       `Registra actividad en al menos ${t} días diferentes.`,
@@ -108,7 +108,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
   },
   {
     category: 'volume',
-    emoji: '💪',
+    icon: 'strength',
     titleFn: (t) => `Acumula ${t}kg de volumen total`,
     descriptionFn: (t) =>
       `La suma de peso × reps de todas tus series debe llegar a ${t}kg.`,
@@ -184,7 +184,7 @@ export function generateWeeklyMission(
     id,
     title: selected.titleFn(target),
     description: selected.descriptionFn(target),
-    emoji: selected.emoji,
+    icon: selected.icon,
     category: selected.category,
     status: 'active',
     targetValue: target,

@@ -15,6 +15,7 @@ import ReanimatedSwipeable, {
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import type { WorkoutBlock } from '../types/core';
 import { calculateBlockStats, DISCIPLINE_CONFIGS } from '../types/core';
+import KairosIcon from './KairosIcon';
 import { Colors, Typography, Spacing, Radius } from '../theme/index';
 
 // ======================== DELETE ACTION ========================
@@ -34,7 +35,7 @@ const DeleteAction: React.FC<{
         onPress={onDelete}
         style={({ pressed }) => [styles.deleteBtn, pressed && styles.deleteBtnPressed]}
       >
-        <Text style={styles.deleteIcon}>🗑</Text>
+        <KairosIcon name="trash" size={20} color={Colors.text.inverse} />
         <Text style={styles.deleteLabel}>Eliminar</Text>
       </Pressable>
     </Animated.View>

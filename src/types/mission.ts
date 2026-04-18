@@ -22,7 +22,7 @@ export interface Mission {
   id: string;
   title: string;
   description: string;
-  emoji: string;
+  icon: string;
   category: MissionCategory;
   status: MissionStatus;
 
@@ -43,7 +43,7 @@ export interface Mission {
 
 export interface MissionTemplate {
   category: MissionCategory;
-  emoji: string;
+  icon: string;
   titleFn: (target: number) => string;
   descriptionFn: (target: number) => string;
   targetRange: [number, number]; // [min, max]
@@ -56,7 +56,7 @@ export interface MissionTemplate {
 export interface CompletedMission {
   id: string;
   title: string;
-  emoji: string;
+  icon: string;
   category: MissionCategory;
   completedAt: ISOTimestamp;
   weekId: string;

@@ -89,10 +89,10 @@ export default function OnboardingChatScreen({ navigation }: any) {
   // ======================== HANDLERS ========================
 
   const handleGoal = useCallback(
-    (goal: FitnessGoal, label: string, emoji: string) => {
+    (goal: FitnessGoal, label: string) => {
       setPrimaryGoal(goal);
       advanceStep(
-        `${emoji} ${label}`,
+        label,
         'level',
         '¡Perfecto! ¿Cuál es tu nivel de experiencia?',
       );
@@ -101,10 +101,10 @@ export default function OnboardingChatScreen({ navigation }: any) {
   );
 
   const handleLevel = useCallback(
-    (level: FitnessLevel, label: string, emoji: string) => {
+    (level: FitnessLevel, label: string) => {
       setFitnessLevel(level);
       advanceStep(
-        `${emoji} ${label}`,
+        label,
         'disciplines',
         'Genial. ¿Qué actividades te interesan? Puedes elegir varias.',
       );
@@ -125,7 +125,7 @@ export default function OnboardingChatScreen({ navigation }: any) {
     const labels = selectedDisciplines
       .map((d) => {
         const opt = DISCIPLINE_OPTIONS.find((o) => o.value === d);
-        return opt ? `${opt.emoji} ${opt.label}` : d;
+        return opt ? opt.label : d;
       })
       .join(', ');
     advanceStep(
@@ -193,9 +193,9 @@ export default function OnboardingChatScreen({ navigation }: any) {
                 <OptionChip
                   key={opt.value}
                   label={opt.label}
-                  emoji={opt.emoji}
+                  icon={opt.icon}
                   index={i}
-                  onPress={() => handleGoal(opt.value, opt.label, opt.emoji)}
+                  onPress={() => handleGoal(opt.value, opt.label)}
                 />
               ))}
             </View>
@@ -214,9 +214,9 @@ export default function OnboardingChatScreen({ navigation }: any) {
                 <OptionChip
                   key={opt.value}
                   label={opt.label}
-                  emoji={opt.emoji}
+                  icon={opt.icon}
                   index={i}
-                  onPress={() => handleLevel(opt.value, opt.label, opt.emoji)}
+                  onPress={() => handleLevel(opt.value, opt.label)}
                 />
               ))}
             </View>
@@ -231,7 +231,7 @@ export default function OnboardingChatScreen({ navigation }: any) {
                 <OptionChip
                   key={opt.value}
                   label={opt.label}
-                  emoji={opt.emoji}
+                  icon={opt.icon}
                   selected={selectedDisciplines.includes(opt.value)}
                   index={i}
                   onPress={() => handleToggleDiscipline(opt.value)}

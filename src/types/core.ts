@@ -85,7 +85,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
   strength: {
     id: 'strength',
     name: 'Strength',
-    icon: '🏋️',
+    icon: 'weightlifting',
     color: '#E84545',
     defaultFields: [
       baseField('weight', 'Weight', 'kg', { isPrimary: true, order: 0, step: 2.5 }),
@@ -96,7 +96,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
   running: {
     id: 'running',
     name: 'Running',
-    icon: '🏃',
+    icon: 'running',
     color: '#5B8DEF',
     defaultFields: [
       baseField('distance', 'Distance', 'km', { isPrimary: true, order: 0, step: 0.1 }),
@@ -108,7 +108,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
   calisthenics: {
     id: 'calisthenics',
     name: 'Calisthenics',
-    icon: '🤸',
+    icon: 'calisthenics',
     color: '#1DB88E',
     defaultFields: [
       baseField('reps', 'Reps', null, { isPrimary: true, order: 0, step: 1 }),
@@ -119,7 +119,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
   mobility: {
     id: 'mobility',
     name: 'Mobility',
-    icon: '🧘',
+    icon: 'mobility',
     color: '#8B5CF6',
     defaultFields: [
       baseField('duration', 'Duration', 'min', { isPrimary: true, order: 0, step: 1 }),
@@ -129,7 +129,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
   team_sport: {
     id: 'team_sport',
     name: 'Team sport',
-    icon: '⚽',
+    icon: 'team_sport',
     color: '#F0A030',
     defaultFields: [
       baseField('duration', 'Duration', 'min', { isPrimary: true, order: 0, step: 5 }),
@@ -140,7 +140,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
   cycling: {
     id: 'cycling',
     name: 'Cycling',
-    icon: '🚴',
+    icon: 'cycling',
     color: '#06B6D4',
     defaultFields: [
       baseField('distance', 'Distance', 'km', { isPrimary: true, order: 0, step: 0.5 }),
@@ -151,7 +151,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
   swimming: {
     id: 'swimming',
     name: 'Swimming',
-    icon: '🏊',
+    icon: 'swimming',
     color: '#3B82F6',
     defaultFields: [
       baseField('distance', 'Distance', 'm', { isPrimary: true, order: 0, step: 25 }),
@@ -161,7 +161,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
   general: {
     id: 'general',
     name: 'General',
-    icon: '💪',
+    icon: 'strength',
     color: '#C9A96E',
     defaultFields: [
       baseField('duration', 'Duration', 'min', { isPrimary: true, order: 0, step: 5 }),

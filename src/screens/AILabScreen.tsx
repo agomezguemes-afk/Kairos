@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 
 import AIAvatar from '../components/AIAvatar';
 import type { AvatarMood } from '../components/AIAvatar';
+import KairosIcon from '../components/KairosIcon';
 import { useMission } from '../context/MissionContext';
 import { useGamification } from '../context/GamificationContext';
 import { useTree } from '../context/TreeContext';
@@ -91,13 +92,16 @@ export default function AILabScreen({ navigation }: any) {
         {activeMission ? (
           <View style={[styles.missionCard, isMissionDone && styles.missionCardDone]}>
             <View style={styles.missionHeader}>
-              <Text style={styles.missionEmoji}>{activeMission.emoji}</Text>
+              <KairosIcon name={activeMission.icon} size={28} color={Colors.accent.primary} />
               <View style={styles.missionHeaderText}>
                 <Text style={[styles.missionTitle, isMissionDone && styles.missionTitleDone]}>
                   {activeMission.title}
                 </Text>
                 {isMissionDone && (
-                  <Text style={styles.missionDoneBadge}>✅ Completada</Text>
+                  <View style={styles.missionDoneBadgeRow}>
+                    <KairosIcon name="checkmark" size={14} color={Colors.semantic.success} />
+                    <Text style={styles.missionDoneBadge}> Completada</Text>
+                  </View>
                 )}
               </View>
             </View>
@@ -158,11 +162,11 @@ export default function AILabScreen({ navigation }: any) {
       <Animated.View entering={FadeInUp.delay(280).duration(350)}>
         <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>Resumen</Text>
         <View style={styles.statsRow}>
-          <StatBubble emoji="🔥" value={String(streak.current)} label="Racha" />
-          <StatBubble emoji="🏅" value={String(badges.length)} label="Insignias" />
-          <StatBubble emoji="⚡" value={String(prCards.length)} label="Récords" />
+          <StatBubble icon="streak" value={String(streak.current)} label="Racha" />
+          <StatBubble icon="badge" value={String(badges.length)} label="Insignias" />
+          <StatBubble icon="bolt" value={String(prCards.length)} label="Récords" />
           <StatBubble
-            emoji={progress ? '🌳' : '🌱'}
+            icon={progress ? 'tree' : 'seedling'}
             value={progress ? `Nv.${progress.level}` : '—'}
             label="Árbol"
           />
@@ -177,7 +181,7 @@ export default function AILabScreen({ navigation }: any) {
           </Text>
           {completedMissions.slice(0, 5).map((m) => (
             <View key={m.id} style={styles.completedItem}>
-              <Text style={styles.completedEmoji}>{m.emoji}</Text>
+              <KairosIcon name={m.icon} size={20} color={Colors.accent.primary} />
               <View style={styles.completedText}>
                 <Text style={styles.completedTitle} numberOfLines={1}>
                   {m.title}
@@ -189,7 +193,7 @@ export default function AILabScreen({ navigation }: any) {
                   })}
                 </Text>
               </View>
-              <Text style={styles.completedCheck}>✅</Text>
+              <KairosIcon name="checkmark" size={18} color={Colors.semantic.success} />
             </View>
           ))}
         </Animated.View>
@@ -200,10 +204,10 @@ export default function AILabScreen({ navigation }: any) {
 
 // ======================== STAT BUBBLE ========================
 
-function StatBubble({ emoji, value, label }: { emoji: string; value: string; label: string }) {
+function StatBubble({ icon, value, label }: { icon: string; value: string; label: string }) {
   return (
     <View style={styles.statBubble}>
-      <Text style={styles.statEmoji}>{emoji}</Text>
+      <KairosIcon name={icon} size={22} color={Colors.accent.primary} />
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -320,11 +324,15 @@ const styles = StyleSheet.create({
   missionTitleDone: {
     color: Colors.semantic.success,
   },
+  missionDoneBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
   missionDoneBadge: {
     fontSize: Typography.size.caption,
     fontWeight: Typography.weight.semibold,
     color: Colors.semantic.success,
-    marginTop: 2,
   },
   missionDesc: {
     fontSize: Typography.size.body,
