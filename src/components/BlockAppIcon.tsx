@@ -17,6 +17,7 @@ import Animated, {
   type WithSpringConfig,
 } from 'react-native-reanimated';
 import { useOnCellActiveAnimation } from 'react-native-draggable-flatlist';
+import * as Haptics from 'expo-haptics';
 import type { WorkoutBlock } from '../types/core';
 import { Colors, Typography } from '../theme/index';
 import KairosIcon from './KairosIcon';
@@ -29,10 +30,11 @@ interface BlockAppIconProps {
   isHighlighted?: boolean;
 }
 
+// iOS-feeling drag spring — snappy settle, imperceptible wobble.
 const DRAG_SPRING: WithSpringConfig = {
-  damping: 14,
-  stiffness: 200,
-  mass: 0.7,
+  damping: 18,
+  stiffness: 320,
+  mass: 0.65,
 };
 
 const BlockAppIcon: React.FC<BlockAppIconProps> = ({
@@ -124,13 +126,16 @@ const BlockAppIcon: React.FC<BlockAppIconProps> = ({
   return (
     <Pressable
       onPress={() => onPress(block)}
-      onLongPress={drag}
-      delayLongPress={280}
+      onLongPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        drag();
+      }}
+      delayLongPress={250}
       onPressIn={() => {
-        pressScale.value = withSpring(0.95, { damping: 18, stiffness: 300 });
+        pressScale.value = withSpring(0.94, { damping: 18, stiffness: 380 });
       }}
       onPressOut={() => {
-        pressScale.value = withSpring(1, { damping: 14, stiffness: 200 });
+        pressScale.value = withSpring(1, { damping: 16, stiffness: 280 });
       }}
       style={[styles.wrapper, { width: size }]}
       accessibilityLabel={block.name}

@@ -29,11 +29,14 @@ import DraggableFlatList, {
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
 
+import * as Haptics from 'expo-haptics';
 import BlockAppIcon from '../components/BlockAppIcon';
 import BlockCreationSheet, {
   type BlockCreationOptions,
 } from '../components/BlockCreationSheet';
 import BlockDetailModal from '../components/BlockDetailModal';
+import ConfettiBurst, { type ConfettiRef } from '../components/ConfettiParticles';
+import CompletionCelebration from '../components/CompletionCelebration';
 
 import type {
   WorkoutBlock as WorkoutBlockType,
@@ -72,8 +75,10 @@ export default function BlockLibraryScreen({ route }: any) {
   const pendingHighlight = useWorkoutStore((s) => s.pendingHighlight);
   const clearHighlight = useWorkoutStore((s) => s.setHighlight);
 
+  const confettiRef = useRef<ConfettiRef | null>(null);
   const [showCreation, setShowCreation] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [celebrationBlock, setCelebrationBlock] = useState<WorkoutBlockType | null>(null);
   const { streak, onSetCompleted, onBlockCreated, onMissionCompleted } = useGamification();
   const { onTreeSetCompleted, onTreePRCreated } = useTree();
   const { updateMissionProgress, recordPRForMission } = useMission();
@@ -118,11 +123,14 @@ export default function BlockLibraryScreen({ route }: any) {
         color: opts.color,
         cover: opts.cover ?? undefined,
       });
-      // Fire gamification check for block creation against the fresh state
+      // Gamification
       const next = useWorkoutStore.getState().blocks;
       onBlockCreated(next);
-      // Surface highlight so the new block is visible
+      // Highlight the new block
       if (id) clearHighlight(id);
+      // Gold confetti burst 🎉
+      setTimeout(() => confettiRef.current?.burst(), 120);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     [storeAddBlock, onBlockCreated, clearHighlight],
   );
@@ -213,8 +221,24 @@ export default function BlockLibraryScreen({ route }: any) {
       const toggled = storeToggleSetComplete(blockId, exerciseId, setIndex);
       if (!toggled || !toggled.wasCompleted) return;
 
+      // Medium haptic for set completion
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       // Gamification pipeline — run against the freshly committed state
       const freshBlocks = useWorkoutStore.getState().blocks;
+
+      // Check if the whole block is now complete → show celebration
+      const ownerBlock = freshBlocks.find((b) => b.id === blockId);
+      if (ownerBlock && ownerBlock.exercises.length > 0) {
+        const allDone = ownerBlock.exercises.every(
+          (ex) => ex.sets.length > 0 && ex.sets.every((s) => s.completed),
+        );
+        if (allDone) {
+          // Short delay so the final checkmark is visible first
+          setTimeout(() => setCelebrationBlock(ownerBlock), 600);
+        }
+      }
+
       onSetCompleted(toggled.exercise, toggled.set, freshBlocks).then(({ prCard }) => {
         onTreeSetCompleted(toggled.exercise, toggled.set);
         if (prCard) {
@@ -283,6 +307,9 @@ export default function BlockLibraryScreen({ route }: any) {
 
   return (
     <View style={styles.screen}>
+      {/* Confetti layer (absolute, over everything) */}
+      <ConfettiBurst confettiRef={confettiRef} />
+
       {/* Header */}
       <Animated.View entering={FadeInDown.delay(60).duration(350)} style={styles.header}>
         <View>
@@ -310,20 +337,34 @@ export default function BlockLibraryScreen({ route }: any) {
           ListFooterComponent={<View style={{ height: 120 }} />}
         />
       ) : (
-        <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.empty}>
-          <View style={styles.emptyIconBox}>
-            <KairosIcon name="weightlifting" size={36} color={Colors.text.tertiary} />
+        /* ── Welcome overlay when no blocks exist ── */
+        <Animated.View entering={FadeIn.delay(200).duration(500)} style={styles.welcome}>
+          {/* Kai avatar circle */}
+          <View style={styles.welcomeAvatarRing}>
+            <KairosIcon name="assistant" size={38} color={Colors.accent.primary} />
           </View>
-          <Text style={styles.emptyTitle}>Sin bloques todavía</Text>
-          <Text style={styles.emptyDesc}>
-            Crea tu primer bloque de entrenamiento para empezar a construir tu biblioteca.
+
+          <Text style={styles.welcomeHeadline}>¡Bienvenido a Kairos!</Text>
+          <Text style={styles.welcomeBody}>
+            Soy Kai, tu asistente de entrenamiento.{'\n'}
+            Crea tu primer bloque para comenzar a construir tu sistema de fitness personalizado.
           </Text>
+
+          {/* Primary CTA */}
           <Pressable
             onPress={() => setShowCreation(true)}
-            style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [styles.welcomeBtn, pressed && { opacity: 0.82 }]}
           >
-            <Text style={styles.emptyBtnText}>Crear primer bloque</Text>
+            <KairosIcon name="add" size={18} color={Colors.text.inverse} style={{ marginRight: 6 }} />
+            <Text style={styles.welcomeBtnText}>Crear mi primer bloque</Text>
           </Pressable>
+
+          {/* Feature hints */}
+          <View style={styles.hintRow}>
+            <HintChip icon="dumbbell"  label="Fuerza, running, yoga…" />
+            <HintChip icon="assistant" label="Kai te ayuda a diseñar" />
+            <HintChip icon="stats"     label="Seguimiento de PRs" />
+          </View>
         </Animated.View>
       )}
 
@@ -362,6 +403,23 @@ export default function BlockLibraryScreen({ route }: any) {
         onUpdateBlock={handleUpdateBlock}
         onDeleteExercise={handleDeleteExercise}
       />
+
+      {/* Block completion celebration */}
+      <CompletionCelebration
+        block={celebrationBlock}
+        onDismiss={() => setCelebrationBlock(null)}
+      />
+    </View>
+  );
+}
+
+// ── HintChip ─────────────────────────────────────────────────────────────────
+
+function HintChip({ icon, label }: { icon: string; label: string }) {
+  return (
+    <View style={styles.hintChip}>
+      <KairosIcon name={icon} size={13} color={Colors.accent.primary} />
+      <Text style={styles.hintLabel}>{label}</Text>
     </View>
   );
 }
@@ -396,47 +454,81 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
 
-  // Empty state
-  empty: {
+  // Welcome overlay (shown when blocks === 0)
+  welcome: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: H_PAD * 2,
+    paddingHorizontal: H_PAD + 8,
   },
-  emptyIconBox: {
-    width: 80,
-    height: 80,
-    borderRadius: Radius.xl,
-    backgroundColor: Colors.accent.muted,
+  welcomeAvatarRing: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: Colors.accent.dim,
+    borderWidth: 1.5,
+    borderColor: Colors.accent.light,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.xl,
     ...Shadows.subtle,
   },
-  emptyTitle: {
+  welcomeHeadline: {
     fontSize: Typography.size.heading,
-    fontWeight: Typography.weight.semibold,
+    fontWeight: Typography.weight.bold,
     color: Colors.text.primary,
-    marginBottom: Spacing.sm,
+    letterSpacing: -0.3,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
   },
-  emptyDesc: {
+  welcomeBody: {
     fontSize: Typography.size.body,
     color: Colors.text.secondary,
     textAlign: 'center',
-    lineHeight: Typography.size.body * 1.6,
+    lineHeight: Typography.size.body * 1.65,
     marginBottom: Spacing['2xl'],
   },
-  emptyBtn: {
+  welcomeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.accent.primary,
     paddingVertical: Spacing.md + 2,
     paddingHorizontal: Spacing['2xl'],
-    borderRadius: Radius.sm,
-    ...Shadows.subtle,
+    borderRadius: Radius.full,
+    marginBottom: Spacing['2xl'],
+    shadowColor: Colors.accent.primary,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 6,
   },
-  emptyBtnText: {
+  welcomeBtnText: {
     fontSize: Typography.size.body,
     fontWeight: Typography.weight.semibold,
     color: Colors.text.inverse,
+  },
+  hintRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    justifyContent: 'center',
+  },
+  hintChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.background.surface,
+    borderWidth: 1,
+    borderColor: Colors.border.warm,
+    borderRadius: Radius.full,
+    paddingVertical: 5,
+    paddingHorizontal: Spacing.md,
+    ...Shadows.subtle,
+  },
+  hintLabel: {
+    fontSize: Typography.size.micro,
+    color: Colors.text.secondary,
+    fontWeight: Typography.weight.medium,
   },
 
   // FAB

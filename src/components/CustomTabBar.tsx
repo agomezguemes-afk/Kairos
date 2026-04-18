@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Colors, Typography, Animation } from '../theme/index';
+import { Colors, Typography, Animation, springs } from '../theme/index';
 
 const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
   HomeTab: { icon: 'home', label: 'Inicio' },
@@ -36,7 +36,7 @@ export default function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   // Update indicator when tab changes.
   React.useEffect(() => {
     const targetX = state.index * tabWidth + tabWidth / 2 - INDICATOR_WIDTH / 2;
-    indicatorX.value = withSpring(targetX, Animation.spring.ios);
+    indicatorX.value = withSpring(targetX, springs.ios);
   }, [state.index, tabWidth]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
@@ -94,10 +94,10 @@ const TabButton = React.memo(({ icon, label, isFocused, onPress }: TabButtonProp
       accessibilityRole="button"
       accessibilityState={isFocused ? { selected: true } : {}}
       onPressIn={() => {
-        scale.value = withSpring(0.85, Animation.spring.tabIcon);
+        scale.value = withSpring(0.82, springs.tap);
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, Animation.spring.tabIcon);
+        scale.value = withSpring(1, springs.bouncy);
       }}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

@@ -1,9 +1,17 @@
 // KAIROS — Progress Tree Screen
 // Displays the user's tree, progress bar, stats, and tree type selector.
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +29,38 @@ export default function ProgressTreeScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { treeType, metrics, progress, selectTreeType } = useTree();
   const [showPicker, setShowPicker] = useState(treeType === null);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Ripple animation on tree tap
+  const rippleScale   = useSharedValue(0);
+  const rippleOpacity = useSharedValue(0);
+  const treeScale     = useSharedValue(1);
+
+  const rippleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: rippleScale.value }],
+    opacity: rippleOpacity.value,
+  }));
+
+  const treeScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: treeScale.value }],
+  }));
+
+  const handleTreeTap = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Ripple
+    rippleScale.value = 0;
+    rippleOpacity.value = 0.5;
+    rippleScale.value   = withTiming(2.2, { duration: 700 });
+    rippleOpacity.value = withTiming(0,   { duration: 700 });
+    // Tree bounce
+    treeScale.value = withSequence(
+      withSpring(1.07, { damping: 8, stiffness: 260 }),
+      withSpring(1,    { damping: 12, stiffness: 180 }),
+    );
+    // Tooltip
+    setShowTooltip(true);
+    setTimeout(() => setShowTooltip(false), 2200);
+  };
 
   if (showPicker || treeType === null) {
     return (
@@ -68,9 +108,29 @@ export default function ProgressTreeScreen({ navigation }: any) {
         </View>
       </Animated.View>
 
-      {/* Tree SVG */}
+      {/* Tree SVG — tappable with ripple */}
       <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.treeContainer}>
-        <ProgressTree type={treeType} level={level} size={260} />
+        <Pressable onPress={handleTreeTap} style={styles.treeTouchTarget}>
+          {/* Ripple ring */}
+          <Animated.View
+            style={[
+              styles.ripple,
+              rippleStyle,
+              { backgroundColor: Colors.accent.glow },
+            ]}
+          />
+
+          {/* Tooltip */}
+          {showTooltip && (
+            <Animated.View entering={FadeIn.duration(200)} style={styles.tooltip}>
+              <Text style={styles.tooltipText}>{Math.round(pct)}% al siguiente nivel</Text>
+            </Animated.View>
+          )}
+
+          <Animated.View style={treeScaleStyle}>
+            <ProgressTree type={treeType} level={level} size={260} />
+          </Animated.View>
+        </Pressable>
         <Text style={styles.levelLabel}>{LEVEL_LABELS[level]}</Text>
       </Animated.View>
 
@@ -240,6 +300,30 @@ const styles = StyleSheet.create({
   treeContainer: {
     alignItems: 'center',
     marginBottom: Spacing.xl,
+  },
+  treeTouchTarget: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ripple: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
+  tooltip: {
+    position: 'absolute',
+    top: -36,
+    backgroundColor: Colors.text.primary,
+    borderRadius: Radius.sm,
+    paddingVertical: 5,
+    paddingHorizontal: Spacing.md,
+    zIndex: 10,
+  },
+  tooltipText: {
+    fontSize: Typography.size.micro,
+    color: Colors.text.inverse,
+    fontWeight: Typography.weight.semibold,
   },
   levelLabel: {
     fontSize: Typography.size.caption,
