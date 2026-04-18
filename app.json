@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Stack",
-    "slug": "stack",
+    "name": "Kairos",
+    "slug": "kairos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.stack.app",
+      "bundleIdentifier": "com.alvaro.kairos",
       "jsEngine": "hermes"
     },
     "android": {
@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F7F5"
       },
-      "jsEngine": "hermes"
+      "jsEngine": "hermes",
+      "package": "com.kairos.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

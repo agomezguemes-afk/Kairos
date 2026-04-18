@@ -1,4 +1,4 @@
-package com.stack.app
+package com.kairos.app
 
 import android.app.Application
 import android.content.res.Configuration
