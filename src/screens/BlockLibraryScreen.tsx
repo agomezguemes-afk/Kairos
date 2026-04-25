@@ -206,20 +206,20 @@ export default function BlockLibraryScreen({ route }: any) {
   }, []);
 
   const handleUpdateSetValue = useCallback(
-    (exerciseId: string, setIndex: number, fieldId: string, value: FieldValue) => {
+    (exerciseId: string, setId: string, fieldId: string, value: FieldValue) => {
       const blockId = findBlockIdForExercise(exerciseId);
       if (!blockId) return;
-      storeUpdateSetValue(blockId, exerciseId, setIndex, fieldId, value);
+      storeUpdateSetValue(blockId, exerciseId, setId, fieldId, value);
     },
     [findBlockIdForExercise, storeUpdateSetValue],
   );
 
   const handleToggleSetComplete = useCallback(
-    (exerciseId: string, setIndex: number) => {
+    (exerciseId: string, setId: string) => {
       const blockId = findBlockIdForExercise(exerciseId);
       if (!blockId) return;
 
-      const toggled = storeToggleSetComplete(blockId, exerciseId, setIndex);
+      const toggled = storeToggleSetComplete(blockId, exerciseId, setId);
       if (!toggled || !toggled.wasCompleted) return;
 
       // Medium haptic for set completion
@@ -275,10 +275,10 @@ export default function BlockLibraryScreen({ route }: any) {
   );
 
   const handleRemoveSet = useCallback(
-    (exerciseId: string, setIndex: number) => {
+    (exerciseId: string, setId: string) => {
       const blockId = findBlockIdForExercise(exerciseId);
       if (!blockId) return;
-      storeRemoveSet(blockId, exerciseId, setIndex);
+      storeRemoveSet(blockId, exerciseId, setId);
     },
     [findBlockIdForExercise, storeRemoveSet],
   );

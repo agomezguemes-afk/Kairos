@@ -29,10 +29,10 @@ interface ExerciseRowProps {
   blockId: string;
   index: number;
   onUpdateName: (exerciseId: string, name: string) => void;
-  onUpdateSetValue: (exerciseId: string, setIndex: number, fieldId: string, value: FieldValue) => void;
-  onToggleSetComplete: (exerciseId: string, setIndex: number) => void;
+  onUpdateSetValue: (exerciseId: string, setId: string, fieldId: string, value: FieldValue) => void;
+  onToggleSetComplete: (exerciseId: string, setId: string) => void;
   onAddSet: (exerciseId: string) => void;
-  onRemoveSet: (exerciseId: string, setIndex: number) => void;
+  onRemoveSet: (exerciseId: string, setId: string) => void;
   onDeleteExercise: (exerciseId: string) => void;
   compact?: boolean;
 }
@@ -77,22 +77,22 @@ function ExerciseRowInner({
   }, [nameDraft, exercise.name, exercise.id, onUpdateName]);
 
   const handleSetValueChange = useCallback(
-    (setIndex: number, fieldId: string, value: FieldValue) => {
-      onUpdateSetValue(exercise.id, setIndex, fieldId, value);
+    (setId: string, fieldId: string, value: FieldValue) => {
+      onUpdateSetValue(exercise.id, setId, fieldId, value);
     },
     [exercise.id, onUpdateSetValue],
   );
 
   const handleToggleSet = useCallback(
-    (setIndex: number) => {
-      onToggleSetComplete(exercise.id, setIndex);
+    (setId: string) => {
+      onToggleSetComplete(exercise.id, setId);
     },
     [exercise.id, onToggleSetComplete],
   );
 
   const handleRemoveSet = useCallback(
-    (setIndex: number) => {
-      onRemoveSet(exercise.id, setIndex);
+    (setId: string) => {
+      onRemoveSet(exercise.id, setId);
     },
     [exercise.id, onRemoveSet],
   );
@@ -242,7 +242,40 @@ function ExerciseRowInner({
   );
 }
 
-export default React.memo(ExerciseRowInner);
+function areExerciseRowPropsEqual(prev: ExerciseRowProps, next: ExerciseRowProps): boolean {
+  if (prev.compact !== next.compact) return false;
+  if (prev.blockId !== next.blockId) return false;
+  if (prev.index !== next.index) return false;
+  if (
+    prev.onUpdateName !== next.onUpdateName ||
+    prev.onUpdateSetValue !== next.onUpdateSetValue ||
+    prev.onToggleSetComplete !== next.onToggleSetComplete ||
+    prev.onAddSet !== next.onAddSet ||
+    prev.onRemoveSet !== next.onRemoveSet ||
+    prev.onDeleteExercise !== next.onDeleteExercise
+  ) {
+    return false;
+  }
+
+  const a = prev.exercise;
+  const b = next.exercise;
+  if (a === b) return true;
+  if (a.id !== b.id) return false;
+  if (a.name !== b.name || a.color !== b.color || a.icon !== b.icon) return false;
+  if (a.updated_at !== b.updated_at) return false;
+  if (a.fields !== b.fields && JSON.stringify(a.fields) !== JSON.stringify(b.fields)) return false;
+  if (a.sets.length !== b.sets.length) return false;
+  for (let i = 0; i < a.sets.length; i++) {
+    const sa = a.sets[i];
+    const sb = b.sets[i];
+    if (sa.id !== sb.id) return false;
+    if (sa.completed !== sb.completed) return false;
+    if (sa.values !== sb.values && JSON.stringify(sa.values) !== JSON.stringify(sb.values)) return false;
+  }
+  return true;
+}
+
+export default React.memo(ExerciseRowInner, areExerciseRowPropsEqual);
 
 const styles = StyleSheet.create({
   container: {

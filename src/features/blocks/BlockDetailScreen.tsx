@@ -118,8 +118,8 @@ export default function BlockDetailScreen({ route, navigation }: any) {
   );
 
   const handleSetComplete = useCallback(
-    (exerciseId: string, setIndex: number) => {
-      const completedBlock = handleToggleSetComplete(exerciseId, setIndex);
+    (exerciseId: string, setId: string) => {
+      const completedBlock = handleToggleSetComplete(exerciseId, setId);
       if (completedBlock) {
         setTimeout(() => {
           setCelebrationBlock(completedBlock);

@@ -525,7 +525,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
 
   // ======================== EXERCISE ========================
 
-  const handleExerciseAdd = useCallback((opts: { name: string; discipline: Discipline }) => {
+  const handleExerciseAdd = useCallback((opts: { name: string; discipline: Discipline; fields?: import('../../types/core').FieldDefinition[] }) => {
     if (!block) return;
     handleAddExercise({
       ...opts,
@@ -544,8 +544,8 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     ]);
   }, [handleDeleteExercise]);
 
-  const handleSetComplete = useCallback((exerciseId: string, setIndex: number) => {
-    const completedBlock = handleToggleSetComplete(exerciseId, setIndex);
+  const handleSetComplete = useCallback((exerciseId: string, setId: string) => {
+    const completedBlock = handleToggleSetComplete(exerciseId, setId);
     if (completedBlock) {
       setTimeout(() => {
         setCelebrationBlock(completedBlock);
@@ -559,6 +559,17 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const handleNavigateSubBlock = useCallback((subBlockId: string) => {
     navigation.push('BlockDetail', { blockId: subBlockId });
   }, [navigation]);
+
+  const ensureCanvasData = useWorkoutStore((s) => s.ensureCanvasData);
+  const hydrateCanvasFromContent = useWorkoutStore((s) => s.hydrateCanvasFromContent);
+
+  const handleOpenCanvas = useCallback(() => {
+    if (!block) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    ensureCanvasData(blockId);
+    hydrateCanvasFromContent(blockId);
+    navigation.push('Canvas', { blockId });
+  }, [block, blockId, ensureCanvasData, hydrateCanvasFromContent, navigation]);
 
   // ======================== SECTION CONFIG ========================
 
@@ -883,6 +894,9 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
               <Feather name="arrow-left" size={22} color={Colors.text.primary} />
             </Pressable>
             <View style={styles.topBarActions}>
+              <Pressable onPress={handleOpenCanvas} hitSlop={8}>
+                <Feather name="layout" size={18} color={Colors.accent.primary} />
+              </Pressable>
               <Pressable onPress={handleToggleFavorite} hitSlop={8}>
                 <Feather
                   name="star"

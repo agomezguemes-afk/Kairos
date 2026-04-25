@@ -28,10 +28,10 @@ import { Colors, Typography, Spacing, Radius, Shadows, Animation } from '../them
 
 interface WorkoutBlockProps {
   block: WorkoutBlockType;
-  onUpdateSetValue: (exerciseId: string, setIndex: number, fieldId: string, value: FieldValue) => void;
-  onToggleSetComplete: (exerciseId: string, setIndex: number) => void;
+  onUpdateSetValue: (exerciseId: string, setId: string, fieldId: string, value: FieldValue) => void;
+  onToggleSetComplete: (exerciseId: string, setId: string) => void;
   onAddSet: (exerciseId: string) => void;
-  onRemoveSet: (exerciseId: string, setIndex: number) => void;
+  onRemoveSet: (exerciseId: string, setId: string) => void;
   onUpdateExercise: (exerciseId: string, updates: Partial<ExerciseCardType>) => void;
   onAddExercise: (blockId: string) => void;
   onUpdateBlock: (blockId: string, updates: Partial<WorkoutBlockType>) => void;

@@ -25,6 +25,7 @@ export type RootStackParamList = {
   // Main app
   Dashboard: NavigatorScreenParams<DashboardTabParamList> | undefined;
   BlockDetail: { blockId: string };
+  Canvas: { blockId: string };
   Badges: undefined;
   PRCards: undefined;
   ProgressTree: undefined;

@@ -40,10 +40,10 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 interface ExerciseCardProps {
   exercise: ExerciseCardType;
-  onUpdateSetValue: (exerciseId: string, setIndex: number, fieldId: string, value: FieldValue) => void;
-  onToggleSetComplete: (exerciseId: string, setIndex: number) => void;
+  onUpdateSetValue: (exerciseId: string, setId: string, fieldId: string, value: FieldValue) => void;
+  onToggleSetComplete: (exerciseId: string, setId: string) => void;
   onAddSet: (exerciseId: string) => void;
-  onRemoveSet: (exerciseId: string, setIndex: number) => void;
+  onRemoveSet: (exerciseId: string, setId: string) => void;
   onUpdateExercise: (exerciseId: string, updates: Partial<ExerciseCardType>) => void;
   isActive?: boolean;
   onDeleteExercise?: (exerciseId: string) => void;
@@ -190,7 +190,7 @@ const SetRow: React.FC<{
   totalSets: number;
   onUpdateValue: (fieldId: string, value: FieldValue) => void;
   onToggleComplete: () => void;
-  onRemoveSet: (setIndex: number) => void;
+  onRemoveSet: () => void;
 }> = React.memo(({ set, index, fields, isActive, totalSets, onUpdateValue, onToggleComplete, onRemoveSet }) => {
   const swipeRef = useRef<SwipeableMethods>(null);
 
@@ -209,7 +209,7 @@ const SetRow: React.FC<{
       `¿Eliminar la serie ${index + 1}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => onRemoveSet(index) },
+        { text: 'Eliminar', style: 'destructive', onPress: () => onRemoveSet() },
       ]
     );
   }, [totalSets, index, onRemoveSet]);
@@ -408,9 +408,9 @@ const ExerciseCardComponent: React.FC<ExerciseCardProps> = ({
               fields={exercise.fields}
               isActive={isActive}
               totalSets={exercise.sets.length}
-              onUpdateValue={(fieldId: string, val: FieldValue) => onUpdateSetValue(exercise.id, i, fieldId, val)}
-              onToggleComplete={() => onToggleSetComplete(exercise.id, i)}
-              onRemoveSet={(setIndex: number) => onRemoveSet(exercise.id, setIndex)}
+              onUpdateValue={(fieldId: string, val: FieldValue) => onUpdateSetValue(exercise.id, set.id, fieldId, val)}
+              onToggleComplete={() => onToggleSetComplete(exercise.id, set.id)}
+              onRemoveSet={() => onRemoveSet(exercise.id, set.id)}
             />
           ))}
 

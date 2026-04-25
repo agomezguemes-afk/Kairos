@@ -12,7 +12,7 @@ export function generateId(): string {
 
 // ======================== FIELD SYSTEM ========================
 
-export type FieldType = 'number' | 'text' | 'boolean' | 'rating';
+export type FieldType = 'number' | 'text' | 'boolean' | 'rating' | 'time';
 
 export type BaseFieldId =
   | 'weight'
@@ -182,6 +182,10 @@ export interface ExerciseSet {
   notes: string | null;
 }
 
+export function createSetId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
 export function createEmptySet(
   exerciseCardId: string,
   order: number,
@@ -192,7 +196,7 @@ export function createEmptySet(
     values[field.id] = field.defaultValue ?? null;
   }
   return {
-    id: generateId(),
+    id: createSetId(),
     exercise_card_id: exerciseCardId,
     order,
     values,
@@ -225,14 +229,15 @@ export function createExerciseCard(
   blockId: string,
   order: number,
   discipline: Discipline = 'strength',
-  overrides?: Partial<Pick<ExerciseCard, 'name' | 'icon' | 'color'>>
+  overrides?: Partial<Pick<ExerciseCard, 'name' | 'icon' | 'color'>> & { fields?: FieldDefinition[] }
 ): ExerciseCard {
   const config = DISCIPLINE_CONFIGS[discipline];
   const now = new Date().toISOString();
   const id = generateId();
-  const fields: FieldDefinition[] = config.defaultFields.map(
-    (f: FieldDefinition, i: number): FieldDefinition => ({ ...f, order: i })
-  );
+  const fields: FieldDefinition[] = (overrides?.fields && overrides.fields.length > 0
+    ? overrides.fields
+    : config.defaultFields
+  ).map((f: FieldDefinition, i: number): FieldDefinition => ({ ...f, order: i }));
 
   return {
     id,
@@ -285,6 +290,7 @@ export interface WorkoutBlock {
   sort_order: number;
   size: 'small' | 'medium' | 'large';
   cover: BlockCover | null;
+  canvasData?: CanvasData;
   created_at: ISOTimestamp;
   updated_at: ISOTimestamp;
 }
@@ -321,6 +327,54 @@ export function createWorkoutBlock(
     updated_at: now,
   };
 }
+
+// ======================== CANVAS / WIDGETS ========================
+
+export interface WidgetData {
+  id: string;
+  contentNodeId: string;
+  position: { x: number; y: number };
+  size: { w: number; h: number };
+  zIndex: number;
+  frozen: boolean;
+  snapToGrid: boolean;
+  linkedWidgetIds: string[];
+}
+
+export interface CanvasSettings {
+  showGrid: boolean;
+  gridSize: number;
+  zoom: number;
+}
+
+export interface CanvasData {
+  widgets: Record<string, WidgetData>;
+  settings: CanvasSettings;
+}
+
+export function createWidget(
+  contentNodeId: string,
+  position: { x: number; y: number },
+  size: { w: number; h: number } = { w: 280, h: 160 },
+  zIndex: number = 0,
+): WidgetData {
+  return {
+    id: generateId(),
+    contentNodeId,
+    position,
+    size,
+    zIndex,
+    frozen: false,
+    snapToGrid: false,
+    linkedWidgetIds: [],
+  };
+}
+
+export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
+  showGrid: true,
+  gridSize: 24,
+  zoom: 1,
+};
 
 export function getBlockExercises(block: WorkoutBlock): ExerciseCard[] {
   const result: ExerciseCard[] = [];

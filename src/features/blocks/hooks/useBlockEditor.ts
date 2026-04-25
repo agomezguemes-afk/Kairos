@@ -48,8 +48,14 @@ export function useBlockEditor(blockId: string) {
   }, [blockId, deleteBlock]);
 
   const handleAddExercise = useCallback(
-    (opts: { name: string; discipline: Discipline; section?: string; column?: number }) => {
-      addExercise(blockId, { name: opts.name, discipline: opts.discipline, section: opts.section, column: opts.column });
+    (opts: { name: string; discipline: Discipline; section?: string; column?: number; fields?: import('../../../types/core').FieldDefinition[] }) => {
+      addExercise(blockId, {
+        name: opts.name,
+        discipline: opts.discipline,
+        section: opts.section,
+        column: opts.column,
+        fields: opts.fields,
+      });
     },
     [blockId, addExercise],
   );
@@ -70,15 +76,15 @@ export function useBlockEditor(blockId: string) {
   );
 
   const handleUpdateSetValue = useCallback(
-    (exerciseId: string, setIndex: number, fieldId: string, value: FieldValue) => {
-      updateSetValue(blockId, exerciseId, setIndex, fieldId, value);
+    (exerciseId: string, setId: string, fieldId: string, value: FieldValue) => {
+      updateSetValue(blockId, exerciseId, setId, fieldId, value);
     },
     [blockId, updateSetValue],
   );
 
   const handleToggleSetComplete = useCallback(
-    (exerciseId: string, setIndex: number) => {
-      const toggled = toggleSetComplete(blockId, exerciseId, setIndex);
+    (exerciseId: string, setId: string) => {
+      const toggled = toggleSetComplete(blockId, exerciseId, setId);
       if (!toggled || !toggled.wasCompleted) return null;
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -116,8 +122,8 @@ export function useBlockEditor(blockId: string) {
   );
 
   const handleRemoveSet = useCallback(
-    (exerciseId: string, setIndex: number) => {
-      removeSet(blockId, exerciseId, setIndex);
+    (exerciseId: string, setId: string) => {
+      removeSet(blockId, exerciseId, setId);
     },
     [blockId, removeSet],
   );
