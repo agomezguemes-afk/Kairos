@@ -8,6 +8,7 @@ import { GamificationProvider } from './src/context/GamificationContext';
 import { TreeProvider } from './src/context/TreeContext';
 import { MissionBridge } from './src/context/MissionBridge';
 import { useAuthStore, startAuthListener } from './src/store/useAuthStore';
+import { ThemeProvider } from './src/theme/ThemeContext';
 
 // Separate component so useAuthStore hook runs inside the React tree
 // (after GestureHandlerRootView / SafeAreaProvider are mounted).
@@ -23,17 +24,19 @@ function AppContent() {
   }, [initialize]);
 
   return (
-    <UserProfileProvider>
-      <GamificationProvider>
-        <TreeProvider>
-          <MissionBridge>
-            <TrainingProvider>
-              <AppNavigator />
-            </TrainingProvider>
-          </MissionBridge>
-        </TreeProvider>
-      </GamificationProvider>
-    </UserProfileProvider>
+    <ThemeProvider>
+      <UserProfileProvider>
+        <GamificationProvider>
+          <TreeProvider>
+            <MissionBridge>
+              <TrainingProvider>
+                <AppNavigator />
+              </TrainingProvider>
+            </MissionBridge>
+          </TreeProvider>
+        </GamificationProvider>
+      </UserProfileProvider>
+    </ThemeProvider>
   );
 }
 

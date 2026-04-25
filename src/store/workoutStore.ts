@@ -35,9 +35,13 @@ import type { AIAction, AIExerciseTemplate } from '../types/ai';
 
 const MOCK_USER_ID = 'user_001';
 
+export type ThemePreference = 'light' | 'dark' | 'system';
+
 interface WorkoutState {
   blocks: WorkoutBlock[];
   pendingHighlight: string | null;
+  themePreference: ThemePreference;
+  setThemePreference: (pref: ThemePreference) => void;
 
   addBlock: (
     discipline?: Discipline,
@@ -194,6 +198,8 @@ export const useWorkoutStore = create<WorkoutState>()(
     (set, get) => ({
       blocks: [],
       pendingHighlight: null,
+      themePreference: 'system' as ThemePreference,
+      setThemePreference: (pref) => set({ themePreference: pref }),
 
       addBlock: (discipline = 'general', overrides) => {
         const block = createWorkoutBlock(MOCK_USER_ID, get().blocks.length, discipline, overrides);

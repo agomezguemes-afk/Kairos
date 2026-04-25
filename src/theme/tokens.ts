@@ -54,7 +54,62 @@ export const Colors = {
     info:          '#4A7DE8',
     infoMuted:     'rgba(74,125,232,0.12)',
   },
+
+  // ── v2 expanded tokens (theme-aware palette) ───────────────────────────────
+  gold: {
+    300: '#E8D48B',
+    500: '#D4AF37',
+    700: '#B8960F',
+  },
+  success_v2: '#2D6A4F',
+  warning_v2: '#E09F3E',
+  danger:     '#C1292E',
+  surface_v2: {
+    light: '#FFFFFF',
+    warm:  '#F5F0E8',
+    dark:  '#1A1A2E',
+  },
+  text_v2: {
+    primary:   { light: '#1A1A2E', dark: '#F5F0E8' },
+    secondary: { light: '#6B7280', dark: '#9CA3AF' },
+    muted:     { light: '#9CA3AF', dark: '#6B7280' },
+  },
 } as const;
+
+export type ThemeMode = 'light' | 'dark';
+
+export interface ThemeColors {
+  surface: string;
+  surfaceWarm: string;
+  surfaceElevated: string;
+  text: { primary: string; secondary: string; muted: string };
+  border: string;
+  gold: { 300: string; 500: string; 700: string };
+  success: string;
+  warning: string;
+  danger: string;
+  shadowOpacity: number;
+}
+
+export function buildThemeColors(mode: ThemeMode): ThemeColors {
+  const isDark = mode === 'dark';
+  return {
+    surface:         isDark ? Colors.surface_v2.dark  : Colors.surface_v2.light,
+    surfaceWarm:     isDark ? '#22223A'                : Colors.surface_v2.warm,
+    surfaceElevated: isDark ? '#2A2A44'                : Colors.background.elevated,
+    text: {
+      primary:   isDark ? Colors.text_v2.primary.dark   : Colors.text_v2.primary.light,
+      secondary: isDark ? Colors.text_v2.secondary.dark : Colors.text_v2.secondary.light,
+      muted:     isDark ? Colors.text_v2.muted.dark     : Colors.text_v2.muted.light,
+    },
+    border:        isDark ? 'rgba(245,240,232,0.16)'   : 'rgba(26,26,46,0.08)',
+    gold:          { ...Colors.gold },
+    success:       Colors.success_v2,
+    warning:       Colors.warning_v2,
+    danger:        Colors.danger,
+    shadowOpacity: isDark ? 0 : 0.08,
+  };
+}
 
 // ── Typography ───────────────────────────────────────────────────────────────
 // Body: system sans-serif (SF Pro / Roboto) — no extra import needed.
@@ -90,6 +145,12 @@ export const Typography = {
     extraWide: 1.5,
     caps:      2,
   },
+  // ── v2 semantic presets ──────────────────────────────────────────────────
+  display: { fontSize: 32, fontWeight: '700' as const, lineHeight: 40 },
+  heading: { fontSize: 22, fontWeight: '600' as const, lineHeight: 28 },
+  body:    { fontSize: 16, fontWeight: '400' as const, lineHeight: 24 },
+  caption: { fontSize: 12, fontWeight: '500' as const, lineHeight: 16 },
+  mono:    { fontSize: 16, fontWeight: '400' as const, fontFamily: 'monospace', lineHeight: 24 },
 } as const;
 
 // ── Spacing ──────────────────────────────────────────────────────────────────

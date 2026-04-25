@@ -36,6 +36,7 @@ import SlashCommandMenu from './components/SlashCommandMenu';
 import BlockActionSheet from './components/BlockActionSheet';
 import DraggableNode from './components/DraggableNode';
 import BlockAISheet from './components/BlockAISheet';
+import EmptyState from '../../components/EmptyState';
 import CompletionCelebration from '../../components/CompletionCelebration';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
 
@@ -860,6 +861,9 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   };
 
   const renderContent = () => {
+    if (block && block.content.length === 0) {
+      return <EmptyState type="blocks" />;
+    }
     let secIdx = 0;
     return renderGroups.map((group) => {
       const idx = secIdx++;

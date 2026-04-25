@@ -23,6 +23,7 @@ import * as Haptics from 'expo-haptics';
 
 import ExerciseRow from './components/ExerciseRow';
 import AddExerciseSheet from './components/AddExerciseSheet';
+import EmptyState from '../../components/EmptyState';
 import CompletionCelebration from '../../components/CompletionCelebration';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
 import { useBlockEditor } from './hooks/useBlockEditor';
@@ -275,11 +276,8 @@ export default function BlockDetailScreen({ route, navigation }: any) {
             </Text>
 
             {getBlockExercises(block).length === 0 ? (
-              <Animated.View entering={FadeIn.duration(300)} style={styles.emptyExercises}>
-                <Feather name="plus-circle" size={32} color={Colors.text.disabled} />
-                <Text style={styles.emptyExercisesText}>
-                  Agrega tu primer ejercicio
-                </Text>
+              <Animated.View entering={FadeIn.duration(300)}>
+                <EmptyState type="exercises" />
               </Animated.View>
             ) : (
               <View style={styles.exerciseList}>

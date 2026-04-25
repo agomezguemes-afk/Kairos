@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   runOnJS,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import type { CanvasSettings } from '../types/core';
@@ -15,6 +16,7 @@ interface CanvasViewProps {
   width: number;
   height: number;
   settings: CanvasSettings;
+  zoom?: SharedValue<number>;
   onZoomChange?: (zoom: number) => void;
   children: React.ReactNode;
 }
@@ -22,8 +24,9 @@ interface CanvasViewProps {
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 2.5;
 
-export default function CanvasView({ width, height, settings, onZoomChange, children }: CanvasViewProps) {
-  const scale = useSharedValue(settings.zoom);
+export default function CanvasView({ width, height, settings, zoom, onZoomChange, children }: CanvasViewProps) {
+  const fallback = useSharedValue(settings.zoom);
+  const scale = zoom ?? fallback;
   const baseScale = useSharedValue(settings.zoom);
 
   const pinch = Gesture.Pinch()

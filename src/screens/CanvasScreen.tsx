@@ -3,16 +3,21 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useSharedValue } from 'react-native-reanimated';
 
 import CanvasView from '../components/CanvasView';
-import Widget from '../components/Widget';
+import Widget, { type CanvasInteraction, type BoundsSnapshot } from '../components/Widget';
+import GuideLines, { emptyGuides, type GuideSlot } from '../components/GuideLines';
+import EmptyState from '../components/EmptyState';
+import KIcon from '../components/icons/KIcon';
 import { useWorkoutStore } from '../store/workoutStore';
+import { useTheme } from '../theme/ThemeContext';
+import { getNodeLabel } from '../features/blocks/components/nodeMeta';
 import type { RootStackParamList } from '../types/navigation';
 import type { WidgetData } from '../types/core';
 import { DEFAULT_CANVAS_SETTINGS } from '../types/core';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
+import { Typography, Spacing, Radius, Shadows } from '../theme/tokens';
 
 type CanvasRoute = RouteProp<RootStackParamList, 'Canvas'>;
 
@@ -24,6 +29,7 @@ export default function CanvasScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { blockId } = route.params;
+  const { colors, preference, setPreference, mode } = useTheme();
 
   const block = useWorkoutStore(
     useCallback((s) => s.blocks.find((b) => b.id === blockId) ?? null, [blockId]),
@@ -44,6 +50,48 @@ export default function CanvasScreen() {
   }, [block?.canvasData?.widgets]);
 
   const settings = block?.canvasData?.settings ?? DEFAULT_CANVAS_SETTINGS;
+
+  const boundsSV = useSharedValue<BoundsSnapshot[]>([]);
+  const guideV = useSharedValue<GuideSlot[]>(emptyGuides());
+  const guideH = useSharedValue<GuideSlot[]>(emptyGuides());
+  const zoomSV = useSharedValue<number>(settings.zoom);
+  const draggingId = useSharedValue<string | null>(null);
+
+  useEffect(() => {
+    if (!block) {
+      boundsSV.value = [];
+      return;
+    }
+    const next: BoundsSnapshot[] = widgets.map((w) => {
+      const node = block.content.find((n) => n.id === w.contentNodeId);
+      return {
+        id: w.id,
+        x: w.position.x,
+        y: w.position.y,
+        w: w.size.w,
+        h: w.size.h,
+        label: node ? getNodeLabel(node) : '',
+      };
+    });
+    boundsSV.value = next;
+  }, [widgets, block, boundsSV]);
+
+  const handleSizeMatch = useCallback((_text: string) => {}, []);
+
+  const ctx: CanvasInteraction = useMemo(
+    () => ({
+      bounds: boundsSV,
+      guideV,
+      guideH,
+      zoom: zoomSV,
+      canvasW: CANVAS_W,
+      canvasH: CANVAS_H,
+      gridSize: settings.gridSize,
+      draggingId,
+      onSizeMatch: handleSizeMatch,
+    }),
+    [boundsSV, guideV, guideH, zoomSV, settings.gridSize, draggingId, handleSizeMatch],
+  );
 
   const handleToggleGrid = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,29 +116,45 @@ export default function CanvasScreen() {
     [blockId, updateCanvasSettings],
   );
 
+  const cycleTheme = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (preference === 'system') setPreference('light');
+    else if (preference === 'light') setPreference('dark');
+    else setPreference('system');
+  }, [preference, setPreference]);
+
+  const themeIcon = preference === 'system' ? 'settings' : preference === 'dark' ? 'lock' : 'eye';
+
   if (!block) {
     return (
-      <View style={[styles.screen, styles.center]}>
-        <Text style={styles.empty}>Bloque no encontrado</Text>
+      <View style={[styles.screen, styles.center, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.empty, { color: colors.text.secondary }]}>Bloque no encontrado</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+    <View style={[styles.screen, { backgroundColor: colors.surface, paddingTop: insets.top }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => nav.goBack()} hitSlop={8} style={styles.iconBtn}>
-          <Feather name="arrow-left" size={20} color={Colors.text.primary} />
+          <KIcon name="x" size={18} color={colors.text.primary} />
         </Pressable>
         <View style={styles.titleWrap}>
-          <Text style={styles.title} numberOfLines={1}>{block.name}</Text>
-          <Text style={styles.subtitle}>Canvas · {widgets.length} widgets</Text>
+          <Text style={[styles.title, { color: colors.text.primary }]} numberOfLines={1}>
+            {block.name}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.text.muted }]}>
+            Canvas · {widgets.length} widgets · {mode}
+          </Text>
         </View>
+        <Pressable onPress={cycleTheme} hitSlop={8} style={styles.iconBtn}>
+          <KIcon name={themeIcon} size={18} color={colors.gold[500]} />
+        </Pressable>
         <Pressable onPress={handleToggleGrid} hitSlop={8} style={styles.iconBtn}>
-          <Feather
+          <KIcon
             name="grid"
             size={18}
-            color={settings.showGrid ? Colors.accent.primary : Colors.text.tertiary}
+            color={settings.showGrid ? colors.gold[500] : colors.text.muted}
           />
         </Pressable>
       </View>
@@ -99,35 +163,37 @@ export default function CanvasScreen() {
         width={CANVAS_W}
         height={CANVAS_H}
         settings={settings}
+        zoom={zoomSV}
         onZoomChange={handleZoomChange}
       >
+        <GuideLines guideV={guideV} guideH={guideH} width={CANVAS_W} height={CANVAS_H} />
         {widgets.map((w) => (
-          <Widget key={w.id} blockId={blockId} widget={w} />
+          <Widget key={w.id} blockId={blockId} widget={w} ctx={ctx} />
         ))}
       </CanvasView>
 
+      {widgets.length === 0 && (
+        <View pointerEvents="none" style={styles.emptyOverlay}>
+          <EmptyState type="canvas" />
+        </View>
+      )}
+
       <Pressable
         onPress={handleAddNodeWidget}
-        style={[styles.fab, { bottom: insets.bottom + 24 }]}
+        style={[styles.fab, { backgroundColor: colors.gold[500], bottom: insets.bottom + 24 }]}
       >
-        <Feather name="plus" size={22} color={Colors.text.inverse} />
+        <KIcon name="plus" size={22} color="#FFFFFF" />
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Colors.background.surface,
-  },
-  center: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  screen: { flex: 1 },
+  center: { alignItems: 'center', justifyContent: 'center' },
   empty: {
-    fontSize: Typography.size.body,
-    color: Colors.text.secondary,
+    fontSize: Typography.body.fontSize,
+    lineHeight: Typography.body.lineHeight,
   },
   header: {
     flexDirection: 'row',
@@ -136,23 +202,23 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.border.light,
-    backgroundColor: Colors.background.surface,
   },
-  iconBtn: {
-    padding: Spacing.xs,
-  },
-  titleWrap: {
-    flex: 1,
-  },
+  iconBtn: { padding: Spacing.xs },
+  titleWrap: { flex: 1 },
   title: {
-    fontSize: Typography.size.subheading,
-    fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    fontSize: Typography.heading.fontSize,
+    fontWeight: Typography.heading.fontWeight,
+    lineHeight: Typography.heading.lineHeight,
   },
   subtitle: {
-    fontSize: Typography.size.micro,
-    color: Colors.text.tertiary,
+    fontSize: Typography.caption.fontSize,
+    fontWeight: Typography.caption.fontWeight,
+    lineHeight: Typography.caption.lineHeight,
+  },
+  emptyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fab: {
     position: 'absolute',
@@ -162,7 +228,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.accent.primary,
     ...Shadows.modal,
   },
 });
