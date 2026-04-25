@@ -20,7 +20,7 @@ import type {
   FieldDefinition,
   FieldValue,
 } from '../types/core';
-import { calculateBlockStats, DISCIPLINE_CONFIGS } from '../types/core';
+import { calculateBlockStats, getBlockExercises, DISCIPLINE_CONFIGS } from '../types/core';
 import KairosIcon from './KairosIcon';
 import { Colors, Typography, Spacing, Radius, Shadows, Animation } from '../theme/index';
 
@@ -216,7 +216,7 @@ const WorkoutBlockComponent: React.FC<WorkoutBlockProps> = ({
 
       {/* Exercise list */}
       <View style={styles.list}>
-        {block.exercises.map((ex: ExerciseCardType) => {
+        {getBlockExercises(block).map((ex: ExerciseCardType) => {
           const swipeRef = React.createRef<SwipeableMethods>();
           const card = (
             <ExerciseCard

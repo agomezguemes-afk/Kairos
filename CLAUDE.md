@@ -2,6 +2,33 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Builder Methodology (inspired by gstack)
+
+### Boil the Lake
+With AI-assisted coding, implementation completeness has minimal marginal cost. Choose the thorough version when the difference is only minutes of additional work. Complete lakes (full test coverage, edge cases, error handling); flag oceans (system rewrites, platform migrations) as out of scope.
+
+- Never select a shorter implementation that covers only 90% of requirements.
+- Never defer tests or error handling to a subsequent PR.
+- If adding 70 more lines makes the solution comprehensive, add them.
+
+### Search Before Building
+Before designing from scratch, check: (1) Does the runtime or framework already provide this? (2) Is there a battle-tested library? (3) Does the codebase already have a similar pattern?
+
+Apply independent reasoning — don't accept new approaches uncritically, but don't reinvent the wheel either. The goal is "11 out of 10": understand why others chose their approach, then find where it falls short.
+
+### User Sovereignty
+Álvaro decides. AI recommends with explanations, acknowledges missing context, and requests permission before implementing changes that contradict stated direction. User context (domain knowledge, preferences, strategic timing) always exceeds model knowledge.
+
+### Sprint Discipline
+Think → Plan → Build → Review → Test → Ship → Reflect. Each feature should follow this loop. For non-trivial work:
+1. Clarify scope and edge cases before coding.
+2. Build the complete solution (boil the lake).
+3. Test on-device before reporting done — type checking and test suites verify code correctness, not feature correctness.
+4. Review your own changes for regressions before shipping.
+
+### Bisectable Commits
+Each commit should be one logical change — renames separate from rewrites, infrastructure separate from features. Every commit should compile and run.
+
 ## Commands
 
 ```bash
@@ -38,20 +65,25 @@ A single **`TrainingContext`** (`src/context/TrainingContext.tsx`) holds all glo
 
 Persistence (AsyncStorage) and analytics are **not yet implemented** — both have TODO comments in context.
 
-### Styling
+### Styling & Design System
 
-Two styling mechanisms coexist:
-- **Design tokens** at `src/theme/tokens.ts` — colors, typography, spacing, radii, shadows, animation presets. Dark mode by default (background `#0A0A0F`, accent gold `#C9A96E`).
-- **NativeWind v4** (`nativewind`) is configured but minimally used.
+**Design tokens** at `src/theme/tokens.ts` — the single source of truth for all visual properties:
+- **Colors**: warm off-white canvas (`#F7F7F5`), white surfaces, accent gold (`#C9A96E`).
+- **Typography**: system sans-serif, 7-step scale (hero → micro), 5 weights.
+- **Spacing**: base unit 4px, scale from xs(4) to 3xl(32), screen padding preset.
+- **Radii, shadows, animation springs**: all tokenized.
 
-Prefer design tokens (`src/theme/tokens.ts`) over hardcoded values for new UI work.
+**Gold accent is rare and meaningful.** Use it for primary actions, highlights, and important UI elements — not decoration. Data and user content get visual emphasis; chrome stays neutral.
 
-### Animation
+**NativeWind v4** (`nativewind`) is configured but minimally used. Prefer tokens.
 
-- `react-native-reanimated` (entering/exiting animations, e.g. `FadeInDown`)
-- `react-native-reanimated`'s `Animated` API for spring/scale/opacity transitions
+### Animation & Motion
 
-Use animation presets from `tokens.ts` (`tokens.animation.spring.*`) for consistency.
+Motion serves comprehension only — every animation must help the user understand what changed.
+- `react-native-reanimated` for entering/exiting and gesture-driven animations.
+- Spring presets in `tokens.ts` (`Animation.spring.*`) for consistency.
+- **Duration guidelines**: micro interactions 100ms, standard transitions 180-280ms, complex layout shifts 480ms max.
+- No gratuitous motion. If removing an animation doesn't hurt clarity, remove it.
 
 ### Types
 
@@ -136,19 +168,24 @@ Create a completely different gamification system (e.g., narrative‑driven, soc
 
 Only requirement: The AI must be able to evolve with the user's data. Gamification must feel earned, not arbitrary.
 
-6. Coding Conventions (suggested)
-TypeScript strict – you may loosen only if a third‑party library forces you.
+6. Coding Conventions
+TypeScript strict – loosen only if a third‑party library forces you.
 
-React.memo, useMemo, useCallback – use them when they actually help performance.
+React.memo, useMemo, useCallback – use when they actually help performance.
 
-File naming: PascalCase for components, camelCase for utilities – flexible if you have a better convention.
+File naming: PascalCase for components, camelCase for utilities.
 
-Import order: not enforced; aim for readability.
+Comments: Explain WHY, not what. No multi-paragraph docstrings. If removing the comment wouldn't confuse a future reader, don't write it.
 
-Comments: Explain why, not what – but you may adopt a different doc style.
+**Quality gates (gstack-inspired):**
+- Every edge case within reach should be handled — don't build 90% solutions.
+- No empty catch blocks — handle or propagate the error.
+- Validate at system boundaries (user input, external APIs), trust internal code.
+- Don't add features, refactor, or introduce abstractions beyond what the task requires.
+- Three similar lines are better than a premature abstraction.
 
-7. Useful Commands (recap)
-bash
+7. Useful Commands
+```bash
 # Clean everything
 rm -rf node_modules .expo package-lock.json
 npx expo start --clear --reset-cache
@@ -162,6 +199,23 @@ npx expo run:ios
 
 # Fix dependency conflicts
 npm install --legacy-peer-deps
+```
+
+### Physical iPhone Deployment (iPhone 12 Pro)
+```bash
+# Build Release (standalone, no Metro required)
+xcodebuild -workspace ios/Kairos.xcworkspace -scheme Kairos \
+  -configuration Release -destination 'id=00008101-00051D4C3C51003A' \
+  CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=FH6BYZT9F3
+
+# Install on device
+xcrun devicectl device install app --device 00008101-00051D4C3C51003A \
+  path/to/Kairos.app
+
+# Launch on device
+xcrun devicectl device process launch --device 00008101-00051D4C3C51003A \
+  com.alvaro.kairos
+```
 8. Known Issues & Solutions (for reference)
 Error	Common Cause	Possible Solution
 [runtime not ready]	Reanimated plugin misconfigured	Ensure plugin is last in babel.config.js; clear caches.
@@ -170,20 +224,19 @@ App entry not found	Top‑level module error	Test with minimal App.tsx; check fo
 Hermes conflict	Reanimated requires JSC	Force "jsEngine": "jsc" in app.json temporarily.
 If you encounter other issues, research and propose a fix. You may also suggest upgrading Expo or changing the toolchain.
 
-9. Roadmap (suggested, not mandatory)
-This is a possible sequence of sprints. You can reorder, skip, or add new phases.
+9. Roadmap (sprint-based, gstack-style)
+Each sprint follows: Think → Plan → Build → Review → Test → Ship.
 
-Sprint 0 (dynamic types) – Ensure data model is flexible.
-
-Sprint 1 (core UI components) – Build or integrate high‑quality components.
-
-Sprint 2 (offline persistence) – Implement storage with sync capabilities.
-
-Sprint 3 (AI mock & real integration) – Start with mock, then plug in an LLM.
-
-Sprint 4 (gamification) – Badges, trees, cards.
-
-Sprint 5 (social features) – Friends, challenges.
+Sprint 0 (DONE) – Dynamic types, flexible data model.
+Sprint 1 (DONE) – Core UI components: ExerciseRow, SetRow, BlockEditor, ComponentPalette.
+Sprint 2 (DONE) – Zustand + AsyncStorage persistence, block CRUD.
+Sprint 3 (DONE) – Column system: 2/3-col sections, drag-and-drop, compact rendering.
+Sprint 4 (DONE) – AI Lab + gamification: missions, chat, badges, streaks, progress tree, PR cards.
+Sprint 5 (CURRENT) – Polish & completeness: on-device testing, edge case fixes, performance.
+Sprint 6 – Canvas layout: drag/resize blocks within apps, widget-style arrangement.
+Sprint 7 – Real AI integration: connect to LLM APIs, replace mock services.
+Sprint 8 – Social features: friends, challenges, shared blocks.
+Sprint 9 – Platform integrations: Apple Health, Google Fit, export, analytics.
 
 10. What you are ENCOURAGED to do
 ✅ Experiment with new libraries, even if they replace current ones.
@@ -252,20 +305,20 @@ Once the interface is polished, we will add:
 
 ### Current status (what has been implemented)
 
-- Dynamic fields for exercises.
-- Basic `ExerciseCardV2` and `WorkoutBlockV2` components.
-- Reanimated + Gesture Handler configured (with worklets plugin installed).
-- Deletion at block/exercise/set level (added recently).
-- Icon picker and color picker (basic).
-- AsyncStorage offline persistence.
+- **Design system**: White background + gold accents fully tokenized (`src/theme/tokens.ts`).
+- **Block editor**: Full content node system with text, exercises, images, timers, spacers, dashboards, dividers, custom fields.
+- **Column system**: 2-col and 3-col sections with independent line editing, “+” buttons, “/” slash commands per column, compact rendering, cross-section drag-and-drop.
+- **Persistence**: Zustand store (`src/store/workoutStore.ts`) with AsyncStorage hydration.
+- **AI Lab**: Mock chat assistant, weekly missions system.
+- **Gamification**: Streaks, badges, PR cards, visual progress tree with growth animations.
+- **Physical device**: Builds and runs on iPhone 12 Pro (Release config, embedded JS bundle).
 
 ### Immediate next steps (prioritised)
 
-1. **White background + gold accents** – Update design tokens (`Colors.background.void` → white, keep gold).
-2. **App-level containers** – Create `ActivityApp` component (the “app” on the home screen) that holds blocks.
-3. **Canvas layout** – Allow users to drag and resize blocks within an app (like widgets). Use `react-native-draggable-grid` or similar.
-4. **AI mock services** – Implement the AI Lab screen with natural language input and mock responses.
-5. **Polish exercise design** – Make the exercise cards visually distinctive (maybe a card flip or micro‑animations).
+1. **Polish & completeness** – Test all features on-device, fix edge cases, ensure no regressions.
+2. **Canvas layout** – Widget-style block arrangement with drag/resize within apps.
+3. **Real AI integration** – Replace mock AI services with actual LLM API calls.
+4. **Apple Health / Google Fit** – Read/write health data for cross-platform tracking.
 
 ### What you (Claude Code) are free to do
 

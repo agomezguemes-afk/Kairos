@@ -18,7 +18,8 @@ import OnboardingChatScreen from '../screens/OnboardingChatScreen';
 import SplashScreen from '../screens/SplashScreen';
 
 import HomeTab from '../screens/tabs/HomeTab';
-import BlockLibraryScreen from '../screens/BlockLibraryScreen';
+import BlocksScreen from '../features/blocks/BlocksScreen';
+import BlockEditorScreen from '../features/blocks/BlockEditorScreen';
 import AchievementsTab from '../screens/tabs/AchievementsTab';
 import AILabScreen from '../screens/AILabScreen';
 import ProfileTab from '../screens/tabs/ProfileTab';
@@ -45,7 +46,7 @@ function DashboardTabs() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="HomeTab"         component={HomeTab} />
-      <Tab.Screen name="WorkoutTab"      component={BlockLibraryScreen} />
+      <Tab.Screen name="WorkoutTab"      component={BlocksScreen} />
       <Tab.Screen name="AchievementsTab" component={AchievementsTab} />
       <Tab.Screen name="AILabTab"        component={AILabScreen} />
       <Tab.Screen name="ProfileTab"      component={ProfileTab} />
@@ -69,6 +70,7 @@ export default function AppNavigator() {
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Dashboard"    component={DashboardTabs} />
+            <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="Badges"        component={BadgesScreen} />
             <Stack.Screen name="PRCards"       component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
@@ -117,6 +119,7 @@ export default function AppNavigator() {
         ) : (
           <>
             <Stack.Screen name="Dashboard"    component={DashboardTabs} />
+            <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="Badges"        component={BadgesScreen} />
             <Stack.Screen name="PRCards"       component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />

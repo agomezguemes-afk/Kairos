@@ -3,6 +3,7 @@
 // Caps history at MAX_DAYS / MAX_EXERCISES to keep tokens bounded as data grows.
 
 import type { WorkoutBlock, ExerciseCard, ExerciseSet } from '../types/core';
+import { getBlockExercises } from '../types/core';
 import type { UserProfile } from '../types/profile';
 import type { Streak, PRCard, Badge } from '../types/gamification';
 import type { Mission } from '../types/mission';
@@ -86,8 +87,8 @@ export function buildUserContextSnapshot(
     id: b.id,
     name: b.name,
     discipline: b.discipline,
-    exerciseCount: b.exercises.length,
-    exerciseNames: b.exercises.map((ex) => ex.name),
+    exerciseCount: getBlockExercises(b).length,
+    exerciseNames: getBlockExercises(b).map((ex) => ex.name),
   }));
 
   const recentExercises = collectRecentExercises(raw.blocks, cutoff).slice(
@@ -213,7 +214,7 @@ function collectRecentExercises(
   const out: RecentExerciseSummary[] = [];
 
   for (const block of blocks) {
-    for (const ex of block.exercises) {
+    for (const ex of getBlockExercises(block)) {
       const summary = summarizeExercise(ex, block, cutoffMs);
       if (summary) out.push(summary);
     }

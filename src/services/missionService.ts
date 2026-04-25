@@ -2,7 +2,7 @@
 // Mock AI logic for generating and evaluating weekly missions.
 // Pure functions — no side effects.
 
-import { generateId } from '../types/core';
+import { generateId, getBlockExercises } from '../types/core';
 import type { WorkoutBlock } from '../types/core';
 import type { Streak, Badge } from '../types/gamification';
 import type {
@@ -218,7 +218,7 @@ export function evaluateMissionProgress(
     case 'blocks_with_completed_sets': {
       let count = 0;
       for (const block of blocks) {
-        const hasCompleted = block.exercises.some((ex) =>
+        const hasCompleted = getBlockExercises(block).some((ex) =>
           ex.sets.some((s) => s.completed),
         );
         if (hasCompleted) count++;
@@ -229,7 +229,7 @@ export function evaluateMissionProgress(
     case 'total_completed_sets': {
       let total = 0;
       for (const block of blocks) {
-        for (const ex of block.exercises) {
+        for (const ex of getBlockExercises(block)) {
           total += ex.sets.filter((s) => s.completed).length;
         }
       }
@@ -245,7 +245,7 @@ export function evaluateMissionProgress(
     case 'new_exercises': {
       let newCount = 0;
       for (const block of blocks) {
-        for (const ex of block.exercises) {
+        for (const ex of getBlockExercises(block)) {
           const hasCompleted = ex.sets.some((s) => s.completed);
           if (hasCompleted && !previousExerciseIds.has(ex.id)) {
             newCount++;
@@ -258,7 +258,7 @@ export function evaluateMissionProgress(
     case 'unique_disciplines': {
       const disciplines = new Set<string>();
       for (const block of blocks) {
-        const hasCompleted = block.exercises.some((ex) =>
+        const hasCompleted = getBlockExercises(block).some((ex) =>
           ex.sets.some((s) => s.completed),
         );
         if (hasCompleted) disciplines.add(block.discipline);
@@ -269,7 +269,7 @@ export function evaluateMissionProgress(
     case 'active_days': {
       const days = new Set<string>();
       for (const block of blocks) {
-        for (const ex of block.exercises) {
+        for (const ex of getBlockExercises(block)) {
           for (const s of ex.sets) {
             if (s.completed && s.completed_at) {
               days.add(s.completed_at.slice(0, 10));
@@ -283,7 +283,7 @@ export function evaluateMissionProgress(
     case 'total_volume_kg': {
       let vol = 0;
       for (const block of blocks) {
-        for (const ex of block.exercises) {
+        for (const ex of getBlockExercises(block)) {
           const hasWeight = ex.fields.some((f) => f.id === 'weight');
           const hasReps = ex.fields.some((f) => f.id === 'reps');
           if (hasWeight && hasReps) {

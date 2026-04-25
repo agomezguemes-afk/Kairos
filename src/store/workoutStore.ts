@@ -1,7 +1,3 @@
-// KAIROS — Workout Store
-// Zustand store for blocks with AsyncStorage persistence.
-// Provides mutations for blocks/exercises and an AI action dispatcher.
-
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,10 +14,19 @@ import {
   createWorkoutBlock,
   createExerciseCard,
   createEmptySet,
+  generateId,
 } from '../types/core';
+import type { ContentNode } from '../types/content';
+import {
+  createExerciseNode,
+  createTextNode,
+  createDividerNode,
+  createSubBlockNode,
+  createImageNode,
+  getNextOrder,
+  reorderNodes,
+} from '../types/content';
 import type { AIAction, AIExerciseTemplate } from '../types/ai';
-
-// ======================== STORE SHAPE ========================
 
 const MOCK_USER_ID = 'user_001';
 
@@ -29,9 +34,8 @@ interface WorkoutState {
   blocks: WorkoutBlock[];
   pendingHighlight: string | null;
 
-  // Block actions
   addBlock: (
-    discipline: Discipline,
+    discipline?: Discipline,
     overrides?: { name?: string; icon?: string; color?: string; cover?: BlockCover },
   ) => string;
   updateBlock: (blockId: string, updates: Partial<WorkoutBlock>) => void;
@@ -39,10 +43,16 @@ interface WorkoutState {
   reorderBlocks: (blocks: WorkoutBlock[]) => void;
   replaceAllBlocks: (blocks: WorkoutBlock[]) => void;
 
-  // Exercise actions
+  addContentNode: (blockId: string, node: ContentNode) => void;
+  updateContentNode: (blockId: string, nodeId: string, updates: Partial<ContentNode>) => void;
+  deleteContentNode: (blockId: string, nodeId: string) => void;
+  reorderContentNodes: (blockId: string, nodeIds: string[]) => void;
+  duplicateContentNode: (blockId: string, nodeId: string) => void;
+  moveContentNode: (blockId: string, nodeId: string, direction: 'up' | 'down') => void;
+
   addExercise: (
     blockId: string,
-    opts?: { name?: string; icon?: string; color?: string; discipline?: Discipline },
+    opts?: { name?: string; icon?: string; color?: string; discipline?: Discipline; section?: string; column?: number },
   ) => void;
   updateExercise: (
     blockId: string,
@@ -52,7 +62,6 @@ interface WorkoutState {
   deleteExercise: (blockId: string, exerciseId: string) => void;
   deleteExerciseByName: (blockId: string, name: string) => void;
 
-  // Set actions
   updateSetValue: (
     blockId: string,
     exerciseId: string,
@@ -68,27 +77,31 @@ interface WorkoutState {
   addSet: (blockId: string, exerciseId: string) => void;
   removeSet: (blockId: string, exerciseId: string, setIndex: number) => void;
 
-  // AI dispatcher
   dispatchAIActions: (actions: AIAction[]) => string | null;
-
-  // Highlight
   setHighlight: (blockId: string | null) => void;
 }
 
-// ======================== TEMPLATE HELPER ========================
+function updateExerciseInContent(
+  content: ContentNode[],
+  exerciseId: string,
+  updater: (ex: ExerciseCard) => ExerciseCard,
+): { content: ContentNode[]; exercise: ExerciseCard | null } {
+  let found: ExerciseCard | null = null;
+  const next = content.map((node) => {
+    if (node.type !== 'exercise' || node.data.exercise.id !== exerciseId) return node;
+    const updated = updater(node.data.exercise);
+    found = updated;
+    return { ...node, data: { exercise: updated } } as typeof node;
+  });
+  return { content: next, exercise: found };
+}
 
-/**
- * Rebuild an ExerciseCard's sets/rest/default_sets_count from an AI template.
- * Keeps the exercise structurally identical to manually created exercises —
- * the new sets flow through createEmptySet with the exercise's own fields.
- */
 function applyTemplateToExercise(
   ex: ExerciseCard,
   template: AIExerciseTemplate,
 ): ExerciseCard {
   const setsCount = template.sets_count ?? ex.default_sets_count;
   const nextRest = template.rest_seconds ?? ex.rest_seconds;
-
   const sets = Array.from({ length: setsCount }, (_, i) =>
     createEmptySet(ex.id, i, ex.fields),
   );
@@ -123,7 +136,23 @@ function applyTemplateToExercise(
   };
 }
 
-// ======================== STORE ========================
+function getExercisesFromBlock(block: WorkoutBlock): ExerciseCard[] {
+  return block.content
+    .filter((n): n is Extract<ContentNode, { type: 'exercise' }> => n.type === 'exercise')
+    .map(n => n.data.exercise);
+}
+
+function migrateBlock(block: any): WorkoutBlock {
+  if (block.content && Array.isArray(block.content)) return block;
+  const content: ContentNode[] = [];
+  if (block.exercises && Array.isArray(block.exercises)) {
+    for (let i = 0; i < block.exercises.length; i++) {
+      content.push(createExerciseNode(i, block.exercises[i]));
+    }
+  }
+  const { exercises: _removed, ...rest } = block;
+  return { ...rest, content, layout: { columns: 1 } };
+}
 
 export const useWorkoutStore = create<WorkoutState>()(
   persist(
@@ -131,19 +160,11 @@ export const useWorkoutStore = create<WorkoutState>()(
       blocks: [],
       pendingHighlight: null,
 
-      // ======================== BLOCK ACTIONS ========================
-
-      addBlock: (discipline, overrides) => {
-        const block = createWorkoutBlock(
-          MOCK_USER_ID,
-          get().blocks.length,
-          discipline,
-          overrides,
-        );
+      addBlock: (discipline = 'general', overrides) => {
+        const block = createWorkoutBlock(MOCK_USER_ID, get().blocks.length, discipline, overrides);
         const blockWithCover: WorkoutBlock = overrides?.cover
           ? { ...block, cover: overrides.cover }
           : block;
-
         set((state) => ({ blocks: [...state.blocks, blockWithCover] }));
         return blockWithCover.id;
       },
@@ -161,34 +182,126 @@ export const useWorkoutStore = create<WorkoutState>()(
       deleteBlock: (blockId) => {
         set((state) => ({
           blocks: state.blocks.filter((b) => b.id !== blockId),
-          pendingHighlight:
-            state.pendingHighlight === blockId ? null : state.pendingHighlight,
+          pendingHighlight: state.pendingHighlight === blockId ? null : state.pendingHighlight,
         }));
       },
 
-      reorderBlocks: (blocks) => {
-        set({ blocks });
+      reorderBlocks: (blocks) => { set({ blocks }); },
+      replaceAllBlocks: (blocks) => { set({ blocks }); },
+
+      // ======================== CONTENT NODE ACTIONS ========================
+
+      addContentNode: (blockId, node) => {
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            return {
+              ...block,
+              content: [...block.content, node],
+              updated_at: new Date().toISOString(),
+            };
+          }),
+        }));
       },
 
-      replaceAllBlocks: (blocks) => {
-        set({ blocks });
+      updateContentNode: (blockId, nodeId, updates) => {
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            return {
+              ...block,
+              content: block.content.map((n) =>
+                n.id === nodeId ? { ...n, ...updates } as ContentNode : n,
+              ),
+              updated_at: new Date().toISOString(),
+            };
+          }),
+        }));
       },
 
-      // ======================== EXERCISE ACTIONS ========================
+      deleteContentNode: (blockId, nodeId) => {
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            return {
+              ...block,
+              content: reorderNodes(block.content.filter((n) => n.id !== nodeId)),
+              updated_at: new Date().toISOString(),
+            };
+          }),
+        }));
+      },
+
+      reorderContentNodes: (blockId, nodeIds) => {
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            const nodeMap = new Map(block.content.map(n => [n.id, n]));
+            const reorderedIds = new Set(nodeIds);
+            const reordered = nodeIds
+              .map((id, i) => {
+                const node = nodeMap.get(id);
+                return node ? { ...node, order: i } as ContentNode : null;
+              })
+              .filter((n): n is ContentNode => n !== null);
+            const rest = block.content.filter(n => !reorderedIds.has(n.id));
+            return { ...block, content: [...reordered, ...rest], updated_at: new Date().toISOString() };
+          }),
+        }));
+      },
+
+      duplicateContentNode: (blockId, nodeId) => {
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            const idx = block.content.findIndex(n => n.id === nodeId);
+            if (idx === -1) return block;
+            const original = block.content[idx];
+            const clone = { ...JSON.parse(JSON.stringify(original)), id: generateId(), order: original.order + 0.5 };
+            const updated = reorderNodes([...block.content, clone]);
+            return { ...block, content: updated, updated_at: new Date().toISOString() };
+          }),
+        }));
+      },
+
+      moveContentNode: (blockId, nodeId, direction) => {
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            const sorted = [...block.content].sort((a, b) => a.order - b.order);
+            const idx = sorted.findIndex(n => n.id === nodeId);
+            if (idx === -1) return block;
+            const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+            if (swapIdx < 0 || swapIdx >= sorted.length) return block;
+            const tmpOrder = sorted[idx].order;
+            sorted[idx] = { ...sorted[idx], order: sorted[swapIdx].order } as ContentNode;
+            sorted[swapIdx] = { ...sorted[swapIdx], order: tmpOrder } as ContentNode;
+            return { ...block, content: reorderNodes(sorted), updated_at: new Date().toISOString() };
+          }),
+        }));
+      },
+
+      // ======================== EXERCISE ACTIONS (via content nodes) ========================
 
       addExercise: (blockId, opts) => {
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
             const disc = opts?.discipline ?? block.discipline;
-            const ex = createExerciseCard(blockId, block.exercises.length, disc, {
+            const exercises = getExercisesFromBlock(block);
+            const ex = createExerciseCard(blockId, exercises.length, disc, {
               name: opts?.name,
               icon: opts?.icon,
               color: opts?.color,
             });
+            const node = {
+              ...createExerciseNode(getNextOrder(block.content), ex),
+              ...(opts?.section ? { section: opts.section } : {}),
+              ...(opts?.column !== undefined ? { column: opts.column } : {}),
+            };
             return {
               ...block,
-              exercises: [...block.exercises, ex],
+              content: [...block.content, node],
               updated_at: new Date().toISOString(),
             };
           }),
@@ -199,15 +312,12 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
-            return {
-              ...block,
-              exercises: block.exercises.map((ex) =>
-                ex.id === exerciseId
-                  ? { ...ex, ...updates, updated_at: new Date().toISOString() }
-                  : ex,
-              ),
-              updated_at: new Date().toISOString(),
-            };
+            const { content } = updateExerciseInContent(
+              block.content,
+              exerciseId,
+              (ex) => ({ ...ex, ...updates, updated_at: new Date().toISOString() }),
+            );
+            return { ...block, content, updated_at: new Date().toISOString() };
           }),
         }));
       },
@@ -218,7 +328,11 @@ export const useWorkoutStore = create<WorkoutState>()(
             if (block.id !== blockId) return block;
             return {
               ...block,
-              exercises: block.exercises.filter((ex) => ex.id !== exerciseId),
+              content: reorderNodes(
+                block.content.filter(
+                  (n) => !(n.type === 'exercise' && n.data.exercise.id === exerciseId),
+                ),
+              ),
               updated_at: new Date().toISOString(),
             };
           }),
@@ -232,8 +346,10 @@ export const useWorkoutStore = create<WorkoutState>()(
             if (block.id !== blockId) return block;
             return {
               ...block,
-              exercises: block.exercises.filter(
-                (ex) => !ex.name.toLowerCase().includes(needle),
+              content: reorderNodes(
+                block.content.filter(
+                  (n) => !(n.type === 'exercise' && n.data.exercise.name.toLowerCase().includes(needle)),
+                ),
               ),
               updated_at: new Date().toISOString(),
             };
@@ -241,64 +357,45 @@ export const useWorkoutStore = create<WorkoutState>()(
         }));
       },
 
-      // ======================== SET ACTIONS ========================
+      // ======================== SET ACTIONS (via content nodes) ========================
 
       updateSetValue: (blockId, exerciseId, setIndex, fieldId, value) => {
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
-            return {
-              ...block,
-              exercises: block.exercises.map((ex) => {
-                if (ex.id !== exerciseId) return ex;
-                const newSets = ex.sets.map((s, i) =>
-                  i === setIndex
-                    ? { ...s, values: { ...s.values, [fieldId]: value } }
-                    : s,
-                );
-                return {
-                  ...ex,
-                  sets: newSets,
-                  updated_at: new Date().toISOString(),
-                };
-              }),
+            const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => ({
+              ...ex,
+              sets: ex.sets.map((s, i) =>
+                i === setIndex ? { ...s, values: { ...s.values, [fieldId]: value } } : s,
+              ),
               updated_at: new Date().toISOString(),
-            };
+            }));
+            return { ...block, content, updated_at: new Date().toISOString() };
           }),
         }));
       },
 
       toggleSetComplete: (blockId, exerciseId, setIndex) => {
-        let result:
-          | { exercise: ExerciseCard; set: ExerciseSet; wasCompleted: boolean }
-          | null = null;
+        let result: { exercise: ExerciseCard; set: ExerciseSet; wasCompleted: boolean } | null = null;
 
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
-            return {
-              ...block,
-              exercises: block.exercises.map((ex) => {
-                if (ex.id !== exerciseId) return ex;
-                const target = ex.sets[setIndex];
-                if (!target) return ex;
-                const wasCompleted = !target.completed;
-                const newSet: ExerciseSet = {
-                  ...target,
-                  completed: wasCompleted,
-                  completed_at: wasCompleted ? new Date().toISOString() : null,
-                };
-                const newSets = ex.sets.map((s, i) => (i === setIndex ? newSet : s));
-                const updatedEx: ExerciseCard = {
-                  ...ex,
-                  sets: newSets,
-                  updated_at: new Date().toISOString(),
-                };
-                result = { exercise: updatedEx, set: newSet, wasCompleted };
-                return updatedEx;
-              }),
-              updated_at: new Date().toISOString(),
-            };
+            const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => {
+              const target = ex.sets[setIndex];
+              if (!target) return ex;
+              const wasCompleted = !target.completed;
+              const newSet: ExerciseSet = {
+                ...target,
+                completed: wasCompleted,
+                completed_at: wasCompleted ? new Date().toISOString() : null,
+              };
+              const newSets = ex.sets.map((s, i) => (i === setIndex ? newSet : s));
+              const updatedEx: ExerciseCard = { ...ex, sets: newSets, updated_at: new Date().toISOString() };
+              result = { exercise: updatedEx, set: newSet, wasCompleted };
+              return updatedEx;
+            });
+            return { ...block, content, updated_at: new Date().toISOString() };
           }),
         }));
 
@@ -309,19 +406,11 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
-            return {
-              ...block,
-              exercises: block.exercises.map((ex) => {
-                if (ex.id !== exerciseId) return ex;
-                const newSet = createEmptySet(ex.id, ex.sets.length, ex.fields);
-                return {
-                  ...ex,
-                  sets: [...ex.sets, newSet],
-                  updated_at: new Date().toISOString(),
-                };
-              }),
-              updated_at: new Date().toISOString(),
-            };
+            const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => {
+              const newSet = createEmptySet(ex.id, ex.sets.length, ex.fields);
+              return { ...ex, sets: [...ex.sets, newSet], updated_at: new Date().toISOString() };
+            });
+            return { ...block, content, updated_at: new Date().toISOString() };
           }),
         }));
       },
@@ -330,21 +419,11 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
-            return {
-              ...block,
-              exercises: block.exercises.map((ex) => {
-                if (ex.id !== exerciseId) return ex;
-                const filtered = ex.sets
-                  .filter((_, i) => i !== setIndex)
-                  .map((s, i) => ({ ...s, order: i }));
-                return {
-                  ...ex,
-                  sets: filtered,
-                  updated_at: new Date().toISOString(),
-                };
-              }),
-              updated_at: new Date().toISOString(),
-            };
+            const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => {
+              const filtered = ex.sets.filter((_, i) => i !== setIndex).map((s, i) => ({ ...s, order: i }));
+              return { ...ex, sets: filtered, updated_at: new Date().toISOString() };
+            });
+            return { ...block, content, updated_at: new Date().toISOString() };
           }),
         }));
       },
@@ -358,12 +437,10 @@ export const useWorkoutStore = create<WorkoutState>()(
         for (const action of actions) {
           switch (action.type) {
             case 'create_block': {
-              const { name, discipline, icon, color, cover, exercises } =
-                action.payload;
+              const { name, discipline, icon, color, cover, exercises } = action.payload;
               const id = store.addBlock(discipline, { name, icon, color, cover });
               createdBlockId = id;
 
-              // Add any bundled exercises, then rebuild sets/rest from the template
               if (exercises && exercises.length > 0) {
                 for (const tpl of exercises) {
                   store.addExercise(id, {
@@ -373,16 +450,18 @@ export const useWorkoutStore = create<WorkoutState>()(
                     discipline: tpl.discipline,
                   });
 
-                  // Locate the freshly added exercise (last one in the block)
                   const fresh = get().blocks.find((b) => b.id === id);
-                  const added = fresh?.exercises[fresh.exercises.length - 1];
-                  if (added) {
-                    const rebuilt = applyTemplateToExercise(added, tpl);
-                    store.updateExercise(id, added.id, {
-                      sets: rebuilt.sets,
-                      default_sets_count: rebuilt.default_sets_count,
-                      rest_seconds: rebuilt.rest_seconds,
-                    });
+                  if (fresh) {
+                    const exNodes = getExercisesFromBlock(fresh);
+                    const added = exNodes[exNodes.length - 1];
+                    if (added) {
+                      const rebuilt = applyTemplateToExercise(added, tpl);
+                      store.updateExercise(id, added.id, {
+                        sets: rebuilt.sets,
+                        default_sets_count: rebuilt.default_sets_count,
+                        rest_seconds: rebuilt.rest_seconds,
+                      });
+                    }
                   }
                 }
               }
@@ -391,58 +470,33 @@ export const useWorkoutStore = create<WorkoutState>()(
 
             case 'update_exercise': {
               const { exerciseId, updates } = action.payload;
-              // Find which block owns this exercise
               const ownerBlock = get().blocks.find((b) =>
-                b.exercises.some((ex) => ex.id === exerciseId),
+                getExercisesFromBlock(b).some((ex) => ex.id === exerciseId),
               );
-              if (ownerBlock) {
-                store.updateExercise(ownerBlock.id, exerciseId, updates);
-              }
+              if (ownerBlock) store.updateExercise(ownerBlock.id, exerciseId, updates);
               break;
             }
 
             case 'add_exercise': {
-              const {
-                blockId,
-                name: exName,
-                icon,
-                color,
-                discipline,
-                sets_count,
-                reps,
-                rest_seconds,
-              } = action.payload;
+              const { blockId, name: exName, icon, color, discipline, sets_count, reps, rest_seconds } = action.payload;
               const targetId = blockId || createdBlockId;
               if (targetId) {
-                store.addExercise(targetId, {
-                  name: exName,
-                  icon,
-                  color,
-                  discipline,
-                });
-
-                if (
-                  sets_count !== undefined ||
-                  reps !== undefined ||
-                  rest_seconds !== undefined
-                ) {
+                store.addExercise(targetId, { name: exName, icon, color, discipline });
+                if (sets_count !== undefined || reps !== undefined || rest_seconds !== undefined) {
                   const fresh = get().blocks.find((b) => b.id === targetId);
-                  const added = fresh?.exercises[fresh.exercises.length - 1];
-                  if (added) {
-                    const rebuilt = applyTemplateToExercise(added, {
-                      name: exName,
-                      icon,
-                      color,
-                      discipline,
-                      sets_count,
-                      reps,
-                      rest_seconds,
-                    });
-                    store.updateExercise(targetId, added.id, {
-                      sets: rebuilt.sets,
-                      default_sets_count: rebuilt.default_sets_count,
-                      rest_seconds: rebuilt.rest_seconds,
-                    });
+                  if (fresh) {
+                    const exNodes = getExercisesFromBlock(fresh);
+                    const added = exNodes[exNodes.length - 1];
+                    if (added) {
+                      const rebuilt = applyTemplateToExercise(added, {
+                        name: exName, icon, color, discipline, sets_count, reps, rest_seconds,
+                      });
+                      store.updateExercise(targetId, added.id, {
+                        sets: rebuilt.sets,
+                        default_sets_count: rebuilt.default_sets_count,
+                        rest_seconds: rebuilt.rest_seconds,
+                      });
+                    }
                   }
                 }
               }
@@ -451,13 +505,10 @@ export const useWorkoutStore = create<WorkoutState>()(
 
             case 'delete_exercise': {
               const { blockId, exerciseId } = action.payload;
-              // Use exerciseId as a name for case-insensitive match
               const block = get().blocks.find((b) => b.id === blockId);
               if (block) {
-                const ex = block.exercises.find((e) => e.id === exerciseId);
-                if (ex) {
-                  store.deleteExerciseByName(blockId, ex.name);
-                }
+                const ex = getExercisesFromBlock(block).find((e) => e.id === exerciseId);
+                if (ex) store.deleteExerciseByName(blockId, ex.name);
               }
               break;
             }
@@ -478,28 +529,31 @@ export const useWorkoutStore = create<WorkoutState>()(
         return createdBlockId;
       },
 
-      // ======================== HIGHLIGHT ========================
-
-      setHighlight: (blockId) => {
-        set({ pendingHighlight: blockId });
-      },
+      setHighlight: (blockId) => { set({ pendingHighlight: blockId }); },
     }),
     {
       name: 'kairos_workout_store',
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
+      migrate: (persisted: any, version: number) => {
+        if (version < 2) {
+          const state = persisted as any;
+          if (state.blocks) {
+            state.blocks = state.blocks.map(migrateBlock);
+          }
+        }
+        return persisted as WorkoutState;
+      },
       onRehydrateStorage: () => (state) => {
-        // One-time migration from the legacy `kairos_blocks_v1` key used by
-        // earlier builds of BlockLibraryScreen. Runs exactly once per device,
-        // after the persisted zustand state has been restored, so we can
-        // safely check whether migration is needed without race conditions.
         if (!state) return;
         AsyncStorage.getItem('kairos_blocks_v1')
           .then((raw) => {
             if (!raw) return;
             try {
-              const parsed: WorkoutBlock[] = JSON.parse(raw);
+              const parsed = JSON.parse(raw);
               if (parsed.length > 0 && state.blocks.length === 0) {
-                useWorkoutStore.setState({ blocks: parsed });
+                const migrated = parsed.map(migrateBlock);
+                useWorkoutStore.setState({ blocks: migrated });
               }
             } catch (e) {
               console.warn('Kairos: legacy block parse failed', e);

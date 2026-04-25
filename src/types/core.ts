@@ -1,4 +1,4 @@
-// KAIROS — CORE TYPES v3
+// KAIROS — CORE TYPES v4 (content-node model)
 
 // ======================== UTILITIES ========================
 
@@ -275,7 +275,8 @@ export interface WorkoutBlock {
   description: string | null;
   tags: BlockTag[];
   discipline: Discipline;
-  exercises: ExerciseCard[];
+  content: import('./content').ContentNode[];
+  layout: import('./content').BlockLayout;
   status: BlockStatus;
   is_favorite: boolean;
   is_archived: boolean;
@@ -306,7 +307,8 @@ export function createWorkoutBlock(
     description: overrides?.description ?? null,
     tags: [],
     discipline,
-    exercises: [],
+    content: [],
+    layout: { columns: 1 },
     status: 'draft',
     is_favorite: false,
     is_archived: false,
@@ -318,6 +320,16 @@ export function createWorkoutBlock(
     created_at: now,
     updated_at: now,
   };
+}
+
+export function getBlockExercises(block: WorkoutBlock): ExerciseCard[] {
+  const result: ExerciseCard[] = [];
+  for (const node of block.content) {
+    if (node.type === 'exercise') {
+      result.push(node.data.exercise);
+    }
+  }
+  return result;
 }
 
 // ======================== HELPERS ========================
@@ -345,7 +357,13 @@ export function calculateBlockStats(block: WorkoutBlock): {
   completion_percentage: number;
   estimated_duration: number;
 } {
-  const allSets: ExerciseSet[] = block.exercises.flatMap(
+  const exercises: ExerciseCard[] = [];
+  for (const node of block.content) {
+    if (node.type === 'exercise') {
+      exercises.push(node.data.exercise);
+    }
+  }
+  const allSets: ExerciseSet[] = exercises.flatMap(
     (ex: ExerciseCard): ExerciseSet[] => ex.sets
   );
   const completedSets: ExerciseSet[] = allSets.filter(
@@ -353,7 +371,7 @@ export function calculateBlockStats(block: WorkoutBlock): {
   );
 
   let totalVolume = 0;
-  for (const ex of block.exercises) {
+  for (const ex of exercises) {
     const hasWeight: boolean = ex.fields.some((f: FieldDefinition): boolean => f.id === 'weight');
     const hasReps: boolean = ex.fields.some((f: FieldDefinition): boolean => f.id === 'reps');
     if (hasWeight && hasReps) {
@@ -367,7 +385,7 @@ export function calculateBlockStats(block: WorkoutBlock): {
     }
   }
 
-  const totalRestTime: number = block.exercises.reduce(
+  const totalRestTime: number = exercises.reduce(
     (acc: number, ex: ExerciseCard): number => {
       const n: number = ex.sets.length;
       return acc + (n > 0 ? (n - 1) * ex.rest_seconds : 0);
@@ -378,7 +396,7 @@ export function calculateBlockStats(block: WorkoutBlock): {
   const estimatedDuration: number = Math.ceil((allSets.length * 45 + totalRestTime) / 60);
 
   return {
-    total_exercises: block.exercises.length,
+    total_exercises: exercises.length,
     total_sets: allSets.length,
     completed_sets: completedSets.length,
     total_volume: totalVolume,

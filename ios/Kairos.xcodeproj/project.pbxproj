@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0AD2EE2DCF825C516A5BBD45 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 163AB0E37E6C011BEE18B1BD /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		168FFCAE13B8EC7BEB8794E5 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6579BE4265E3217C9E9788E0 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		49839A75B2F891737ACA642A /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4935F9E5BCB29637FC819DF /* ExpoModulesProvider.swift */; };
+		6C2A9EB7823B53EFF229B296 /* libPods-Kairos.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 55C6105DFA232B06792240C2 /* libPods-Kairos.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		C950EAEB3B8F7E54DE319F96 /* libPods-Kairos.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EF23501288547E2E9D8396BA /* libPods-Kairos.a */; };
-		DAD156260EF629C8AB3C9975 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D49F90EC18A2B99C498751DE /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* Kairos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kairos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Kairos/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Kairos/Info.plist; sourceTree = "<group>"; };
-		49D527BFF78C8EEB4A7701C3 /* Pods-Kairos.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Kairos.debug.xcconfig"; path = "Target Support Files/Pods-Kairos/Pods-Kairos.debug.xcconfig"; sourceTree = "<group>"; };
+		163AB0E37E6C011BEE18B1BD /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Kairos/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		55C6105DFA232B06792240C2 /* libPods-Kairos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Kairos.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6579BE4265E3217C9E9788E0 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Kairos/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Kairos/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		C1E8620E87A132AB7F1FB813 /* Pods-Kairos.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Kairos.release.xcconfig"; path = "Target Support Files/Pods-Kairos/Pods-Kairos.release.xcconfig"; sourceTree = "<group>"; };
-		C4935F9E5BCB29637FC819DF /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Kairos/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		D49F90EC18A2B99C498751DE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Kairos/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		C35BBD13ADDB481953C75A76 /* Pods-Kairos.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Kairos.release.xcconfig"; path = "Target Support Files/Pods-Kairos/Pods-Kairos.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		EF23501288547E2E9D8396BA /* libPods-Kairos.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Kairos.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Kairos/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Kairos-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Kairos-Bridging-Header.h"; path = "Kairos/Kairos-Bridging-Header.h"; sourceTree = "<group>"; };
+		F9DE4F98537C31C1A73F15D6 /* Pods-Kairos.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Kairos.debug.xcconfig"; path = "Target Support Files/Pods-Kairos/Pods-Kairos.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C950EAEB3B8F7E54DE319F96 /* libPods-Kairos.a in Frameworks */,
+				6C2A9EB7823B53EFF229B296 /* libPods-Kairos.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,15 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				D49F90EC18A2B99C498751DE /* PrivacyInfo.xcprivacy */,
-			);
-			name = Kairos;
-			sourceTree = "<group>";
-		};
-		19A60850D67601334D09A266 /* Kairos */ = {
-			isa = PBXGroup;
-			children = (
-				C4935F9E5BCB29637FC819DF /* ExpoModulesProvider.swift */,
+				163AB0E37E6C011BEE18B1BD /* PrivacyInfo.xcprivacy */,
 			);
 			name = Kairos;
 			sourceTree = "<group>";
@@ -70,17 +62,27 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				EF23501288547E2E9D8396BA /* libPods-Kairos.a */,
+				55C6105DFA232B06792240C2 /* libPods-Kairos.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		6A546F1420A5FF8C9B0EC8A0 /* ExpoModulesProviders */ = {
+		5591D4FEA0231BCECABB000E /* Kairos */ = {
 			isa = PBXGroup;
 			children = (
-				19A60850D67601334D09A266 /* Kairos */,
+				6579BE4265E3217C9E9788E0 /* ExpoModulesProvider.swift */,
 			);
-			name = ExpoModulesProviders;
+			name = Kairos;
+			sourceTree = "<group>";
+		};
+		66140156010BB00BB82CAFCF /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				F9DE4F98537C31C1A73F15D6 /* Pods-Kairos.debug.xcconfig */,
+				C35BBD13ADDB481953C75A76 /* Pods-Kairos.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -97,8 +99,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				B66DE20E30648B55C5D4A69B /* Pods */,
-				6A546F1420A5FF8C9B0EC8A0 /* ExpoModulesProviders */,
+				66140156010BB00BB82CAFCF /* Pods */,
+				D2C08AA9C4A1F22DFC70EA6D /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -113,15 +115,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		B66DE20E30648B55C5D4A69B /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				49D527BFF78C8EEB4A7701C3 /* Pods-Kairos.debug.xcconfig */,
-				C1E8620E87A132AB7F1FB813 /* Pods-Kairos.release.xcconfig */,
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -129,6 +122,14 @@
 			);
 			name = Supporting;
 			path = Kairos/Supporting;
+			sourceTree = "<group>";
+		};
+		D2C08AA9C4A1F22DFC70EA6D /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				5591D4FEA0231BCECABB000E /* Kairos */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -139,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Kairos" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				E18AEF9885B23E163C0904AC /* [Expo] Configure project */,
+				9C241C5D1CDBDC455FA1879F /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				D300D952151B546E3122EEAD /* [CP] Embed Pods Frameworks */,
+				9083672C4DDD18FC2BB423DE /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -195,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				DAD156260EF629C8AB3C9975 /* PrivacyInfo.xcprivacy in Resources */,
+				0AD2EE2DCF825C516A5BBD45 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,20 +249,20 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Kairos/Pods-Kairos-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/AsyncStorage/AsyncStorage_resources.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AsyncStorage_resources.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
@@ -271,7 +272,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Kairos/Pods-Kairos-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		D300D952151B546E3122EEAD /* [CP] Embed Pods Frameworks */ = {
+		9083672C4DDD18FC2BB423DE /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -293,7 +294,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Kairos/Pods-Kairos-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		E18AEF9885B23E163C0904AC /* [Expo] Configure project */ = {
+		9C241C5D1CDBDC455FA1879F /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -325,7 +326,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				49839A75B2F891737ACA642A /* ExpoModulesProvider.swift in Sources */,
+				168FFCAE13B8EC7BEB8794E5 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -334,13 +335,12 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 49D527BFF78C8EEB4A7701C3 /* Pods-Kairos.debug.xcconfig */;
+			baseConfigurationReference = F9DE4F98537C31C1A73F15D6 /* Pods-Kairos.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Kairos/Kairos.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = FH6BYZT9F3;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -366,18 +366,19 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = FH6BYZT9F3;
 			};
 			name = Debug;
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C1E8620E87A132AB7F1FB813 /* Pods-Kairos.release.xcconfig */;
+			baseConfigurationReference = C35BBD13ADDB481953C75A76 /* Pods-Kairos.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Kairos/Kairos.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = FH6BYZT9F3;
 				INFOPLIST_FILE = Kairos/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -397,6 +398,8 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = FH6BYZT9F3;
 			};
 			name = Release;
 		};

@@ -19,6 +19,7 @@ import Animated, {
 import { useOnCellActiveAnimation } from 'react-native-draggable-flatlist';
 import * as Haptics from 'expo-haptics';
 import type { WorkoutBlock } from '../types/core';
+import { getBlockExercises } from '../types/core';
 import { Colors, Typography } from '../theme/index';
 import KairosIcon from './KairosIcon';
 
@@ -112,14 +113,14 @@ const BlockAppIcon: React.FC<BlockAppIconProps> = ({
   const { completedSets, totalSets } = useMemo(() => {
     let done = 0;
     let total = 0;
-    for (const ex of block.exercises) {
+    for (const ex of getBlockExercises(block)) {
       for (const s of ex.sets) {
         total += 1;
         if (s.completed) done += 1;
       }
     }
     return { completedSets: done, totalSets: total };
-  }, [block.exercises]);
+  }, [getBlockExercises(block)]);
 
   const pct = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
 
@@ -179,9 +180,9 @@ const BlockAppIcon: React.FC<BlockAppIconProps> = ({
           )}
 
           {/* Exercise-count badge */}
-          {block.exercises.length > 0 && (
+          {getBlockExercises(block).length > 0 && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{block.exercises.length}</Text>
+              <Text style={styles.badgeText}>{getBlockExercises(block).length}</Text>
             </View>
           )}
         </Animated.View>

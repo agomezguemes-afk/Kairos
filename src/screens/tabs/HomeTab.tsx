@@ -25,6 +25,7 @@ import { getInitialGreeting } from '../../services/aiChatService';
 import type { AIChatContext } from '../../services/aiChatService';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 import type { WorkoutBlock, Discipline } from '../../types/core';
+import { getBlockExercises } from '../../types/core';
 
 // ======================== CONSTANTS ========================
 
@@ -260,8 +261,8 @@ export default function HomeTab({ navigation }: any) {
               {suggestedBlock.name}
             </Text>
             <Text style={styles.blockMeta}>
-              {suggestedBlock.exercises.length}
-              {suggestedBlock.exercises.length === 1 ? ' ejercicio' : ' ejercicios'}
+              {getBlockExercises(suggestedBlock).length}
+              {getBlockExercises(suggestedBlock).length === 1 ? ' ejercicio' : ' ejercicios'}
               {' · '}
               {DISCIPLINE_LABEL[suggestedBlock.discipline] ?? suggestedBlock.discipline}
             </Text>

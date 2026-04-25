@@ -44,6 +44,7 @@ import { processWithGroq, isGroqConfigured } from '../services/aiService';
 import type { RawUserContext } from '../utils/userContext';
 import { renderWithIcons, hasIconMarkers } from '../utils/iconText';
 import { generateId } from '../types/core';
+import { getBlockExercises } from '../types/core';
 import type { AIMessage } from '../types/ai';
 import { useWorkoutStore } from '../store/workoutStore';
 import { useUserProfile } from '../context/UserProfileContext';
@@ -348,7 +349,7 @@ function ActionCard({
   const iconName = isCreate ? 'sparkle' : 'arrow_forward';
   const title = isCreate ? 'Bloque creado' : 'Bloque actualizado';
   const subtitle = block
-    ? `${block.name} · ${block.exercises.length} ejercicio${block.exercises.length !== 1 ? 's' : ''}`
+    ? `${block.name} · ${getBlockExercises(block).length} ejercicio${getBlockExercises(block).length !== 1 ? 's' : ''}`
     : 'Bloque procesado';
 
   return (

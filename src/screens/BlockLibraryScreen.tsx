@@ -43,6 +43,7 @@ import type {
   ExerciseCard as ExerciseCardType,
   FieldValue,
 } from '../types/core';
+import { getBlockExercises } from '../types/core';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 import { useGamification } from '../context/GamificationContext';
 import { useTree } from '../context/TreeContext';
@@ -188,7 +189,7 @@ export default function BlockLibraryScreen({ route }: any) {
     (exerciseId: string, updates: Partial<ExerciseCardType>) => {
       const owner = useWorkoutStore
         .getState()
-        .blocks.find((b) => b.exercises.some((ex) => ex.id === exerciseId));
+        .blocks.find((b) => getBlockExercises(b).some((ex) => ex.id === exerciseId));
       if (!owner) return;
       storeUpdateExercise(owner.id, exerciseId, updates);
     },
@@ -200,7 +201,7 @@ export default function BlockLibraryScreen({ route }: any) {
   const findBlockIdForExercise = useCallback((exerciseId: string): string | null => {
     const owner = useWorkoutStore
       .getState()
-      .blocks.find((b) => b.exercises.some((ex) => ex.id === exerciseId));
+      .blocks.find((b) => getBlockExercises(b).some((ex) => ex.id === exerciseId));
     return owner?.id ?? null;
   }, []);
 
@@ -229,8 +230,9 @@ export default function BlockLibraryScreen({ route }: any) {
 
       // Check if the whole block is now complete → show celebration
       const ownerBlock = freshBlocks.find((b) => b.id === blockId);
-      if (ownerBlock && ownerBlock.exercises.length > 0) {
-        const allDone = ownerBlock.exercises.every(
+      const ownerExercises = ownerBlock ? getBlockExercises(ownerBlock) : [];
+      if (ownerBlock && ownerExercises.length > 0) {
+        const allDone = ownerExercises.every(
           (ex) => ex.sets.length > 0 && ex.sets.every((s) => s.completed),
         );
         if (allDone) {

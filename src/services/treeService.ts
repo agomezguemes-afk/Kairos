@@ -4,6 +4,7 @@
 import type { TreeType, TreeProgress, TreeMetrics, TreeTypeConfig } from '../types/tree';
 import { TREE_CONFIGS } from '../types/tree';
 import type { WorkoutBlock, ExerciseSet } from '../types/core';
+import { getBlockExercises } from '../types/core';
 
 // ======================== PROGRESS CALCULATION ========================
 
@@ -76,7 +77,7 @@ export function computeMetricsFromBlocks(
   const activeDays = new Set<string>();
 
   for (const block of blocks) {
-    for (const ex of block.exercises) {
+    for (const ex of getBlockExercises(block)) {
       const hasWeight = ex.fields.some((f) => f.id === 'weight');
       const hasReps = ex.fields.some((f) => f.id === 'reps');
       const hasDistance = ex.fields.some((f) => f.id === 'distance');

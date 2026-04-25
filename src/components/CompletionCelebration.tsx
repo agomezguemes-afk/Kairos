@@ -25,6 +25,7 @@ import { Feather } from '@expo/vector-icons';
 import ConfettiBurst, { type ConfettiRef } from './ConfettiParticles';
 import KairosIcon from './KairosIcon';
 import type { WorkoutBlock } from '../types/core';
+import { getBlockExercises } from '../types/core';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 import { springs } from '../theme/animations';
 
@@ -33,14 +34,14 @@ import { springs } from '../theme/animations';
 function blockStats(block: WorkoutBlock) {
   let totalSets = 0;
   let completedSets = 0;
-  let totalVolume = 0; // kg × reps where available
+  let totalVolume = 0;
+  const exercises = getBlockExercises(block);
 
-  for (const ex of block.exercises) {
+  for (const ex of exercises) {
     for (const set of ex.sets) {
       totalSets++;
       if (set.completed) completedSets++;
 
-      // Try to find weight × reps volume
       const weightField = ex.fields.find((f) => f.unit === 'kg');
       const repsField   = ex.fields.find((f) => f.name.toLowerCase().includes('rep'));
       if (weightField && repsField) {
@@ -51,7 +52,7 @@ function blockStats(block: WorkoutBlock) {
     }
   }
 
-  return { totalSets, completedSets, totalVolume };
+  return { totalSets, completedSets, totalVolume, exerciseCount: exercises.length };
 }
 
 // ======================== COMPONENT ========================
@@ -119,7 +120,7 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
               style={styles.statsRow}
             >
               <StatPill label="Series" value={`${stats.completedSets}`} icon="checkmark" />
-              <StatPill label="Ejercicios" value={`${block.exercises.length}`} icon="dumbbell" />
+              <StatPill label="Ejercicios" value={`${stats?.exerciseCount ?? 0}`} icon="dumbbell" />
               {stats.totalVolume > 0 && (
                 <StatPill label="Volumen" value={`${Math.round(stats.totalVolume)} kg`} icon="stats" />
               )}

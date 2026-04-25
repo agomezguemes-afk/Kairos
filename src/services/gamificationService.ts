@@ -2,7 +2,7 @@
 // Pure functions for streak, badge, and PR card logic.
 // No side effects — persistence is handled by the context.
 
-import { generateId } from '../types/core';
+import { generateId, getBlockExercises } from '../types/core';
 import type { ExerciseCard, ExerciseSet, FieldDefinition } from '../types/core';
 import type {
   Streak,
@@ -169,12 +169,7 @@ export function checkForPR(
  * Called after any mutation to re-check badges.
  */
 export function computeStats(
-  blocks: Array<{
-    exercises: Array<{
-      id: string;
-      sets: Array<{ completed: boolean }>;
-    }>;
-  }>,
+  blocks: Array<{ content: import('../types/content').ContentNode[] }>,
   userCreatedBlocks: number,
   streak: Streak,
 ): GamificationStats {
@@ -182,7 +177,7 @@ export function computeStats(
   const uniqueExerciseIds = new Set<string>();
 
   for (const block of blocks) {
-    for (const ex of block.exercises) {
+    for (const ex of getBlockExercises(block as any)) {
       const completedCount = ex.sets.filter((s) => s.completed).length;
       if (completedCount > 0) {
         uniqueExerciseIds.add(ex.id);

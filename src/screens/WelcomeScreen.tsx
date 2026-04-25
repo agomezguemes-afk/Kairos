@@ -1,61 +1,162 @@
-// KAIROS — Welcome Screen
-// Minimalist first screen with app name, tagline, and two CTAs.
-// Shown only when the user has not completed onboarding.
+// KAIROS — Welcome Screen (v2)
+// Consistent KairosLogo mark (static, no draw animation here).
+// Entrance: logo slides down + fades in, text staggers below.
+// Idle: mark breathes with a very subtle scale pulse.
 
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Animated,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import KairosLogo from '../components/KairosLogo';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
+
+const LOGO_SIZE = 80;
 
 export default function WelcomeScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
 
-  // Button animations (RN Animated — lightweight, no worklet needed here)
-  const ctaScale = useRef(new Animated.Value(1)).current;
+  // ── Entrance animations ───────────────────────────────────────────────────
+  const logoOp      = useRef(new Animated.Value(0)).current;
+  const logoY       = useRef(new Animated.Value(-20)).current;
+  const textOp      = useRef(new Animated.Value(0)).current;
+  const textY       = useRef(new Animated.Value(14)).current;
+  const buttonsOp   = useRef(new Animated.Value(0)).current;
+  const buttonsY    = useRef(new Animated.Value(16)).current;
+
+  // ── Idle pulse on the logo mark ───────────────────────────────────────────
+  const idleScale = useRef(new Animated.Value(1)).current;
+
+  // ── Button press feedback ─────────────────────────────────────────────────
+  const ctaScale   = useRef(new Animated.Value(1)).current;
   const loginScale = useRef(new Animated.Value(1)).current;
 
-  const springDown = (anim: Animated.Value) =>
-    Animated.spring(anim, { toValue: 0.96, useNativeDriver: true, friction: 6, tension: 60 }).start();
-  const springUp = (anim: Animated.Value) =>
-    Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 4, tension: 50 }).start();
+  const pressIn  = (v: Animated.Value) =>
+    Animated.spring(v, { toValue: 0.96, useNativeDriver: true, friction: 6, tension: 60 }).start();
+  const pressOut = (v: Animated.Value) =>
+    Animated.spring(v, { toValue: 1,    useNativeDriver: true, friction: 4, tension: 50 }).start();
+
+  useEffect(() => {
+    // 1. Logo entrance
+    Animated.parallel([
+      Animated.timing(logoOp, { toValue: 1, duration: 340, useNativeDriver: true }),
+      Animated.spring(logoY,  { toValue: 0, useNativeDriver: true, friction: 7, tension: 50 }),
+    ]).start();
+
+    // 2. Wordmark + tagline entrance (slight delay after logo)
+    Animated.sequence([
+      Animated.delay(160),
+      Animated.parallel([
+        Animated.timing(textOp, { toValue: 1, duration: 340, useNativeDriver: true }),
+        Animated.spring(textY,  { toValue: 0, useNativeDriver: true, friction: 7, tension: 50 }),
+      ]),
+    ]).start();
+
+    // 3. Buttons entrance
+    Animated.sequence([
+      Animated.delay(300),
+      Animated.parallel([
+        Animated.timing(buttonsOp, { toValue: 1, duration: 340, useNativeDriver: true }),
+        Animated.spring(buttonsY,  { toValue: 0, useNativeDriver: true, friction: 7, tension: 50 }),
+      ]),
+    ]).start();
+
+    // 4. Idle pulse (starts after entrance)
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.delay(800),
+        Animated.timing(idleScale, {
+          toValue: 1.035,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(idleScale, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    const pulseTimeout = setTimeout(() => pulse.start(), 700);
+
+    return () => {
+      clearTimeout(pulseTimeout);
+      pulse.stop();
+    };
+  }, []);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      {/* Centered branding */}
+    <View
+      style={[
+        styles.screen,
+        { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 24) },
+      ]}
+    >
+      {/* ── Centred branding ── */}
       <View style={styles.center}>
-        {/* Logo mark */}
-        <View style={styles.logoMark}>
-          <Text style={styles.logoLetter}>K</Text>
-        </View>
 
-        <Text style={styles.appName}>Kairos</Text>
-        <Text style={styles.tagline}>The Training OS</Text>
+        {/* Logo mark */}
+        <Animated.View
+          style={{
+            opacity: logoOp,
+            transform: [{ translateY: logoY }, { scale: idleScale }],
+            marginBottom: Spacing['2xl'],
+          }}
+        >
+          <KairosLogo size={LOGO_SIZE} animate={false} />
+        </Animated.View>
+
+        {/* Wordmark + tagline */}
+        <Animated.View
+          style={{
+            opacity: textOp,
+            transform: [{ translateY: textY }],
+            alignItems: 'center',
+          }}
+        >
+          <Text style={styles.appName}>Kairos</Text>
+          <Text style={styles.tagline}>The Training OS</Text>
+        </Animated.View>
+
       </View>
 
-      {/* Bottom CTAs */}
-      <View style={styles.footer}>
+      {/* ── Bottom CTAs ── */}
+      <Animated.View
+        style={[
+          styles.footer,
+          { opacity: buttonsOp, transform: [{ translateY: buttonsY }] },
+        ]}
+      >
         <Pressable
-          onPressIn={() => springDown(ctaScale)}
-          onPressOut={() => springUp(ctaScale)}
+          onPressIn={() => pressIn(ctaScale)}
+          onPressOut={() => pressOut(ctaScale)}
           onPress={() => navigation.navigate('Auth')}
         >
-          <Animated.View style={[styles.primaryBtn, { transform: [{ scale: ctaScale }] }]}>
+          <Animated.View
+            style={[styles.primaryBtn, { transform: [{ scale: ctaScale }] }]}
+          >
             <Text style={styles.primaryBtnText}>Crear cuenta</Text>
           </Animated.View>
         </Pressable>
 
         <Pressable
-          onPressIn={() => springDown(loginScale)}
-          onPressOut={() => springUp(loginScale)}
+          onPressIn={() => pressIn(loginScale)}
+          onPressOut={() => pressOut(loginScale)}
           onPress={() => navigation.navigate('Auth')}
         >
-          <Animated.View style={[styles.secondaryBtn, { transform: [{ scale: loginScale }] }]}>
-            <Text style={styles.secondaryBtnText}>Iniciar sesi&#243;n</Text>
+          <Animated.View
+            style={[styles.secondaryBtn, { transform: [{ scale: loginScale }] }]}
+          >
+            <Text style={styles.secondaryBtnText}>Iniciar sesión</Text>
           </Animated.View>
         </Pressable>
 
         <Text style={styles.version}>v1.0.0 · Beta</Text>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -65,80 +166,61 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.void,
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.screen.horizontal + 10,
+    paddingHorizontal: Spacing.screen.horizontal + 8,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: Colors.accent.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-    ...Shadows.elevated,
-    shadowColor: Colors.accent.primary,
-  },
-  logoLetter: {
-    fontSize: 36,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.inverse,
-    marginTop: -2,
-  },
   appName: {
-    fontSize: 44,
-    fontWeight: Typography.weight.bold,
+    fontSize: 46,
+    fontWeight: '700' as const,
     color: Colors.text.primary,
-    letterSpacing: -1,
-    marginBottom: Spacing.xs,
+    letterSpacing: -1.2,
+    marginBottom: 6,
   },
   tagline: {
     fontSize: Typography.size.subheading,
-    fontWeight: Typography.weight.medium,
+    fontWeight: '400' as const,
     color: Colors.text.tertiary,
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   footer: {
     alignItems: 'center',
-    paddingBottom: 20,
     gap: Spacing.md,
+    paddingBottom: 8,
   },
   primaryBtn: {
-    width: '100%',
+    width: 300,
     backgroundColor: Colors.accent.primary,
     paddingVertical: Spacing.lg + 2,
     borderRadius: Radius.md,
     alignItems: 'center',
-    minWidth: 280,
     ...Shadows.card,
     shadowColor: Colors.accent.primary,
   },
   primaryBtnText: {
     fontSize: Typography.size.subheading,
-    fontWeight: Typography.weight.semibold,
+    fontWeight: '600' as const,
     color: Colors.text.inverse,
   },
   secondaryBtn: {
-    width: '100%',
+    width: 300,
     paddingVertical: Spacing.lg,
     borderRadius: Radius.md,
     alignItems: 'center',
-    minWidth: 280,
     borderWidth: 1.5,
     borderColor: Colors.border.medium,
   },
   secondaryBtnText: {
     fontSize: Typography.size.subheading,
-    fontWeight: Typography.weight.medium,
+    fontWeight: '500' as const,
     color: Colors.text.primary,
   },
   version: {
     fontSize: Typography.size.micro,
     color: Colors.text.disabled,
-    marginTop: Spacing.sm,
+    marginTop: 4,
   },
 });

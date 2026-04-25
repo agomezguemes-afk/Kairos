@@ -7,8 +7,10 @@ import {
   generateId,
   createExerciseCard,
   createEmptySet,
+  getBlockExercises,
   DISCIPLINE_CONFIGS,
 } from '../types/core';
+import { createExerciseNode } from '../types/content';
 import type { Streak, Badge, PRCard } from '../types/gamification';
 import type { Mission } from '../types/mission';
 import type {
@@ -177,7 +179,7 @@ export function buildBlockFromText(text: string): PartialBlock {
   const templates = selectExercises(category, level, location);
   const tempBlockId = generateId();
 
-  const exercises: WorkoutBlock['exercises'] = templates.map((tmpl, i) => {
+  const exercises = templates.map((tmpl, i) => {
     const ex = createExerciseCard(tempBlockId, i, discipline, {
       name: tmpl.name,
       icon: config.icon,
@@ -227,14 +229,15 @@ export function buildBlockFromText(text: string): PartialBlock {
     description: null,
     tags: [],
     discipline,
-    exercises,
-    status: 'draft',
+    content: exercises.map((ex, i) => createExerciseNode(i, ex)),
+    layout: { columns: 1 as const },
+    status: 'draft' as const,
     is_favorite: false,
     is_archived: false,
     last_performed_at: null,
     times_performed: 0,
     sort_order: 0,
-    size: 'medium',
+    size: 'medium' as const,
     cover: null,
   };
 }
@@ -373,6 +376,7 @@ export async function processMessage(
       session.lastBlockId = tempId;
       affectedBlockId = tempId;
 
+      const blockExercises = getBlockExercises(blockData as any);
       actions.push({
         type: 'create_block',
         payload: {
@@ -381,17 +385,17 @@ export async function processMessage(
           icon: blockData.icon,
           color: blockData.color,
           cover: blockData.cover ?? undefined,
-          exercises: blockData.exercises.map(exerciseToTemplate),
+          exercises: blockExercises.map(exerciseToTemplate),
         },
       });
 
-      const preview = blockData.exercises
+      const preview = blockExercises
         .slice(0, 3)
-        .map((ex) => {
+        .map((ex: ExerciseCard) => {
           const setsCount = ex.sets.length;
-          const repsField = ex.fields.find((f) => f.id === 'reps');
+          const repsField = ex.fields.find((f: { id: string }) => f.id === 'reps');
           const durField = ex.fields.find(
-            (f) => f.id === 'duration' || f.name.toLowerCase().includes('hold'),
+            (f: { id: string; name: string }) => f.id === 'duration' || f.name.toLowerCase().includes('hold'),
           );
           const firstSet = ex.sets[0];
           let detail = '';
@@ -406,11 +410,11 @@ export async function processMessage(
         })
         .join('\n');
 
-      const moreCount = blockData.exercises.length - 3;
+      const moreCount = blockExercises.length - 3;
       const moreText = moreCount > 0 ? `\n  ...y ${moreCount} más` : '';
 
       responseText =
-        `¡Listo! He creado "${blockData.name}" con ${blockData.exercises.length} ejercicios:\n\n` +
+        `¡Listo! He creado "${blockData.name}" con ${blockExercises.length} ejercicios:\n\n` +
         preview +
         moreText +
         '\n\n¿Quieres que modifique algo?';
@@ -436,11 +440,12 @@ export async function processMessage(
         break;
       }
 
-      const targetEx = block.exercises.find((ex) =>
+      const blockExercises = getBlockExercises(block);
+      const targetEx = blockExercises.find((ex) =>
         ex.name.toLowerCase().includes(parsed.exerciseName),
       );
       if (!targetEx) {
-        responseText = `No encontré "${parsed.exerciseName}" en el bloque "${block.name}". Los ejercicios disponibles son: ${block.exercises.map((e) => e.name).join(', ')}.`;
+        responseText = `No encontré "${parsed.exerciseName}" en el bloque "${block.name}". Los ejercicios disponibles son: ${blockExercises.map((e) => e.name).join(', ')}.`;
         break;
       }
 
@@ -503,7 +508,8 @@ export async function processMessage(
       }
 
       const block = ctx.blocks.find((b) => b.id === blockId);
-      const targetEx = block?.exercises.find((ex) =>
+      const deleteExercises = block ? getBlockExercises(block) : [];
+      const targetEx = deleteExercises.find((ex) =>
         ex.name.toLowerCase().includes(exName),
       );
 
@@ -661,7 +667,7 @@ function getMissionInfo(ctx: AIChatContext): string {
 
 function getImprovementAdvice(_msg: string, ctx: AIChatContext): string {
   // Try to find a relevant exercise in user's blocks
-  const allExercises = ctx.blocks.flatMap((b) => b.exercises);
+  const allExercises = ctx.blocks.flatMap((b) => getBlockExercises(b));
   const withSets = allExercises.filter((ex) =>
     ex.sets.some((s) => s.completed),
   );
@@ -689,7 +695,7 @@ function getExerciseAdvice(
   primaryFieldId: string,
   ctx: AIChatContext,
 ): string {
-  const allExercises = ctx.blocks.flatMap((b) => b.exercises);
+  const allExercises = ctx.blocks.flatMap((b) => getBlockExercises(b));
   const match = allExercises.find((ex) =>
     ex.name.toLowerCase().includes(exerciseName.toLowerCase()),
   );
