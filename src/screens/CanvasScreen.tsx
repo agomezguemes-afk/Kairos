@@ -10,6 +10,7 @@ import CanvasView from '../components/CanvasView';
 import Widget, { type CanvasInteraction, type BoundsSnapshot } from '../components/Widget';
 import GuideLines, { emptyGuides, type GuideSlot } from '../components/GuideLines';
 import EmptyState from '../components/EmptyState';
+import InsightWidget from '../components/widgets/InsightWidget';
 import KIcon from '../components/icons/KIcon';
 import { useWorkoutStore } from '../store/workoutStore';
 import { useTheme } from '../theme/ThemeContext';
@@ -177,6 +178,8 @@ export default function CanvasScreen() {
           <EmptyState type="canvas" />
         </View>
       )}
+
+      <InsightWidget />
 
       <Pressable
         onPress={handleAddNodeWidget}

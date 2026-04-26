@@ -52,6 +52,14 @@ export interface ActiveWorkout {
   exercises: ExerciseCard[];
 }
 
+export interface ExerciseHistorySummary {
+  exerciseId: string;
+  name: string;
+  maxWeight: number;
+  totalVolume: number;
+  setsCompleted: number;
+}
+
 export interface WorkoutHistoryEntry {
   id: string;
   blockId: string;
@@ -62,6 +70,7 @@ export interface WorkoutHistoryEntry {
   setCount: number;
   totalVolume: number;
   durationSec: number;
+  exercises: ExerciseHistorySummary[];
 }
 
 interface WorkoutState {
@@ -85,6 +94,11 @@ interface WorkoutState {
   appendActiveExercise: (exercise: ExerciseCard) => void;
   finishWorkout: () => WorkoutHistoryEntry | null;
   cancelWorkout: () => void;
+
+  activeInsights: string[];
+  addInsight: (text: string) => void;
+  clearInsight: (index: number) => void;
+  clearAllInsights: () => void;
 
   addBlock: (
     discipline?: Discipline,
@@ -388,14 +402,28 @@ export const useWorkoutStore = create<WorkoutState>()(
           const block = state.blocks.find((b) => b.id === aw.blockId);
           let totalSets = 0;
           let totalVolume = 0;
+          const perEx: ExerciseHistorySummary[] = [];
           for (const ex of aw.exercises) {
+            let maxW = 0;
+            let exVol = 0;
+            let setsDone = 0;
             for (const s of ex.sets) {
               if (!s.completed) continue;
+              setsDone += 1;
               totalSets += 1;
               const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : 0;
               const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : 0;
+              if (w > maxW) maxW = w;
+              exVol += w * r;
               totalVolume += w * r;
             }
+            perEx.push({
+              exerciseId: ex.id,
+              name: ex.name,
+              maxWeight: maxW,
+              totalVolume: exVol,
+              setsCompleted: setsDone,
+            });
           }
           const endedAt = Date.now();
           summary = {
@@ -408,16 +436,36 @@ export const useWorkoutStore = create<WorkoutState>()(
             setCount: totalSets,
             totalVolume,
             durationSec: Math.round((endedAt - aw.startTime) / 1000),
+            exercises: perEx,
           };
           return {
             activeWorkout: null,
             workoutHistory: [summary, ...state.workoutHistory].slice(0, 100),
           };
         });
+
+        // Fire-and-forget insight detection (non-blocking, dynamic import to avoid cycles).
+        if (summary) {
+          setTimeout(() => {
+            import('../lib/ai/insights')
+              .then((m) => m.runPostWorkoutInsights())
+              .catch(() => {});
+          }, 0);
+        }
+
         return summary;
       },
 
       cancelWorkout: () => set({ activeWorkout: null }),
+
+      activeInsights: [],
+      addInsight: (text) =>
+        set((state) => ({ activeInsights: [...state.activeInsights, text].slice(-5) })),
+      clearInsight: (index) =>
+        set((state) => ({
+          activeInsights: state.activeInsights.filter((_, i) => i !== index),
+        })),
+      clearAllInsights: () => set({ activeInsights: [] }),
 
       addBlock: (discipline = 'general', overrides) => {
         const block = createWorkoutBlock(MOCK_USER_ID, get().blocks.length, discipline, overrides);

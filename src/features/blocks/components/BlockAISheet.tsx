@@ -29,6 +29,7 @@ import { useWorkoutStore } from '../../../store/workoutStore';
 import { useGamification } from '../../../context/GamificationContext';
 import { useUserProfile } from '../../../context/UserProfileContext';
 import { processBlockMessage, getBlockSuggestions } from '../../../services/blockAIService';
+import { generateWorkoutPlan } from '../../../lib/ai/coach';
 import type { RawUserContext } from '../../../utils/userContext';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
 
@@ -48,6 +49,10 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [planForm, setPlanForm] = useState<{ open: boolean; objetivo: string; dias: string; duracion: string; lesiones: string }>({
+    open: false, objetivo: '', dias: '3', duracion: '45', lesiones: '',
+  });
+  const [generating, setGenerating] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
@@ -143,6 +148,43 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     handleSend(prompt);
   }, [handleSend]);
 
+  const handleGeneratePlan = useCallback(async () => {
+    if (!planForm.objetivo.trim() || generating) return;
+    setGenerating(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const plan = await generateWorkoutPlan({
+        objetivo: planForm.objetivo.trim(),
+        días: parseInt(planForm.dias, 10) || 3,
+        duración: parseInt(planForm.duracion, 10) || 45,
+        lesiones: planForm.lesiones.trim()
+          ? planForm.lesiones.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+      });
+      const note: AIMessage = {
+        id: generateId(),
+        role: 'assistant',
+        content: plan
+          ? `He creado el bloque "${plan.name}" con ${plan.content.filter((n) => n.type === 'exercise').length} ejercicios.`
+          : 'No pude generar el plan. Inténtalo de nuevo con otro objetivo.',
+        actions: [],
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, note]);
+      setPlanForm((p) => ({ ...p, open: false }));
+    } catch (e) {
+      setMessages((prev) => [...prev, {
+        id: generateId(),
+        role: 'assistant',
+        content: 'Error generando la rutina. Revisa la conexión o la API key.',
+        actions: [],
+        timestamp: Date.now(),
+      }]);
+    } finally {
+      setGenerating(false);
+    }
+  }, [planForm, generating]);
+
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
@@ -236,6 +278,64 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                 </View>
               )}
             </ScrollView>
+
+            {/* Plan generator */}
+            <View style={styles.planRow}>
+              <Pressable
+                onPress={() => setPlanForm((p) => ({ ...p, open: !p.open }))}
+                style={styles.planToggle}
+              >
+                <Feather name="zap" size={13} color={Colors.accent.primary} />
+                <Text style={styles.planToggleText}>
+                  {planForm.open ? 'Cerrar generador' : 'Generar rutina'}
+                </Text>
+              </Pressable>
+            </View>
+            {planForm.open && (
+              <View style={styles.planForm}>
+                <TextInput
+                  style={styles.planInput}
+                  value={planForm.objetivo}
+                  onChangeText={(t) => setPlanForm((p) => ({ ...p, objetivo: t }))}
+                  placeholder="Objetivo (ej. hipertrofia tren superior)"
+                  placeholderTextColor={Colors.text.disabled}
+                />
+                <View style={styles.planRowInputs}>
+                  <TextInput
+                    style={[styles.planInput, styles.planInputSmall]}
+                    value={planForm.dias}
+                    onChangeText={(t) => setPlanForm((p) => ({ ...p, dias: t.replace(/[^0-9]/g, '') }))}
+                    placeholder="Días"
+                    placeholderTextColor={Colors.text.disabled}
+                    keyboardType="number-pad"
+                  />
+                  <TextInput
+                    style={[styles.planInput, styles.planInputSmall]}
+                    value={planForm.duracion}
+                    onChangeText={(t) => setPlanForm((p) => ({ ...p, duracion: t.replace(/[^0-9]/g, '') }))}
+                    placeholder="Min/sesión"
+                    placeholderTextColor={Colors.text.disabled}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                <TextInput
+                  style={styles.planInput}
+                  value={planForm.lesiones}
+                  onChangeText={(t) => setPlanForm((p) => ({ ...p, lesiones: t }))}
+                  placeholder="Lesiones (separadas por coma)"
+                  placeholderTextColor={Colors.text.disabled}
+                />
+                <Pressable
+                  onPress={handleGeneratePlan}
+                  disabled={generating || !planForm.objetivo.trim()}
+                  style={[styles.planBtn, (generating || !planForm.objetivo.trim()) && styles.planBtnDisabled]}
+                >
+                  <Text style={styles.planBtnText}>
+                    {generating ? 'Generando…' : 'Crear bloque'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
 
             {/* Suggestions */}
             {messages.length === 0 && (
@@ -490,5 +590,63 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: Colors.border.medium,
+  },
+  planRow: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border.subtle,
+    flexDirection: 'row',
+  },
+  planToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.accent.dim,
+  },
+  planToggleText: {
+    fontSize: Typography.size.micro,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.accent.primary,
+  },
+  planForm: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  planInput: {
+    fontSize: Typography.size.caption,
+    color: Colors.text.primary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.background.elevated,
+  },
+  planInputSmall: {
+    flex: 1,
+  },
+  planRowInputs: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  planBtn: {
+    marginTop: Spacing.xs,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.accent.primary,
+    alignItems: 'center',
+  },
+  planBtnDisabled: {
+    opacity: 0.5,
+  },
+  planBtnText: {
+    fontSize: Typography.size.caption,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.inverse,
   },
 });
