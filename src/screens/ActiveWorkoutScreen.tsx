@@ -250,6 +250,7 @@ export default function ActiveWorkoutScreen() {
               durationSec={aw.restTimer.duration}
               startTime={aw.restTimer.startTime}
               onSkip={skipRest}
+              onComplete={skipRest}
             />
           ) : (
             <>
