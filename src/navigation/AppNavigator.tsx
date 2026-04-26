@@ -28,6 +28,7 @@ import PRCardsScreen from '../screens/PRCardsScreen';
 import ProgressTreeScreen from '../screens/ProgressTreeScreen';
 import AIChatScreen from '../screens/AIChatScreen';
 import CanvasScreen from '../screens/CanvasScreen';
+import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
 import CustomTabBar from '../components/CustomTabBar';
 
 import { useAuthStore } from '../store/useAuthStore';
@@ -73,6 +74,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Dashboard"    component={DashboardTabs} />
             <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="Canvas"        component={CanvasScreen} options={{ animation: 'fade' }} />
+            <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
             <Stack.Screen name="Badges"        component={BadgesScreen} />
             <Stack.Screen name="PRCards"       component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
@@ -123,6 +125,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Dashboard"    component={DashboardTabs} />
             <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="Canvas"        component={CanvasScreen} options={{ animation: 'fade' }} />
+            <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
             <Stack.Screen name="Badges"        component={BadgesScreen} />
             <Stack.Screen name="PRCards"       component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />

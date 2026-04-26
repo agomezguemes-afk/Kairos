@@ -37,11 +37,54 @@ const MOCK_USER_ID = 'user_001';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 
+export interface ActiveWorkoutRestTimer {
+  duration: number;
+  startTime: number;
+  active: boolean;
+}
+
+export interface ActiveWorkout {
+  blockId: string;
+  startTime: number;
+  currentExerciseIndex: number;
+  currentSetIndex: number;
+  restTimer: ActiveWorkoutRestTimer;
+  exercises: ExerciseCard[];
+}
+
+export interface WorkoutHistoryEntry {
+  id: string;
+  blockId: string;
+  blockName: string;
+  startedAt: number;
+  endedAt: number;
+  exerciseCount: number;
+  setCount: number;
+  totalVolume: number;
+  durationSec: number;
+}
+
 interface WorkoutState {
   blocks: WorkoutBlock[];
   pendingHighlight: string | null;
   themePreference: ThemePreference;
   setThemePreference: (pref: ThemePreference) => void;
+  activeWorkout: ActiveWorkout | null;
+  workoutHistory: WorkoutHistoryEntry[];
+
+  startWorkout: (blockId: string) => void;
+  completeSet: (
+    exerciseId: string,
+    setId: string,
+    values: Record<string, FieldValue>,
+  ) => void;
+  skipRest: () => void;
+  nextExercise: () => void;
+  previousExercise: () => void;
+  goToSet: (setIndex: number) => void;
+  appendActiveExercise: (exercise: ExerciseCard) => void;
+  finishWorkout: () => WorkoutHistoryEntry | null;
+  cancelWorkout: () => void;
 
   addBlock: (
     discipline?: Discipline,
@@ -200,6 +243,181 @@ export const useWorkoutStore = create<WorkoutState>()(
       pendingHighlight: null,
       themePreference: 'system' as ThemePreference,
       setThemePreference: (pref) => set({ themePreference: pref }),
+      activeWorkout: null,
+      workoutHistory: [],
+
+      startWorkout: (blockId) => {
+        const block = get().blocks.find((b) => b.id === blockId);
+        if (!block) return;
+        const exercises: ExerciseCard[] = block.content
+          .filter((n): n is Extract<ContentNode, { type: 'exercise' }> => n.type === 'exercise')
+          .sort((a, b) => a.order - b.order)
+          .map((n) => JSON.parse(JSON.stringify(n.data.exercise)) as ExerciseCard);
+        if (exercises.length === 0) return;
+        set({
+          activeWorkout: {
+            blockId,
+            startTime: Date.now(),
+            currentExerciseIndex: 0,
+            currentSetIndex: 0,
+            restTimer: { duration: 0, startTime: 0, active: false },
+            exercises,
+          },
+        });
+      },
+
+      completeSet: (exerciseId, setId, values) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          const exercises = aw.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex;
+            return {
+              ...ex,
+              sets: ex.sets.map((s) =>
+                s.id === setId
+                  ? {
+                      ...s,
+                      values: { ...s.values, ...values },
+                      completed: true,
+                      completed_at: new Date().toISOString(),
+                    }
+                  : s,
+              ),
+            };
+          });
+
+          const currentEx = exercises[aw.currentExerciseIndex];
+          const isLastSet = aw.currentSetIndex >= currentEx.sets.length - 1;
+          const isLastExercise = aw.currentExerciseIndex >= exercises.length - 1;
+
+          let nextExIdx = aw.currentExerciseIndex;
+          let nextSetIdx = aw.currentSetIndex + 1;
+          if (isLastSet && !isLastExercise) {
+            nextExIdx = aw.currentExerciseIndex + 1;
+            nextSetIdx = 0;
+          } else if (isLastSet && isLastExercise) {
+            nextSetIdx = aw.currentSetIndex; // pin to last
+          }
+
+          const restDuration = currentEx.rest_seconds || 90;
+
+          return {
+            activeWorkout: {
+              ...aw,
+              exercises,
+              currentExerciseIndex: nextExIdx,
+              currentSetIndex: nextSetIdx,
+              restTimer: { duration: restDuration, startTime: Date.now(), active: true },
+            },
+          };
+        });
+      },
+
+      skipRest: () => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              restTimer: { ...state.activeWorkout.restTimer, active: false },
+            },
+          };
+        });
+      },
+
+      nextExercise: () => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          if (aw.currentExerciseIndex >= aw.exercises.length - 1) return state;
+          return {
+            activeWorkout: {
+              ...aw,
+              currentExerciseIndex: aw.currentExerciseIndex + 1,
+              currentSetIndex: 0,
+            },
+          };
+        });
+      },
+
+      previousExercise: () => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          if (aw.currentExerciseIndex <= 0) return state;
+          return {
+            activeWorkout: {
+              ...aw,
+              currentExerciseIndex: aw.currentExerciseIndex - 1,
+              currentSetIndex: 0,
+            },
+          };
+        });
+      },
+
+      goToSet: (setIndex) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const ex = state.activeWorkout.exercises[state.activeWorkout.currentExerciseIndex];
+          if (!ex) return state;
+          const clamped = Math.max(0, Math.min(ex.sets.length - 1, setIndex));
+          return {
+            activeWorkout: { ...state.activeWorkout, currentSetIndex: clamped },
+          };
+        });
+      },
+
+      appendActiveExercise: (exercise) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: [...state.activeWorkout.exercises, exercise],
+            },
+          };
+        });
+      },
+
+      finishWorkout: () => {
+        let summary: WorkoutHistoryEntry | null = null;
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          const block = state.blocks.find((b) => b.id === aw.blockId);
+          let totalSets = 0;
+          let totalVolume = 0;
+          for (const ex of aw.exercises) {
+            for (const s of ex.sets) {
+              if (!s.completed) continue;
+              totalSets += 1;
+              const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : 0;
+              const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : 0;
+              totalVolume += w * r;
+            }
+          }
+          const endedAt = Date.now();
+          summary = {
+            id: generateId(),
+            blockId: aw.blockId,
+            blockName: block?.name ?? 'Workout',
+            startedAt: aw.startTime,
+            endedAt,
+            exerciseCount: aw.exercises.length,
+            setCount: totalSets,
+            totalVolume,
+            durationSec: Math.round((endedAt - aw.startTime) / 1000),
+          };
+          return {
+            activeWorkout: null,
+            workoutHistory: [summary, ...state.workoutHistory].slice(0, 100),
+          };
+        });
+        return summary;
+      },
+
+      cancelWorkout: () => set({ activeWorkout: null }),
 
       addBlock: (discipline = 'general', overrides) => {
         const block = createWorkoutBlock(MOCK_USER_ID, get().blocks.length, discipline, overrides);

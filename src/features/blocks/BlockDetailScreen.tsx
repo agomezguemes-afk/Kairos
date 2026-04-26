@@ -301,6 +301,17 @@ export default function BlockDetailScreen({ route, navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Start workout — bottom CTA */}
+      {getBlockExercises(block).length > 0 && (
+        <Pressable
+          onPress={() => navigation.navigate('ActiveWorkout', { blockId })}
+          style={[styles.startWorkoutBtn, { bottom: insets.bottom + 20 }]}
+        >
+          <Feather name="play" size={18} color="#1A1A2E" />
+          <Text style={styles.startWorkoutText}>Iniciar entrenamiento</Text>
+        </Pressable>
+      )}
+
       {/* FAB — add exercise */}
       <Animated.View style={[styles.fab, fabStyle, { bottom: insets.bottom + 20 }]}>
         <Pressable
@@ -515,5 +526,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.elevated,
+  },
+  startWorkoutBtn: {
+    position: 'absolute',
+    left: 20,
+    right: 88,
+    height: 52,
+    borderRadius: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.gold[500],
+    ...Shadows.elevated,
+  },
+  startWorkoutText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A2E',
   },
 });
