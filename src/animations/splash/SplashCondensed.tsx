@@ -1,6 +1,6 @@
 // src/animations/splash/SplashCondensed.tsx
 import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   runOnJS,

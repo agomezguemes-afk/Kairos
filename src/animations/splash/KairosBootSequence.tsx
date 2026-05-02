@@ -63,11 +63,6 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
   const lr5 = useSharedValue(0);
   const letterReveals = [lr0, lr1, lr2, lr3, lr4, lr5];
 
-  // ── Wordmark final-state ───────────────────────────────────────────
-  // (separate from per-block reveals — used for the final glow + breathing)
-  const wmGroupScale = useSharedValue(1);
-  const wmGroupOpacity = useSharedValue(0);  // hidden until phase 7
-
   useEffect(() => {
     // ═════════════════════ PHASE 1: ORIGIN (0–600ms) ═════════════════════
     Haptics.selectionAsync().catch(() => {});
