@@ -4,7 +4,7 @@ import Animated, {
   SharedValue,
   useAnimatedProps,
 } from 'react-native-reanimated';
-import Svg, { Circle, G } from 'react-native-svg';
+import { Circle, G } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';
 import SoftGlow from './SoftGlow';
