@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { FULL, EASE, SPRING, VISUAL } from './choreography';
-import { GoldSphere, GoldBlock, IsoCube } from './primitives';
+import { GoldSphere, GoldBlock, IsoCube, Halo } from './primitives';
 
 const STAGE_SIZE = 400;
 const CENTER = STAGE_SIZE / 2;
@@ -81,6 +81,9 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
   const lr4 = useSharedValue(0);
   const lr5 = useSharedValue(0);
   const letterReveals = [lr0, lr1, lr2, lr3, lr4, lr5];
+
+  // Standalone wordmark halo for phase 7 (sphere is invisible by then)
+  const wordmarkGlow = useSharedValue(0);
 
   useEffect(() => {
     const timers: number[] = [];
@@ -181,8 +184,8 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
 
     // ═════════════════════ PHASE 7: FINAL STATE (5200–6400ms) ═══════════
     t(FULL.finalState.start, () => {
-      sphereGlow.value = withSequence(
-        withTiming(0.35, { duration: FULL.finalState.duration / 2, easing: EASE.meditative }),
+      wordmarkGlow.value = withSequence(
+        withTiming(0.7, { duration: FULL.finalState.duration / 2, easing: EASE.meditative }),
         withTiming(0, { duration: FULL.finalState.duration / 2, easing: EASE.meditative }),
       );
     });
@@ -256,6 +259,8 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
           rotation={cubeRotation}
           opacity={cubeOpacity}
         />
+
+        <Halo cx={CENTER} cy={CENTER} size={240} intensity={wordmarkGlow} />
 
         {divisionBlocks.map((block, i) => (
           <GoldBlock

@@ -29,16 +29,16 @@ const CONSTELLATION = [
   { type: 'square' as const, dx: 38, dy: 35, size: 16 },    // bottom-right
 ];
 
-const TOTAL_MS = 3000;
-const STAGGER_MS = 220;
-const SHAPE_FADE_MS = 600;
-const WORDMARK_DELAY = 900;
-const WORDMARK_FADE_MS = 600;
-const TAGLINE_DELAY = 1200;
-const TAGLINE_FADE_MS = 500;
-const BREATH_START = 1900;
-const EXIT_START = 2700;
-const EXIT_MS = 300;
+const STAGGER_MS = 180;
+const SHAPE_FADE_MS = 700;
+const DROP_OFFSET = 10;          // px above final position; shapes drop into place
+const WORDMARK_DELAY = 950;
+const WORDMARK_FADE_MS = 700;
+const TAGLINE_DELAY = 1350;
+const TAGLINE_FADE_MS = 600;
+const BREATH_START = 2100;
+const EXIT_START = 2900;
+const EXIT_MS = 350;
 
 interface SplashCondensedProps {
   onDone: () => void;
@@ -66,9 +66,9 @@ export default function SplashCondensed({ onDone }: SplashCondensedProps) {
   const g3 = useSharedValue(0);
   const shapeGlows = [g0, g1, g2, g3];
 
-  // Static positions per constellation entry — not animated
+  // Positions per constellation entry — Y is animated for the drop-in effect
   const xVals = CONSTELLATION.map((c) => useSharedValue(CENTER + c.dx));
-  const yVals = CONSTELLATION.map((c) => useSharedValue(GLYPH_CY + c.dy));
+  const yVals = CONSTELLATION.map((c) => useSharedValue(GLYPH_CY + c.dy - DROP_OFFSET));
   const rotations = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
 
   // Wordmark + tagline group
@@ -92,13 +92,15 @@ export default function SplashCondensed({ onDone }: SplashCondensedProps) {
       timers.push(id);
     };
 
-    // ── Phase 1: shapes appear with stagger ────────────────────────────
+    // ── Phase 1: shapes drop into place with stagger ──────────────────
     Haptics.selectionAsync().catch(() => {});
-    CONSTELLATION.forEach((_, i) => {
+    CONSTELLATION.forEach((c, i) => {
+      const finalY = GLYPH_CY + c.dy;
       t(i * STAGGER_MS, () => {
         shapeOpacities[i].value = withTiming(1, { duration: SHAPE_FADE_MS, easing: EASE.decelerate });
         shapeScales[i].value = withTiming(1, { duration: SHAPE_FADE_MS, easing: EASE.decelerate });
-        shapeGlows[i].value = withTiming(0.55, { duration: SHAPE_FADE_MS + 200, easing: EASE.decelerate });
+        yVals[i].value = withTiming(finalY, { duration: SHAPE_FADE_MS, easing: EASE.decelerate });
+        shapeGlows[i].value = withTiming(0.6, { duration: SHAPE_FADE_MS + 250, easing: EASE.decelerate });
       });
     });
 
