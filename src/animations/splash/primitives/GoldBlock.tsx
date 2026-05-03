@@ -9,7 +9,6 @@ import Animated, {
 import Svg, { Rect, Text } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';
-import SoftGlow from './SoftGlow';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedText = Animated.createAnimatedComponent(Text);
@@ -34,8 +33,6 @@ export interface GoldBlockProps {
    * grows from a point, both centered. No more lazy crossfade overlap.
    */
   letterReveal?: SharedValue<number>;
-  /** Optional warm halo behind the block (0..1 intensity). */
-  glow?: SharedValue<number>;
   size?: number;
   color?: string;
 }
@@ -48,7 +45,6 @@ export default function GoldBlock({
   scale,
   letter,
   letterReveal,
-  glow,
   size = VISUAL.blockSize,
   color = '#D4AF37',
 }: GoldBlockProps) {
@@ -93,9 +89,6 @@ export default function GoldBlock({
   return (
     <Animated.View style={[styles.box(local), animStyle]} pointerEvents="none">
       <Svg width={local} height={local}>
-        {glow && (
-          <SoftGlow cx={localCenter} cy={localCenter} baseRadius={size * 1.0} intensity={glow} />
-        )}
         <AnimatedRect rx={2} fill={color} animatedProps={rectProps} />
         {letter && (
           <AnimatedText
