@@ -260,7 +260,9 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
           opacity={cubeOpacity}
         />
 
-        <Halo cx={CENTER} cy={CENTER} size={240} intensity={wordmarkGlow} />
+        {/* Layered halo for the wordmark — inner core + outer diffusion. */}
+        <Halo cx={CENTER} cy={CENTER} size={260} intensity={wordmarkGlow} />
+        <Halo cx={CENTER} cy={CENTER} size={130} intensity={wordmarkGlow} />
 
         {divisionBlocks.map((block, i) => (
           <GoldBlock

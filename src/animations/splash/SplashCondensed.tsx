@@ -8,37 +8,41 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
-import { EASE, VISUAL } from './choreography';
+import { EASE, SPRING, VISUAL } from './choreography';
 import { GoldBlock, GoldSphere, KairosWordmark } from './primitives';
 
 const STAGE_SIZE = 400;
 const CENTER = STAGE_SIZE / 2;
 const GLYPH_CY = 155;       // glyph constellation center
-const WORDMARK_CY = 270;    // wordmark baseline
-const TAGLINE_CY = 308;     // tagline baseline
+const WORDMARK_CY = 270;
+const TAGLINE_CY = 308;
 
-// Constellation layout — positions captured from the reference image (asymmetric).
-// Each entry is an offset from (CENTER, GLYPH_CY).
-const CONSTELLATION = [
-  { type: 'square' as const, dx: -32, dy: -25, size: 17 },  // top-left
-  { type: 'circle' as const, dx: 22, dy: 5, size: 22 },     // mid-right (largest)
-  { type: 'square' as const, dx: -18, dy: 28, size: 19 },   // bottom-left
-  { type: 'square' as const, dx: 38, dy: 35, size: 16 },    // bottom-right
+// Sphere is the gravitational center — appears first, satellites emanate from it.
+const SPHERE = { dx: 14, dy: 0, size: 26 };
+
+// Three squares emanate outward to form the constellation.
+const SATELLITES = [
+  { dx: -32, dy: -28, size: 18 },  // top-left
+  { dx: -22, dy: 30, size: 22 },   // bottom-left (largest)
+  { dx: 38, dy: 36, size: 16 },    // bottom-right
 ];
 
-const STAGGER_MS = 180;
-const SHAPE_FADE_MS = 700;
-const DROP_OFFSET = 10;          // px above final position; shapes drop into place
-const WORDMARK_DELAY = 950;
+const SPHERE_FADE_MS = 480;
+const SATELLITE_BIRTH_DELAY = 320;   // sphere has 320ms alone before satellites are born
+const SATELLITE_STAGGER_MS = 180;
+const SATELLITE_TRAVEL_MS = 720;
+const SATELLITE_FADE_IN_MS = 320;
+const WORDMARK_DELAY = 1280;
 const WORDMARK_FADE_MS = 700;
-const TAGLINE_DELAY = 1350;
+const TAGLINE_DELAY = 1620;
 const TAGLINE_FADE_MS = 600;
-const BREATH_START = 2100;
-const EXIT_START = 2900;
-const EXIT_MS = 350;
+const BREATH_START = 2350;
+const EXIT_START = 3000;
+const EXIT_MS = 380;
 
 interface SplashCondensedProps {
   onDone: () => void;
@@ -47,36 +51,52 @@ interface SplashCondensedProps {
 export default function SplashCondensed({ onDone }: SplashCondensedProps) {
   const rootOpacity = useSharedValue(1);
 
-  // Per-shape state — opacity + scale + glow
-  const o0 = useSharedValue(0);
-  const o1 = useSharedValue(0);
-  const o2 = useSharedValue(0);
-  const o3 = useSharedValue(0);
-  const shapeOpacities = [o0, o1, o2, o3];
+  // ── Sphere (the gravitational center) ──────────────────────────────
+  const sphereCx = CENTER + SPHERE.dx;
+  const sphereCy = GLYPH_CY + SPHERE.dy;
+  const sphereX = useSharedValue(sphereCx);
+  const sphereY = useSharedValue(sphereCy);
+  const sphereScale = useSharedValue(0.4);
+  const sphereOpacity = useSharedValue(0);
+  const sphereGlow = useSharedValue(0);
 
-  const s0 = useSharedValue(0.7);
-  const s1 = useSharedValue(0.7);
-  const s2 = useSharedValue(0.7);
-  const s3 = useSharedValue(0.7);
-  const shapeScales = [s0, s1, s2, s3];
+  // ── Satellites — start at sphere position, travel to their slots ──
+  const sx0 = useSharedValue(sphereCx);
+  const sy0 = useSharedValue(sphereCy);
+  const sx1 = useSharedValue(sphereCx);
+  const sy1 = useSharedValue(sphereCy);
+  const sx2 = useSharedValue(sphereCx);
+  const sy2 = useSharedValue(sphereCy);
+  const satelliteX = [sx0, sx1, sx2];
+  const satelliteY = [sy0, sy1, sy2];
 
-  const g0 = useSharedValue(0);
-  const g1 = useSharedValue(0);
-  const g2 = useSharedValue(0);
-  const g3 = useSharedValue(0);
-  const shapeGlows = [g0, g1, g2, g3];
+  const satOp0 = useSharedValue(0);
+  const satOp1 = useSharedValue(0);
+  const satOp2 = useSharedValue(0);
+  const satelliteOpacities = [satOp0, satOp1, satOp2];
 
-  // Positions per constellation entry — Y is animated for the drop-in effect
-  const xVals = CONSTELLATION.map((c) => useSharedValue(CENTER + c.dx));
-  const yVals = CONSTELLATION.map((c) => useSharedValue(GLYPH_CY + c.dy - DROP_OFFSET));
-  const rotations = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  const satScale0 = useSharedValue(0.3);
+  const satScale1 = useSharedValue(0.3);
+  const satScale2 = useSharedValue(0.3);
+  const satelliteScales = [satScale0, satScale1, satScale2];
 
-  // Wordmark + tagline group
+  const satGlow0 = useSharedValue(0);
+  const satGlow1 = useSharedValue(0);
+  const satGlow2 = useSharedValue(0);
+  const satelliteGlows = [satGlow0, satGlow1, satGlow2];
+
+  const satRot0 = useSharedValue(0);
+  const satRot1 = useSharedValue(0);
+  const satRot2 = useSharedValue(0);
+  const satelliteRotations = [satRot0, satRot1, satRot2];
+
+  // ── Wordmark + tagline ─────────────────────────────────────────────
   const wordmarkOpacity = useSharedValue(0);
   const wordmarkScale = useSharedValue(1.0);
   const taglineOpacity = useSharedValue(0);
 
-  // For KairosWordmark, all letters reveal at once via the group opacity
+  // KairosWordmark expects 6 reveal SVs — we hold them at 1 since we control
+  // visibility via the group opacity instead.
   const lr0 = useSharedValue(1);
   const lr1 = useSharedValue(1);
   const lr2 = useSharedValue(1);
@@ -92,29 +112,54 @@ export default function SplashCondensed({ onDone }: SplashCondensedProps) {
       timers.push(id);
     };
 
-    // ── Phase 1: shapes drop into place with stagger ──────────────────
+    // ── Sphere appears alone first ─────────────────────────────────────
     Haptics.selectionAsync().catch(() => {});
-    CONSTELLATION.forEach((c, i) => {
-      const finalY = GLYPH_CY + c.dy;
-      t(i * STAGGER_MS, () => {
-        shapeOpacities[i].value = withTiming(1, { duration: SHAPE_FADE_MS, easing: EASE.decelerate });
-        shapeScales[i].value = withTiming(1, { duration: SHAPE_FADE_MS, easing: EASE.decelerate });
-        yVals[i].value = withTiming(finalY, { duration: SHAPE_FADE_MS, easing: EASE.decelerate });
-        shapeGlows[i].value = withTiming(0.6, { duration: SHAPE_FADE_MS + 250, easing: EASE.decelerate });
+    sphereOpacity.value = withTiming(1, { duration: SPHERE_FADE_MS, easing: EASE.decelerate });
+    sphereScale.value = withTiming(1, { duration: SPHERE_FADE_MS, easing: EASE.decelerate });
+    sphereGlow.value = withTiming(0.65, {
+      duration: SPHERE_FADE_MS + 200,
+      easing: EASE.decelerate,
+    });
+
+    // ── Satellites emanate from the sphere center ──────────────────────
+    SATELLITES.forEach((s, i) => {
+      const targetX = CENTER + s.dx;
+      const targetY = GLYPH_CY + s.dy;
+
+      t(SATELLITE_BIRTH_DELAY + i * SATELLITE_STAGGER_MS, () => {
+        // Brief fade-in while still at sphere center
+        satelliteOpacities[i].value = withTiming(1, { duration: SATELLITE_FADE_IN_MS, easing: EASE.decelerate });
+        satelliteScales[i].value = withTiming(1, { duration: SATELLITE_FADE_IN_MS + 80, easing: EASE.decelerate });
+
+        // Spring outward — gives the emanation a soft, organic settle
+        satelliteX[i].value = withSpring(targetX, { ...SPRING.block, mass: 0.9 });
+        satelliteY[i].value = withSpring(targetY, { ...SPRING.block, mass: 0.9 });
+
+        // Subtle rotation while traveling — degrees vary so motion isn't uniform
+        const targetRot = ((i % 2 === 0 ? 1 : -1) * (4 + i * 2) * Math.PI) / 180;
+        satelliteRotations[i].value = withTiming(targetRot, {
+          duration: SATELLITE_TRAVEL_MS,
+          easing: EASE.decelerate,
+        });
+
+        // Glow trails the body, peaking after arrival
+        satelliteGlows[i].value = withTiming(0.55, {
+          duration: SATELLITE_TRAVEL_MS,
+          easing: EASE.decelerate,
+        });
       });
     });
 
-    // ── Phase 2: wordmark fades in ─────────────────────────────────────
+    // ── Wordmark + tagline ─────────────────────────────────────────────
     t(WORDMARK_DELAY, () => {
       wordmarkOpacity.value = withTiming(1, { duration: WORDMARK_FADE_MS, easing: EASE.primary });
     });
 
-    // ── Phase 3: tagline fades in ──────────────────────────────────────
     t(TAGLINE_DELAY, () => {
       taglineOpacity.value = withTiming(1, { duration: TAGLINE_FADE_MS, easing: EASE.primary });
     });
 
-    // ── Phase 4: breathing ─────────────────────────────────────────────
+    // ── Breathing on the wordmark ──────────────────────────────────────
     t(BREATH_START, () => {
       Haptics.selectionAsync().catch(() => {});
       wordmarkScale.value = withRepeat(
@@ -151,30 +196,27 @@ export default function SplashCondensed({ onDone }: SplashCondensedProps) {
   return (
     <Animated.View style={[styles.root, rootStyle]} pointerEvents="auto">
       <View style={styles.stage}>
-        {CONSTELLATION.map((c, i) =>
-          c.type === 'circle' ? (
-            <GoldSphere
-              key={`shape-${i}`}
-              x={xVals[i]}
-              y={yVals[i]}
-              scale={shapeScales[i]}
-              opacity={shapeOpacities[i]}
-              glow={shapeGlows[i]}
-              size={c.size}
-            />
-          ) : (
-            <GoldBlock
-              key={`shape-${i}`}
-              x={xVals[i]}
-              y={yVals[i]}
-              rotation={rotations[i]}
-              scale={shapeScales[i]}
-              opacity={shapeOpacities[i]}
-              glow={shapeGlows[i]}
-              size={c.size}
-            />
-          ),
-        )}
+        <GoldSphere
+          x={sphereX}
+          y={sphereY}
+          scale={sphereScale}
+          opacity={sphereOpacity}
+          glow={sphereGlow}
+          size={SPHERE.size}
+        />
+
+        {SATELLITES.map((s, i) => (
+          <GoldBlock
+            key={`sat-${i}`}
+            x={satelliteX[i]}
+            y={satelliteY[i]}
+            rotation={satelliteRotations[i]}
+            scale={satelliteScales[i]}
+            opacity={satelliteOpacities[i]}
+            glow={satelliteGlows[i]}
+            size={s.size}
+          />
+        ))}
 
         <KairosWordmark
           centerX={CENTER}

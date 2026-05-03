@@ -28,7 +28,11 @@ export interface GoldBlockProps {
   scale: SharedValue<number>;
   /** Optional letter overlay for block-stamp morph. */
   letter?: string;
-  /** 0 = block visible, 1 = letter visible. Drives the crossfade inside the SVG. */
+  /**
+   * 0 = block visible at full size, 1 = letter at full size.
+   * Drives a true metamorphosis: rect shrinks toward a point while letter
+   * grows from a point, both centered. No more lazy crossfade overlap.
+   */
   letterReveal?: SharedValue<number>;
   /** Optional warm halo behind the block (0..1 intensity). */
   glow?: SharedValue<number>;
@@ -50,7 +54,6 @@ export default function GoldBlock({
 }: GoldBlockProps) {
   const local = size + LOCAL_PAD;
   const localCenter = local / 2;
-  const half = size / 2;
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -62,34 +65,42 @@ export default function GoldBlock({
     ],
   }));
 
-  const blockProps = useAnimatedProps(() => ({
-    opacity: letterReveal ? 1 - letterReveal.value : 1,
-  }));
+  // Rect shrinks toward center as letterReveal grows: width/height ride
+  // size * (1 - reveal), and x/y are recomputed so the rect stays centered.
+  const rectProps = useAnimatedProps(() => {
+    const r = letterReveal ? letterReveal.value : 0;
+    const s = size * (1 - r);
+    return {
+      x: localCenter - s / 2,
+      y: localCenter - s / 2,
+      width: s,
+      height: s,
+      opacity: 1 - r,
+    };
+  });
 
-  const textProps = useAnimatedProps(() => ({
-    opacity: letterReveal ? letterReveal.value : 0,
-  }));
+  // Letter grows from a point: scale-equivalent comes from animating fontSize.
+  // Opacity rises with reveal so the swap reads as a single morph.
+  const letterFontSize = VISUAL.letterFontSize;
+  const textProps = useAnimatedProps(() => {
+    const r = letterReveal ? letterReveal.value : 0;
+    return {
+      fontSize: letterFontSize * r,
+      opacity: r,
+    };
+  });
 
   return (
     <Animated.View style={[styles.box(local), animStyle]} pointerEvents="none">
       <Svg width={local} height={local}>
         {glow && (
-          <SoftGlow cx={localCenter} cy={localCenter} baseRadius={size * 1.2} intensity={glow} />
+          <SoftGlow cx={localCenter} cy={localCenter} baseRadius={size * 1.0} intensity={glow} />
         )}
-        <AnimatedRect
-          x={localCenter - half}
-          y={localCenter - half}
-          width={size}
-          height={size}
-          rx={2}
-          fill={color}
-          animatedProps={blockProps}
-        />
+        <AnimatedRect rx={2} fill={color} animatedProps={rectProps} />
         {letter && (
           <AnimatedText
             x={localCenter}
             y={localCenter}
-            fontSize={VISUAL.letterFontSize}
             fontWeight="300"
             fill={color}
             textAnchor="middle"

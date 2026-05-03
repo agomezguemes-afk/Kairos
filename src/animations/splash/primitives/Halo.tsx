@@ -24,7 +24,9 @@ export interface HaloProps {
 }
 
 export default function Halo({ cx, cy, size, intensity, color }: HaloProps) {
-  const local = size * 3;            // generous box so falloff isn't clipped
+  // Local SVG box has ~30% headroom over the halo's max radius so the
+  // gradient fades cleanly without being clipped at the edge.
+  const local = Math.ceil(size * 1.3);
   const localCenter = local / 2;
   const baseRadius = size / 2;
 
@@ -41,7 +43,7 @@ export default function Halo({ cx, cy, size, intensity, color }: HaloProps) {
         <SoftGlow
           cx={localCenter}
           cy={localCenter}
-          baseRadius={baseRadius * 1.5}
+          baseRadius={baseRadius}
           intensity={intensity}
           color={color}
         />
