@@ -9,11 +9,12 @@ import Animated, {
 import Svg, { Rect, Text } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';
+import SoftGlow from './SoftGlow';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedText = Animated.createAnimatedComponent(Text);
 
-const LOCAL_PAD = 60;
+const LOCAL_PAD = 80;
 
 export interface GoldBlockProps {
   /** Block CENTER in stage coordinates. */
@@ -29,6 +30,8 @@ export interface GoldBlockProps {
   letter?: string;
   /** 0 = block visible, 1 = letter visible. Drives the crossfade inside the SVG. */
   letterReveal?: SharedValue<number>;
+  /** Optional warm halo behind the block (0..1 intensity). */
+  glow?: SharedValue<number>;
   size?: number;
   color?: string;
 }
@@ -41,6 +44,7 @@ export default function GoldBlock({
   scale,
   letter,
   letterReveal,
+  glow,
   size = VISUAL.blockSize,
   color = '#D4AF37',
 }: GoldBlockProps) {
@@ -69,6 +73,9 @@ export default function GoldBlock({
   return (
     <Animated.View style={[styles.box(local), animStyle]} pointerEvents="none">
       <Svg width={local} height={local}>
+        {glow && (
+          <SoftGlow cx={localCenter} cy={localCenter} baseRadius={size * 1.2} intensity={glow} />
+        )}
         <AnimatedRect
           x={localCenter - half}
           y={localCenter - half}

@@ -6,10 +6,9 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
-  withSequence,
-  withSpring,
   withTiming,
+  withSpring,
+  withSequence,
 } from 'react-native-reanimated';
 
 import { FULL, EASE, SPRING, VISUAL } from './choreography';
@@ -84,189 +83,146 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
   const letterReveals = [lr0, lr1, lr2, lr3, lr4, lr5];
 
   useEffect(() => {
+    const timers: number[] = [];
+    const t = (ms: number, fn: () => void) => {
+      const id = setTimeout(fn, ms) as unknown as number;
+      timers.push(id);
+    };
+
     // ═════════════════════ PHASE 1: ORIGIN (0–600ms) ═════════════════════
     Haptics.selectionAsync().catch(() => {});
-
     sphereOpacity.value = withTiming(1, { duration: FULL.origin.duration, easing: EASE.decelerate });
     sphereScale.value = withTiming(1.0, { duration: FULL.origin.duration, easing: EASE.decelerate });
-    sphereGlow.value = withDelay(
-      FULL.origin.duration - 200,
-      withTiming(0.4, { duration: 200, easing: EASE.decelerate }),
-    );
+    t(FULL.origin.duration - 200, () => {
+      sphereGlow.value = withTiming(0.4, { duration: 200, easing: EASE.decelerate });
+    });
 
     // ═════════════════════ PHASE 2: EMISSION (700–1500ms) ═══════════════
-    sphereGlow.value = withDelay(
-      FULL.emission.start,
-      withTiming(0, { duration: FULL.emission.duration, easing: EASE.accelerate }),
-    );
+    t(FULL.emission.start, () => {
+      sphereGlow.value = withTiming(0, { duration: FULL.emission.duration, easing: EASE.accelerate });
 
-    FULL.emission.angles.forEach((angleDeg, i) => {
-      const angleRad = (angleDeg * Math.PI) / 180;
-      const targetX = CENTER + Math.cos(angleRad) * FULL.emission.distance;
-      const targetY = CENTER + Math.sin(angleRad) * FULL.emission.distance;
-      const targetRot = ((FULL.emission.blockRotation * Math.PI) / 180) * (i % 2 === 0 ? 1 : -1);
+      FULL.emission.angles.forEach((angleDeg, i) => {
+        const angleRad = (angleDeg * Math.PI) / 180;
+        const targetX = CENTER + Math.cos(angleRad) * FULL.emission.distance;
+        const targetY = CENTER + Math.sin(angleRad) * FULL.emission.distance;
+        const targetRot = ((FULL.emission.blockRotation * Math.PI) / 180) * (i % 2 === 0 ? 1 : -1);
 
-      const block = emissionBlocks[i];
-      block.opacity.value = withDelay(
-        FULL.emission.start + i * FULL.emission.staggerMs,
-        withTiming(1, { duration: 200, easing: EASE.decelerate }),
-      );
-      block.scale.value = withDelay(
-        FULL.emission.start + i * FULL.emission.staggerMs,
-        withTiming(1, { duration: 200, easing: EASE.decelerate }),
-      );
-      block.x.value = withDelay(
-        FULL.emission.start + i * FULL.emission.staggerMs,
-        withSpring(targetX, SPRING.block),
-      );
-      block.y.value = withDelay(
-        FULL.emission.start + i * FULL.emission.staggerMs,
-        withSpring(targetY, SPRING.block),
-      );
-      block.rotation.value = withDelay(
-        FULL.emission.start + i * FULL.emission.staggerMs,
-        withTiming(targetRot, { duration: FULL.emission.duration, easing: EASE.decelerate }),
-      );
+        t(i * FULL.emission.staggerMs, () => {
+          const block = emissionBlocks[i];
+          block.opacity.value = withTiming(1, { duration: 200, easing: EASE.decelerate });
+          block.scale.value = withTiming(1, { duration: 200, easing: EASE.decelerate });
+          block.x.value = withSpring(targetX, SPRING.block);
+          block.y.value = withSpring(targetY, SPRING.block);
+          block.rotation.value = withTiming(targetRot, { duration: FULL.emission.duration, easing: EASE.decelerate });
+        });
+      });
     });
 
     // ═════════════════════ PHASE 3: RETURN (1500–2200ms) ════════════════
-    emissionBlocks.forEach((block) => {
-      block.x.value = withDelay(
-        FULL.return.start,
-        withTiming(CENTER, { duration: FULL.return.duration, easing: EASE.accelerate }),
-      );
-      block.y.value = withDelay(
-        FULL.return.start,
-        withTiming(CENTER, { duration: FULL.return.duration, easing: EASE.accelerate }),
-      );
-      block.rotation.value = withDelay(
-        FULL.return.start,
-        withTiming(0, { duration: FULL.return.duration, easing: EASE.accelerate }),
-      );
+    t(FULL.return.start, () => {
+      emissionBlocks.forEach((block) => {
+        block.x.value = withTiming(CENTER, { duration: FULL.return.duration, easing: EASE.accelerate });
+        block.y.value = withTiming(CENTER, { duration: FULL.return.duration, easing: EASE.accelerate });
+        block.rotation.value = withTiming(0, { duration: FULL.return.duration, easing: EASE.accelerate });
+      });
     });
 
     // ═════════════════════ PHASE 4: CUBE MORPH (2200–2900ms) ════════════
-    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}), 2400);
+    t(FULL.cubeMorph.start, () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
-    sphereOpacity.value = withDelay(
-      FULL.cubeMorph.start,
-      withTiming(0, { duration: FULL.cubeMorph.duration, easing: EASE.primary }),
-    );
-    sphereScale.value = withDelay(
-      FULL.cubeMorph.start,
-      withTiming(0.5, { duration: FULL.cubeMorph.duration, easing: EASE.primary }),
-    );
+      sphereOpacity.value = withTiming(0, { duration: FULL.cubeMorph.duration, easing: EASE.primary });
+      sphereScale.value = withTiming(0.5, { duration: FULL.cubeMorph.duration, easing: EASE.primary });
 
-    emissionBlocks.forEach((block) => {
-      block.opacity.value = withDelay(
-        FULL.cubeMorph.start,
-        withTiming(0, { duration: FULL.cubeMorph.duration, easing: EASE.primary }),
-      );
-    });
+      emissionBlocks.forEach((block) => {
+        block.opacity.value = withTiming(0, { duration: FULL.cubeMorph.duration, easing: EASE.primary });
+      });
 
-    cubeOpacity.value = withDelay(
-      FULL.cubeMorph.start,
-      withTiming(1, { duration: FULL.cubeMorph.duration, easing: EASE.primary }),
-    );
-    cubeScale.value = withDelay(
-      FULL.cubeMorph.start,
-      withTiming(1.0, { duration: FULL.cubeMorph.duration, easing: EASE.primary }),
-    );
-    cubeRotation.value = withDelay(
-      FULL.cubeMorph.start,
-      withTiming((FULL.cubeMorph.rotation * Math.PI) / 180, {
+      cubeOpacity.value = withTiming(1, { duration: FULL.cubeMorph.duration, easing: EASE.primary });
+      cubeScale.value = withTiming(1.0, { duration: FULL.cubeMorph.duration, easing: EASE.primary });
+      cubeRotation.value = withTiming((FULL.cubeMorph.rotation * Math.PI) / 180, {
         duration: FULL.cubeMorph.duration,
         easing: EASE.primary,
-      }),
-    );
+      });
+    });
 
     // ═════════════════════ PHASE 5: DIVISION (3000–4000ms) ══════════════
-    cubeOpacity.value = withDelay(
-      FULL.division.start,
-      withTiming(0, { duration: 400, easing: EASE.accelerate }),
-    );
+    t(FULL.division.start, () => {
+      cubeOpacity.value = withTiming(0, { duration: 400, easing: EASE.accelerate });
 
-    const totalWidth = (LETTERS.length - 1) * VISUAL.wordmarkSpacing;
-    const startX = CENTER - totalWidth / 2;
+      const totalWidth = (LETTERS.length - 1) * VISUAL.wordmarkSpacing;
+      const startX = CENTER - totalWidth / 2;
 
-    divisionBlocks.forEach((block, i) => {
-      const targetX = startX + i * VISUAL.wordmarkSpacing;
-      const targetY = CENTER;
+      divisionBlocks.forEach((block, i) => {
+        const targetX = startX + i * VISUAL.wordmarkSpacing;
+        const targetY = CENTER;
 
-      // initial position at cube center is already set by useBlockState (CENTER, CENTER)
-      block.opacity.value = withDelay(
-        FULL.division.start + i * FULL.division.staggerMs,
-        withTiming(1, { duration: 100, easing: EASE.decelerate }),
-      );
-      block.scale.value = withDelay(
-        FULL.division.start + i * FULL.division.staggerMs,
-        withTiming(1, { duration: 100, easing: EASE.decelerate }),
-      );
-      block.x.value = withDelay(
-        FULL.division.start + i * FULL.division.staggerMs,
-        withSpring(targetX, SPRING.bounce),
-      );
-      block.y.value = withDelay(
-        FULL.division.start + i * FULL.division.staggerMs,
-        withSpring(targetY, SPRING.bounce),
-      );
+        t(i * FULL.division.staggerMs, () => {
+          block.opacity.value = withTiming(1, { duration: 100, easing: EASE.decelerate });
+          block.scale.value = withTiming(1, { duration: 100, easing: EASE.decelerate });
+          block.x.value = withSpring(targetX, SPRING.bounce);
+          block.y.value = withSpring(targetY, SPRING.bounce);
+        });
+      });
     });
 
     // ═════════════════════ PHASE 6: MUTATION (4000–5200ms) ══════════════
-    setTimeout(() => Haptics.selectionAsync().catch(() => {}), 5000);
+    t(FULL.mutation.start, () => {
+      letterReveals.forEach((reveal, i) => {
+        t(i * FULL.mutation.staggerMs, () => {
+          reveal.value = withTiming(1, { duration: 600, easing: EASE.primary });
+        });
+      });
+    });
 
-    letterReveals.forEach((reveal, i) => {
-      reveal.value = withDelay(
-        FULL.mutation.start + i * FULL.mutation.staggerMs,
-        withTiming(1, { duration: 600, easing: EASE.primary }),
-      );
+    t(5000, () => {
+      Haptics.selectionAsync().catch(() => {});
     });
 
     // ═════════════════════ PHASE 7: FINAL STATE (5200–6400ms) ═══════════
-    sphereGlow.value = withDelay(
-      FULL.finalState.start,
-      withSequence(
+    t(FULL.finalState.start, () => {
+      sphereGlow.value = withSequence(
         withTiming(0.35, { duration: FULL.finalState.duration / 2, easing: EASE.meditative }),
         withTiming(0, { duration: FULL.finalState.duration / 2, easing: EASE.meditative }),
-      ),
-    );
+      );
+    });
 
     // ═════════════════════ PHASE 8: REVERSE (6400–7400ms) ═══════════════
-    letterReveals.forEach((reveal, i) => {
-      reveal.value = withDelay(
-        FULL.reverse.start + i * FULL.reverse.staggerMs,
-        withTiming(0, { duration: 400, easing: EASE.accelerate }),
-      );
+    t(FULL.reverse.start, () => {
+      letterReveals.forEach((reveal, i) => {
+        t(i * FULL.reverse.staggerMs, () => {
+          reveal.value = withTiming(0, { duration: 400, easing: EASE.accelerate });
+        });
+      });
     });
 
-    [3, 4, 5].forEach((i) => {
-      divisionBlocks[i].opacity.value = withDelay(
-        FULL.reverse.start + 400,
-        withTiming(0, { duration: 400, easing: EASE.accelerate }),
-      );
+    t(FULL.reverse.start + 200, () => {
+      const isoOffset = 22;
+      [0, 1, 2].forEach((i) => {
+        const angle = (i * 120 - 90) * (Math.PI / 180);
+        const tx = CENTER + Math.cos(angle) * isoOffset;
+        const ty = CENTER + Math.sin(angle) * isoOffset;
+        divisionBlocks[i].x.value = withTiming(tx, { duration: 600, easing: EASE.accelerate });
+        divisionBlocks[i].y.value = withTiming(ty, { duration: 600, easing: EASE.accelerate });
+      });
     });
 
-    const isoOffset = 22;
-    [0, 1, 2].forEach((i) => {
-      const angle = (i * 120 - 90) * (Math.PI / 180);
-      const tx = CENTER + Math.cos(angle) * isoOffset;
-      const ty = CENTER + Math.sin(angle) * isoOffset;
-      divisionBlocks[i].x.value = withDelay(
-        FULL.reverse.start + 200,
-        withTiming(tx, { duration: 600, easing: EASE.accelerate }),
-      );
-      divisionBlocks[i].y.value = withDelay(
-        FULL.reverse.start + 200,
-        withTiming(ty, { duration: 600, easing: EASE.accelerate }),
-      );
+    t(FULL.reverse.start + 400, () => {
+      [3, 4, 5].forEach((i) => {
+        divisionBlocks[i].opacity.value = withTiming(0, { duration: 400, easing: EASE.accelerate });
+      });
     });
 
-    rootOpacity.value = withDelay(
-      FULL.reverse.start + FULL.reverse.duration - 200,
-      withTiming(0, { duration: 400, easing: EASE.accelerate }, (finished) => {
+    // Root fade-out
+    t(FULL.reverse.start + FULL.reverse.duration - 200, () => {
+      rootOpacity.value = withTiming(0, { duration: 400, easing: EASE.accelerate }, (finished) => {
         if (finished) runOnJS(onDone)();
-      }),
-    );
+      });
+    });
+
+    return () => {
+      timers.forEach((id) => clearTimeout(id));
+    };
   }, []);
 
   const rootStyle = useAnimatedStyle(() => ({ opacity: rootOpacity.value }));

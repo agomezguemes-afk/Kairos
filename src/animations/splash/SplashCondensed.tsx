@@ -1,134 +1,198 @@
 // src/animations/splash/SplashCondensed.tsx
 import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
-import { CONDENSED, EASE, VISUAL } from './choreography';
-import { GoldSphere, KairosWordmark } from './primitives';
+import { EASE, VISUAL } from './choreography';
+import { GoldBlock, GoldSphere, KairosWordmark } from './primitives';
 
 const STAGE_SIZE = 400;
 const CENTER = STAGE_SIZE / 2;
+const GLYPH_CY = 155;       // glyph constellation center
+const WORDMARK_CY = 270;    // wordmark baseline
+const TAGLINE_CY = 308;     // tagline baseline
+
+// Constellation layout — positions captured from the reference image (asymmetric).
+// Each entry is an offset from (CENTER, GLYPH_CY).
+const CONSTELLATION = [
+  { type: 'square' as const, dx: -32, dy: -25, size: 17 },  // top-left
+  { type: 'circle' as const, dx: 22, dy: 5, size: 22 },     // mid-right (largest)
+  { type: 'square' as const, dx: -18, dy: 28, size: 19 },   // bottom-left
+  { type: 'square' as const, dx: 38, dy: 35, size: 16 },    // bottom-right
+];
+
+const TOTAL_MS = 3000;
+const STAGGER_MS = 220;
+const SHAPE_FADE_MS = 600;
+const WORDMARK_DELAY = 900;
+const WORDMARK_FADE_MS = 600;
+const TAGLINE_DELAY = 1200;
+const TAGLINE_FADE_MS = 500;
+const BREATH_START = 1900;
+const EXIT_START = 2700;
+const EXIT_MS = 300;
 
 interface SplashCondensedProps {
   onDone: () => void;
 }
 
 export default function SplashCondensed({ onDone }: SplashCondensedProps) {
-  // root
   const rootOpacity = useSharedValue(1);
 
-  // sphere position + visuals
-  const sphereX = useSharedValue(CENTER);
-  const sphereY = useSharedValue(CENTER);
-  const sphereScale = useSharedValue(0.7);
-  const sphereOpacity = useSharedValue(0);
-  const sphereGlow = useSharedValue(0);
+  // Per-shape state — opacity + scale + glow
+  const o0 = useSharedValue(0);
+  const o1 = useSharedValue(0);
+  const o2 = useSharedValue(0);
+  const o3 = useSharedValue(0);
+  const shapeOpacities = [o0, o1, o2, o3];
 
-  // wordmark
-  const wordmarkScale = useSharedValue(1.0);
+  const s0 = useSharedValue(0.7);
+  const s1 = useSharedValue(0.7);
+  const s2 = useSharedValue(0.7);
+  const s3 = useSharedValue(0.7);
+  const shapeScales = [s0, s1, s2, s3];
+
+  const g0 = useSharedValue(0);
+  const g1 = useSharedValue(0);
+  const g2 = useSharedValue(0);
+  const g3 = useSharedValue(0);
+  const shapeGlows = [g0, g1, g2, g3];
+
+  // Static positions per constellation entry — not animated
+  const xVals = CONSTELLATION.map((c) => useSharedValue(CENTER + c.dx));
+  const yVals = CONSTELLATION.map((c) => useSharedValue(GLYPH_CY + c.dy));
+  const rotations = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+
+  // Wordmark + tagline group
   const wordmarkOpacity = useSharedValue(0);
+  const wordmarkScale = useSharedValue(1.0);
+  const taglineOpacity = useSharedValue(0);
 
-  // per-letter reveal
-  const r0 = useSharedValue(0);
-  const r1 = useSharedValue(0);
-  const r2 = useSharedValue(0);
-  const r3 = useSharedValue(0);
-  const r4 = useSharedValue(0);
-  const r5 = useSharedValue(0);
-  const reveals = [r0, r1, r2, r3, r4, r5];
+  // For KairosWordmark, all letters reveal at once via the group opacity
+  const lr0 = useSharedValue(1);
+  const lr1 = useSharedValue(1);
+  const lr2 = useSharedValue(1);
+  const lr3 = useSharedValue(1);
+  const lr4 = useSharedValue(1);
+  const lr5 = useSharedValue(1);
+  const allReveals = [lr0, lr1, lr2, lr3, lr4, lr5];
 
   useEffect(() => {
-    // ── Phase 1: Origin ───────────────────────────────────────────────
+    const timers: number[] = [];
+    const t = (ms: number, fn: () => void) => {
+      const id = setTimeout(fn, ms) as unknown as number;
+      timers.push(id);
+    };
+
+    // ── Phase 1: shapes appear with stagger ────────────────────────────
     Haptics.selectionAsync().catch(() => {});
-    sphereOpacity.value = withTiming(1, { duration: CONDENSED.origin.duration, easing: EASE.decelerate });
-    sphereScale.value = withTiming(1.0, { duration: CONDENSED.origin.duration, easing: EASE.decelerate });
-    sphereGlow.value = withDelay(
-      CONDENSED.origin.duration - 200,
-      withTiming(0.4, { duration: 200, easing: EASE.decelerate }),
-    );
-
-    // ── Phase 2: Compressed arc — sphere fades while wordmark begins ──
-    sphereGlow.value = withDelay(
-      CONDENSED.compressedArc.start,
-      withTiming(0, { duration: CONDENSED.compressedArc.duration / 2, easing: EASE.accelerate }),
-    );
-    sphereOpacity.value = withDelay(
-      CONDENSED.compressedArc.start + 400,
-      withTiming(0, { duration: 400, easing: EASE.accelerate }),
-    );
-    sphereScale.value = withDelay(
-      CONDENSED.compressedArc.start + 400,
-      withTiming(0.5, { duration: 400, easing: EASE.accelerate }),
-    );
-
-    // ── Phase 3: Mutation — wordmark group fades in, letters stagger ──
-    wordmarkOpacity.value = withDelay(
-      CONDENSED.mutation.start,
-      withTiming(1, { duration: 400, easing: EASE.primary }),
-    );
-
-    reveals.forEach((reveal, i) => {
-      reveal.value = withDelay(
-        CONDENSED.mutation.start + i * CONDENSED.mutation.staggerMs,
-        withTiming(1, { duration: 600, easing: EASE.primary }),
-      );
+    CONSTELLATION.forEach((_, i) => {
+      t(i * STAGGER_MS, () => {
+        shapeOpacities[i].value = withTiming(1, { duration: SHAPE_FADE_MS, easing: EASE.decelerate });
+        shapeScales[i].value = withTiming(1, { duration: SHAPE_FADE_MS, easing: EASE.decelerate });
+        shapeGlows[i].value = withTiming(0.55, { duration: SHAPE_FADE_MS + 200, easing: EASE.decelerate });
+      });
     });
 
-    // Haptic at S complete
-    setTimeout(() => {
-      Haptics.selectionAsync().catch(() => {});
-    }, CONDENSED.hapticBeats[1]);
+    // ── Phase 2: wordmark fades in ─────────────────────────────────────
+    t(WORDMARK_DELAY, () => {
+      wordmarkOpacity.value = withTiming(1, { duration: WORDMARK_FADE_MS, easing: EASE.primary });
+    });
 
-    // ── Phase 4: Final state — subtle breathing ───────────────────────
-    wordmarkScale.value = withDelay(
-      CONDENSED.finalState.start,
-      withRepeat(
+    // ── Phase 3: tagline fades in ──────────────────────────────────────
+    t(TAGLINE_DELAY, () => {
+      taglineOpacity.value = withTiming(1, { duration: TAGLINE_FADE_MS, easing: EASE.primary });
+    });
+
+    // ── Phase 4: breathing ─────────────────────────────────────────────
+    t(BREATH_START, () => {
+      Haptics.selectionAsync().catch(() => {});
+      wordmarkScale.value = withRepeat(
         withSequence(
-          withTiming(1 + VISUAL.breathScaleDelta, { duration: VISUAL.breathDuration / 2, easing: EASE.meditative }),
-          withTiming(1, { duration: VISUAL.breathDuration / 2, easing: EASE.meditative }),
+          withTiming(1 + VISUAL.breathScaleDelta, {
+            duration: VISUAL.breathDuration / 2,
+            easing: EASE.meditative,
+          }),
+          withTiming(1, {
+            duration: VISUAL.breathDuration / 2,
+            easing: EASE.meditative,
+          }),
         ),
         -1,
         false,
-      ),
-    );
+      );
+    });
 
-    // ── Exit ──────────────────────────────────────────────────────────
-    rootOpacity.value = withDelay(
-      CONDENSED.exit.start,
-      withTiming(0, { duration: CONDENSED.exit.duration, easing: EASE.accelerate }, (finished) => {
+    // ── Exit ───────────────────────────────────────────────────────────
+    t(EXIT_START, () => {
+      rootOpacity.value = withTiming(0, { duration: EXIT_MS, easing: EASE.accelerate }, (finished) => {
         if (finished) runOnJS(onDone)();
-      }),
-    );
-  }, [onDone, sphereScale, sphereOpacity, sphereGlow, wordmarkScale, wordmarkOpacity, r0, r1, r2, r3, r4, r5, rootOpacity]);
+      });
+    });
+
+    return () => {
+      timers.forEach((id) => clearTimeout(id));
+    };
+  }, []);
 
   const rootStyle = useAnimatedStyle(() => ({ opacity: rootOpacity.value }));
+  const taglineStyle = useAnimatedStyle(() => ({ opacity: taglineOpacity.value }));
 
   return (
     <Animated.View style={[styles.root, rootStyle]} pointerEvents="auto">
       <View style={styles.stage}>
-        <GoldSphere
-          x={sphereX}
-          y={sphereY}
-          scale={sphereScale}
-          opacity={sphereOpacity}
-          glow={sphereGlow}
-        />
+        {CONSTELLATION.map((c, i) =>
+          c.type === 'circle' ? (
+            <GoldSphere
+              key={`shape-${i}`}
+              x={xVals[i]}
+              y={yVals[i]}
+              scale={shapeScales[i]}
+              opacity={shapeOpacities[i]}
+              glow={shapeGlows[i]}
+              size={c.size}
+            />
+          ) : (
+            <GoldBlock
+              key={`shape-${i}`}
+              x={xVals[i]}
+              y={yVals[i]}
+              rotation={rotations[i]}
+              scale={shapeScales[i]}
+              opacity={shapeOpacities[i]}
+              glow={shapeGlows[i]}
+              size={c.size}
+            />
+          ),
+        )}
+
         <KairosWordmark
           centerX={CENTER}
-          centerY={CENTER}
-          letterReveals={reveals}
+          centerY={WORDMARK_CY}
+          letterReveals={allReveals}
           scale={wordmarkScale}
           opacity={wordmarkOpacity}
+          color="#1C1C1E"
         />
+
+        <Animated.View
+          style={[
+            styles.taglineWrap,
+            { top: TAGLINE_CY - 10 },
+            taglineStyle,
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={styles.tagline}>ATHLETIC INTELLIGENCE</Text>
+        </Animated.View>
       </View>
     </Animated.View>
   );
@@ -146,5 +210,19 @@ const styles = StyleSheet.create({
     width: STAGE_SIZE,
     height: STAGE_SIZE,
     position: 'relative',
+  },
+  taglineWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tagline: {
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 3.5,
+    color: '#D4AF37',
+    textAlign: 'center',
   },
 });
