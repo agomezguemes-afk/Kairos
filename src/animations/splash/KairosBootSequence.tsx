@@ -1,6 +1,6 @@
 // src/animations/splash/KairosBootSequence.tsx
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   runOnJS,
@@ -11,17 +11,34 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import Svg from 'react-native-svg';
 
 import { FULL, EASE, SPRING, VISUAL } from './choreography';
-import { GoldSphere, GoldBlock, IsoCube, KairosWordmark } from './primitives';
+import { GoldSphere, GoldBlock, IsoCube } from './primitives';
 
-const SVG_SIZE = 400;
-const CENTER = SVG_SIZE / 2;
+const STAGE_SIZE = 400;
+const CENTER = STAGE_SIZE / 2;
 const LETTERS = ['K', 'A', 'I', 'R', 'O', 'S'] as const;
 
 interface KairosBootSequenceProps {
   onDone: () => void;
+}
+
+interface BlockState {
+  x: ReturnType<typeof useSharedValue<number>>;
+  y: ReturnType<typeof useSharedValue<number>>;
+  rotation: ReturnType<typeof useSharedValue<number>>;
+  opacity: ReturnType<typeof useSharedValue<number>>;
+  scale: ReturnType<typeof useSharedValue<number>>;
+}
+
+function useBlockState(): BlockState {
+  return {
+    x: useSharedValue(CENTER),
+    y: useSharedValue(CENTER),
+    rotation: useSharedValue(0),
+    opacity: useSharedValue(0),
+    scale: useSharedValue(0.7),
+  };
 }
 
 export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) {
@@ -29,18 +46,21 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
   const rootOpacity = useSharedValue(1);
 
   // ── Sphere ──────────────────────────────────────────────────────────
+  const sphereX = useSharedValue(CENTER);
+  const sphereY = useSharedValue(CENTER);
   const sphereScale = useSharedValue(0.7);
   const sphereOpacity = useSharedValue(0);
   const sphereGlow = useSharedValue(0);
 
   // ── 3 emission blocks ───────────────────────────────────────────────
-  // each block has its own x, y, rotation, opacity, scale
   const e0 = useBlockState();
   const e1 = useBlockState();
   const e2 = useBlockState();
   const emissionBlocks = [e0, e1, e2];
 
   // ── Cube ────────────────────────────────────────────────────────────
+  const cubeX = useSharedValue(CENTER);
+  const cubeY = useSharedValue(CENTER);
   const cubeScale = useSharedValue(0.7);
   const cubeOpacity = useSharedValue(0);
   const cubeRotation = useSharedValue(0);
@@ -75,7 +95,6 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
     );
 
     // ═════════════════════ PHASE 2: EMISSION (700–1500ms) ═══════════════
-    // Sphere glow falls during emission
     sphereGlow.value = withDelay(
       FULL.emission.start,
       withTiming(0, { duration: FULL.emission.duration, easing: EASE.accelerate }),
@@ -85,7 +104,7 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       const angleRad = (angleDeg * Math.PI) / 180;
       const targetX = CENTER + Math.cos(angleRad) * FULL.emission.distance;
       const targetY = CENTER + Math.sin(angleRad) * FULL.emission.distance;
-      const targetRot = (FULL.emission.blockRotation * Math.PI) / 180 * (i % 2 === 0 ? 1 : -1);
+      const targetRot = ((FULL.emission.blockRotation * Math.PI) / 180) * (i % 2 === 0 ? 1 : -1);
 
       const block = emissionBlocks[i];
       block.opacity.value = withDelay(
@@ -129,7 +148,6 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
     // ═════════════════════ PHASE 4: CUBE MORPH (2200–2900ms) ════════════
     setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}), 2400);
 
-    // Sphere fades + shrinks
     sphereOpacity.value = withDelay(
       FULL.cubeMorph.start,
       withTiming(0, { duration: FULL.cubeMorph.duration, easing: EASE.primary }),
@@ -139,7 +157,6 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       withTiming(0.5, { duration: FULL.cubeMorph.duration, easing: EASE.primary }),
     );
 
-    // Emission blocks fade
     emissionBlocks.forEach((block) => {
       block.opacity.value = withDelay(
         FULL.cubeMorph.start,
@@ -147,7 +164,6 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       );
     });
 
-    // Cube appears
     cubeOpacity.value = withDelay(
       FULL.cubeMorph.start,
       withTiming(1, { duration: FULL.cubeMorph.duration, easing: EASE.primary }),
@@ -164,13 +180,7 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       }),
     );
 
-    // Cube reposo breathing (continuous from phase 4 end onward, until phase 5 starts)
-    // We let phase 5 override scale, so this is just the brief 100ms pause
-    // (handled implicitly — the timing values overlap)
-
     // ═════════════════════ PHASE 5: DIVISION (3000–4000ms) ══════════════
-    // Cube fades while 6 blocks emerge from cube center toward wordmark positions
-
     cubeOpacity.value = withDelay(
       FULL.division.start,
       withTiming(0, { duration: 400, easing: EASE.accelerate }),
@@ -183,10 +193,7 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       const targetX = startX + i * VISUAL.wordmarkSpacing;
       const targetY = CENTER;
 
-      // Start at cube center
-      block.x.value = CENTER;
-      block.y.value = CENTER;
-
+      // initial position at cube center is already set by useBlockState (CENTER, CENTER)
       block.opacity.value = withDelay(
         FULL.division.start + i * FULL.division.staggerMs,
         withTiming(1, { duration: 100, easing: EASE.decelerate }),
@@ -216,9 +223,6 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
     });
 
     // ═════════════════════ PHASE 7: FINAL STATE (5200–6400ms) ═══════════
-    // Soft glow rises and falls behind letters (reusing sphereGlow for now —
-    // visually centered; this is a craft choice that may be tuned in checkpoint)
-    sphereOpacity.value = withDelay(FULL.finalState.start, withTiming(0, { duration: 1 }));  // ensure off
     sphereGlow.value = withDelay(
       FULL.finalState.start,
       withSequence(
@@ -228,7 +232,6 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
     );
 
     // ═════════════════════ PHASE 8: REVERSE (6400–7400ms) ═══════════════
-    // Letters → blocks: reverse the per-block letter reveal with shorter stagger
     letterReveals.forEach((reveal, i) => {
       reveal.value = withDelay(
         FULL.reverse.start + i * FULL.reverse.staggerMs,
@@ -236,7 +239,6 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       );
     });
 
-    // 6 blocks → 3 blocks isometric: fade 3, 4, 5 entirely; move 0, 1, 2 to iso positions
     [3, 4, 5].forEach((i) => {
       divisionBlocks[i].opacity.value = withDelay(
         FULL.reverse.start + 400,
@@ -244,10 +246,9 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       );
     });
 
-    // 3 surviving blocks rearrange into iso formation around center
     const isoOffset = 22;
     [0, 1, 2].forEach((i) => {
-      const angle = (i * 120 - 90) * (Math.PI / 180);  // top, bottom-right, bottom-left
+      const angle = (i * 120 - 90) * (Math.PI / 180);
       const tx = CENTER + Math.cos(angle) * isoOffset;
       const ty = CENTER + Math.sin(angle) * isoOffset;
       divisionBlocks[i].x.value = withDelay(
@@ -260,30 +261,27 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       );
     });
 
-    // Root fade-out at end
     rootOpacity.value = withDelay(
       FULL.reverse.start + FULL.reverse.duration - 200,
       withTiming(0, { duration: 400, easing: EASE.accelerate }, (finished) => {
         if (finished) runOnJS(onDone)();
       }),
     );
-  }, []);  // intentional empty deps — fires once on mount
+  }, []);
 
   const rootStyle = useAnimatedStyle(() => ({ opacity: rootOpacity.value }));
 
   return (
     <Animated.View style={[styles.root, rootStyle]} pointerEvents="auto">
-      <Svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
-        {/* Sphere + glow */}
+      <View style={styles.stage}>
         <GoldSphere
-          cx={CENTER}
-          cy={CENTER}
+          x={sphereX}
+          y={sphereY}
           scale={sphereScale}
           opacity={sphereOpacity}
           glow={sphereGlow}
         />
 
-        {/* 3 emission blocks */}
         {emissionBlocks.map((block, i) => (
           <GoldBlock
             key={`em-${i}`}
@@ -295,16 +293,14 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
           />
         ))}
 
-        {/* Isometric cube */}
         <IsoCube
-          cx={CENTER}
-          cy={CENTER}
+          x={cubeX}
+          y={cubeY}
           scale={cubeScale}
           rotation={cubeRotation}
           opacity={cubeOpacity}
         />
 
-        {/* 6 division blocks with letter overlays */}
         {divisionBlocks.map((block, i) => (
           <GoldBlock
             key={`div-${i}`}
@@ -317,28 +313,9 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
             letterReveal={letterReveals[i]}
           />
         ))}
-      </Svg>
+      </View>
     </Animated.View>
   );
-}
-
-// ── Helper hook: bundle of shared values for a single block ────────────
-interface BlockState {
-  x: ReturnType<typeof useSharedValue<number>>;
-  y: ReturnType<typeof useSharedValue<number>>;
-  rotation: ReturnType<typeof useSharedValue<number>>;
-  opacity: ReturnType<typeof useSharedValue<number>>;
-  scale: ReturnType<typeof useSharedValue<number>>;
-}
-
-function useBlockState(): BlockState {
-  return {
-    x: useSharedValue(CENTER),
-    y: useSharedValue(CENTER),
-    rotation: useSharedValue(0),
-    opacity: useSharedValue(0),
-    scale: useSharedValue(0.7),
-  };
 }
 
 const styles = StyleSheet.create({
@@ -348,5 +325,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     zIndex: 9999,
+  },
+  stage: {
+    width: STAGE_SIZE,
+    height: STAGE_SIZE,
+    position: 'relative',
   },
 });

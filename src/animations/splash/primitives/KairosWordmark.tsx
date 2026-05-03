@@ -1,37 +1,40 @@
 // src/animations/splash/primitives/KairosWordmark.tsx
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import Animated, {
   SharedValue,
-  useAnimatedProps,
+  useAnimatedStyle,
 } from 'react-native-reanimated';
-import { G, Text } from 'react-native-svg';
+import Svg, { Text } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';
 
-const AnimatedG = Animated.createAnimatedComponent(G);
-const AnimatedText = Animated.createAnimatedComponent(Text);
-
 const LETTERS = ['K', 'A', 'I', 'R', 'O', 'S'] as const;
+const LETTER_LOCAL = 80;  // local SVG box per letter
 
 export interface KairosWordmarkProps {
-  cx: number;
-  cy: number;
-  /** One per letter, length must equal 6. Each value 0..1 controls reveal of that letter. */
+  /** Center X of the entire wordmark in stage coordinates. */
+  centerX: number;
+  /** Baseline Y in stage coordinates. */
+  centerY: number;
+  /** One per letter (length must be 6). 0 = invisible, 1 = full opacity. */
   letterReveals: SharedValue<number>[];
-  /** Group-level scale and opacity (used for final-state breathing + exit). */
+  /** Group-level scale (used for final-state breathing). */
   scale: SharedValue<number>;
+  /** Group-level opacity (used for exit). */
   opacity: SharedValue<number>;
   color?: string;
   fontSize?: number;
 }
 
 /**
- * Six letters as <Text> elements positioned along a horizontal baseline.
- * Per-letter reveal controlled externally so the parent composer can stagger.
+ * Six-letter wordmark.
+ * Each letter is its OWN <Animated.View> so that transforms apply correctly
+ * via the proven pattern, not via animated <G> transforms inside SVG.
  */
 export default function KairosWordmark({
-  cx,
-  cy,
+  centerX,
+  centerY,
   letterReveals,
   scale,
   opacity,
@@ -43,31 +46,31 @@ export default function KairosWordmark({
   }
 
   const totalWidth = (LETTERS.length - 1) * VISUAL.wordmarkSpacing;
-  const startX = cx - totalWidth / 2;
+  const startX = centerX - totalWidth / 2;
 
-  const groupProps = useAnimatedProps(() => ({
+  const groupStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: `translate(${cx}, ${cy}) scale(${scale.value}) translate(${-cx}, ${-cy})`,
+    transform: [{ scale: scale.value }],
   }));
 
   return (
-    <AnimatedG animatedProps={groupProps}>
+    <Animated.View style={[StyleSheet.absoluteFill, groupStyle]} pointerEvents="none">
       {LETTERS.map((letter, i) => (
-        <LetterAt
+        <Letter
           key={letter}
           letter={letter}
           x={startX + i * VISUAL.wordmarkSpacing}
-          y={cy}
+          y={centerY}
           reveal={letterReveals[i]}
           color={color}
           fontSize={fontSize}
         />
       ))}
-    </AnimatedG>
+    </Animated.View>
   );
 }
 
-interface LetterAtProps {
+interface LetterProps {
   letter: string;
   x: number;
   y: number;
@@ -76,32 +79,43 @@ interface LetterAtProps {
   fontSize: number;
 }
 
-function LetterAt({ letter, x, y, reveal, color, fontSize }: LetterAtProps) {
-  const textProps = useAnimatedProps(() => ({
+function Letter({ letter, x, y, reveal, color, fontSize }: LetterProps) {
+  const localCenter = LETTER_LOCAL / 2;
+
+  const animStyle = useAnimatedStyle(() => ({
     opacity: reveal.value,
+    transform: [
+      { translateX: x - localCenter },
+      { translateY: y - localCenter },
+      { scale: 0.7 + reveal.value * 0.3 },
+    ],
   }));
 
-  const groupProps = useAnimatedProps(() => {
-    const s = 0.7 + reveal.value * 0.3;
-    return {
-      transform: `translate(${x}, ${y}) scale(${s}) translate(${-x}, ${-y})`,
-    };
-  });
-
   return (
-    <AnimatedG animatedProps={groupProps}>
-      <AnimatedText
-        x={x}
-        y={y}
-        fontSize={fontSize}
-        fontWeight="300"
-        fill={color}
-        textAnchor="middle"
-        alignmentBaseline="central"
-        animatedProps={textProps}
-      >
-        {letter}
-      </AnimatedText>
-    </AnimatedG>
+    <Animated.View style={[letterStyles.box, animStyle]} pointerEvents="none">
+      <Svg width={LETTER_LOCAL} height={LETTER_LOCAL}>
+        <Text
+          x={localCenter}
+          y={localCenter}
+          fontSize={fontSize}
+          fontWeight="300"
+          fill={color}
+          textAnchor="middle"
+          alignmentBaseline="central"
+        >
+          {letter}
+        </Text>
+      </Svg>
+    </Animated.View>
   );
 }
+
+const letterStyles = StyleSheet.create({
+  box: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: LETTER_LOCAL,
+    height: LETTER_LOCAL,
+  },
+});

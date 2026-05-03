@@ -1,6 +1,6 @@
 // src/animations/splash/SplashCondensed.tsx
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   runOnJS,
@@ -11,13 +11,12 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import Svg from 'react-native-svg';
 
 import { CONDENSED, EASE, VISUAL } from './choreography';
 import { GoldSphere, KairosWordmark } from './primitives';
 
-const SVG_SIZE = 400;
-const CENTER = SVG_SIZE / 2;
+const STAGE_SIZE = 400;
+const CENTER = STAGE_SIZE / 2;
 
 interface SplashCondensedProps {
   onDone: () => void;
@@ -27,12 +26,14 @@ export default function SplashCondensed({ onDone }: SplashCondensedProps) {
   // root
   const rootOpacity = useSharedValue(1);
 
-  // sphere
+  // sphere position + visuals
+  const sphereX = useSharedValue(CENTER);
+  const sphereY = useSharedValue(CENTER);
   const sphereScale = useSharedValue(0.7);
   const sphereOpacity = useSharedValue(0);
   const sphereGlow = useSharedValue(0);
 
-  // wordmark group
+  // wordmark
   const wordmarkScale = useSharedValue(1.0);
   const wordmarkOpacity = useSharedValue(0);
 
@@ -113,22 +114,22 @@ export default function SplashCondensed({ onDone }: SplashCondensedProps) {
 
   return (
     <Animated.View style={[styles.root, rootStyle]} pointerEvents="auto">
-      <Svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
+      <View style={styles.stage}>
         <GoldSphere
-          cx={CENTER}
-          cy={CENTER}
+          x={sphereX}
+          y={sphereY}
           scale={sphereScale}
           opacity={sphereOpacity}
           glow={sphereGlow}
         />
         <KairosWordmark
-          cx={CENTER}
-          cy={CENTER}
+          centerX={CENTER}
+          centerY={CENTER}
           letterReveals={reveals}
           scale={wordmarkScale}
           opacity={wordmarkOpacity}
         />
-      </Svg>
+      </View>
     </Animated.View>
   );
 }
@@ -140,5 +141,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     zIndex: 9999,
+  },
+  stage: {
+    width: STAGE_SIZE,
+    height: STAGE_SIZE,
+    position: 'relative',
   },
 });

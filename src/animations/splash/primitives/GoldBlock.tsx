@@ -1,30 +1,36 @@
 // src/animations/splash/primitives/GoldBlock.tsx
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import Animated, {
   SharedValue,
   useAnimatedProps,
+  useAnimatedStyle,
 } from 'react-native-reanimated';
-import { G, Rect, Text } from 'react-native-svg';
+import Svg, { Rect, Text } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';
 
-const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedText = Animated.createAnimatedComponent(Text);
 
+const LOCAL_PAD = 60;
+
 export interface GoldBlockProps {
-  /** Position of the block's CENTER. */
+  /** Block CENTER in stage coordinates. */
   x: SharedValue<number>;
   y: SharedValue<number>;
-  rotation: SharedValue<number>;     // radians
+  /** Radians. Applied as transform on outer View. */
+  rotation: SharedValue<number>;
+  /** Outer (entity-level) opacity 0..1. */
   opacity: SharedValue<number>;
+  /** Outer (entity-level) scale. */
   scale: SharedValue<number>;
-  /** When provided, this letter is rendered overlaid; controlled by reveal. */
+  /** Optional letter overlay for block-stamp morph. */
   letter?: string;
-  /** 0 = block visible, letter hidden. 1 = block hidden, letter visible. */
+  /** 0 = block visible, 1 = letter visible. Drives the crossfade inside the SVG. */
   letterReveal?: SharedValue<number>;
-  size?: number;                     // default VISUAL.blockSize
-  color?: string;                    // default gold[500]
+  size?: number;
+  color?: string;
 }
 
 export default function GoldBlock({
@@ -38,56 +44,44 @@ export default function GoldBlock({
   size = VISUAL.blockSize,
   color = '#D4AF37',
 }: GoldBlockProps) {
+  const local = size + LOCAL_PAD;
+  const localCenter = local / 2;
   const half = size / 2;
 
-  const groupProps = useAnimatedProps(() => {
-    const cx = x.value;
-    const cy = y.value;
-    const deg = (rotation.value * 180) / Math.PI;
-    return {
-      opacity: opacity.value,
-      transform: `translate(${cx}, ${cy}) rotate(${deg}) scale(${scale.value}) translate(${-cx}, ${-cy})`,
-    };
-  });
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { translateX: x.value - localCenter },
+      { translateY: y.value - localCenter },
+      { rotate: `${(rotation.value * 180) / Math.PI}deg` },
+      { scale: scale.value },
+    ],
+  }));
 
   const blockProps = useAnimatedProps(() => ({
     opacity: letterReveal ? 1 - letterReveal.value : 1,
   }));
 
-  const textProps = useAnimatedProps(() => {
-    if (!letterReveal) return { opacity: 0 };
-    const r = letterReveal.value;
-    return { opacity: r };
-  });
-
-  // Letter scale animates 0.7 → 1.0 as reveal goes 0 → 1
-  const textGroupProps = useAnimatedProps(() => {
-    const r = letterReveal ? letterReveal.value : 0;
-    const s = 0.7 + r * 0.3;
-    const cx = x.value;
-    const cy = y.value;
-    return {
-      transform: `translate(${cx}, ${cy}) scale(${s}) translate(${-cx}, ${-cy})`,
-    };
-  });
+  const textProps = useAnimatedProps(() => ({
+    opacity: letterReveal ? letterReveal.value : 0,
+  }));
 
   return (
-    <AnimatedG animatedProps={groupProps}>
-      <AnimatedRect
-        x={-half}
-        y={-half}
-        width={size}
-        height={size}
-        rx={2}
-        fill={color}
-        animatedProps={blockProps}
-        transform={`translate(0, 0)`}
-      />
-      {letter && (
-        <AnimatedG animatedProps={textGroupProps}>
+    <Animated.View style={[styles.box(local), animStyle]} pointerEvents="none">
+      <Svg width={local} height={local}>
+        <AnimatedRect
+          x={localCenter - half}
+          y={localCenter - half}
+          width={size}
+          height={size}
+          rx={2}
+          fill={color}
+          animatedProps={blockProps}
+        />
+        {letter && (
           <AnimatedText
-            x={0}
-            y={0}
+            x={localCenter}
+            y={localCenter}
             fontSize={VISUAL.letterFontSize}
             fontWeight="300"
             fill={color}
@@ -97,8 +91,19 @@ export default function GoldBlock({
           >
             {letter}
           </AnimatedText>
-        </AnimatedG>
-      )}
-    </AnimatedG>
+        )}
+      </Svg>
+    </Animated.View>
   );
 }
+
+const styles = {
+  box: (s: number) =>
+    StyleSheet.flatten({
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      width: s,
+      height: s,
+    }),
+};

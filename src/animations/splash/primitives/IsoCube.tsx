@@ -1,83 +1,91 @@
 // src/animations/splash/primitives/IsoCube.tsx
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import Animated, {
   SharedValue,
-  useAnimatedProps,
+  useAnimatedStyle,
 } from 'react-native-reanimated';
-import { G, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';
 
-const AnimatedG = Animated.createAnimatedComponent(G);
+const LOCAL_PAD = 40;
 
 export interface IsoCubeProps {
-  cx: number;
-  cy: number;
+  x: SharedValue<number>;
+  y: SharedValue<number>;
   scale: SharedValue<number>;
-  rotation: SharedValue<number>;   // radians (2D rotation of the group)
+  /** Radians. */
+  rotation: SharedValue<number>;
   opacity: SharedValue<number>;
-  size?: number;                   // default VISUAL.cubeSize
+  size?: number;
 }
 
-/**
- * Volumetric isometric cube built from 3 SVG <Path> faces, each in a different
- * gold tone for depth. NOT a real 3D rotation — group rotates as 2D, which reads
- * identical at this scale on a static-camera splash.
- */
 export default function IsoCube({
-  cx,
-  cy,
+  x,
+  y,
   scale,
   rotation,
   opacity,
   size = VISUAL.cubeSize,
 }: IsoCubeProps) {
-  // Build the three face paths centered at (0,0); we transform via the group.
-  // Iso projection: x' = (x - z) * cos(30°), y' = y + (x + z) * sin(30°)
+  const local = size + LOCAL_PAD;
+  const localCenter = local / 2;
+
   const s = size / 2;
-  const cos30 = Math.cos(Math.PI / 6); // ≈ 0.866
+  const cos30 = Math.cos(Math.PI / 6);
   const sin30 = 0.5;
 
-  // Top face (rhombus): four points {top, right, bottom, left} in iso
-  const topPath = `
-    M ${0},${-s}
-    L ${s * cos30},${-s + s * sin30}
-    L ${0},${0}
-    L ${-s * cos30},${-s + s * sin30}
-    Z
-  `.trim();
+  // Build paths centered at (localCenter, localCenter)
+  const cx = localCenter;
+  const cy = localCenter;
 
-  // Left face: top-left, bottom-left, bottom-mid, mid
-  const leftPath = `
-    M ${-s * cos30},${-s + s * sin30}
-    L ${-s * cos30},${s * sin30}
-    L ${0},${s}
-    L ${0},${0}
-    Z
-  `.trim();
+  const topPath =
+    `M ${cx},${cy - s} ` +
+    `L ${cx + s * cos30},${cy - s + s * sin30} ` +
+    `L ${cx},${cy} ` +
+    `L ${cx - s * cos30},${cy - s + s * sin30} Z`;
 
-  // Right face: top-right, mid, bottom-mid, bottom-right
-  const rightPath = `
-    M ${s * cos30},${-s + s * sin30}
-    L ${0},${0}
-    L ${0},${s}
-    L ${s * cos30},${s * sin30}
-    Z
-  `.trim();
+  const leftPath =
+    `M ${cx - s * cos30},${cy - s + s * sin30} ` +
+    `L ${cx - s * cos30},${cy + s * sin30} ` +
+    `L ${cx},${cy + s} ` +
+    `L ${cx},${cy} Z`;
 
-  const groupProps = useAnimatedProps(() => {
-    const deg = (rotation.value * 180) / Math.PI;
-    return {
-      opacity: opacity.value,
-      transform: `translate(${cx}, ${cy}) rotate(${deg}) scale(${scale.value})`,
-    };
-  });
+  const rightPath =
+    `M ${cx + s * cos30},${cy - s + s * sin30} ` +
+    `L ${cx},${cy} ` +
+    `L ${cx},${cy + s} ` +
+    `L ${cx + s * cos30},${cy + s * sin30} Z`;
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { translateX: x.value - localCenter },
+      { translateY: y.value - localCenter },
+      { rotate: `${(rotation.value * 180) / Math.PI}deg` },
+      { scale: scale.value },
+    ],
+  }));
 
   return (
-    <AnimatedG animatedProps={groupProps}>
-      <Path d={topPath}   fill="#E8D48B" />
-      <Path d={leftPath}  fill="#D4AF37" />
-      <Path d={rightPath} fill="#B8960F" />
-    </AnimatedG>
+    <Animated.View style={[styles.box(local), animStyle]} pointerEvents="none">
+      <Svg width={local} height={local}>
+        <Path d={topPath} fill="#E8D48B" />
+        <Path d={leftPath} fill="#D4AF37" />
+        <Path d={rightPath} fill="#B8960F" />
+      </Svg>
+    </Animated.View>
   );
 }
+
+const styles = {
+  box: (s: number) =>
+    StyleSheet.flatten({
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      width: s,
+      height: s,
+    }),
+};
