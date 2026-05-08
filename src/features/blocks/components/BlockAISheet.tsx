@@ -23,13 +23,15 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { WorkoutBlock } from '../../../types/core';
-import type { AIMessage, AIAction } from '../../../types/ai';
+import type { AIMessage } from '../../../types/ai';
 import { generateId } from '../../../types/core';
 import { useWorkoutStore } from '../../../store/workoutStore';
 import { useGamification } from '../../../context/GamificationContext';
 import { useUserProfile } from '../../../context/UserProfileContext';
 import { processBlockChat } from '../../../lib/ai/chat/blockChat';
 import { AIUnavailableError } from '../../../lib/ai/chat/globalChat';
+import type { AgentProgressEvent } from '../../../lib/ai/agent';
+import type { ToolResult } from '../../../lib/ai/tools/types';
 import { getBlockSuggestions } from '../../../lib/ai/chat/suggestions';
 import { generateWorkoutPlan } from '../../../lib/ai/coach';
 import type { RawUserContext } from '../../../utils/userContext';
@@ -51,6 +53,7 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [runningTool, setRunningTool] = useState<string | null>(null);
   const [planForm, setPlanForm] = useState<{ open: boolean; objetivo: string; dias: string; duracion: string; lesiones: string }>({
     open: false, objetivo: '', dias: '3', duracion: '45', lesiones: '',
   });
@@ -58,7 +61,6 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
-  const dispatchAIActions = useWorkoutStore(s => s.dispatchAIActions);
   const blocks = useWorkoutStore(s => s.blocks);
   const { profile } = useUserProfile();
   const { streak, badges, prCards } = useGamification();
@@ -69,7 +71,10 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const suggestions = useMemo(() => getBlockSuggestions(block), [block]);
 
   const conversationHistory = useMemo(() =>
-    messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
+    messages
+      .slice(-8)
+      .filter((m): m is AIMessage & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.content })),
     [messages],
   );
 
@@ -115,22 +120,21 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
       id: generateId(),
       role: 'user',
       content: msg,
-      actions: [],
       timestamp: Date.now(),
     };
     setMessages(prev => [...prev, userMsg]);
     setThinking(true);
     scrollToBottom();
 
+    const onProgress = (e: AgentProgressEvent) => {
+      if (e.type === 'tool_running') setRunningTool(e.call.name);
+      if (e.type === 'tool_result' || e.type === 'final_text') setRunningTool(null);
+    };
+
     try {
       const freshBlock = useWorkoutStore.getState().blocks.find(b => b.id === block.id) ?? block;
       const ctx = buildContext();
-      const response = await processBlockChat(msg, freshBlock, ctx, conversationHistory);
-
-      if (response.actions.length > 0) {
-        dispatchAIActions(response.actions);
-      }
-
+      const response = await processBlockChat(msg, freshBlock, ctx, conversationHistory, { onProgress });
       setMessages(prev => [...prev, response]);
     } catch (e) {
       const isUnavailable = e instanceof AIUnavailableError;
@@ -141,14 +145,14 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
         content: isUnavailable
           ? `Kai no está disponible: ${detail}`
           : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
-        actions: [],
         timestamp: Date.now(),
       }]);
     } finally {
       setThinking(false);
+      setRunningTool(null);
       scrollToBottom();
     }
-  }, [input, thinking, block.id, buildContext, conversationHistory, dispatchAIActions, scrollToBottom]);
+  }, [input, thinking, block.id, buildContext, conversationHistory, scrollToBottom]);
 
   const handleSuggestion = useCallback((prompt: string) => {
     handleSend(prompt);
@@ -173,7 +177,6 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
         content: plan
           ? `He creado el bloque "${plan.name}" con ${plan.content.filter((n) => n.type === 'exercise').length} ejercicios.`
           : 'No pude generar el plan. Inténtalo de nuevo con otro objetivo.',
-        actions: [],
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, note]);
@@ -183,7 +186,6 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
         id: generateId(),
         role: 'assistant',
         content: 'Error generando la rutina. Revisa la conexión o la API key.',
-        actions: [],
         timestamp: Date.now(),
       }]);
     } finally {
@@ -201,15 +203,22 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
 
   if (!visible) return null;
 
-  const actionSummary = (actions: AIAction[]) => {
+  const actionSummary = (results: ToolResult[]) => {
+    const ok = results.filter((r) => r.ok);
     const counts: Record<string, number> = {};
-    actions.forEach(a => { counts[a.type] = (counts[a.type] ?? 0) + 1; });
+    for (const r of ok) counts[r.name] = (counts[r.name] ?? 0) + 1;
     const parts: string[] = [];
-    if (counts.add_exercise) parts.push(`+${counts.add_exercise} ejercicio${counts.add_exercise > 1 ? 's' : ''}`);
-    if (counts.update_exercise) parts.push(`${counts.update_exercise} actualizado${counts.update_exercise > 1 ? 's' : ''}`);
-    if (counts.delete_exercise) parts.push(`${counts.delete_exercise} eliminado${counts.delete_exercise > 1 ? 's' : ''}`);
-    if (counts.update_block_meta) parts.push('bloque actualizado');
     if (counts.create_block) parts.push('bloque creado');
+    if (counts.add_exercise) parts.push(`+${counts.add_exercise} ejercicio${counts.add_exercise > 1 ? 's' : ''}`);
+    if (counts.add_text) parts.push(`+${counts.add_text} texto${counts.add_text > 1 ? 's' : ''}`);
+    if (counts.add_divider) parts.push(`+${counts.add_divider} separador${counts.add_divider > 1 ? 'es' : ''}`);
+    if (counts.wrap_in_columns) parts.push(`${counts.wrap_in_columns} sección${counts.wrap_in_columns > 1 ? 'es' : ''} en columnas`);
+    if (counts.wrap_in_subblock) parts.push(`${counts.wrap_in_subblock} sub-bloque${counts.wrap_in_subblock > 1 ? 's' : ''}`);
+    if (counts.delete_node) parts.push(`${counts.delete_node} eliminado${counts.delete_node > 1 ? 's' : ''}`);
+    if (counts.set_block_meta) parts.push('meta actualizada');
+    if (counts.update_set_value) parts.push(`${counts.update_set_value} set${counts.update_set_value > 1 ? 's' : ''} editado${counts.update_set_value > 1 ? 's' : ''}`);
+    const failed = results.filter((r) => !r.ok).length;
+    if (failed > 0) parts.push(`${failed} fallo${failed > 1 ? 's' : ''}`);
     return parts.join(' · ');
   };
 
@@ -260,27 +269,40 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                 </View>
               )}
 
-              {messages.map(msg => (
-                <View key={msg.id} style={[styles.bubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
-                  <Text style={[styles.bubbleText, msg.role === 'user' && styles.userBubbleText]}>
-                    {msg.content}
-                  </Text>
-                  {msg.actions.length > 0 && (
-                    <View style={styles.actionBadge}>
-                      <Feather name="check-circle" size={11} color={Colors.semantic.success} />
-                      <Text style={styles.actionBadgeText}>{actionSummary(msg.actions)}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
+              {messages.map(msg => {
+                const tools = msg.toolResults ?? [];
+                return (
+                  <View key={msg.id} style={[styles.bubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
+                    <Text style={[styles.bubbleText, msg.role === 'user' && styles.userBubbleText]}>
+                      {msg.content}
+                    </Text>
+                    {tools.length > 0 && (
+                      <View style={styles.actionBadge}>
+                        <Feather
+                          name={tools.every(r => r.ok) ? 'check-circle' : 'alert-circle'}
+                          size={11}
+                          color={tools.every(r => r.ok) ? Colors.semantic.success : Colors.semantic.warning}
+                        />
+                        <Text style={styles.actionBadgeText}>{actionSummary(tools)}</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
 
               {thinking && (
                 <View style={[styles.bubble, styles.aiBubble]}>
-                  <View style={styles.thinkingRow}>
-                    <View style={styles.thinkingDot} />
-                    <View style={[styles.thinkingDot, styles.thinkingDot2]} />
-                    <View style={[styles.thinkingDot, styles.thinkingDot3]} />
-                  </View>
+                  {runningTool ? (
+                    <Text style={[styles.bubbleText, { fontStyle: 'italic', color: Colors.text.tertiary }]}>
+                      Ejecutando: {runningTool}
+                    </Text>
+                  ) : (
+                    <View style={styles.thinkingRow}>
+                      <View style={styles.thinkingDot} />
+                      <View style={[styles.thinkingDot, styles.thinkingDot2]} />
+                      <View style={[styles.thinkingDot, styles.thinkingDot3]} />
+                    </View>
+                  )}
                 </View>
               )}
             </ScrollView>

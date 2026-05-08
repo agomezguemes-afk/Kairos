@@ -42,8 +42,9 @@ import {
   processGlobalChat,
   AIUnavailableError,
 } from '../lib/ai/chat/globalChat';
+import type { AgentProgressEvent } from '../lib/ai/agent';
+import type { ToolResult } from '../lib/ai/tools/types';
 import type { RawUserContext } from '../utils/userContext';
-import { renderWithIcons, hasIconMarkers } from '../utils/iconText';
 import { generateId } from '../types/core';
 import { getBlockExercises } from '../types/core';
 import type { AIMessage } from '../types/ai';
@@ -62,7 +63,6 @@ export default function AIChatScreen({ navigation }: any) {
   const profile = supabaseProfile ?? localProfile;
   const scrollRef = useRef<ScrollView>(null);
 
-  const dispatchAIActions = useWorkoutStore((s) => s.dispatchAIActions);
   const setHighlight = useWorkoutStore((s) => s.setHighlight);
 
   const [messages, setMessages] = useState<AIMessage[]>([]);
@@ -71,6 +71,7 @@ export default function AIChatScreen({ navigation }: any) {
   const [avatarMood, setAvatarMood] = useState<AvatarMood>('idle');
   const [nodTrigger, setNodTrigger] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [runningTool, setRunningTool] = useState<string | null>(null);
 
   // Build context for AI service — plain function, NOT a hook.
   // Reads blocks from the store's latest state to avoid stale captures.
@@ -113,7 +114,6 @@ export default function AIChatScreen({ navigation }: any) {
         id: generateId(),
         role: 'assistant',
         content: greeting,
-        actions: [],
         timestamp: Date.now(),
       },
     ]);
@@ -139,7 +139,6 @@ export default function AIChatScreen({ navigation }: any) {
         id: generateId(),
         role: 'user',
         content,
-        actions: [],
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, userMsg]);
@@ -151,14 +150,20 @@ export default function AIChatScreen({ navigation }: any) {
 
       // 2. Build conversation history (last 6 turns max — handled inside the chat module)
       const history = messages
-        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .filter((m): m is AIMessage & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }));
       history.push({ role: 'user', content });
 
+      const onProgress = (e: AgentProgressEvent) => {
+        if (e.type === 'tool_running') setRunningTool(e.call.name);
+        if (e.type === 'tool_result' || e.type === 'final_text') setRunningTool(null);
+      };
+
       // 3. Call Groq. Failures surface as a visible system message — no fake fallbacks.
+      // Tool calls commit to the store live via the agent loop.
       let aiResponse: AIMessage;
       try {
-        aiResponse = await processGlobalChat(content, buildRawCtx(), history);
+        aiResponse = await processGlobalChat(content, buildRawCtx(), history, { onProgress });
       } catch (e) {
         const isUnavailable = e instanceof AIUnavailableError;
         const detail = e instanceof Error ? e.message : String(e);
@@ -168,30 +173,23 @@ export default function AIChatScreen({ navigation }: any) {
           content: isUnavailable
             ? `Kai no está disponible ahora mismo: ${detail}`
             : `Algo falló procesando tu mensaje (${detail}). Inténtalo de nuevo.`,
-          actions: [],
           timestamp: Date.now(),
         };
       }
 
-      // 4. Dispatch store mutations BEFORE rendering response
-      if (aiResponse.actions.length > 0) {
-        const createdId = dispatchAIActions(aiResponse.actions);
-        if (createdId) {
-          aiResponse.affectedBlockId = createdId;
-        }
-        if (aiResponse.affectedBlockId) {
-          setHighlight(aiResponse.affectedBlockId);
-        }
+      if (aiResponse.affectedBlockId) {
+        setHighlight(aiResponse.affectedBlockId);
       }
 
-      // 5. Append AI response
+      // 4. Append AI response
       setMessages((prev) => [...prev, aiResponse]);
       setIsLoading(false);
+      setRunningTool(null);
       setAvatarMood('idle');
       setNodTrigger((n) => n + 1);
       scrollToBottom();
     },
-    [input, isLoading, messages, dispatchAIActions, setHighlight, scrollToBottom, profile],
+    [input, isLoading, messages, setHighlight, scrollToBottom, profile],
   );
 
   // ======================== VIEW BLOCK HANDLER ========================
@@ -224,7 +222,7 @@ export default function AIChatScreen({ navigation }: any) {
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Kai</Text>
           <Text style={styles.headerSub}>
-            {isLoading ? 'Pensando...' : 'En línea'}
+            {runningTool ? `Ejecutando: ${runningTool}` : isLoading ? 'Pensando...' : 'En línea'}
           </Text>
         </View>
       </View>
@@ -345,12 +343,13 @@ function ActionCard({
   message: AIMessage;
   onViewBlock: (id: string) => void;
 }) {
-  if (message.actions.length === 0 || !message.affectedBlockId) return null;
+  const tools = message.toolResults ?? [];
+  if (tools.length === 0 || !message.affectedBlockId) return null;
 
   const blockId = message.affectedBlockId;
   const block = useWorkoutStore((s) => s.blocks.find((b) => b.id === blockId));
 
-  const isCreate = message.actions.some((a) => a.type === 'create_block');
+  const isCreate = tools.some((r) => r.ok && r.name === 'create_block');
   const iconName = isCreate ? 'sparkle' : 'arrow_forward';
   const title = isCreate ? 'Bloque creado' : 'Bloque actualizado';
   const subtitle = block

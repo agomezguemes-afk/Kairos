@@ -1,6 +1,14 @@
+// Free-form coach + one-shot routine generator.
+//
+// `callCoach` is plain text — used by the Plateau insights surface and any
+// "ask Kai a question" flow that does NOT need tool calls.
+//
+// `generateWorkoutPlan` is a one-shot JSON-mode generator that calls Groq
+// once and then executes store mutations directly (no agent loop). It's the
+// "Generar rutina" form inside BlockAISheet.
+
 import { useWorkoutStore } from '../../store/workoutStore';
 import type { WorkoutBlock, Discipline } from '../../types/core';
-import type { AIAction, AIExerciseTemplate } from '../../types/ai';
 import { callGroq, type GroqMessage } from './client';
 import { ROUTINE_GENERATOR_SYSTEM, buildCoachChatSystem } from './prompts/system';
 
@@ -65,6 +73,28 @@ export interface PlanPreferences {
   lesiones?: string[];
 }
 
+interface RawPlanExercise {
+  name?: unknown;
+  sets_count?: unknown;
+  reps?: unknown;
+  rest_seconds?: unknown;
+}
+
+function coerceReps(v: unknown): number | string {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim().length > 0) return v.trim();
+  return 10;
+}
+
+function coerceInt(v: unknown, fallback: number): number {
+  if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return Math.round(v);
+  if (typeof v === 'string') {
+    const n = parseInt(v, 10);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return fallback;
+}
+
 export async function generateWorkoutPlan(prefs: PlanPreferences): Promise<WorkoutBlock | null> {
   const user = `Crea UN bloque de entrenamiento.
 Objetivo: ${prefs.objetivo}.
@@ -80,38 +110,65 @@ Lesiones: ${prefs.lesiones && prefs.lesiones.length > 0 ? prefs.lesiones.join(',
     { jsonMode: true, temperature: 0.5, maxTokens: 1500 },
   );
 
-  let parsed: any;
+  let parsed: { name?: unknown; discipline?: unknown; description?: unknown; exercises?: unknown };
   try {
     parsed = JSON.parse(raw);
   } catch {
     return null;
   }
-  if (!parsed?.name || !Array.isArray(parsed.exercises)) return null;
-  const discipline: Discipline = VALID_DISCIPLINES.includes(parsed.discipline)
-    ? parsed.discipline
+  if (typeof parsed?.name !== 'string' || !Array.isArray(parsed.exercises)) return null;
+  const discipline: Discipline = VALID_DISCIPLINES.includes(parsed.discipline as Discipline)
+    ? (parsed.discipline as Discipline)
     : 'strength';
 
-  const exercises: AIExerciseTemplate[] = parsed.exercises.map((e: any) => ({
-    name: String(e.name ?? 'Ejercicio'),
-    sets_count: Number(e.sets_count) || 3,
-    reps: e.reps ?? 10,
-    rest_seconds: Number(e.rest_seconds) || 60,
-  }));
-
-  const action: AIAction = {
-    type: 'create_block',
-    payload: {
-      name: String(parsed.name),
-      discipline,
-      exercises,
-    },
-  };
-
   const store = useWorkoutStore.getState();
-  const blockId = store.dispatchAIActions([action]);
-  if (!blockId) return null;
-  if (parsed.description) {
-    store.updateBlock(blockId, { description: String(parsed.description).slice(0, 280) });
+  const blockId = store.addBlock(discipline, { name: String(parsed.name) });
+  if (typeof parsed.description === 'string') {
+    store.updateBlock(blockId, { description: parsed.description.slice(0, 280) });
   }
+
+  // Append exercises and fill reps + rest.
+  const rawExercises = parsed.exercises as RawPlanExercise[];
+  for (const e of rawExercises) {
+    const name = typeof e.name === 'string' ? e.name : 'Ejercicio';
+    const setsCount = coerceInt(e.sets_count, 3);
+    const rest = coerceInt(e.rest_seconds, 60);
+    const reps = coerceReps(e.reps);
+    store.addExercise(blockId, { name, discipline });
+    const fresh = useWorkoutStore.getState().blocks.find((b) => b.id === blockId);
+    if (!fresh) continue;
+    const nodes = fresh.content.filter((n) => n.type === 'exercise');
+    const last = nodes[nodes.length - 1];
+    if (!last || last.type !== 'exercise') continue;
+    const card = last.data.exercise;
+    store.updateExercise(blockId, card.id, {
+      rest_seconds: rest,
+      default_sets_count: setsCount,
+    });
+    // Adjust set count.
+    if (setsCount > card.sets.length) {
+      for (let i = 0; i < setsCount - card.sets.length; i += 1) {
+        store.addSet(blockId, card.id);
+      }
+    } else if (setsCount < card.sets.length) {
+      const after = useWorkoutStore.getState().blocks
+        .find((b) => b.id === blockId)
+        ?.content.find((n) => n.type === 'exercise' && n.data.exercise.id === card.id);
+      if (after && after.type === 'exercise') {
+        const drop = after.data.exercise.sets.slice(setsCount);
+        for (const s of drop) store.removeSet(blockId, card.id, s.id);
+      }
+    }
+    // Pre-fill reps in every set.
+    const after = useWorkoutStore.getState().blocks
+      .find((b) => b.id === blockId)
+      ?.content.find((n) => n.type === 'exercise' && n.data.exercise.id === card.id);
+    if (after && after.type === 'exercise') {
+      for (const s of after.data.exercise.sets) {
+        store.updateSetValue(blockId, card.id, s.id, 'reps', reps);
+      }
+    }
+  }
+
   return useWorkoutStore.getState().blocks.find((b) => b.id === blockId) ?? null;
 }

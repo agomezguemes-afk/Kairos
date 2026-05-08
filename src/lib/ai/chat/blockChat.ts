@@ -1,5 +1,6 @@
-// Kai inside the block editor: same parser as global chat, different system
-// prompt and an extra "current block" context block. Was src/services/blockAIService.ts.
+// Kai inside the block editor: same agent loop as global chat, different
+// system prompt, plus an extra "current block" context block so the model
+// always knows which blockId to mutate.
 
 import type { AIMessage } from '../../../types/ai';
 import type { WorkoutBlock } from '../../../types/core';
@@ -9,9 +10,10 @@ import {
   renderContextForPrompt,
   type RawUserContext,
 } from '../../../utils/userContext';
-import { callGroq, isGroqAvailable } from '../client';
+import { runAgent, AgentError, type AgentProgressFn } from '../agent';
+import type { GroqMessage } from '../client';
+import { isGroqAvailable, GroqError } from '../client';
 import { BLOCK_EDITOR_SYSTEM } from '../prompts/system';
-import { parseResponse } from '../parser/actionsParser';
 import { AIUnavailableError, type ChatHistoryItem } from './globalChat';
 
 function buildBlockContext(block: WorkoutBlock): string {
@@ -49,11 +51,16 @@ function buildBlockContext(block: WorkoutBlock): string {
   return lines.join('\n');
 }
 
+export interface BlockChatOptions {
+  onProgress?: AgentProgressFn;
+}
+
 export async function processBlockChat(
   userText: string,
   block: WorkoutBlock,
   rawContext: RawUserContext,
   history: ChatHistoryItem[] = [],
+  options: BlockChatOptions = {},
 ): Promise<AIMessage> {
   if (!isGroqAvailable()) {
     throw new AIUnavailableError(
@@ -70,34 +77,32 @@ export async function processBlockChat(
     : '';
   const userPrompt = `${profileContext}\n\n${blockContext}${histText}\n\nMENSAJE DEL USUARIO:\n${userText}`;
 
-  let raw: string;
+  const messages: GroqMessage[] = [
+    { role: 'system', content: BLOCK_EDITOR_SYSTEM },
+    { role: 'user', content: userPrompt },
+  ];
+
+  let result;
   try {
-    raw = await callGroq(
-      [
-        { role: 'system', content: BLOCK_EDITOR_SYSTEM },
-        { role: 'user', content: userPrompt },
-      ],
-      { jsonMode: true, temperature: 0.6, maxTokens: 2048 },
-    );
+    result = await runAgent(messages, {
+      temperature: 0.5,
+      maxTokens: 2048,
+      onProgress: options.onProgress,
+    });
   } catch (e) {
+    if (e instanceof AgentError || e instanceof GroqError) {
+      throw new AIUnavailableError(`Groq falló: ${e.message}`, e);
+    }
     const detail = e instanceof Error ? e.message : String(e);
     throw new AIUnavailableError(`Groq falló: ${detail}`, e);
-  }
-
-  let parsed;
-  try {
-    parsed = parseResponse(raw);
-  } catch (e) {
-    const detail = e instanceof Error ? e.message : String(e);
-    throw new AIUnavailableError(`Respuesta inválida: ${detail}`, e);
   }
 
   return {
     id: generateId(),
     role: 'assistant',
-    content: parsed.message,
-    actions: parsed.actions,
-    timestamp: Date.now(),
+    content: result.text,
+    toolResults: result.toolResults,
     affectedBlockId: block.id,
+    timestamp: Date.now(),
   };
 }
