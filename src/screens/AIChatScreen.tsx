@@ -44,7 +44,6 @@ import {
 } from '../lib/ai/chat/globalChat';
 import { getGlobalSuggestions } from '../lib/ai/chat/globalSuggestions';
 import type { AgentProgressEvent } from '../lib/ai/agent';
-import type { ToolResult } from '../lib/ai/tools/types';
 import type { RawUserContext } from '../utils/userContext';
 import { generateId } from '../types/core';
 import { getBlockExercises } from '../types/core';
