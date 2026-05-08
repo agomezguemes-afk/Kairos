@@ -36,11 +36,12 @@ import { useGamification } from '../context/GamificationContext';
 import { useMission } from '../context/MissionContext';
 import {
   getInitialGreeting,
-  resetSession,
-  patchSessionBlockId,
   type AIChatContext,
-} from '../services/aiChatService';
-import { processWithGroq, isGroqConfigured } from '../services/aiService';
+} from '../lib/ai/chat/greeting';
+import {
+  processGlobalChat,
+  AIUnavailableError,
+} from '../lib/ai/chat/globalChat';
 import type { RawUserContext } from '../utils/userContext';
 import { renderWithIcons, hasIconMarkers } from '../utils/iconText';
 import { generateId } from '../types/core';
@@ -97,12 +98,8 @@ export default function AIChatScreen({ navigation }: any) {
     };
   }
 
-  // Reset session on unmount so follow-up conversations start fresh
-  useEffect(() => {
-    return () => {
-      resetSession();
-    };
-  }, []);
+  // (Legacy session-reset removed: the new lib/ai chat is stateless — every
+  // request is built from the live store snapshot + the local message list.)
 
   // Initial greeting
   useEffect(() => {
@@ -152,27 +149,35 @@ export default function AIChatScreen({ navigation }: any) {
       setAvatarMood('thinking');
       scrollToBottom();
 
-      // 2. Realistic delay only when falling back to the mock path —
-      //    Groq is already ~500ms, so skip the artificial wait there.
-      if (!isGroqConfigured()) {
-        await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
-      }
-
-      // 3. Process through Groq (falls back to mock internally if it fails)
+      // 2. Build conversation history (last 6 turns max — handled inside the chat module)
       const history = messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }));
       history.push({ role: 'user', content });
 
-      const aiResponse = await processWithGroq(content, buildRawCtx(), history);
+      // 3. Call Groq. Failures surface as a visible system message — no fake fallbacks.
+      let aiResponse: AIMessage;
+      try {
+        aiResponse = await processGlobalChat(content, buildRawCtx(), history);
+      } catch (e) {
+        const isUnavailable = e instanceof AIUnavailableError;
+        const detail = e instanceof Error ? e.message : String(e);
+        aiResponse = {
+          id: generateId(),
+          role: 'assistant',
+          content: isUnavailable
+            ? `Kai no está disponible ahora mismo: ${detail}`
+            : `Algo falló procesando tu mensaje (${detail}). Inténtalo de nuevo.`,
+          actions: [],
+          timestamp: Date.now(),
+        };
+      }
 
       // 4. Dispatch store mutations BEFORE rendering response
       if (aiResponse.actions.length > 0) {
         const createdId = dispatchAIActions(aiResponse.actions);
         if (createdId) {
           aiResponse.affectedBlockId = createdId;
-          // Patch session so follow-up messages target the real block
-          patchSessionBlockId(createdId);
         }
         if (aiResponse.affectedBlockId) {
           setHighlight(aiResponse.affectedBlockId);

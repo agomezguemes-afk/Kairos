@@ -1,21 +1,13 @@
 import { useWorkoutStore } from '../../store/workoutStore';
 import type { WorkoutBlock, Discipline } from '../../types/core';
 import type { AIAction, AIExerciseTemplate } from '../../types/ai';
-import { callGroq, type GroqMessage } from './groq';
+import { callGroq, type GroqMessage } from './client';
+import { ROUTINE_GENERATOR_SYSTEM, buildCoachChatSystem } from './prompts/system';
 
 const VALID_DISCIPLINES: readonly Discipline[] = [
   'strength', 'running', 'calisthenics', 'mobility',
   'team_sport', 'cycling', 'swimming', 'general',
 ];
-
-const KNOWLEDGE = `BASE CIENTÍFICA (úsala SIEMPRE que aplique):
-- RIR: Reps in Reserve. RIR 0 = al fallo, RIR 2 = quedan 2 reps en la recámara.
-- RPE 1-10: 10 = al fallo, 8 = 2 reps en la recámara.
-- 1RM estimado (Epley): peso · (1 + reps/30).
-- Volumen semanal por grupo: sets · reps · peso. 10-20 sets/semana es óptimo.
-- Frecuencia ideal: 2x/semana por grupo muscular.
-- Mesociclo: 3-6 semanas con progresión, luego deload.
-- Descanso: fuerza pura 3-5min · hipertrofia 60-90s · resistencia 30s.`;
 
 interface UserSnapshot {
   blocksCount: number;
@@ -42,19 +34,16 @@ function buildUserSnapshot(): UserSnapshot {
 export function buildSystemPrompt(history?: GroqMessage[]): string {
   const userData = buildUserSnapshot();
   const histText = history && history.length > 0
-    ? '\n\nHISTORIAL RECIENTE:\n' + history.slice(-6).map((m) => `${m.role}: ${m.content}`).join('\n')
+    ? '\n\nHISTORIAL RECIENTE:\n' + history.slice(-6).map((m) => {
+        const role = 'role' in m ? m.role : 'user';
+        const content = 'content' in m ? (m.content ?? '') : '';
+        return `${role}: ${content}`;
+      }).join('\n')
     : '';
-  return `Eres Kairos Coach, un entrenador personal de élite integrado en la app Kairos. Hablas español, en tono cercano, empático y preciso. Usas datos reales del usuario.
-
-${KNOWLEDGE}
-
-DATOS DEL USUARIO:
-${JSON.stringify(userData, null, 2)}
-
-INSTRUCCIONES:
-- Responde de forma breve y útil (máx. 4 frases para conversación libre).
-- Cuando pidan rutinas, devuelve un JSON con la estructura del plan.
-- No inventes IDs ni datos que no estén en el snapshot.${histText}`;
+  return buildCoachChatSystem({
+    userDataJson: JSON.stringify(userData, null, 2),
+    historyText: histText,
+  });
 }
 
 export async function callCoach(userMessage: string, history?: GroqMessage[]): Promise<string> {
@@ -77,19 +66,6 @@ export interface PlanPreferences {
 }
 
 export async function generateWorkoutPlan(prefs: PlanPreferences): Promise<WorkoutBlock | null> {
-  const system = `Eres Kairos Coach. Devuelve EXCLUSIVAMENTE un JSON válido con la forma:
-{
-  "name": string,
-  "discipline": "strength" | "running" | "calisthenics" | "mobility" | "team_sport" | "cycling" | "swimming" | "general",
-  "description": string,
-  "exercises": [
-    { "name": string, "sets_count": number, "reps": number | string, "rest_seconds": number }
-  ]
-}
-Sin texto fuera del JSON. 4-7 ejercicios. Adapta a las lesiones indicadas.
-
-${KNOWLEDGE}`;
-
   const user = `Crea UN bloque de entrenamiento.
 Objetivo: ${prefs.objetivo}.
 Días/semana: ${prefs.días}.
@@ -98,7 +74,7 @@ Lesiones: ${prefs.lesiones && prefs.lesiones.length > 0 ? prefs.lesiones.join(',
 
   const raw = await callGroq(
     [
-      { role: 'system', content: system },
+      { role: 'system', content: ROUTINE_GENERATOR_SYSTEM },
       { role: 'user', content: user },
     ],
     { jsonMode: true, temperature: 0.5, maxTokens: 1500 },

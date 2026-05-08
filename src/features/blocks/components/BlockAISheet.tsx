@@ -28,7 +28,9 @@ import { generateId } from '../../../types/core';
 import { useWorkoutStore } from '../../../store/workoutStore';
 import { useGamification } from '../../../context/GamificationContext';
 import { useUserProfile } from '../../../context/UserProfileContext';
-import { processBlockMessage, getBlockSuggestions } from '../../../services/blockAIService';
+import { processBlockChat } from '../../../lib/ai/chat/blockChat';
+import { AIUnavailableError } from '../../../lib/ai/chat/globalChat';
+import { getBlockSuggestions } from '../../../lib/ai/chat/suggestions';
 import { generateWorkoutPlan } from '../../../lib/ai/coach';
 import type { RawUserContext } from '../../../utils/userContext';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
@@ -123,7 +125,7 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     try {
       const freshBlock = useWorkoutStore.getState().blocks.find(b => b.id === block.id) ?? block;
       const ctx = buildContext();
-      const response = await processBlockMessage(msg, freshBlock, ctx, conversationHistory);
+      const response = await processBlockChat(msg, freshBlock, ctx, conversationHistory);
 
       if (response.actions.length > 0) {
         dispatchAIActions(response.actions);
@@ -131,10 +133,14 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
 
       setMessages(prev => [...prev, response]);
     } catch (e) {
+      const isUnavailable = e instanceof AIUnavailableError;
+      const detail = e instanceof Error ? e.message : String(e);
       setMessages(prev => [...prev, {
         id: generateId(),
         role: 'assistant',
-        content: 'Hubo un error procesando tu mensaje. Intenta de nuevo.',
+        content: isUnavailable
+          ? `Kai no está disponible: ${detail}`
+          : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
         actions: [],
         timestamp: Date.now(),
       }]);
