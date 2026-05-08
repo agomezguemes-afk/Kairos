@@ -42,6 +42,7 @@ import {
   processGlobalChat,
   AIUnavailableError,
 } from '../lib/ai/chat/globalChat';
+import { getGlobalSuggestions } from '../lib/ai/chat/globalSuggestions';
 import type { AgentProgressEvent } from '../lib/ai/agent';
 import type { ToolResult } from '../lib/ai/tools/types';
 import type { RawUserContext } from '../utils/userContext';
@@ -456,29 +457,24 @@ function BouncingDot({ delay: d }: { delay: number }) {
 
 // ======================== SUGGESTED PROMPTS ========================
 
-const SUGGESTED_PROMPTS = [
-  'Crea un bloque de fuerza para principiantes, 3 días en casa',
-  'Crea un bloque HIIT, 4 días a la semana',
-  'Añade dominadas a mi bloque',
-  'Aumenta las sentadillas a 12 repeticiones',
-];
-
 function SuggestedPrompts({ onSelect }: { onSelect: (text: string) => void }) {
+  const blocks = useWorkoutStore((s) => s.blocks);
+  const suggestions = getGlobalSuggestions(blocks);
   return (
     <View style={styles.suggestedContainer}>
-      {SUGGESTED_PROMPTS.map((prompt) => (
+      {suggestions.map((s) => (
         <Pressable
-          key={prompt}
+          key={s.label}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onSelect(prompt);
+            onSelect(s.prompt);
           }}
           style={({ pressed }) => [
             styles.suggestedChip,
             pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
           ]}
         >
-          <Text style={styles.suggestedText}>{prompt}</Text>
+          <Text style={styles.suggestedText}>{s.label}</Text>
         </Pressable>
       ))}
     </View>

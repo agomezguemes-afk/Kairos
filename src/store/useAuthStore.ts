@@ -43,6 +43,9 @@ function rowToProfile(row: SupabaseProfileRow): UserProfile {
     height: row.height_cm,
     injuries: row.injuries,
     workoutPlace: (row.workout_place as WorkoutPlace | null) ?? null,
+    // Equipment columns are local-only for now (no DB migration yet) — start empty.
+    equipment: [],
+    equipmentNotes: null,
     onboardingCompletedAt: row.onboarding_completed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

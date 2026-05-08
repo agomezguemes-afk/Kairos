@@ -85,7 +85,8 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     prCards,
     badges,
     activeMission: null,
-  }), [profile, blocks, streak, prCards, badges]);
+    currentBlockId: block.id,
+  }), [profile, blocks, streak, prCards, badges, block.id]);
 
   useEffect(() => {
     if (visible) {
