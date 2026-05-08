@@ -14,6 +14,8 @@ import {
 import { runAgent, AgentError, type AgentProgressFn } from '../agent';
 import type { GroqMessage } from '../client';
 import { isGroqAvailable, GroqError } from '../client';
+import { filterExercises, renderExercisesForPrompt } from '../knowledge/exercises';
+import { pickTemplates, renderTemplatesForPrompt } from '../prompts/templates';
 import { COACH_CHAT_SYSTEM } from '../prompts/system';
 
 export type ChatHistoryItem = { role: 'user' | 'assistant'; content: string };
@@ -31,11 +33,21 @@ function buildUserPrompt(
   history: ChatHistoryItem[],
 ): string {
   const context = renderContextForPrompt(snapshot);
+  const catalog = renderExercisesForPrompt(
+    filterExercises({
+      equipment: snapshot.profile.equipment as import('../../../types/profile').EquipmentTag[],
+      injuries: snapshot.profile.injuries,
+      queryKeywords: query.toLowerCase().split(/\W+/).filter((s) => s.length > 2),
+      limit: 18,
+    }),
+  );
+  const templates = renderTemplatesForPrompt(pickTemplates(query));
   const histText = history.length > 0
     ? '\n\nHISTORIAL DE CONVERSACIÓN:\n' +
       history.slice(-6).map((m) => `${m.role === 'user' ? 'Usuario' : 'Kai'}: ${m.content}`).join('\n')
     : '';
-  return `${context}${histText}\n\nMENSAJE DEL USUARIO:\n${query}`;
+  const sections = [context, catalog, templates].filter((s) => s && s.length > 0);
+  return `${sections.join('\n\n')}${histText}\n\nMENSAJE DEL USUARIO:\n${query}`;
 }
 
 export interface GlobalChatOptions {

@@ -13,6 +13,8 @@ import {
 import { runAgent, AgentError, type AgentProgressFn } from '../agent';
 import type { GroqMessage } from '../client';
 import { isGroqAvailable, GroqError } from '../client';
+import { filterExercises, renderExercisesForPrompt } from '../knowledge/exercises';
+import { pickTemplates, renderTemplatesForPrompt } from '../prompts/templates';
 import { BLOCK_EDITOR_SYSTEM } from '../prompts/system';
 import { AIUnavailableError, type ChatHistoryItem } from './globalChat';
 
@@ -71,11 +73,22 @@ export async function processBlockChat(
   const snapshot = buildUserContextSnapshot(rawContext);
   const profileContext = renderContextForPrompt(snapshot);
   const blockContext = buildBlockContext(block);
+  const catalog = renderExercisesForPrompt(
+    filterExercises({
+      equipment: snapshot.profile.equipment as import('../../../types/profile').EquipmentTag[],
+      injuries: snapshot.profile.injuries,
+      discipline: block.discipline,
+      queryKeywords: userText.toLowerCase().split(/\W+/).filter((s) => s.length > 2),
+      limit: 18,
+    }),
+  );
+  const templates = renderTemplatesForPrompt(pickTemplates(userText));
   const histText = history.length > 0
     ? '\n\nCONVERSACIÓN PREVIA:\n' +
       history.slice(-8).map((m) => `${m.role === 'user' ? 'Usuario' : 'Kai'}: ${m.content}`).join('\n')
     : '';
-  const userPrompt = `${profileContext}\n\n${blockContext}${histText}\n\nMENSAJE DEL USUARIO:\n${userText}`;
+  const sections = [profileContext, blockContext, catalog, templates].filter((s) => s && s.length > 0);
+  const userPrompt = `${sections.join('\n\n')}${histText}\n\nMENSAJE DEL USUARIO:\n${userText}`;
 
   const messages: GroqMessage[] = [
     { role: 'system', content: BLOCK_EDITOR_SYSTEM },
