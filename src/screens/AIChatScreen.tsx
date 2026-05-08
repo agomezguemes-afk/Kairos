@@ -72,6 +72,8 @@ export default function AIChatScreen({ navigation }: any) {
   const [nodTrigger, setNodTrigger] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [runningTool, setRunningTool] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const streamingIdRef = useRef<string | null>(null);
 
   // Build context for AI service — plain function, NOT a hook.
   // Reads blocks from the store's latest state to avoid stale captures.
@@ -154,35 +156,84 @@ export default function AIChatScreen({ navigation }: any) {
         .map((m) => ({ role: m.role, content: m.content }));
       history.push({ role: 'user', content });
 
+      // Reserve an in-flight assistant bubble that streamed tokens write into.
+      const streamingId = generateId();
+      streamingIdRef.current = streamingId;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: streamingId,
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now(),
+        },
+      ]);
+
+      const appendDelta = (delta: string) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === streamingId ? { ...m, content: m.content + delta } : m,
+          ),
+        );
+      };
+
       const onProgress = (e: AgentProgressEvent) => {
+        if (e.type === 'text_delta') appendDelta(e.delta);
         if (e.type === 'tool_running') setRunningTool(e.call.name);
         if (e.type === 'tool_result' || e.type === 'final_text') setRunningTool(null);
       };
 
       // 3. Call Groq. Failures surface as a visible system message — no fake fallbacks.
       // Tool calls commit to the store live via the agent loop.
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       let aiResponse: AIMessage;
       try {
-        aiResponse = await processGlobalChat(content, buildRawCtx(), history, { onProgress });
+        aiResponse = await processGlobalChat(content, buildRawCtx(), history, {
+          onProgress,
+          signal: controller.signal,
+        });
       } catch (e) {
         const isUnavailable = e instanceof AIUnavailableError;
         const detail = e instanceof Error ? e.message : String(e);
+        const isAborted = detail.toLowerCase().includes('aborted');
         aiResponse = {
           id: generateId(),
           role: 'assistant',
-          content: isUnavailable
+          content: isAborted
+            ? 'Generación cancelada.'
+            : isUnavailable
             ? `Kai no está disponible ahora mismo: ${detail}`
             : `Algo falló procesando tu mensaje (${detail}). Inténtalo de nuevo.`,
           timestamp: Date.now(),
         };
+      } finally {
+        abortRef.current = null;
       }
 
       if (aiResponse.affectedBlockId) {
         setHighlight(aiResponse.affectedBlockId);
       }
 
-      // 4. Append AI response
-      setMessages((prev) => [...prev, aiResponse]);
+      // 4. Replace the streaming placeholder with the final assistant message.
+      // We carry over toolResults / affectedBlockId from the resolved response,
+      // and prefer the streamed content if the server returned an empty string
+      // (defensive — happens when the model only made tool calls).
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === streamingId);
+        if (idx === -1) return [...prev, aiResponse];
+        const streamed = prev[idx];
+        const merged: AIMessage = {
+          ...aiResponse,
+          id: streamed.id,
+          content: aiResponse.content || streamed.content,
+        };
+        const next = prev.slice();
+        next[idx] = merged;
+        return next;
+      });
+      streamingIdRef.current = null;
       setIsLoading(false);
       setRunningTool(null);
       setAvatarMood('idle');
@@ -191,6 +242,13 @@ export default function AIChatScreen({ navigation }: any) {
     },
     [input, isLoading, messages, setHighlight, scrollToBottom, profile],
   );
+
+  const handleStop = useCallback(() => {
+    if (!abortRef.current) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    abortRef.current.abort();
+    abortRef.current = null;
+  }, []);
 
   // ======================== VIEW BLOCK HANDLER ========================
 
@@ -252,7 +310,14 @@ export default function AIChatScreen({ navigation }: any) {
           ),
         )}
 
-        {isLoading && <TypingIndicator />}
+        {/* Show typing dots ONLY while we wait for the first delta. Once
+         *  tokens are flowing, the assistant bubble shows live progress. */}
+        {isLoading && (() => {
+          const streamingId = streamingIdRef.current;
+          if (!streamingId) return <TypingIndicator />;
+          const m = messages.find((x) => x.id === streamingId);
+          return m && m.content.length === 0 ? <TypingIndicator /> : null;
+        })()}
       </ScrollView>
 
       {/* Suggested prompts when chat is empty and has greeting */}
@@ -273,21 +338,35 @@ export default function AIChatScreen({ navigation }: any) {
           multiline={false}
           editable={!isLoading}
         />
-        <Pressable
-          onPress={() => handleSend()}
-          disabled={!input.trim() || isLoading}
-          style={({ pressed }) => [
-            styles.sendBtn,
-            (!input.trim() || isLoading) && styles.sendBtnDisabled,
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <Feather
-            name="send"
-            size={18}
-            color={input.trim() && !isLoading ? Colors.text.inverse : Colors.text.disabled}
-          />
-        </Pressable>
+        {isLoading ? (
+          <Pressable
+            onPress={handleStop}
+            style={({ pressed }) => [
+              styles.sendBtn,
+              styles.stopBtn,
+              pressed && { opacity: 0.7 },
+            ]}
+            accessibilityLabel="Detener generación"
+          >
+            <Feather name="square" size={16} color={Colors.text.inverse} />
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => handleSend()}
+            disabled={!input.trim()}
+            style={({ pressed }) => [
+              styles.sendBtn,
+              !input.trim() && styles.sendBtnDisabled,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Feather
+              name="send"
+              size={18}
+              color={input.trim() ? Colors.text.inverse : Colors.text.disabled}
+            />
+          </Pressable>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -684,5 +763,8 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: Colors.background.elevated,
+  },
+  stopBtn: {
+    backgroundColor: Colors.text.primary,
   },
 });

@@ -55,6 +55,7 @@ function buildBlockContext(block: WorkoutBlock): string {
 
 export interface BlockChatOptions {
   onProgress?: AgentProgressFn;
+  signal?: AbortSignal;
 }
 
 export async function processBlockChat(
@@ -101,6 +102,7 @@ export async function processBlockChat(
       temperature: 0.5,
       maxTokens: 2048,
       onProgress: options.onProgress,
+      signal: options.signal,
     });
   } catch (e) {
     if (e instanceof AgentError || e instanceof GroqError) {

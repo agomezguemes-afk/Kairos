@@ -52,6 +52,9 @@ function buildUserPrompt(
 
 export interface GlobalChatOptions {
   onProgress?: AgentProgressFn;
+  /** Cancels the in-flight Groq stream. The promise rejects with
+   *  AIUnavailableError('aborted'). */
+  signal?: AbortSignal;
 }
 
 /**
@@ -85,6 +88,7 @@ export async function processGlobalChat(
       temperature: 0.5,
       maxTokens: 2048,
       onProgress: options.onProgress,
+      signal: options.signal,
     });
   } catch (e) {
     if (e instanceof AgentError || e instanceof GroqError) {

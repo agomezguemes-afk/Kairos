@@ -21,6 +21,7 @@ import * as v from 'valibot';
 
 import {
   chatCompletion,
+  streamChatCompletion,
   GroqError,
   type GroqMessage,
   type GroqAssistantMessage,
@@ -35,6 +36,7 @@ const MAX_RETRIES_PER_TOOL = 2;
 
 export type AgentProgressEvent =
   | { type: 'turn_start'; turn: number }
+  | { type: 'text_delta'; delta: string }
   | { type: 'tool_running'; call: ToolCall }
   | { type: 'tool_result'; result: ToolResult }
   | { type: 'final_text'; text: string };
@@ -44,6 +46,8 @@ export type AgentProgressFn = (e: AgentProgressEvent) => void;
 export interface AgentRunOptions extends GroqOptions {
   maxTurns?: number;
   onProgress?: AgentProgressFn;
+  /** Optional AbortSignal forwarded to the streaming transport. */
+  signal?: AbortSignal;
 }
 
 export interface AgentRunResult {
@@ -65,12 +69,18 @@ export class AgentError extends Error {
 /**
  * Run the agent loop until the model returns a plain assistant message, or we
  * hit `maxTurns`. Throws AgentError on Groq failures or runaway loops.
+ *
+ * Each turn streams from Groq via SSE: `text_delta` events fire as tokens
+ * arrive so the UI can render them progressively. Tool-call deltas are
+ * accumulated internally and surface as a single `tool_running` event per
+ * call once the turn finishes. If the stream fails we retry once with the
+ * non-streaming path before throwing.
  */
 export async function runAgent(
   initialMessages: GroqMessage[],
   options: AgentRunOptions = {},
 ): Promise<AgentRunResult> {
-  const { maxTurns = DEFAULT_MAX_TURNS, onProgress, ...groqOpts } = options;
+  const { maxTurns = DEFAULT_MAX_TURNS, onProgress, signal, ...groqOpts } = options;
 
   const messages: GroqMessage[] = [...initialMessages];
   const toolResults: ToolResult[] = [];
@@ -85,14 +95,31 @@ export async function runAgent(
 
     let choice;
     try {
-      choice = await chatCompletion(messages, {
-        ...groqOpts,
-        tools: TOOL_DEFINITIONS,
-        toolChoice: groqOpts.toolChoice ?? 'auto',
-      });
+      choice = await streamTurn(messages, groqOpts, signal, onProgress);
     } catch (e) {
-      if (e instanceof GroqError) throw new AgentError(e.message, e);
-      throw new AgentError('Groq call failed', e);
+      if (e instanceof GroqError) {
+        // Fallback path: try once without streaming. Keeps the agent usable
+        // if the device's XHR can't talk to the SSE endpoint for any reason.
+        if (e.message !== 'aborted') {
+          try {
+            choice = await chatCompletion(messages, {
+              ...groqOpts,
+              tools: TOOL_DEFINITIONS,
+              toolChoice: groqOpts.toolChoice ?? 'auto',
+            });
+            if (choice.message.content) {
+              onProgress?.({ type: 'text_delta', delta: choice.message.content });
+            }
+          } catch (e2) {
+            const err = e2 instanceof GroqError ? e2 : new GroqError(String(e2));
+            throw new AgentError(err.message, err);
+          }
+        } else {
+          throw new AgentError(e.message, e);
+        }
+      } else {
+        throw new AgentError('Groq call failed', e);
+      }
     }
 
     const assistantMsg = choice.message;
@@ -141,9 +168,24 @@ export async function runAgent(
   });
   let final;
   try {
-    final = await chatCompletion(messages, { ...groqOpts, toolChoice: 'none' });
+    final = await streamTurn(
+      messages,
+      { ...groqOpts, toolChoice: 'none' },
+      signal,
+      onProgress,
+    );
   } catch (e) {
-    throw new AgentError('Groq call failed during forced finalisation', e);
+    if (e instanceof GroqError && e.message === 'aborted') {
+      throw new AgentError('aborted', e);
+    }
+    try {
+      final = await chatCompletion(messages, { ...groqOpts, toolChoice: 'none' });
+      if (final.message.content) {
+        onProgress?.({ type: 'text_delta', delta: final.message.content });
+      }
+    } catch (e2) {
+      throw new AgentError('Groq call failed during forced finalisation', e2);
+    }
   }
   const text = (final.message.content ?? '').trim();
   onProgress?.({ type: 'final_text', text });
@@ -151,6 +193,33 @@ export async function runAgent(
 }
 
 // ======================== INTERNALS ========================
+
+/**
+ * One streaming turn against Groq. Emits text_delta progress events live;
+ * tool calls are accumulated and returned via the resolved choice. Throws
+ * GroqError on transport failure (caller may fall back to non-streaming).
+ */
+async function streamTurn(
+  messages: GroqMessage[],
+  groqOpts: GroqOptions,
+  signal: AbortSignal | undefined,
+  onProgress: AgentProgressFn | undefined,
+) {
+  return streamChatCompletion(
+    messages,
+    {
+      ...groqOpts,
+      tools: TOOL_DEFINITIONS,
+      toolChoice: groqOpts.toolChoice ?? 'auto',
+      signal,
+    },
+    {
+      onTextDelta: (delta) => {
+        onProgress?.({ type: 'text_delta', delta });
+      },
+    },
+  );
+}
 
 async function executeToolCall(
   call: ToolCall,

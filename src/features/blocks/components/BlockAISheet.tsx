@@ -60,6 +60,8 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const [generating, setGenerating] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const streamingIdRef = useRef<string | null>(null);
 
   const blocks = useWorkoutStore(s => s.blocks);
   const { profile } = useUserProfile();
@@ -127,33 +129,85 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     setThinking(true);
     scrollToBottom();
 
+    // Reserve a streaming assistant bubble.
+    const streamingId = generateId();
+    streamingIdRef.current = streamingId;
+    setMessages(prev => [
+      ...prev,
+      { id: streamingId, role: 'assistant', content: '', timestamp: Date.now() },
+    ]);
+
+    const appendDelta = (delta: string) => {
+      setMessages(prev =>
+        prev.map(m => (m.id === streamingId ? { ...m, content: m.content + delta } : m)),
+      );
+    };
+
     const onProgress = (e: AgentProgressEvent) => {
+      if (e.type === 'text_delta') appendDelta(e.delta);
       if (e.type === 'tool_running') setRunningTool(e.call.name);
       if (e.type === 'tool_result' || e.type === 'final_text') setRunningTool(null);
     };
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const freshBlock = useWorkoutStore.getState().blocks.find(b => b.id === block.id) ?? block;
       const ctx = buildContext();
-      const response = await processBlockChat(msg, freshBlock, ctx, conversationHistory, { onProgress });
-      setMessages(prev => [...prev, response]);
+      const response = await processBlockChat(msg, freshBlock, ctx, conversationHistory, {
+        onProgress,
+        signal: controller.signal,
+      });
+      setMessages(prev => {
+        const idx = prev.findIndex(m => m.id === streamingId);
+        if (idx === -1) return [...prev, response];
+        const merged: AIMessage = {
+          ...response,
+          id: prev[idx].id,
+          content: response.content || prev[idx].content,
+        };
+        const next = prev.slice();
+        next[idx] = merged;
+        return next;
+      });
     } catch (e) {
       const isUnavailable = e instanceof AIUnavailableError;
       const detail = e instanceof Error ? e.message : String(e);
-      setMessages(prev => [...prev, {
-        id: generateId(),
-        role: 'assistant',
-        content: isUnavailable
-          ? `Kai no está disponible: ${detail}`
-          : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
-        timestamp: Date.now(),
-      }]);
+      const isAborted = detail.toLowerCase().includes('aborted');
+      setMessages(prev => {
+        const errMsg: AIMessage = {
+          id: generateId(),
+          role: 'assistant',
+          content: isAborted
+            ? 'Generación cancelada.'
+            : isUnavailable
+            ? `Kai no está disponible: ${detail}`
+            : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
+          timestamp: Date.now(),
+        };
+        // Replace the empty streaming placeholder if present, else append.
+        const idx = prev.findIndex(m => m.id === streamingId);
+        if (idx === -1) return [...prev, errMsg];
+        const next = prev.slice();
+        next[idx] = { ...errMsg, id: prev[idx].id };
+        return next;
+      });
     } finally {
+      streamingIdRef.current = null;
+      abortRef.current = null;
       setThinking(false);
       setRunningTool(null);
       scrollToBottom();
     }
   }, [input, thinking, block.id, buildContext, conversationHistory, scrollToBottom]);
+
+  const handleStop = useCallback(() => {
+    if (!abortRef.current) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    abortRef.current.abort();
+    abortRef.current = null;
+  }, []);
 
   const handleSuggestion = useCallback((prompt: string) => {
     handleSend(prompt);
@@ -291,21 +345,28 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                 );
               })}
 
-              {thinking && (
+              {thinking && runningTool && (
                 <View style={[styles.bubble, styles.aiBubble]}>
-                  {runningTool ? (
-                    <Text style={[styles.bubbleText, { fontStyle: 'italic', color: Colors.text.tertiary }]}>
-                      Ejecutando: {runningTool}
-                    </Text>
-                  ) : (
+                  <Text style={[styles.bubbleText, { fontStyle: 'italic', color: Colors.text.tertiary }]}>
+                    Ejecutando: {runningTool}
+                  </Text>
+                </View>
+              )}
+              {thinking && !runningTool && (() => {
+                const id = streamingIdRef.current;
+                const m = id ? messages.find((x) => x.id === id) : undefined;
+                // Only show dots if the streaming bubble is still empty.
+                if (m && m.content.length > 0) return null;
+                return (
+                  <View style={[styles.bubble, styles.aiBubble]}>
                     <View style={styles.thinkingRow}>
                       <View style={styles.thinkingDot} />
                       <View style={[styles.thinkingDot, styles.thinkingDot2]} />
                       <View style={[styles.thinkingDot, styles.thinkingDot3]} />
                     </View>
-                  )}
-                </View>
-              )}
+                  </View>
+                );
+              })()}
             </ScrollView>
 
             {/* Plan generator */}
@@ -402,13 +463,23 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                 onSubmitEditing={() => handleSend()}
                 editable={!thinking}
               />
-              <Pressable
-                onPress={() => handleSend()}
-                disabled={!input.trim() || thinking}
-                style={[styles.sendBtn, (!input.trim() || thinking) && styles.sendBtnDisabled]}
-              >
-                <Feather name="arrow-up" size={18} color={Colors.text.inverse} />
-              </Pressable>
+              {thinking ? (
+                <Pressable
+                  onPress={handleStop}
+                  style={[styles.sendBtn, styles.stopBtn]}
+                  accessibilityLabel="Detener generación"
+                >
+                  <Feather name="square" size={14} color={Colors.text.inverse} />
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => handleSend()}
+                  disabled={!input.trim()}
+                  style={[styles.sendBtn, !input.trim() && styles.sendBtnDisabled]}
+                >
+                  <Feather name="arrow-up" size={18} color={Colors.text.inverse} />
+                </Pressable>
+              )}
             </View>
           </Animated.View>
         </View>
@@ -619,6 +690,9 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: Colors.border.medium,
+  },
+  stopBtn: {
+    backgroundColor: Colors.text.primary,
   },
   planRow: {
     paddingHorizontal: Spacing.lg,
