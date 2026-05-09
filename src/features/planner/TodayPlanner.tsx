@@ -16,6 +16,8 @@ import DayCard from './components/DayCard';
 import KaiSignalCard from './components/KaiSignal';
 import AssignBlockSheet from './components/AssignBlockSheet';
 import RecurrenceEditorSheet from './components/RecurrenceEditorSheet';
+import MovePicker from './components/MovePicker';
+import ChangeBlockPicker from './components/ChangeBlockPicker';
 
 import { todayISO } from './lib/dates';
 import { kaiSignal, type KaiSignal } from './lib/kaiSignal';
@@ -161,7 +163,18 @@ export default function TodayPlanner() {
         selectedDate={selectedDate}
         onClose={() => setEditSeriesSheet(null)}
       />
-      {/* MovePicker / ChangeBlockPicker get wired in Task 18. */}
+      <MovePicker
+        visible={!!moveTarget}
+        assignmentId={moveTarget?.assignmentId ?? null}
+        fromDate={moveTarget?.fromDate ?? null}
+        onClose={() => setMoveTarget(null)}
+      />
+      <ChangeBlockPicker
+        visible={!!changeBlockTarget}
+        assignmentId={changeBlockTarget?.assignmentId ?? null}
+        date={changeBlockTarget?.date ?? null}
+        onClose={() => setChangeBlockTarget(null)}
+      />
     </View>
   );
 }
