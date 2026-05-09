@@ -1,0 +1,106 @@
+// src/features/planner/components/MonthGrid.tsx
+// 6×7 month grid. Header shows month label + arrow nav.
+
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Colors, Type, Spacing } from '../../../theme/tokens';
+import DayCell from './DayCell';
+import {
+  monthGridDays, formatMonthYear, addMonthsISO, todayISO, fromISODate,
+} from '../lib/dates';
+import { useScheduleForRange } from '../hooks/useScheduleForRange';
+import type { ISODate } from '../../../types/schedule';
+
+interface Props {
+  selectedDate: ISODate;
+  onSelect: (d: ISODate) => void;
+}
+
+export default function MonthGrid({ selectedDate, onSelect }: Props) {
+  const [anchor, setAnchor] = useState<ISODate>(selectedDate);
+  const today = todayISO();
+
+  const days = useMemo(() => monthGridDays(anchor), [anchor]);
+  const range = useScheduleForRange(days[0], days[days.length - 1]);
+  const focusedMonth = fromISODate(anchor).getMonth();
+
+  const goPrev = () => { Haptics.selectionAsync().catch(() => {}); setAnchor(addMonthsISO(anchor, -1)); };
+  const goNext = () => { Haptics.selectionAsync().catch(() => {}); setAnchor(addMonthsISO(anchor, 1));  };
+
+  return (
+    <View>
+      <View style={styles.header}>
+        <Pressable onPress={goPrev} accessibilityLabel="Mes anterior" hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+          <Text style={styles.arrow}>‹</Text>
+        </Pressable>
+        <Text style={styles.monthLabel}>{formatMonthYear(anchor)}</Text>
+        <Pressable onPress={goNext} accessibilityLabel="Mes siguiente" hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+          <Text style={styles.arrow}>›</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.weekdayHeader}>
+        {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((w) => (
+          <Text key={w} style={styles.weekdayHeaderText}>{w}</Text>
+        ))}
+      </View>
+
+      <View style={styles.grid}>
+        {days.map((d) => (
+          <View key={d} style={styles.cell}>
+            <DayCell
+              date={d}
+              selected={d === selectedDate}
+              isToday={d === today}
+              hasAssignment={(range.get(d) ?? []).length > 0}
+              isOtherMonth={fromISODate(d).getMonth() !== focusedMonth}
+              size="month"
+              onPress={onSelect}
+            />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.screen.horizontal,
+    paddingBottom: Spacing.sm,
+  },
+  arrow: {
+    fontSize: 24,
+    color: Colors.ink.secondary,
+    paddingHorizontal: Spacing.sm,
+  },
+  monthLabel: {
+    ...Type.bodyEmph,
+    color: Colors.ink.primary,
+    textTransform: 'capitalize',
+  },
+  weekdayHeader: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.screen.horizontal,
+    paddingBottom: Spacing.xs,
+  },
+  weekdayHeaderText: {
+    flex: 1,
+    textAlign: 'center',
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.screen.horizontal,
+  },
+  cell: {
+    width: `${100 / 7}%`,
+    paddingVertical: 2,
+  },
+});
