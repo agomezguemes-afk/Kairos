@@ -17,7 +17,7 @@ import { Colors, Typography, Animation, springs } from '../theme/index';
 const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
   HomeTab: { icon: 'home', label: 'Inicio' },
   WorkoutTab: { icon: 'grid', label: 'Bloques' },
-  AchievementsTab: { icon: 'award', label: 'Logros' },
+  ProgressTab: { icon: 'award', label: 'Progreso' },
   AILabTab: { icon: 'cpu', label: 'AI Lab' },
   ProfileTab: { icon: 'user', label: 'Perfil' },
 };

@@ -8,7 +8,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 export type DashboardTabParamList = {
   HomeTab: undefined;
   WorkoutTab: { highlightBlockId?: string } | undefined;
-  AchievementsTab: undefined;
+  ProgressTab: undefined;
   AILabTab: undefined;
   ProfileTab: undefined;
 };

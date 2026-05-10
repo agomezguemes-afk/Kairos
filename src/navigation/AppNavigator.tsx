@@ -20,7 +20,7 @@ import SplashScreen from '../screens/SplashScreen';
 import HomeTab from '../screens/tabs/HomeTab';
 import BlocksScreen from '../features/blocks/BlocksScreen';
 import BlockEditorScreen from '../features/blocks/BlockEditorScreen';
-import AchievementsTab from '../screens/tabs/AchievementsTab';
+import ProgressTab from '../screens/tabs/ProgressTab';
 import AILabScreen from '../screens/AILabScreen';
 import ProfileTab from '../screens/tabs/ProfileTab';
 import BadgesScreen from '../screens/BadgesScreen';
@@ -49,7 +49,7 @@ function DashboardTabs() {
     >
       <Tab.Screen name="HomeTab"         component={HomeTab} />
       <Tab.Screen name="WorkoutTab"      component={BlocksScreen} />
-      <Tab.Screen name="AchievementsTab" component={AchievementsTab} />
+      <Tab.Screen name="ProgressTab"     component={ProgressTab} />
       <Tab.Screen name="AILabTab"        component={AILabScreen} />
       <Tab.Screen name="ProfileTab"      component={ProfileTab} />
     </Tab.Navigator>
