@@ -3,7 +3,7 @@
 // series this mints a OneTime replacement and skips the original date —
 // scheduleStore.changeOccurrenceBlock handles that branching.
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,8 +23,11 @@ interface Props {
 
 export default function ChangeBlockPicker({ visible, assignmentId, date, onClose }: Props) {
   const insets = useSafeAreaInsets();
-  // WHY: WorkoutBlock has no parentBlockId — every entry is a master block.
-  const blocks = useWorkoutStore((s) => s.blocks.filter((b) => !b.is_archived));
+  // Subscribe to the raw array (stable reference). Filtering inside the
+  // selector returns a new array each render → useSyncExternalStore detects
+  // it as a change → infinite loop ("getSnapshot should be cached").
+  const allBlocks = useWorkoutStore((s) => s.blocks);
+  const blocks = useMemo(() => allBlocks.filter((b) => !b.is_archived), [allBlocks]);
   const change = useScheduleStore((s) => s.changeOccurrenceBlock);
 
   if (!assignmentId || !date) return null;

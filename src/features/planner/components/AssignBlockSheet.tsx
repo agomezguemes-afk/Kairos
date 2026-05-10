@@ -57,7 +57,11 @@ export default function AssignBlockSheet({ visible, initialDate, onClose }: Prop
 
   // WHY: WorkoutBlock has no parentBlockId — every entry in the store is a
   // master block, so the only filter we need is is_archived.
-  const blocks = useWorkoutStore((s) => s.blocks.filter((b) => !b.is_archived));
+  // Subscribe to the raw array (stable reference). Filter in useMemo so the
+  // selector doesn't return a new array on every render — that would trip
+  // useSyncExternalStore's getSnapshot caching and infinite-loop the screen.
+  const allBlocks = useWorkoutStore((s) => s.blocks);
+  const blocks = useMemo(() => allBlocks.filter((b) => !b.is_archived), [allBlocks]);
   const assignOnce = useScheduleStore((s) => s.assignOnce);
   const assignRecurring = useScheduleStore((s) => s.assignRecurring);
 
