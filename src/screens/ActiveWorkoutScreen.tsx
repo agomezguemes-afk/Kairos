@@ -45,7 +45,7 @@ export default function ActiveWorkoutScreen() {
   const route   = useRoute<Route>();
   const nav     = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets  = useSafeAreaInsets();
-  const { blockId } = route.params;
+  const { blockId, assignmentId, scheduledDate, source } = route.params;
 
   const aw                   = useWorkoutStore((s) => s.activeWorkout);
   const startWorkout         = useWorkoutStore((s) => s.startWorkout);
@@ -64,9 +64,9 @@ export default function ActiveWorkoutScreen() {
   // ===== bootstrap =====
   useEffect(() => {
     if (!aw || aw.blockId !== blockId) {
-      startWorkout(blockId);
+      startWorkout(blockId, { assignmentId, scheduledDate, source });
     }
-  }, [aw, blockId, startWorkout]);
+  }, [aw, blockId, assignmentId, scheduledDate, source, startWorkout]);
 
   // ===== session timer =====
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -150,26 +150,40 @@ export default function ActiveWorkoutScreen() {
     completeSet(exercise.id, currentSet.id, draftValues);
   }, [aw, exercise, currentSet, draftValues, completeSet]);
 
-  // Mark today's matching schedule occurrence as completed. Capture the
-  // blockId BEFORE finishWorkout() runs because that call clears activeWorkout.
-  const markScheduleComplete = useCallback((bid: string | undefined) => {
-    if (!bid) return;
+  // Mark the matching schedule occurrence as completed. Capture context BEFORE
+  // finishWorkout() runs because that call clears activeWorkout.
+  // Prefer the assignment context the session was started with (precise);
+  // only fall back to the today/blockId search when started "free".
+  const markScheduleComplete = useCallback((ctx: {
+    blockId: string | undefined;
+    assignmentId: string | undefined;
+    scheduledDate: string | undefined;
+  }) => {
+    if (!ctx.blockId) return;
+    if (ctx.assignmentId && ctx.scheduledDate) {
+      useScheduleStore.getState().completeOccurrence(ctx.assignmentId, ctx.scheduledDate);
+      return;
+    }
     const today = todayISO();
     const resolved = useScheduleStore.getState().resolveDate(today);
-    const match = resolved.find((r) => r.blockId === bid);
+    const match = resolved.find((r) => r.blockId === ctx.blockId);
     if (match) {
       useScheduleStore.getState().completeOccurrence(match.assignmentId, today);
     }
   }, []);
 
   const handleFinish = useCallback(() => {
-    const bid = aw?.blockId;
+    const ctx = {
+      blockId:        aw?.blockId,
+      assignmentId:   aw?.assignmentId,
+      scheduledDate:  aw?.scheduledDate,
+    };
     const s = finishWorkout();
     if (s) {
-      markScheduleComplete(bid);
+      markScheduleComplete(ctx);
       setSummary(s);
     }
-  }, [aw?.blockId, finishWorkout, markScheduleComplete]);
+  }, [aw?.blockId, aw?.assignmentId, aw?.scheduledDate, finishWorkout, markScheduleComplete]);
 
   const handleCloseSummary = useCallback(() => {
     setSummary(null);
@@ -186,10 +200,14 @@ export default function ActiveWorkoutScreen() {
 
   useEffect(() => {
     if (allCompleted && aw && !summary) {
-      const bid = aw.blockId;
+      const ctx = {
+        blockId:       aw.blockId,
+        assignmentId:  aw.assignmentId,
+        scheduledDate: aw.scheduledDate,
+      };
       const s = finishWorkout();
       if (s) {
-        markScheduleComplete(bid);
+        markScheduleComplete(ctx);
         setSummary(s);
       }
     }

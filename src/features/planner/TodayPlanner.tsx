@@ -25,7 +25,7 @@ import { useDayCardState } from './hooks/useDayCardState';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { useScheduleStore } from '../../store/scheduleStore';
 import { useGamification } from '../../context/GamificationContext';
-import type { ISODate } from '../../types/schedule';
+import type { ISODate, ResolvedAssignment } from '../../types/schedule';
 import { getBlockExercises, type WorkoutBlock } from '../../types/core';
 import type { RootStackParamList, DashboardTabParamList } from '../../types/navigation';
 
@@ -90,14 +90,24 @@ export default function TodayPlanner() {
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
-  const handleStart = useCallback((block: WorkoutBlock) => {
-    startWorkout(block.id);
-    nav.navigate('ActiveWorkout', { blockId: block.id });
-  }, [startWorkout, nav]);
+  const handleStart = useCallback((block: WorkoutBlock, resolved: ResolvedAssignment | null) => {
+    const ctx = {
+      assignmentId:  resolved?.assignmentId,
+      scheduledDate: resolved?.date ?? selectedDate,
+      source:        'today' as const,
+    };
+    startWorkout(block.id, ctx);
+    nav.navigate('ActiveWorkout', { blockId: block.id, ...ctx });
+  }, [startWorkout, nav, selectedDate]);
 
-  const handleResume = useCallback((block: WorkoutBlock) => {
-    nav.navigate('ActiveWorkout', { blockId: block.id });
-  }, [nav]);
+  const handleResume = useCallback((block: WorkoutBlock, resolved: ResolvedAssignment | null) => {
+    nav.navigate('ActiveWorkout', {
+      blockId:       block.id,
+      assignmentId:  resolved?.assignmentId,
+      scheduledDate: resolved?.date ?? selectedDate,
+      source:        'today',
+    });
+  }, [nav, selectedDate]);
 
   const handleCreateBlock = useCallback(() => {
     // Tab routes aren't part of RootStackParamList — cast to the tab nav shape.

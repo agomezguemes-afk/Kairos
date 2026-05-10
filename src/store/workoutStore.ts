@@ -45,6 +45,12 @@ export interface ActiveWorkoutRestTimer {
 
 export interface ActiveWorkout {
   blockId: string;
+  /** Schedule assignment this session belongs to. Absent for free starts. */
+  assignmentId?: string;
+  /** ISO date YYYY-MM-DD this session is scheduled for. */
+  scheduledDate?: string;
+  /** Where the user came from. Drives history attribution + Kai signal context. */
+  source?: 'today' | 'calendar' | 'free' | 'history';
   startTime: number;
   currentExerciseIndex: number;
   currentSetIndex: number;
@@ -64,6 +70,10 @@ export interface WorkoutHistoryEntry {
   id: string;
   blockId: string;
   blockName: string;
+  /** Schedule context — present when the session was started from a planned occurrence. */
+  assignmentId?: string;
+  scheduledDate?: string;
+  source?: 'today' | 'calendar' | 'free' | 'history';
   startedAt: number;
   endedAt: number;
   exerciseCount: number;
@@ -81,7 +91,14 @@ interface WorkoutState {
   activeWorkout: ActiveWorkout | null;
   workoutHistory: WorkoutHistoryEntry[];
 
-  startWorkout: (blockId: string) => void;
+  startWorkout: (
+    blockId: string,
+    ctx?: {
+      assignmentId?: string;
+      scheduledDate?: string;
+      source?: 'today' | 'calendar' | 'free' | 'history';
+    },
+  ) => void;
   completeSet: (
     exerciseId: string,
     setId: string,
@@ -260,7 +277,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       activeWorkout: null,
       workoutHistory: [],
 
-      startWorkout: (blockId) => {
+      startWorkout: (blockId, ctx) => {
         const block = get().blocks.find((b) => b.id === blockId);
         if (!block) return;
         const exercises: ExerciseCard[] = block.content
@@ -271,6 +288,9 @@ export const useWorkoutStore = create<WorkoutState>()(
         set({
           activeWorkout: {
             blockId,
+            assignmentId: ctx?.assignmentId,
+            scheduledDate: ctx?.scheduledDate,
+            source: ctx?.source ?? 'free',
             startTime: Date.now(),
             currentExerciseIndex: 0,
             currentSetIndex: 0,
@@ -430,6 +450,9 @@ export const useWorkoutStore = create<WorkoutState>()(
             id: generateId(),
             blockId: aw.blockId,
             blockName: block?.name ?? 'Workout',
+            assignmentId: aw.assignmentId,
+            scheduledDate: aw.scheduledDate,
+            source: aw.source,
             startedAt: aw.startTime,
             endedAt,
             exerciseCount: aw.exercises.length,

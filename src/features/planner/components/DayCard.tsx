@@ -25,13 +25,14 @@ import {
   type Discipline,
 } from '../../../types/core';
 import { todayISO, formatLongDate } from '../lib/dates';
-import type { ISODate } from '../../../types/schedule';
+import type { ISODate, ResolvedAssignment } from '../../../types/schedule';
 
 interface Props {
   date: ISODate;
   onAssign:        (date: ISODate) => void;
-  onStart:         (block: WorkoutBlock) => void;
-  onResume:        (block: WorkoutBlock) => void;
+  /** `resolved` is the schedule context for the day; null when no assignment exists. */
+  onStart:         (block: WorkoutBlock, resolved: ResolvedAssignment | null) => void;
+  onResume:        (block: WorkoutBlock, resolved: ResolvedAssignment | null) => void;
   onChangeBlock:   (assignmentId: string, date: ISODate) => void;
   onMove:          (assignmentId: string, fromDate: ISODate) => void;
   onEditSeries:    (assignmentId: string) => void;
@@ -213,7 +214,7 @@ function VariantAssigned({ state, ...h }: Props & { state: DayCardState }) {
         <BlockPreview block={block} onSeeFull={() => h.onSeeBlockFull(block)} subdued />
       </View>
       <View style={styles.ctaWrap}>
-        <PrimaryCTA label="Empezar" onPress={() => h.onStart(block)} />
+        <PrimaryCTA label="Empezar" onPress={() => h.onStart(block, resolved)} />
       </View>
       <SecondaryActions items={[
         { label: 'Mover',   onPress: () => h.onMove(resolved.assignmentId, state.date) },
@@ -228,6 +229,7 @@ function VariantInProgress({ state, ...h }: Props & { state: DayCardState }) {
   const active = useWorkoutStore((s) => s.activeWorkout);
   if (!state.block || !state.resolved || !active) return null;
   const block = state.block;
+  const resolved = state.resolved;
   // WorkoutBlock has no flat .exercises field — walk ContentNode[] via helper.
   const totalSets = getBlockExercises(block).reduce(
     (acc, e) => acc + e.sets.length, 0,
@@ -244,7 +246,7 @@ function VariantInProgress({ state, ...h }: Props & { state: DayCardState }) {
         </View>
       </View>
       <View style={styles.ctaWrap}>
-        <PrimaryCTA label="Reanudar" onPress={() => h.onResume(block)} />
+        <PrimaryCTA label="Reanudar" onPress={() => h.onResume(block, resolved)} />
       </View>
     </CardShell>
   );
