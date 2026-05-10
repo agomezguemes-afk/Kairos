@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { Colors, Spacing } from '../../theme/tokens';
+import { Colors } from '../../theme/tokens';
 import PlannerHeader from './components/PlannerHeader';
 import CalendarView from './components/CalendarView';
 import DayCard from './components/DayCard';
@@ -135,20 +135,18 @@ export default function TodayPlanner() {
       >
         <PlannerHeader />
         <CalendarView selectedDate={selectedDate} onSelect={setSelectedDate} />
-        <View style={styles.cardWrap}>
-          <DayCard
-            date={selectedDate}
-            onAssign={(d) => { setSelectedDate(d); setAssignSheetOpen(true); }}
-            onStart={handleStart}
-            onResume={handleResume}
-            onChangeBlock={(assignmentId, date) => setChangeBlockTarget({ assignmentId, date })}
-            onMove={(assignmentId, fromDate) => setMoveTarget({ assignmentId, fromDate })}
-            onEditSeries={(assignmentId) => setEditSeriesSheet(assignmentId)}
-            onCreateBlock={handleCreateBlock}
-            onSeeBlockFull={handleSeeBlockFull}
-            onPlanWeek={handlePlanWeek}
-          />
-        </View>
+        <DayCard
+          date={selectedDate}
+          onAssign={(d) => { setSelectedDate(d); setAssignSheetOpen(true); }}
+          onStart={handleStart}
+          onResume={handleResume}
+          onChangeBlock={(assignmentId, date) => setChangeBlockTarget({ assignmentId, date })}
+          onMove={(assignmentId, fromDate) => setMoveTarget({ assignmentId, fromDate })}
+          onEditSeries={(assignmentId) => setEditSeriesSheet(assignmentId)}
+          onCreateBlock={handleCreateBlock}
+          onSeeBlockFull={handleSeeBlockFull}
+          onPlanWeek={handlePlanWeek}
+        />
         <KaiSignalCard signal={signal} onAction={handleSignalAction} />
       </ScrollView>
 
@@ -180,7 +178,6 @@ export default function TodayPlanner() {
 }
 
 const styles = StyleSheet.create({
-  screen:   { flex: 1, backgroundColor: Colors.bg.void },
-  content:  {},
-  cardWrap: { paddingHorizontal: Spacing.screen.horizontal, marginTop: Spacing.lg },
+  screen:  { flex: 1, backgroundColor: Colors.bg.void },
+  content: {},
 });

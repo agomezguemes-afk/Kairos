@@ -4,10 +4,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors, Type, Spacing, Shadows } from '../../../theme/tokens';
+import { Colors, Type, Spacing, Radius, Shadows } from '../../../theme/tokens';
 import { addMonthsISO, monthGridDays, formatMonthYear, fromISODate, todayISO } from '../lib/dates';
 import DayCell from './DayCell';
 import { useScheduleStore } from '../../../store/scheduleStore';
@@ -47,11 +53,15 @@ export default function MovePicker({ visible, assignmentId, fromDate, onClose }:
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.scrim}>
+      <Animated.View
+        entering={FadeIn.duration(200).easing(Easing.out(Easing.cubic))}
+        exiting={FadeOut.duration(160).easing(Easing.in(Easing.cubic))}
+        style={styles.scrim}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <Animated.View
-          entering={SlideInDown.springify().damping(20)}
-          exiting={SlideOutDown}
+          entering={SlideInDown.duration(280).easing(Easing.out(Easing.cubic))}
+          exiting={SlideOutDown.duration(220).easing(Easing.in(Easing.cubic))}
           style={[styles.sheet, { paddingBottom: Spacing.xl + insets.bottom }]}
         >
           <View style={styles.handle} />
@@ -113,8 +123,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: Colors.bg.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: Radius['2xl'],
+    borderTopRightRadius: Radius['2xl'],
     paddingTop: Spacing.md,
     paddingHorizontal: Spacing.screen.horizontal,
     ...Shadows.card,
