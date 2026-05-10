@@ -188,7 +188,7 @@ function VariantEmptyToday(props: Props & { state: DayCardState }) {
           <PrimaryCTA label="Asignar bloque" onPress={() => props.onAssign(props.date)} />
         </View>
         <View style={styles.linkRow}>
-          <GhostLink label="Kai planifica mi semana" onPress={props.onPlanWeek} />
+          <GhostLink label="Sugerir plan" onPress={props.onPlanWeek} />
         </View>
       </View>
     </CardShell>

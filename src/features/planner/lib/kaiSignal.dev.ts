@@ -35,6 +35,13 @@ check('progress up', kaiSignal({ ...base, resolved: planned, lastSession: { setC
 const close = kaiSignal({ ...base, resolved: planned, lastSession: { setCount: 7, targetSetCount: 9 } });
 check('close-block', close?.id === 'close-block');
 check('close-block message includes 2 series', close?.message.includes('2 series') === true);
+check('close-block message factual', close?.message === 'Última vez: faltaron 2 series.');
+
+const close1 = kaiSignal({ ...base, resolved: planned, lastSession: { setCount: 8, targetSetCount: 9 } });
+check('close-block singular', close1?.message === 'Última vez: faltó 1 serie.');
+
+const noPlan = kaiSignal({ ...base });
+check('no-plan has no action', noPlan?.action === undefined);
 
 check('past completed silent', kaiSignal({ ...base, isToday: false, isPast: true, resolved: completed }) === null);
 check('future no plan silent', kaiSignal({ ...base, isToday: false }) === null);

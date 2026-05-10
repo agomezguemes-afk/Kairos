@@ -22,16 +22,14 @@ export interface MomentumInputs {
 }
 
 export function getMomentumPhrase(i: MomentumInputs): string {
-  if (i.blocksCount === 0) return 'Empieza creando tu primer bloque.';
+  if (i.blocksCount === 0) return 'Sin bloques.';
 
   const today = todayISO();
   const { start } = weekRange(today);
   const startMs = new Date(`${start}T00:00:00`).getTime();
-  const sessionsThisWeek = i.history.filter((h) => h.startedAt >= startMs).length;
+  const sessions = i.history.filter((h) => h.startedAt >= startMs).length;
 
-  if (sessionsThisWeek === 0 && i.streak === 0) return 'Empieza la semana con una sesión clara.';
-  if (sessionsThisWeek === 0 && i.streak > 0) return `Racha de ${i.streak} días. No la rompas.`;
-  if (sessionsThisWeek === 1) return 'Una sesión esta semana. Buen arranque.';
-  if (sessionsThisWeek <= 3) return `${sessionsThisWeek} sesiones esta semana.`;
-  return `${sessionsThisWeek} sesiones esta semana. Ritmo sólido.`;
+  if (sessions === 0) return 'Semana sin sesiones aún.';
+  if (sessions === 1) return '1 sesión esta semana.';
+  return `${sessions} sesiones esta semana.`;
 }

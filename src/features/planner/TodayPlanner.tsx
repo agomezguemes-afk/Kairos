@@ -126,13 +126,12 @@ export default function TodayPlanner() {
     if (!action) return;
     switch (action.kind) {
       case 'create-block': handleCreateBlock(); break;
-      case 'plan-week':    handlePlanWeek();    break;
       case 'assign':       setAssignSheetOpen(true); break;
       case 'resume':
         if (activeWorkout) nav.navigate('ActiveWorkout', { blockId: activeWorkout.blockId });
         break;
     }
-  }, [handleCreateBlock, handlePlanWeek, activeWorkout, nav]);
+  }, [handleCreateBlock, activeWorkout, nav]);
 
   return (
     <View style={styles.screen}>

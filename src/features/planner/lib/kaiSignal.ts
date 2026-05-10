@@ -6,7 +6,9 @@
 import type { ResolvedAssignment } from '../../../types/schedule';
 
 export type KaiTone = 'focus' | 'progress' | 'momentum' | 'celebrate';
-export type KaiActionKind = 'assign' | 'resume' | 'plan-week' | 'create-block';
+// 'plan-week' removed: sober tone has no AI-mascot CTA. The no-plan signal is
+// pure information; assignment happens via the existing 'assign' action.
+export type KaiActionKind = 'assign' | 'resume' | 'create-block';
 
 export interface KaiSignal {
   /** Stable id per rule so the card doesn't flicker on re-render. */
@@ -33,7 +35,7 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
     return {
       id: 'no-blocks',
       tone: 'momentum',
-      message: 'Crea tu primer bloque para empezar a planificar.',
+      message: 'Sin bloques. Crea uno para empezar a planificar.',
       action: { label: 'Crear bloque', kind: 'create-block' },
     };
   }
@@ -42,8 +44,8 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
     return {
       id: 'resume',
       tone: 'progress',
-      message: 'Tienes una sesión a medias. Reanuda donde la dejaste.',
-      action: { label: 'Reanudar', kind: 'resume' },
+      message: 'Sesión a medias. Continúa donde la dejaste.',
+      action: { label: 'Continuar', kind: 'resume' },
     };
   }
 
@@ -51,7 +53,7 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
     return {
       id: 'done',
       tone: 'celebrate',
-      message: 'Sesión completada. Buen ritmo, descansa o estira.',
+      message: 'Sesión completada.',
     };
   }
 
@@ -59,7 +61,7 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
     return {
       id: 'streak',
       tone: 'momentum',
-      message: `Llevas ${i.streak} días. Una sesión corta mantiene la racha.`,
+      message: `${i.streak} días seguidos. Programa una sesión para hoy.`,
       action: { label: 'Asignar bloque', kind: 'assign' },
     };
   }
@@ -68,8 +70,7 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
     return {
       id: 'no-plan',
       tone: 'momentum',
-      message: 'Día sin plan. Programa una sesión para mantener momentum.',
-      action: { label: 'Kai planifica', kind: 'plan-week' },
+      message: 'Día sin plan.',
     };
   }
 
@@ -77,7 +78,7 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
     return {
       id: 'first-time',
       tone: 'focus',
-      message: 'Foco de hoy: completa el bloque sin cambiar accesorios.',
+      message: 'Primera vez con este bloque.',
     };
   }
 
@@ -89,7 +90,7 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
     return {
       id: 'progress-up',
       tone: 'progress',
-      message: 'La última vez cerraste todas las series. Puedes subir ligeramente.',
+      message: 'Última sesión completa. Puedes subir ligeramente.',
     };
   }
 
@@ -102,7 +103,10 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
     return {
       id: 'close-block',
       tone: 'focus',
-      message: `La última vez quedaste a ${remaining} ${remaining === 1 ? 'serie' : 'series'}. Hoy intenta cerrar el bloque.`,
+      message:
+        remaining === 1
+          ? `Última vez: faltó ${remaining} serie.`
+          : `Última vez: faltaron ${remaining} series.`,
     };
   }
 
