@@ -60,6 +60,12 @@ export interface ExerciseHistorySummary {
   maxWeight: number;
   totalVolume: number;
   setsCompleted: number;
+  // Planned-vs-performed snapshot. Optional for backwards compatibility with
+  // history entries written before this field existed.
+  plannedWeight?: number;
+  plannedReps?: number;
+  plannedSetsCount?: number;
+  performedSets?: Array<{ weight: number | null; reps: number | null; completed: boolean }>;
 }
 
 export interface WorkoutHistoryEntry {
@@ -487,15 +493,19 @@ export const useWorkoutStore = create<WorkoutState>()(
             let maxW = 0;
             let exVol = 0;
             let setsDone = 0;
+            const performedSets: Array<{ weight: number | null; reps: number | null; completed: boolean }> = [];
             for (const s of ex.sets) {
+              const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
+              const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : null;
+              performedSets.push({ weight: w, reps: r, completed: s.completed });
               if (!s.completed) continue;
               setsDone += 1;
               totalSets += 1;
-              const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : 0;
-              const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : 0;
-              if (w > maxW) maxW = w;
-              exVol += w * r;
-              totalVolume += w * r;
+              const wNum = w ?? 0;
+              const rNum = r ?? 0;
+              if (wNum > maxW) maxW = wNum;
+              exVol += wNum * rNum;
+              totalVolume += wNum * rNum;
             }
             perEx.push({
               exerciseId: ex.id,
@@ -503,6 +513,10 @@ export const useWorkoutStore = create<WorkoutState>()(
               maxWeight: maxW,
               totalVolume: exVol,
               setsCompleted: setsDone,
+              plannedWeight: ex.goalWeight,
+              plannedReps: ex.goalReps,
+              plannedSetsCount: ex.sets.length,
+              performedSets,
             });
           }
           const endedAt = Date.now();
