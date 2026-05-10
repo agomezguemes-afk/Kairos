@@ -119,7 +119,7 @@ export default function TodayPlanner() {
   }, [nav]);
 
   const handlePlanWeek = useCallback(() => {
-    (nav as unknown as TabNav).navigate('AILabTab');
+    nav.navigate('AILabScreen');
   }, [nav]);
 
   const handleSignalAction = useCallback((action: KaiSignal['action']) => {

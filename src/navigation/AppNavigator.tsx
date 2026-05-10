@@ -50,7 +50,6 @@ function DashboardTabs() {
       <Tab.Screen name="HomeTab"         component={HomeTab} />
       <Tab.Screen name="WorkoutTab"      component={BlocksScreen} />
       <Tab.Screen name="ProgressTab"     component={ProgressTab} />
-      <Tab.Screen name="AILabTab"        component={AILabScreen} />
       <Tab.Screen name="ProfileTab"      component={ProfileTab} />
     </Tab.Navigator>
   );
@@ -79,6 +78,7 @@ export default function AppNavigator() {
             <Stack.Screen name="PRCards"       component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
             <Stack.Screen name="AIChat"        component={AIChatScreen} />
+            <Stack.Screen name="AILabScreen"   component={AILabScreen} options={{ presentation: 'modal' }} />
           </Stack.Navigator>
         </NavigationContainer>
 
@@ -130,6 +130,7 @@ export default function AppNavigator() {
             <Stack.Screen name="PRCards"       component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
             <Stack.Screen name="AIChat"        component={AIChatScreen} />
+            <Stack.Screen name="AILabScreen"   component={AILabScreen} options={{ presentation: 'modal' }} />
           </>
         )}
       </Stack.Navigator>

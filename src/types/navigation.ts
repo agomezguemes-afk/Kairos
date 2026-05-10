@@ -9,7 +9,6 @@ export type DashboardTabParamList = {
   HomeTab: undefined;
   WorkoutTab: { highlightBlockId?: string } | undefined;
   ProgressTab: undefined;
-  AILabTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -39,4 +38,5 @@ export type RootStackParamList = {
   PRCards: undefined;
   ProgressTree: undefined;
   AIChat: undefined;
+  AILabScreen: undefined;
 };

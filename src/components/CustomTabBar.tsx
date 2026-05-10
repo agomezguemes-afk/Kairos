@@ -18,7 +18,6 @@ const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: s
   HomeTab: { icon: 'home', label: 'Inicio' },
   WorkoutTab: { icon: 'grid', label: 'Bloques' },
   ProgressTab: { icon: 'award', label: 'Progreso' },
-  AILabTab: { icon: 'cpu', label: 'AI Lab' },
   ProfileTab: { icon: 'user', label: 'Perfil' },
 };
 
