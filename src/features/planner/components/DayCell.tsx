@@ -1,6 +1,8 @@
 // src/features/planner/components/DayCell.tsx
 // Single day cell — used inside both WeekStrip and MonthGrid.
-// Visual states: today, selected, hasAssignment, isOtherMonth.
+// Visual states: today, selected, isOtherMonth, plus discipline-colored dots
+// for any day with an assignment (parent passes the colors so this stays
+// a dumb display component).
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
@@ -13,7 +15,11 @@ interface Props {
   date: ISODate;
   selected: boolean;
   isToday: boolean;
-  hasAssignment: boolean;
+  /** Discipline colors for assigned blocks, capped at 3 by the parent.
+   * Empty/undefined → no dots. */
+  dotColors?: string[];
+  /** @deprecated Use dotColors. Kept for legacy callers (MovePicker, pickers). */
+  hasAssignment?: boolean;
   isOtherMonth?: boolean;
   showWeekdayLabel?: boolean;
   size?: 'week' | 'month';
@@ -21,7 +27,8 @@ interface Props {
 }
 
 function DayCellInner({
-  date, selected, isToday, hasAssignment, isOtherMonth, showWeekdayLabel, size = 'week', onPress,
+  date, selected, isToday, dotColors, hasAssignment, isOtherMonth,
+  showWeekdayLabel, size = 'week', onPress,
 }: Props) {
   const handle = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -33,6 +40,15 @@ function DayCellInner({
     selected       ? Colors.ink.inverse  :
     isToday        ? Colors.gold.base    :
                      Colors.ink.primary;
+
+  // Resolve final dot list. dotColors wins; legacy hasAssignment is a
+  // single gold dot fallback for callers that haven't migrated.
+  const dots: string[] =
+    dotColors && dotColors.length > 0
+      ? dotColors
+      : hasAssignment
+        ? [Colors.gold.base]
+        : [];
 
   return (
     <Pressable
@@ -60,10 +76,16 @@ function DayCellInner({
         </Text>
       </View>
       <View style={styles.dotRow}>
-        {hasAssignment && <View style={[
-          styles.dot,
-          selected && { backgroundColor: Colors.ink.inverse },
-        ]} />}
+        {dots.slice(0, 3).map((c, i) => (
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              { backgroundColor: selected ? Colors.ink.inverse : c },
+              i > 0 && styles.dotGap,
+            ]}
+          />
+        ))}
       </View>
     </Pressable>
   );
@@ -76,12 +98,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
-  weekSize:  { minHeight: 56, paddingHorizontal: 4 },
-  monthSize: { minHeight: 44, paddingHorizontal: 2 },
+  // WHY: tighter vertical extents so the persistent month grid doesn't
+  // dominate the screen. minHeight reduced from 56/44 → 50/40.
+  weekSize:  { minHeight: 50, paddingHorizontal: 4 },
+  monthSize: { minHeight: 40, paddingHorizontal: 2 },
   pressed: { opacity: 0.7 },
   weekday: {
     ...Type.micro,
-    color: Colors.ink.tertiary,
+    color: Colors.ink.muted,
+    fontWeight: '500',
     marginBottom: 4,
   },
   numberWrap: {
@@ -102,10 +127,13 @@ const styles = StyleSheet.create({
   },
   dotRow: {
     height: 6, marginTop: 3,
-    flexDirection: 'row', justifyContent: 'center',
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
   },
   dot: {
     width: 4, height: 4, borderRadius: 2,
-    backgroundColor: Colors.gold.base,
+  },
+  // WHY: tiny gap between dots — read as separate signals, not a smudge.
+  dotGap: {
+    marginLeft: 2,
   },
 });
