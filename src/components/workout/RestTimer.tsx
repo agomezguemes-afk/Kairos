@@ -1,9 +1,11 @@
+// RestTimer — large centered countdown with hairline progress bar and a
+// quiet skip affordance. No motivational copy, no animated pulses.
+
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
-import KIcon from '../icons/KIcon';
-import { Colors } from '../../theme/tokens';
+import { Colors, Type, Spacing, Radius, FontFamily } from '../../theme/tokens';
 
 interface Props {
   durationSec: number;
@@ -28,7 +30,9 @@ export default function RestTimer({ durationSec, startTime, onSkip, onComplete }
   const remainingSec = Math.ceil(remainingMs / 1000);
   const mm = Math.floor(remainingSec / 60).toString().padStart(2, '0');
   const ss = (remainingSec % 60).toString().padStart(2, '0');
-  const pct = durationSec > 0 ? Math.min(1, (durationSec * 1000 - remainingMs) / (durationSec * 1000)) : 1;
+  const pct = durationSec > 0
+    ? Math.min(1, (durationSec * 1000 - remainingMs) / (durationSec * 1000))
+    : 1;
 
   useEffect(() => {
     if (remainingMs <= 0 && !firedRef.current) {
@@ -40,14 +44,31 @@ export default function RestTimer({ durationSec, startTime, onSkip, onComplete }
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>Descanso</Text>
-      <Text style={styles.timer}>{mm}:{ss}</Text>
-      <View style={styles.track}>
+      <Text style={styles.label} accessibilityRole="text">Descanso</Text>
+
+      <Text
+        style={styles.timer}
+        accessibilityLabel={`Quedan ${mm}:${ss}`}
+      >
+        {mm}:{ss}
+      </Text>
+
+      <View
+        style={styles.track}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 1, now: pct }}
+      >
         <View style={[styles.fill, { width: `${pct * 100}%` }]} />
       </View>
-      <Pressable onPress={onSkip} style={styles.skipBtn} hitSlop={12}>
-        <KIcon name="x" size={18} color={Colors.text_v2.primary.dark} />
-        <Text style={styles.skipText}>Saltar (+0s)</Text>
+
+      <Pressable
+        onPress={onSkip}
+        accessibilityRole="button"
+        accessibilityLabel="Saltar descanso"
+        hitSlop={12}
+        style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.6 }]}
+      >
+        <Text style={styles.skipText}>Saltar descanso</Text>
       </Pressable>
     </View>
   );
@@ -55,50 +76,45 @@ export default function RestTimer({ durationSec, startTime, onSkip, onComplete }
 
 const styles = StyleSheet.create({
   wrap: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
-    gap: 12,
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.lg,
   },
+  // Eyebrow — sober label, gold deep.
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: Colors.gold[500],
+    ...Type.eyebrow,
+    color: Colors.gold.deep,
   },
+  // Sans large numeral — overrides Type.title's serif family per spec.
   timer: {
+    fontFamily: FontFamily.sans,
     fontSize: 64,
-    fontWeight: '700',
-    lineHeight: 72,
-    color: Colors.text_v2.primary.dark,
+    lineHeight: 68,
+    fontWeight: '600',
+    letterSpacing: -1,
+    color: Colors.ink.primary,
     fontVariant: ['tabular-nums'],
   },
   track: {
     width: 220,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(245,240,232,0.15)',
+    height: 2,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.hair.base,
     overflow: 'hidden',
   },
   fill: {
-    height: 4,
-    backgroundColor: Colors.gold[500],
+    height: 2,
+    backgroundColor: Colors.gold.base,
   },
   skipBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(245,240,232,0.2)',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
   },
   skipText: {
-    fontSize: 14,
+    ...Type.micro,
+    color: Colors.ink.tertiary,
     fontWeight: '600',
-    color: Colors.text_v2.primary.dark,
   },
 });

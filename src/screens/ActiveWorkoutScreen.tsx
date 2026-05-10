@@ -5,7 +5,7 @@
 // Alert.alert preserved for exit confirmation (terminal destructive action).
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useRoute, useNavigation, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,8 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   runOnJS,
+  Easing,
+  useReducedMotion,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -27,9 +29,9 @@ import { useWorkoutStore, type WorkoutHistoryEntry } from '../store/workoutStore
 import { useScheduleStore } from '../store/scheduleStore';
 import { todayISO } from '../features/planner/lib/dates';
 import type { RootStackParamList } from '../types/navigation';
-import type { ExerciseCard, FieldValue, FieldDefinition, Discipline } from '../types/core';
+import type { ExerciseCard, ExerciseSet, FieldValue, FieldDefinition, Discipline } from '../types/core';
 import { createExerciseCard } from '../types/core';
-import { Colors, Type, Spacing, Radius, Shadows } from '../theme/tokens';
+import { Colors, Type, Spacing, Radius, Shadows, Animation } from '../theme/tokens';
 
 type Route = RouteProp<RootStackParamList, 'ActiveWorkout'>;
 
@@ -39,6 +41,19 @@ function fmtSessionTime(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+// Inline summary for completed set rows ("60 kg · 8 reps"). Walks numeric
+// fields in declared order, skips empties, appends unit when present.
+function formatSetSummary(set: ExerciseSet, fields: FieldDefinition[]): string {
+  const parts: string[] = [];
+  const sorted = [...fields].sort((a, b) => a.order - b.order);
+  for (const f of sorted) {
+    const v = set.values[f.id];
+    if (v == null || v === '') continue;
+    parts.push(f.unit ? `${v} ${f.unit}` : String(v));
+  }
+  return parts.join(' · ');
 }
 
 export default function ActiveWorkoutScreen() {
@@ -151,8 +166,8 @@ export default function ActiveWorkoutScreen() {
   // ===== handlers =====
   const handleExit = useCallback(() => {
     Alert.alert(
-      'Salir del entrenamiento',
-      '¿Abandonar la sesión actual? Los sets completados no se guardarán como historial.',
+      'Salir de la sesión',
+      'El progreso no se guardará.',
       [
         { text: 'Continuar', style: 'cancel' },
         {
@@ -225,6 +240,36 @@ export default function ActiveWorkoutScreen() {
     return true;
   }, [aw]);
 
+  // Total set completion across the whole workout — used by the header
+  // progress bar so the user has a single, ambient sense of "how far in".
+  const progressPct = useMemo(() => {
+    if (!aw) return 0;
+    let total = 0;
+    let done = 0;
+    for (const ex of aw.exercises) {
+      total += ex.sets.length;
+      for (const s of ex.sets) if (s.completed) done++;
+    }
+    return total > 0 ? done / total : 0;
+  }, [aw]);
+
+  const reducedMotion = useReducedMotion();
+  const progressShared = useSharedValue(0);
+  useEffect(() => {
+    if (reducedMotion) {
+      progressShared.value = progressPct;
+      return;
+    }
+    progressShared.value = withTiming(progressPct, {
+      duration: Animation.duration.normal,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [progressPct, progressShared, reducedMotion]);
+
+  const progressBarStyle = useAnimatedStyle(() => ({
+    width: `${Math.max(0, Math.min(1, progressShared.value)) * 100}%`,
+  }));
+
   useEffect(() => {
     if (allCompleted && aw && !summary) {
       const ctx = {
@@ -286,20 +331,24 @@ export default function ActiveWorkoutScreen() {
   if (!aw || !exercise || !currentSet) {
     return (
       <View style={[styles.screen, styles.center, { paddingTop: insets.top }]}>
-        <Text style={styles.empty}>Preparando entrenamiento...</Text>
+        <Text style={styles.empty}>Preparando sesión.</Text>
       </View>
     );
   }
 
   const restActive = aw.restTimer.active;
 
+  const accentColor = Colors.discipline[exercise.discipline] ?? Colors.gold.base;
+  const ctaLabel = allCompleted ? 'Finalizar sesión' : 'Completar set';
+  const ctaOnPress = allCompleted ? handleFinish : handleCompleteSet;
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      {/* Header */}
+      {/* Header: exit · block name · elapsed timer */}
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Salir del entrenamiento"
+          accessibilityLabel="Salir de la sesión"
           onPress={handleExit}
           hitSlop={10}
           style={styles.headerBtn}
@@ -308,13 +357,26 @@ export default function ActiveWorkoutScreen() {
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {block?.name ?? 'Entrenamiento'}
+            {block?.name ?? 'Sesión'}
           </Text>
         </View>
-        {/* Timer — single gold indicator on this screen */}
         <View style={styles.headerBtn}>
-          <Text style={styles.sessionTimer}>{fmtSessionTime(elapsedSec)}</Text>
+          <Text
+            style={styles.sessionTimer}
+            accessibilityLabel={`Tiempo transcurrido ${fmtSessionTime(elapsedSec)}`}
+          >
+            {fmtSessionTime(elapsedSec)}
+          </Text>
         </View>
+      </View>
+
+      {/* Global progress bar — 1px hairline showing total set ratio */}
+      <View
+        style={styles.progressTrack}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 1, now: progressPct }}
+      >
+        <Animated.View style={[styles.progressFill, progressBarStyle]} />
       </View>
 
       {/* Main */}
@@ -328,14 +390,19 @@ export default function ActiveWorkoutScreen() {
               onComplete={skipRest}
             />
           ) : (
-            <>
-              <View style={styles.exerciseHeader}>
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Exercise heading — left-border accent in discipline color */}
+              <View style={[styles.exerciseHeader, { borderLeftColor: accentColor }]}>
+                <Text style={styles.exerciseMeta}>
+                  Ejercicio {aw.currentExerciseIndex + 1} de {aw.exercises.length}
+                </Text>
                 <Text style={styles.exerciseName} numberOfLines={2}>
                   {exercise.name}
-                </Text>
-                {/* Eyebrow meta line — spec §5.3 Type.eyebrow for labels */}
-                <Text style={styles.exerciseMeta}>
-                  {exercise.discipline.toUpperCase()} · {aw.currentExerciseIndex + 1}/{aw.exercises.length}
                 </Text>
                 {exercise.notes ? (
                   <Text style={styles.exerciseNotes} numberOfLines={2}>
@@ -344,75 +411,88 @@ export default function ActiveWorkoutScreen() {
                 ) : null}
               </View>
 
-              <View style={styles.setsRow}>
+              {/* Set rows — leading dot + index, completed shows inline values,
+                  active row mounts the input panel beneath. */}
+              <View style={styles.setList}>
                 {exercise.sets.map((s, i) => {
                   const isCurrent = i === aw.currentSetIndex;
+                  const summary = s.completed
+                    ? formatSetSummary(s, exercise.fields)
+                    : '';
+                  const a11y =
+                    `Set ${i + 1}` +
+                    (s.completed ? `, completado${summary ? `, ${summary}` : ''}` :
+                     isCurrent  ? ', activo' : '');
                   return (
-                    <Pressable
-                      key={s.id}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Set ${i + 1}${s.completed ? ', completado' : isCurrent ? ', activo' : ''}`}
-                      onPress={() => goToSet(i)}
-                      style={[
-                        styles.setPill,
-                        s.completed && styles.setPillDone,
-                        isCurrent && styles.setPillActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.setPillText,
-                          (s.completed || isCurrent) && styles.setPillTextOn,
+                    <View key={s.id}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={a11y}
+                        onPress={() => goToSet(i)}
+                        style={({ pressed }) => [
+                          styles.setRow,
+                          isCurrent && styles.setRowActive,
+                          pressed && { opacity: 0.85 },
                         ]}
                       >
-                        {i + 1}
-                      </Text>
-                    </Pressable>
+                        <View style={[
+                          styles.setDot,
+                          s.completed && styles.setDotDone,
+                          !s.completed && isCurrent && styles.setDotActive,
+                        ]} />
+                        <Text style={[
+                          styles.setIndex,
+                          (s.completed || isCurrent) && styles.setIndexOn,
+                        ]}>
+                          {i + 1}
+                        </Text>
+                        {s.completed && summary ? (
+                          <Text style={styles.setSummary} numberOfLines={1}>
+                            {summary}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                      {isCurrent && !s.completed && (
+                        <View style={styles.inputAttached}>
+                          <SetInput
+                            fields={exercise.fields}
+                            values={draftValues}
+                            onChange={handleFieldChange}
+                            previousValues={previousValues}
+                          />
+                        </View>
+                      )}
+                    </View>
                   );
                 })}
+
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Añadir ejercicio"
                   onPress={() => setShowAdd(true)}
-                  style={styles.addExBtn}
+                  style={({ pressed }) => [styles.addExRow, pressed && { opacity: 0.6 }]}
                   hitSlop={6}
                 >
-                  <KIcon name="plus" size={16} color={Colors.gold.base} />
+                  <KIcon name="plus" size={14} color={Colors.gold.deep} />
+                  <Text style={styles.addExText}>Añadir ejercicio</Text>
                 </Pressable>
               </View>
-
-              <SetInput
-                fields={exercise.fields}
-                values={draftValues}
-                onChange={handleFieldChange}
-                previousValues={previousValues}
-              />
-            </>
+            </ScrollView>
           )}
         </Animated.View>
       </GestureDetector>
 
-      {/* Footer */}
+      {/* Footer — single primary CTA that morphs when allCompleted */}
       {!restActive && (
         <View style={styles.footer}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Completar set"
-            onPress={handleCompleteSet}
-            style={styles.cta}
+            accessibilityLabel={ctaLabel}
+            onPress={ctaOnPress}
+            style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
           >
-            <Text style={styles.ctaText}>Completar set</Text>
+            <Text style={styles.ctaText}>{ctaLabel}</Text>
           </Pressable>
-          {allCompleted && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Finalizar entrenamiento"
-              onPress={handleFinish}
-              style={styles.finishBtn}
-            >
-              <Text style={styles.finishText}>Finalizar entrenamiento</Text>
-            </Pressable>
-          )}
         </View>
       )}
 
@@ -444,8 +524,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 56,
     paddingHorizontal: Spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.hair.subtle,
   },
   headerBtn: {
     minWidth: 56,
@@ -461,109 +539,138 @@ const styles = StyleSheet.create({
     ...Type.subheading,
     color: Colors.ink.primary,
   },
-  // Gold timer — single accent, justified as a live status indicator
+  // Tabular session time — sober monospace cadence, ink primary (no gold).
   sessionTimer: {
-    ...Type.numSmall,
-    color: Colors.gold.base,
-    letterSpacing: 1,
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+    fontVariant: ['tabular-nums'],
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+  // Hairline progress under header — single ambient indicator of total ratio.
+  progressTrack: {
+    height: 1,
+    backgroundColor: Colors.hair.base,
+    marginHorizontal: Spacing.lg,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 1,
+    backgroundColor: Colors.gold.base,
   },
   main: {
     flex: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
   },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  // 3px discipline-color stripe on the left, generous vertical padding.
   exerciseHeader: {
-    paddingVertical: Spacing.lg,
+    paddingLeft: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderLeftWidth: 3,
     gap: Spacing.xs,
   },
-  // Type.title equivalent (32px serif) for exercise name
-  exerciseName: {
-    ...Type.title,
-    color: Colors.ink.primary,
-  },
-  // Type.eyebrow for discipline/progress meta
   exerciseMeta: {
-    ...Type.eyebrow,
-    color: Colors.gold.deep,
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+  },
+  exerciseName: {
+    ...Type.titleSmall,
+    color: Colors.ink.primary,
   },
   exerciseNotes: {
     ...Type.body,
     color: Colors.ink.tertiary,
     marginTop: Spacing.xs,
   },
-  setsRow: {
+  // Vertical list of set rows. Each row = leading dot + index + summary.
+  setList: {
+    marginTop: Spacing.xl,
+    gap: Spacing.xs,
+  },
+  setRow: {
+    minHeight: 44,
     flexDirection: 'row',
-    gap: Spacing.sm,
-    marginVertical: Spacing.lg,
-    flexWrap: 'wrap',
     alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    gap: Spacing.md,
   },
-  setPill: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: Colors.hair.base,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.bg.surface,
+  setRowActive: {
+    backgroundColor: Colors.bg.warm,
   },
-  setPillActive: {
+  setDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: Colors.hair.strong,
+    backgroundColor: 'transparent',
+  },
+  setDotActive: {
     borderColor: Colors.gold.base,
-    borderWidth: 1,
-    backgroundColor: Colors.gold.glow,
+    borderWidth: 2,
   },
-  setPillDone: {
+  setDotDone: {
+    backgroundColor: Colors.semantic.success,
     borderColor: Colors.semantic.success,
-    backgroundColor: Colors.semantic.successMuted,
   },
-  setPillText: {
+  setIndex: {
     ...Type.numSmall,
     color: Colors.ink.muted,
+    minWidth: 20,
   },
-  setPillTextOn: {
+  setIndexOn: {
     color: Colors.ink.primary,
   },
-  addExBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: Colors.gold.light,
-    borderStyle: 'dashed',
+  setSummary: {
+    ...Type.caption,
+    color: Colors.ink.tertiary,
+    flex: 1,
+  },
+  // Input panel attaches to the active set row only — no longer a separate
+  // section below the pills.
+  inputAttached: {
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  // Quiet "+" affordance, sober label.
+  addExRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  addExText: {
+    ...Type.micro,
+    color: Colors.gold.deep,
+    fontWeight: '600',
   },
   footer: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
-    gap: Spacing.sm,
   },
-  // Gold CTA — "Completar set" is a moment action (spec §4.4)
+  // Single gold CTA — morphs label between "Completar set" and "Finalizar sesión".
   cta: {
     height: 56,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     backgroundColor: Colors.gold.base,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.cardWarm,
   },
   ctaText: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Type.subheading,
     color: Colors.ink.primary,
-  },
-  finishBtn: {
-    height: 48,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.ink.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  finishText: {
-    ...Type.caption,
-    fontWeight: '700',
-    color: Colors.ink.inverse,
   },
 });
