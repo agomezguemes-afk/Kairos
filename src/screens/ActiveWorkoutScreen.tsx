@@ -48,6 +48,7 @@ export default function ActiveWorkoutScreen() {
   const { blockId, assignmentId, scheduledDate, source } = route.params;
 
   const aw                   = useWorkoutStore((s) => s.activeWorkout);
+  const workoutHistory       = useWorkoutStore((s) => s.workoutHistory);
   const startWorkout         = useWorkoutStore((s) => s.startWorkout);
   const completeSet          = useWorkoutStore((s) => s.completeSet);
   const skipRest             = useWorkoutStore((s) => s.skipRest);
@@ -93,6 +94,32 @@ export default function ActiveWorkoutScreen() {
     if (!aw || !exercise) return null;
     return exercise.sets[aw.currentSetIndex] ?? null;
   }, [aw, exercise]);
+
+  // Pick a "previous" value source for the SetInput repeat affordance:
+  //   1. nearest completed set earlier in this exercise (current session), then
+  //   2. the last completed set of the same exercise from history.
+  const previousValues = useMemo<Record<string, FieldValue> | undefined>(() => {
+    if (!aw || !exercise) return undefined;
+    const idx = aw.currentSetIndex;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (exercise.sets[i].completed) return exercise.sets[i].values;
+    }
+    for (const h of workoutHistory) {
+      if (h.blockId !== aw.blockId) continue;
+      const exHistory = h.exercises.find((e) => e.exerciseId === exercise.id);
+      if (!exHistory?.performedSets) continue;
+      for (let i = exHistory.performedSets.length - 1; i >= 0; i--) {
+        const ps = exHistory.performedSets[i];
+        if (ps.completed && (ps.weight != null || ps.reps != null)) {
+          return {
+            ...(ps.weight != null ? { weight: ps.weight } : {}),
+            ...(ps.reps != null ? { reps: ps.reps } : {}),
+          };
+        }
+      }
+    }
+    return undefined;
+  }, [aw, exercise, workoutHistory]);
 
   const [draftValues, setDraftValues] = useState<Record<string, FieldValue>>({});
 
@@ -358,6 +385,7 @@ export default function ActiveWorkoutScreen() {
                 fields={exercise.fields}
                 values={draftValues}
                 onChange={handleFieldChange}
+                previousValues={previousValues}
               />
             </>
           )}

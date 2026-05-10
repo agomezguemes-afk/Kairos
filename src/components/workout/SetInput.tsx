@@ -3,12 +3,19 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import type { FieldDefinition, FieldValue } from '../../types/core';
-import { Colors } from '../../theme/tokens';
+import { Colors, Type } from '../../theme/tokens';
 
 interface Props {
   fields: FieldDefinition[];
   values: Record<string, FieldValue>;
   onChange: (fieldId: string, value: FieldValue) => void;
+  /**
+   * Optional snapshot of the previous set's values (immediately previous within
+   * this exercise, or the last completed historical set as a fallback). When
+   * provided AND it has at least one matching numeric field, a "Repetir anterior"
+   * affordance appears above the helper row and copies those values on tap.
+   */
+  previousValues?: Record<string, FieldValue>;
 }
 
 const KEYS: { label: string; value: string }[] = [
@@ -33,7 +40,7 @@ const HELPER_KEYS: { label: string; delta: number }[] = [
 
 const PRIMARY_NUMERIC_TYPES = new Set(['number', 'time']);
 
-export default function SetInput({ fields, values, onChange }: Props) {
+export default function SetInput({ fields, values, onChange, previousValues }: Props) {
   const numericFields = useMemo(
     () => fields.filter((f) => PRIMARY_NUMERIC_TYPES.has(f.type)).sort((a, b) => a.order - b.order),
     [fields],
@@ -46,6 +53,26 @@ export default function SetInput({ fields, values, onChange }: Props) {
   const tap = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   }, []);
+
+  // Compute which numeric fields have a usable previous value to copy. Hide the
+  // affordance unless at least one numeric field intersects.
+  const repeatableFieldIds = useMemo(() => {
+    if (!previousValues) return [] as string[];
+    const ids: string[] = [];
+    for (const f of numericFields) {
+      const v = previousValues[f.id];
+      if (v != null && v !== '') ids.push(f.id);
+    }
+    return ids;
+  }, [previousValues, numericFields]);
+
+  const handleRepeat = useCallback(() => {
+    if (!previousValues) return;
+    Haptics.selectionAsync().catch(() => {});
+    for (const id of repeatableFieldIds) {
+      onChange(id, previousValues[id]);
+    }
+  }, [previousValues, repeatableFieldIds, onChange]);
 
   const handleKey = useCallback(
     (key: string) => {
@@ -105,6 +132,17 @@ export default function SetInput({ fields, values, onChange }: Props) {
         })}
       </View>
 
+      {repeatableFieldIds.length > 0 && (
+        <Pressable
+          onPress={handleRepeat}
+          style={styles.repeatBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Repetir valores del set anterior"
+        >
+          <Text style={styles.repeatText}>↺ Repetir anterior</Text>
+        </Pressable>
+      )}
+
       <View style={styles.helperRow}>
         {HELPER_KEYS.map((k) => (
           <Pressable key={k.label} onPress={() => handleHelper(k.delta)} style={styles.helperKey}>
@@ -150,7 +188,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   fieldChipActive: {
-    borderColor: Colors.gold[500],
+    borderColor: Colors.gold.base,
     backgroundColor: 'rgba(212,175,55,0.12)',
   },
   fieldLabel: {
@@ -167,7 +205,16 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   fieldValueActive: {
-    color: Colors.gold[500],
+    color: Colors.gold.base,
+  },
+  repeatBtn: {
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  repeatText: {
+    ...Type.micro,
+    color: Colors.gold.deep,
   },
   helperRow: {
     flexDirection: 'row',
@@ -183,7 +230,7 @@ const styles = StyleSheet.create({
   helperKeyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.gold[300],
+    color: Colors.gold.light,
   },
   pad: {
     flexDirection: 'row',
