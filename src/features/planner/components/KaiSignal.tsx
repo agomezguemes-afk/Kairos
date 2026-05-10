@@ -1,8 +1,8 @@
 // src/features/planner/components/KaiSignal.tsx
-// Renders a single Kai insight line. Returns null if there is no signal —
+// Renders a single insight line. Returns null if there is no signal —
 // silence beats noise.
 //
-// Layout: the tone-colored dot sits inline with the "KAI" eyebrow label so
+// Layout: the tone-colored dot sits inline with the "SEÑAL" eyebrow label so
 // it reads as a single unit ("colored badge"); the message lives in its own
 // column below. Action button hugs the right edge.
 
@@ -43,7 +43,7 @@ export default function KaiSignal({ signal, onAction }: Props) {
       <View style={styles.body}>
         <View style={styles.labelRow}>
           <View style={[styles.dot, { backgroundColor: TONE_COLOR[signal.tone] }]} />
-          <Text style={styles.label}>KAI</Text>
+          <Text style={styles.label}>SEÑAL</Text>
         </View>
         <Text style={styles.message}>{signal.message}</Text>
       </View>

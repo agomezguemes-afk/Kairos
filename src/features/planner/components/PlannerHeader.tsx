@@ -27,10 +27,11 @@ export default function PlannerHeader({ onStreakPress }: Props) {
         <Pressable
           onPress={onStreakPress}
           accessibilityRole="button"
-          accessibilityLabel={`Racha ${streak.current} días`}
+          accessibilityLabel={`Constancia ${streak.current} días`}
           style={({ pressed }) => [styles.streakPill, pressed && styles.streakPillPressed]}
         >
-          <Text style={styles.streakBullet}>·</Text>
+          <Text style={styles.streakLabel}>Constancia</Text>
+          <Text style={styles.streakDot}>·</Text>
           <Text style={styles.streakText}>{streak.current}</Text>
         </Pressable>
       </View>
@@ -75,14 +76,20 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   streakPillPressed: { opacity: 0.7 },
-  streakBullet: {
-    fontSize: 11,
+  // Sober label — "Constancia · N", no flame iconography.
+  streakLabel: {
+    ...Type.micro,
+    color: Colors.gold.deep,
+    fontWeight: '600',
+  },
+  streakDot: {
+    ...Type.micro,
     color: Colors.gold.deep,
     fontWeight: '700',
   },
   streakText: {
     ...Type.micro,
     color: Colors.gold.deep,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
