@@ -12,7 +12,8 @@ import {
 
 interface Props {
   entry: WorkoutHistoryEntry;
-  history: WorkoutHistoryEntry[];
+  /** Prior sessions used for delta comparison. Empty list = "first session" tone. */
+  history?: WorkoutHistoryEntry[];
   onClose: () => void;
 }
 
@@ -57,7 +58,7 @@ function DeltaRow({ label, value, color }: DeltaRowProps) {
   );
 }
 
-export default function WorkoutSummary({ entry, history, onClose }: Props) {
+export default function WorkoutSummary({ entry, history = [], onClose }: Props) {
   const comparison: ComparisonResult = useMemo(
     () => compareToPrevious(entry, history),
     [entry, history],
@@ -84,7 +85,7 @@ export default function WorkoutSummary({ entry, history, onClose }: Props) {
       <View style={styles.iconWrap}>
         <KIcon name="zap" size={32} color={Colors.gold.base} />
       </View>
-      <Text style={styles.title}>Entrenamiento completado</Text>
+      <Text style={styles.title}>Sesión completada</Text>
       <Text style={styles.subtitle}>{entry.blockName}</Text>
 
       {/* Stats grid 2×2 */}

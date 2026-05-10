@@ -1,5 +1,5 @@
 // src/features/planner/TodayPlanner.tsx
-// Top-level planner — header + calendar + day card + Kai signal + sheets.
+// Top-level planner — header + calendar + day card + signal card + sheets.
 // Knows how to wire every handler the variants need; everything else is a
 // dumb component.
 
