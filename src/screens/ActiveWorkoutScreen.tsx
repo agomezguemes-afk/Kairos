@@ -278,7 +278,7 @@ export default function ActiveWorkoutScreen() {
   if (summary) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <WorkoutSummary entry={summary} onClose={handleCloseSummary} />
+        <WorkoutSummary entry={summary} history={workoutHistory} onClose={handleCloseSummary} />
       </View>
     );
   }
