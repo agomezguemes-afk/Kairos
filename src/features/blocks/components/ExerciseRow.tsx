@@ -101,6 +101,29 @@ function ExerciseRowInner({
     updateExercise(blockId, exercise.id, { fields: newFields });
   }, [blockId, exercise.id, updateExercise]);
 
+  // Goal + rest are surfaced in the editor so the user sees the planned
+  // numbers a workout will preload (see workoutStore.startWorkout).
+  const adjustGoalWeight = useCallback((delta: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    const current = exercise.goalWeight ?? 0;
+    const next = Math.max(0, Math.round((current + delta) * 10) / 10);
+    updateExercise(blockId, exercise.id, { goalWeight: next });
+  }, [blockId, exercise.id, exercise.goalWeight, updateExercise]);
+
+  const adjustGoalReps = useCallback((delta: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    const current = exercise.goalReps ?? 0;
+    const next = Math.max(0, current + delta);
+    updateExercise(blockId, exercise.id, { goalReps: next });
+  }, [blockId, exercise.id, exercise.goalReps, updateExercise]);
+
+  const adjustRest = useCallback((delta: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    const current = exercise.rest_seconds ?? 0;
+    const next = Math.max(0, current + delta);
+    updateExercise(blockId, exercise.id, { rest_seconds: next });
+  }, [blockId, exercise.id, exercise.rest_seconds, updateExercise]);
+
   const maxFields = compact ? 2 : 4;
   const visibleFields = exercise.fields
     .filter(f => f.type !== 'boolean' || f.isPrimary)
@@ -166,6 +189,33 @@ function ExerciseRowInner({
       {/* Expanded content */}
       {expanded && (
         <View style={[styles.setsContainer, compact && styles.setsContainerCompact]}>
+          {/* Goals + rest strip — feeds startWorkout's preloaded set values */}
+          <View style={[styles.goalsStrip, compact && styles.goalsStripCompact]}>
+            <GoalControl
+              label="Peso obj."
+              value={exercise.goalWeight}
+              suffix="kg"
+              onDecrement={() => adjustGoalWeight(-2.5)}
+              onIncrement={() => adjustGoalWeight(2.5)}
+              compact={compact}
+            />
+            <GoalControl
+              label="Reps obj."
+              value={exercise.goalReps}
+              onDecrement={() => adjustGoalReps(-1)}
+              onIncrement={() => adjustGoalReps(1)}
+              compact={compact}
+            />
+            <GoalControl
+              label="Descanso"
+              value={exercise.rest_seconds}
+              suffix="s"
+              onDecrement={() => adjustRest(-15)}
+              onIncrement={() => adjustRest(15)}
+              compact={compact}
+            />
+          </View>
+
           {!compact && (
             <View style={styles.columnHeaders}>
               <Text style={[styles.columnLabel, styles.setNumCol]}>#</Text>
@@ -242,6 +292,43 @@ function ExerciseRowInner({
   );
 }
 
+interface GoalControlProps {
+  label: string;
+  value: number | undefined;
+  suffix?: string;
+  onDecrement: () => void;
+  onIncrement: () => void;
+  compact?: boolean;
+}
+
+function GoalControl({ label, value, suffix, onDecrement, onIncrement, compact }: GoalControlProps) {
+  const display = value == null ? '—' : suffix ? `${value}${suffix}` : String(value);
+  return (
+    <View style={[styles.goalControl, compact && styles.goalControlCompact]}>
+      <Text style={styles.goalLabel} numberOfLines={1}>{label}</Text>
+      <View style={styles.goalRow}>
+        <Pressable
+          onPress={onDecrement}
+          hitSlop={6}
+          style={styles.goalStepBtn}
+          accessibilityLabel={`Reducir ${label}`}
+        >
+          <Feather name="minus" size={12} color={Colors.text.secondary} />
+        </Pressable>
+        <Text style={styles.goalValue} numberOfLines={1}>{display}</Text>
+        <Pressable
+          onPress={onIncrement}
+          hitSlop={6}
+          style={styles.goalStepBtn}
+          accessibilityLabel={`Aumentar ${label}`}
+        >
+          <Feather name="plus" size={12} color={Colors.text.secondary} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function areExerciseRowPropsEqual(prev: ExerciseRowProps, next: ExerciseRowProps): boolean {
   if (prev.compact !== next.compact) return false;
   if (prev.blockId !== next.blockId) return false;
@@ -262,6 +349,9 @@ function areExerciseRowPropsEqual(prev: ExerciseRowProps, next: ExerciseRowProps
   if (a === b) return true;
   if (a.id !== b.id) return false;
   if (a.name !== b.name || a.color !== b.color || a.icon !== b.icon) return false;
+  if (a.goalWeight !== b.goalWeight) return false;
+  if (a.goalReps !== b.goalReps) return false;
+  if (a.rest_seconds !== b.rest_seconds) return false;
   if (a.updated_at !== b.updated_at) return false;
   if (a.fields !== b.fields && JSON.stringify(a.fields) !== JSON.stringify(b.fields)) return false;
   if (a.sets.length !== b.sets.length) return false;
@@ -451,5 +541,53 @@ const styles = StyleSheet.create({
   fieldsBtnCompact: {
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
+  },
+  goalsStrip: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.background.elevated,
+    borderRadius: Radius.sm,
+  },
+  goalsStripCompact: {
+    paddingVertical: Spacing.xs,
+    gap: 2,
+  },
+  goalControl: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  goalControlCompact: {
+    gap: 0,
+  },
+  goalLabel: {
+    fontSize: Typography.size.micro,
+    fontWeight: Typography.weight.medium,
+    color: Colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  goalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  goalStepBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.background.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalValue: {
+    fontSize: Typography.size.body,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.text.primary,
+    minWidth: 44,
+    textAlign: 'center',
   },
 });
