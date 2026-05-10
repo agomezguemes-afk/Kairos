@@ -15,7 +15,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Colors, Typography, Animation, springs } from '../theme/index';
 
 const TAB_CONFIG: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
-  HomeTab: { icon: 'home', label: 'Inicio' },
+  HomeTab: { icon: 'home', label: 'Hoy' },
   WorkoutTab: { icon: 'grid', label: 'Bloques' },
   ProgressTab: { icon: 'award', label: 'Progreso' },
   ProfileTab: { icon: 'user', label: 'Perfil' },
