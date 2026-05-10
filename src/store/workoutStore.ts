@@ -24,14 +24,10 @@ import {
 import type { ContentNode } from '../types/content';
 import {
   createExerciseNode,
-  createTextNode,
-  createDividerNode,
-  createSubBlockNode,
-  createImageNode,
+  createColumnSectionNode,
   getNextOrder,
   reorderNodes,
 } from '../types/content';
-import type { AIAction, AIExerciseTemplate } from '../types/ai';
 
 const MOCK_USER_ID = 'user_001';
 
@@ -88,6 +84,10 @@ interface WorkoutState {
   pendingHighlight: string | null;
   themePreference: ThemePreference;
   setThemePreference: (pref: ThemePreference) => void;
+  userName: string;
+  userGoal: 'strength' | 'endurance' | 'flexibility' | 'health' | null;
+  setUserName: (name: string) => void;
+  setUserGoal: (goal: 'strength' | 'endurance' | 'flexibility' | 'health') => void;
   activeWorkout: ActiveWorkout | null;
   workoutHistory: WorkoutHistoryEntry[];
 
@@ -109,6 +109,13 @@ interface WorkoutState {
   previousExercise: () => void;
   goToSet: (setIndex: number) => void;
   appendActiveExercise: (exercise: ExerciseCard) => void;
+  reorderActiveExercises: (orderedIds: string[]) => void;
+  removeActiveExercise: (exerciseId: string) => void;
+  setExerciseGoal: (
+    blockId: string,
+    exerciseId: string,
+    goal: { goalWeight?: number; goalReps?: number },
+  ) => void;
   finishWorkout: () => WorkoutHistoryEntry | null;
   cancelWorkout: () => void;
 
@@ -127,11 +134,17 @@ interface WorkoutState {
   replaceAllBlocks: (blocks: WorkoutBlock[]) => void;
 
   addContentNode: (blockId: string, node: ContentNode) => void;
+  insertContentNode: (blockId: string, node: ContentNode, position?: number) => void;
   updateContentNode: (blockId: string, nodeId: string, updates: Partial<ContentNode>) => void;
   deleteContentNode: (blockId: string, nodeId: string) => void;
   reorderContentNodes: (blockId: string, nodeIds: string[]) => void;
   duplicateContentNode: (blockId: string, nodeId: string) => void;
   moveContentNode: (blockId: string, nodeId: string, direction: 'up' | 'down') => void;
+  wrapNodesInColumns: (
+    blockId: string,
+    nodeIds: string[],
+    columns: 2 | 3,
+  ) => string | null;
 
   addExercise: (
     blockId: string,
@@ -160,7 +173,6 @@ interface WorkoutState {
   addSet: (blockId: string, exerciseId: string) => void;
   removeSet: (blockId: string, exerciseId: string, setId: string) => void;
 
-  dispatchAIActions: (actions: AIAction[]) => string | null;
   setHighlight: (blockId: string | null) => void;
 
   // ===== Canvas (widget mode) =====
@@ -209,46 +221,6 @@ function updateExerciseInContent(
   return { content: next, exercise: found };
 }
 
-function applyTemplateToExercise(
-  ex: ExerciseCard,
-  template: AIExerciseTemplate,
-): ExerciseCard {
-  const setsCount = template.sets_count ?? ex.default_sets_count;
-  const nextRest = template.rest_seconds ?? ex.rest_seconds;
-  const sets = Array.from({ length: setsCount }, (_, i) =>
-    createEmptySet(ex.id, i, ex.fields),
-  );
-
-  if (template.reps !== undefined) {
-    const repsField = ex.fields.find((f) => f.id === 'reps');
-    const durationField = ex.fields.find(
-      (f) =>
-        f.id === 'duration' ||
-        f.name.toLowerCase().includes('duration') ||
-        f.name.toLowerCase().includes('hold'),
-    );
-
-    if (typeof template.reps === 'number' && repsField) {
-      for (const s of sets) s.values[repsField.id] = template.reps;
-    } else if (typeof template.reps === 'string') {
-      const seconds = parseInt(template.reps, 10);
-      if (!Number.isNaN(seconds) && durationField) {
-        for (const s of sets) s.values[durationField.id] = seconds;
-      } else if (!Number.isNaN(seconds) && repsField) {
-        for (const s of sets) s.values[repsField.id] = seconds;
-      }
-    }
-  }
-
-  return {
-    ...ex,
-    sets,
-    default_sets_count: setsCount,
-    rest_seconds: nextRest,
-    updated_at: new Date().toISOString(),
-  };
-}
-
 function getExercisesFromBlock(block: WorkoutBlock): ExerciseCard[] {
   return block.content
     .filter((n): n is Extract<ContentNode, { type: 'exercise' }> => n.type === 'exercise')
@@ -274,6 +246,11 @@ export const useWorkoutStore = create<WorkoutState>()(
       pendingHighlight: null,
       themePreference: 'system' as ThemePreference,
       setThemePreference: (pref) => set({ themePreference: pref }),
+      userName: '',
+      userGoal: null,
+      setUserName: (name) => set({ userName: name.trim() }),
+      setUserGoal: (goal) =>
+        set({ userGoal: goal as 'strength' | 'endurance' | 'flexibility' | 'health' }),
       activeWorkout: null,
       workoutHistory: [],
 
@@ -285,6 +262,21 @@ export const useWorkoutStore = create<WorkoutState>()(
           .sort((a, b) => a.order - b.order)
           .map((n) => JSON.parse(JSON.stringify(n.data.exercise)) as ExerciseCard);
         if (exercises.length === 0) return;
+
+        // Preload set values from per-exercise goals so the user starts each
+        // set with the planned target instead of an empty input. We only fill
+        // empty slots — sets that already have an explicit value win.
+        for (const ex of exercises) {
+          for (const s of ex.sets) {
+            if (ex.goalWeight != null && s.values['weight'] == null) {
+              s.values['weight'] = ex.goalWeight;
+            }
+            if (ex.goalReps != null && s.values['reps'] == null) {
+              s.values['reps'] = ex.goalReps;
+            }
+          }
+        }
+
         set({
           activeWorkout: {
             blockId,
@@ -414,6 +406,74 @@ export const useWorkoutStore = create<WorkoutState>()(
         });
       },
 
+      reorderActiveExercises: (orderedIds) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const map = new Map(state.activeWorkout.exercises.map((e) => [e.id, e]));
+          const reordered: ExerciseCard[] = [];
+          for (const id of orderedIds) {
+            const ex = map.get(id);
+            if (ex) reordered.push(ex);
+          }
+          for (const ex of state.activeWorkout.exercises) {
+            if (!orderedIds.includes(ex.id)) reordered.push(ex);
+          }
+          const activeId = state.activeWorkout.exercises[state.activeWorkout.currentExerciseIndex]?.id;
+          const newIdx = activeId ? reordered.findIndex((e) => e.id === activeId) : 0;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: reordered,
+              currentExerciseIndex: Math.max(0, newIdx),
+            },
+          };
+        });
+      },
+
+      removeActiveExercise: (exerciseId) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          const idx = aw.exercises.findIndex((e) => e.id === exerciseId);
+          if (idx === -1) return state;
+          const exercises = aw.exercises.filter((e) => e.id !== exerciseId);
+          if (exercises.length === 0) {
+            return { activeWorkout: { ...aw, exercises, currentExerciseIndex: 0, currentSetIndex: 0 } };
+          }
+          let nextIdx = aw.currentExerciseIndex;
+          if (idx < aw.currentExerciseIndex) nextIdx = aw.currentExerciseIndex - 1;
+          else if (idx === aw.currentExerciseIndex) nextIdx = Math.min(idx, exercises.length - 1);
+          return {
+            activeWorkout: {
+              ...aw,
+              exercises,
+              currentExerciseIndex: Math.max(0, nextIdx),
+              currentSetIndex: 0,
+            },
+          };
+        });
+      },
+
+      setExerciseGoal: (blockId, exerciseId, goal) => {
+        get().updateExercise(blockId, exerciseId, {
+          goalWeight: goal.goalWeight,
+          goalReps: goal.goalReps,
+        });
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: state.activeWorkout.exercises.map((ex) =>
+                ex.id === exerciseId
+                  ? { ...ex, goalWeight: goal.goalWeight, goalReps: goal.goalReps }
+                  : ex,
+              ),
+            },
+          };
+        });
+      },
+
       finishWorkout: () => {
         let summary: WorkoutHistoryEntry | null = null;
         set((state) => {
@@ -530,6 +590,29 @@ export const useWorkoutStore = create<WorkoutState>()(
               content: [...block.content, node],
               updated_at: new Date().toISOString(),
             };
+          }),
+        }));
+      },
+
+      insertContentNode: (blockId, node, position) => {
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            const sorted = [...block.content].sort((a, b) => a.order - b.order);
+            // Append when position is missing or out of range.
+            const insertIdx =
+              position === undefined || position < 0 || position > sorted.length
+                ? sorted.length
+                : position;
+            const before = sorted.slice(0, insertIdx);
+            const after = sorted.slice(insertIdx);
+            const inserted: ContentNode = { ...node, order: insertIdx } as ContentNode;
+            const reseq = [
+              ...before,
+              inserted,
+              ...after.map((n, i) => ({ ...n, order: insertIdx + 1 + i }) as ContentNode),
+            ];
+            return { ...block, content: reseq, updated_at: new Date().toISOString() };
           }),
         }));
       },
@@ -759,105 +842,51 @@ export const useWorkoutStore = create<WorkoutState>()(
         }));
       },
 
-      // ======================== AI DISPATCHER ========================
+      wrapNodesInColumns: (blockId, nodeIds, columns) => {
+        let sectionId: string | null = null;
 
-      dispatchAIActions: (actions) => {
-        let createdBlockId: string | null = null;
-        const store = get();
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            const targetIds = new Set(nodeIds);
+            const targets = block.content.filter((n) => targetIds.has(n.id));
+            if (targets.length === 0) return block;
 
-        for (const action of actions) {
-          switch (action.type) {
-            case 'create_block': {
-              const { name, discipline, icon, color, cover, exercises } = action.payload;
-              const id = store.addBlock(discipline, { name, icon, color, cover });
-              createdBlockId = id;
+            // Insert the columnSection right before the first target node so
+            // visual order is preserved. Children are reassigned `section` and
+            // distributed round-robin across columns 0..N-1.
+            const sortedAll = [...block.content].sort((a, b) => a.order - b.order);
+            const firstTargetIdx = sortedAll.findIndex((n) => targetIds.has(n.id));
+            const beforeAnchor = sortedAll.slice(0, firstTargetIdx);
+            const afterAnchor = sortedAll.slice(firstTargetIdx);
 
-              if (exercises && exercises.length > 0) {
-                for (const tpl of exercises) {
-                  store.addExercise(id, {
-                    name: tpl.name,
-                    icon: tpl.icon,
-                    color: tpl.color,
-                    discipline: tpl.discipline,
-                  });
+            const section = createColumnSectionNode(0, columns);
+            sectionId = section.id;
 
-                  const fresh = get().blocks.find((b) => b.id === id);
-                  if (fresh) {
-                    const exNodes = getExercisesFromBlock(fresh);
-                    const added = exNodes[exNodes.length - 1];
-                    if (added) {
-                      const rebuilt = applyTemplateToExercise(added, tpl);
-                      store.updateExercise(id, added.id, {
-                        sets: rebuilt.sets,
-                        default_sets_count: rebuilt.default_sets_count,
-                        rest_seconds: rebuilt.rest_seconds,
-                      });
-                    }
-                  }
-                }
-              }
-              break;
-            }
+            // Re-sequence: keep non-target nodes in their original order, the
+            // section sits where the first target was, targets become children.
+            const nonTargetsBefore = beforeAnchor;
+            const nonTargetsAfter = afterAnchor.filter((n) => !targetIds.has(n.id));
+            const targetsOrdered = afterAnchor.filter((n) => targetIds.has(n.id));
 
-            case 'update_exercise': {
-              const { exerciseId, updates } = action.payload;
-              const ownerBlock = get().blocks.find((b) =>
-                getExercisesFromBlock(b).some((ex) => ex.id === exerciseId),
-              );
-              if (ownerBlock) store.updateExercise(ownerBlock.id, exerciseId, updates);
-              break;
-            }
+            const reChildren = targetsOrdered.map((n, i) => ({
+              ...n,
+              section: section.id,
+              column: i % columns,
+            } as ContentNode));
 
-            case 'add_exercise': {
-              const { blockId, name: exName, icon, color, discipline, sets_count, reps, rest_seconds } = action.payload;
-              const targetId = blockId || createdBlockId;
-              if (targetId) {
-                store.addExercise(targetId, { name: exName, icon, color, discipline });
-                if (sets_count !== undefined || reps !== undefined || rest_seconds !== undefined) {
-                  const fresh = get().blocks.find((b) => b.id === targetId);
-                  if (fresh) {
-                    const exNodes = getExercisesFromBlock(fresh);
-                    const added = exNodes[exNodes.length - 1];
-                    if (added) {
-                      const rebuilt = applyTemplateToExercise(added, {
-                        name: exName, icon, color, discipline, sets_count, reps, rest_seconds,
-                      });
-                      store.updateExercise(targetId, added.id, {
-                        sets: rebuilt.sets,
-                        default_sets_count: rebuilt.default_sets_count,
-                        rest_seconds: rebuilt.rest_seconds,
-                      });
-                    }
-                  }
-                }
-              }
-              break;
-            }
+            const merged = [
+              ...nonTargetsBefore,
+              { ...section, order: 0 } as ContentNode,
+              ...reChildren,
+              ...nonTargetsAfter,
+            ].map((n, i) => ({ ...n, order: i }) as ContentNode);
 
-            case 'delete_exercise': {
-              const { blockId, exerciseId } = action.payload;
-              const block = get().blocks.find((b) => b.id === blockId);
-              if (block) {
-                const ex = getExercisesFromBlock(block).find((e) => e.id === exerciseId);
-                if (ex) store.deleteExerciseByName(blockId, ex.name);
-              }
-              break;
-            }
+            return { ...block, content: merged, updated_at: new Date().toISOString() };
+          }),
+        }));
 
-            case 'update_block_meta': {
-              const { blockId: metaBlockId, updates } = action.payload;
-              store.updateBlock(metaBlockId, updates);
-              break;
-            }
-
-            case 'delete_block': {
-              store.deleteBlock(action.payload.blockId);
-              break;
-            }
-          }
-        }
-
-        return createdBlockId;
+        return sectionId;
       },
 
       setHighlight: (blockId) => { set({ pendingHighlight: blockId }); },
