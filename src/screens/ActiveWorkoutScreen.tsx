@@ -32,6 +32,11 @@ import type { RootStackParamList } from '../types/navigation';
 import type { ExerciseCard, ExerciseSet, FieldValue, FieldDefinition, Discipline } from '../types/core';
 import { createExerciseCard } from '../types/core';
 import { Colors, Type, Spacing, Radius, Shadows, Animation } from '../theme/tokens';
+import {
+  findPreviousReference,
+  formatReference,
+  type PreviousReference,
+} from '../components/workout/lib/previousReference';
 
 type Route = RouteProp<RootStackParamList, 'ActiveWorkout'>;
 
@@ -54,6 +59,49 @@ function formatSetSummary(set: ExerciseSet, fields: FieldDefinition[]): string {
     parts.push(f.unit ? `${v} ${f.unit}` : String(v));
   }
   return parts.join(' · ');
+}
+
+// "hace 3 días" / "hace 2 sem" / "hace 1 mes". Sober, Spanish, no fuzzy
+// "hoy" — if the user just did it today, the reference came from the
+// current session anyway and the date is suppressed by the caller.
+function formatRelativeAgo(ts: number): string {
+  const diffMs = Date.now() - ts;
+  if (diffMs < 0) return '';
+  const day = 86_400_000;
+  const days = Math.floor(diffMs / day);
+  if (days < 1) return 'hoy';
+  if (days === 1) return 'hace 1 día';
+  if (days < 7) return `hace ${days} días`;
+  const weeks = Math.floor(days / 7);
+  if (weeks === 1) return 'hace 1 sem';
+  if (weeks < 5) return `hace ${weeks} sem`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return 'hace 1 mes';
+  return `hace ${months} meses`;
+}
+
+// Sober "Última · 60 kg × 8 · hace 4 días" pill.
+// Hidden when no prior reference is available — never render a hollow shell.
+function PreviousRefPill({ reference }: { reference: PreviousReference }) {
+  const formatted = formatReference(reference);
+  if (!formatted) return null;
+  const date =
+    reference.source === 'history' && reference.performedAt
+      ? formatRelativeAgo(reference.performedAt)
+      : null;
+  return (
+    <View style={styles.refPill} accessibilityLabel={`Última vez: ${formatted}${date ? `, ${date}` : ''}`}>
+      <Text style={styles.refPillLabel}>Última</Text>
+      <Text style={styles.refPillDot}>·</Text>
+      <Text style={styles.refPillValue}>{formatted}</Text>
+      {date ? (
+        <>
+          <Text style={styles.refPillDot}>·</Text>
+          <Text style={styles.refPillDate}>{date}</Text>
+        </>
+      ) : null}
+    </View>
+  );
 }
 
 export default function ActiveWorkoutScreen() {
@@ -135,6 +183,26 @@ export default function ActiveWorkoutScreen() {
     }
     return undefined;
   }, [aw, exercise, workoutHistory]);
+
+  // "Last time you did this exercise" reference shown beneath the heading.
+  // Memo key tracks history length + completed-set count so the pill refreshes
+  // when a set is completed in-session without rebuilding on every keystroke.
+  const completedInSession = useMemo(() => {
+    if (!exercise) return 0;
+    let n = 0;
+    for (const s of exercise.sets) if (s.completed) n++;
+    return n;
+  }, [exercise]);
+
+  const previousRef = useMemo<PreviousReference | null>(() => {
+    if (!exercise) return null;
+    return findPreviousReference({
+      exerciseId: exercise.id,
+      active: aw,
+      history: workoutHistory,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercise?.id, workoutHistory.length, completedInSession]);
 
   const [draftValues, setDraftValues] = useState<Record<string, FieldValue>>({});
 
@@ -404,6 +472,7 @@ export default function ActiveWorkoutScreen() {
                 <Text style={styles.exerciseName} numberOfLines={2}>
                   {exercise.name}
                 </Text>
+                {previousRef ? <PreviousRefPill reference={previousRef} /> : null}
                 {exercise.notes ? (
                   <Text style={styles.exerciseNotes} numberOfLines={2}>
                     {exercise.notes}
@@ -588,6 +657,38 @@ const styles = StyleSheet.create({
     ...Type.body,
     color: Colors.ink.tertiary,
     marginTop: Spacing.xs,
+  },
+  // Sober "Última · 60 kg × 8 · hace 4 días" pill anchored under the
+  // exercise name. Background is elevated warm-tinted so it reads as
+  // reference material, not interactive UI.
+  refPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.bg.elevated,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    marginTop: Spacing.xs,
+    gap: 6,
+  },
+  refPillLabel: {
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+    fontWeight: '600',
+  },
+  refPillValue: {
+    ...Type.micro,
+    color: Colors.ink.secondary,
+    fontVariant: ['tabular-nums'],
+  },
+  refPillDate: {
+    ...Type.micro,
+    color: Colors.ink.muted,
+  },
+  refPillDot: {
+    ...Type.micro,
+    color: Colors.ink.muted,
   },
   // Vertical list of set rows. Each row = leading dot + index + summary.
   setList: {
