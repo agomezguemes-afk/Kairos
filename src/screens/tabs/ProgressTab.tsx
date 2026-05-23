@@ -1,213 +1,206 @@
-// KAIROS — Progress Tab
-// Hub for progress + gamification: streak, tree, badges, and PR cards.
-// Pushes BadgesScreen, PRCardsScreen, ProgressTreeScreen via the root stack.
-
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import React, { useMemo } from 'react';
+import { ScrollView, View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Colors, Type, Spacing, Radius } from '../../theme/tokens';
+import { useWorkoutStore } from '../../store/workoutStore';
 import { useGamification } from '../../context/GamificationContext';
-import { useTree } from '../../context/TreeContext';
 import { BADGE_DEFINITIONS } from '../../types/gamification';
-import type { BadgeId } from '../../types/gamification';
-import { TREE_CONFIGS } from '../../types/tree';
-import KairosIcon from '../../components/KairosIcon';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
+import {
+  topExercisesByFrequency,
+  maxWeightSeries,
+  weeklyVolumeSeries,
+  computeSummaryStats,
+} from './progress/lib/aggregations';
+import Sparkline from './progress/components/Sparkline';
+import VolumeBarChart from './progress/components/VolumeBarChart';
 
-export default function ProgressTab({ navigation }: any) {
+const SCREEN_W = Dimensions.get('window').width;
+
+export default function ProgressTab() {
   const insets = useSafeAreaInsets();
-  const { streak, badges, prCards } = useGamification();
-  const { treeType, progress } = useTree();
-  const unlockedIds = new Set<BadgeId>(badges.map((b) => b.id));
+  const history = useWorkoutStore((s) => s.workoutHistory);
+  const { streak, badges } = useGamification();
 
-  const treeConfig = treeType ? TREE_CONFIGS[treeType] : null;
+  const summary = useMemo(() => computeSummaryStats(history), [history]);
+  const top = useMemo(() => topExercisesByFrequency(history, 5), [history]);
+  const weekly = useMemo(() => weeklyVolumeSeries(history, 12), [history]);
+
+  const chartW = SCREEN_W - Spacing.screen.horizontal * 2;
+  const unlockedIds = new Set(badges.map((b) => b.id));
+  const isEmpty = history.length === 0;
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 16 }]}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 }]}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.title}>Progreso</Text>
 
-      {/* Streak card */}
-      <Animated.View entering={FadeInUp.delay(60).duration(350)} style={styles.streakCard}>
-        <View style={styles.streakIconRow}>
-          {streak.current >= 1 ? (
-            Array.from({ length: streak.current >= 30 ? 3 : streak.current >= 7 ? 2 : 1 }).map((_, i) => (
-              <KairosIcon key={i} name="streak" size={24} color={Colors.accent.primary} />
-            ))
-          ) : (
-            <KairosIcon name="sleep" size={24} color={Colors.text.tertiary} />
-          )}
+      {/* Summary stats */}
+      <View style={styles.statRow}>
+        <Stat label="Sesiones" value={String(summary.totalSessions)} />
+        <Stat label="Volumen" value={`${Math.round(summary.totalVolume)} kg`} />
+        <Stat label="Esta sem" value={String(summary.thisWeekSessions)} />
+      </View>
+
+      {isEmpty && (
+        <View style={styles.emptyHint}>
+          <Text style={styles.emptyHintText}>Sin entrenamientos registrados aún</Text>
         </View>
-        <View>
-          <Text style={styles.streakValue}>
-            {streak.current} {streak.current === 1 ? 'día' : 'días'} de racha
-          </Text>
-          <Text style={styles.streakSub}>Récord: {streak.longest} días</Text>
-        </View>
-      </Animated.View>
+      )}
 
-      {/* Progress tree */}
-      <Animated.View entering={FadeInUp.delay(90).duration(350)}>
-        <Pressable
-          onPress={() => navigation.navigate('ProgressTree')}
-          style={({ pressed }) => [styles.sectionCard, pressed && { opacity: 0.8 }]}
-        >
-          <View style={styles.sectionHeader}>
-            <KairosIcon name={treeConfig ? 'tree' : 'seedling'} size={20} color={Colors.accent.primary} />
-            <Text style={styles.sectionTitle}>
-              {treeConfig ? `${treeConfig.name}` : 'Tu Árbol'}
-            </Text>
-            {progress && (
-              <Text style={styles.sectionCount}>Nivel {progress.level}/5</Text>
-            )}
-            <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
-          </View>
-          <Text style={styles.prPreview}>
-            {treeConfig
-              ? `${treeConfig.symbol} · Crece con ${treeConfig.metricLabel.toLowerCase()}`
-              : 'Elige un árbol para empezar'}
-          </Text>
-        </Pressable>
-      </Animated.View>
+      {/* Esta semana */}
+      <Section eyebrow="ESTA SEMANA">
+        <KVRow label="Volumen" value={`${Math.round(summary.thisWeekVolume)} kg`} />
+        <KVRow label="Sesiones" value={String(summary.thisWeekSessions)} />
+      </Section>
 
-      {/* Badges preview */}
-      <Animated.View entering={FadeInUp.delay(150).duration(350)}>
-        <Pressable
-          onPress={() => navigation.navigate('Badges')}
-          style={({ pressed }) => [styles.sectionCard, pressed && { opacity: 0.8 }]}
-        >
-          <View style={styles.sectionHeader}>
-            <Feather name="award" size={20} color={Colors.accent.primary} />
-            <Text style={styles.sectionTitle}>Insignias</Text>
-            <Text style={styles.sectionCount}>
-              {badges.length}/{BADGE_DEFINITIONS.length}
-            </Text>
-            <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
-          </View>
-          {/* Mini badge preview row */}
-          <View style={styles.badgePreview}>
-            {BADGE_DEFINITIONS.slice(0, 6).map((def) => (
-              <KairosIcon
-                key={def.id}
-                name={def.icon}
-                size={22}
-                color={unlockedIds.has(def.id) ? Colors.accent.primary : Colors.text.disabled}
-                style={styles.badgeMini}
-              />
-            ))}
-          </View>
-        </Pressable>
-      </Animated.View>
+      {/* Volumen 12 semanas */}
+      <Section eyebrow="VOLUMEN 12 SEMANAS">
+        <VolumeBarChart data={weekly} width={chartW} height={100} />
+      </Section>
 
-      {/* PR Cards */}
-      <Animated.View entering={FadeInUp.delay(210).duration(350)}>
-        <Pressable
-          onPress={() => navigation.navigate('PRCards')}
-          style={({ pressed }) => [styles.sectionCard, pressed && { opacity: 0.8 }]}
-        >
-          <View style={styles.sectionHeader}>
-            <Feather name="zap" size={20} color={Colors.accent.primary} />
-            <Text style={styles.sectionTitle}>Récords Personales</Text>
-            <Text style={styles.sectionCount}>{prCards.length}</Text>
-            <Feather name="chevron-right" size={18} color={Colors.text.tertiary} />
-          </View>
-          {prCards.length > 0 ? (
-            <Text style={styles.prPreview}>
-              Último: {prCards[0].exerciseName} — {prCards[0].value}
-              {prCards[0].unit ? ` ${prCards[0].unit}` : ''}
-            </Text>
-          ) : (
-            <Text style={styles.prPreview}>Completa series para desbloquear récords</Text>
-          )}
-        </Pressable>
-      </Animated.View>
+      {/* Peso máximo */}
+      <Section eyebrow="PESO MÁXIMO POR EJERCICIO">
+        {top.length === 0 ? (
+          <Text style={styles.empty}>Aún sin sesiones registradas</Text>
+        ) : (
+          top.map((ex) => {
+            const series = maxWeightSeries(history, ex.exerciseId, 12);
+            const latest = series.length > 0 ? series[series.length - 1].weight : null;
+            return (
+              <View key={ex.exerciseId} style={styles.exerciseBlock}>
+                <View style={styles.exerciseRow}>
+                  <Text style={styles.exerciseName} numberOfLines={1}>{ex.name}</Text>
+                  <Text style={styles.exerciseLatest}>
+                    {latest != null ? `${stripZero(latest)} kg` : '—'}
+                  </Text>
+                </View>
+                <Sparkline
+                  points={series.map((p) => ({ x: p.date, y: p.weight }))}
+                  width={chartW}
+                  height={40}
+                  showLastDot
+                />
+              </View>
+            );
+          })
+        )}
+      </Section>
+
+      {/* Constancia */}
+      <Section eyebrow="CONSTANCIA">
+        <KVRow label="Días activos" value={String(streak.current)} />
+      </Section>
+
+      {/* Logros */}
+      <Section eyebrow="LOGROS">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
+          {BADGE_DEFINITIONS.map((b) => {
+            const unlocked = unlockedIds.has(b.id);
+            return (
+              <View
+                key={b.id}
+                style={[styles.badgeChip, unlocked ? styles.badgeUnlocked : styles.badgeLocked]}
+              >
+                <Text style={[styles.badgeName, unlocked && { color: Colors.gold.deep }]} numberOfLines={1}>
+                  {b.name}
+                </Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+        {badges.length === 0 && (
+          <Text style={styles.empty}>Aún sin logros</Text>
+        )}
+      </Section>
+    </ScrollView>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.statBox}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
+function Section({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.eyebrow}>{eyebrow}</Text>
+      {children}
+    </View>
+  );
+}
+
+function KVRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.kvRow}>
+      <Text style={styles.kvLabel}>{label}</Text>
+      <Text style={styles.kvValue}>{value}</Text>
+    </View>
+  );
+}
+
+function stripZero(n: number): string {
+  return n % 1 === 0 ? String(n) : n.toFixed(1).replace(/\.0$/, '');
+}
+
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Colors.background.void,
-    paddingHorizontal: Spacing.screen.horizontal,
-  },
-  title: {
-    fontSize: Typography.size.title,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-    marginBottom: Spacing.xl,
-  },
+  screen: { flex: 1, backgroundColor: Colors.bg.void },
+  content: { paddingHorizontal: Spacing.screen.horizontal },
+  title: { ...Type.title, fontSize: 28, lineHeight: 32, color: Colors.ink.primary, marginBottom: Spacing.lg },
 
-  // Streak
-  streakCard: {
-    flexDirection: 'row',
+  statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
+  statBox: {
+    flex: 1, backgroundColor: Colors.bg.elevated, borderRadius: Radius.md,
+    paddingVertical: Spacing.md, alignItems: 'center',
+  },
+  statValue: { ...Type.bodyEmph, color: Colors.ink.primary, fontSize: 18 },
+  statLabel: { ...Type.micro, color: Colors.ink.tertiary, marginTop: 2 },
+
+  emptyHint: {
+    backgroundColor: Colors.bg.elevated,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     alignItems: 'center',
-    backgroundColor: Colors.background.surface,
-    borderRadius: Radius.lg,
-    padding: Spacing.xl,
-    gap: Spacing.lg,
     marginBottom: Spacing.lg,
-    ...Shadows.card,
   },
-  streakIconRow: {
-    flexDirection: 'row',
-    gap: 2,
-    marginRight: Spacing.md,
-  },
-  streakValue: {
-    fontSize: Typography.size.subheading,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-  },
-  streakSub: {
-    fontSize: Typography.size.caption,
-    color: Colors.text.tertiary,
-    marginTop: 2,
+  emptyHintText: { ...Type.caption, color: Colors.ink.muted },
+
+  section: { marginBottom: Spacing.lg },
+  eyebrow: {
+    ...Type.micro, color: Colors.ink.tertiary,
+    letterSpacing: 1.2, marginBottom: Spacing.sm,
   },
 
-  // Section cards
-  sectionCard: {
-    backgroundColor: Colors.background.surface,
-    borderRadius: Radius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.lg,
-    ...Shadows.subtle,
+  kvRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
+    paddingVertical: 6,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  sectionTitle: {
-    flex: 1,
-    fontSize: Typography.size.subheading,
-    fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
-  },
-  sectionCount: {
-    fontSize: Typography.size.caption,
-    fontWeight: Typography.weight.medium,
-    color: Colors.text.tertiary,
-    marginRight: Spacing.xs,
-  },
+  kvLabel: { ...Type.body, color: Colors.ink.secondary },
+  kvValue: { ...Type.bodyEmph, color: Colors.ink.primary },
 
-  // Badge preview
-  badgePreview: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.md,
+  exerciseBlock: { marginBottom: Spacing.md },
+  exerciseRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
+    marginBottom: 4,
   },
-  badgeMini: {
-    fontSize: 24,
-  },
-  badgeMiniLocked: {
-    opacity: 0.25,
-  },
+  exerciseName: { ...Type.bodyEmph, color: Colors.ink.primary, flex: 1 },
+  exerciseLatest: { ...Type.bodyEmph, color: Colors.ink.tertiary },
 
-  // PR preview
-  prPreview: {
-    fontSize: Typography.size.caption,
-    color: Colors.text.secondary,
-    marginTop: Spacing.sm,
+  empty: { ...Type.caption, color: Colors.ink.muted, paddingVertical: Spacing.sm },
+
+  badgeChip: {
+    paddingHorizontal: Spacing.md, paddingVertical: 6,
+    borderRadius: Radius.full,
   },
+  badgeUnlocked: { backgroundColor: Colors.gold.glow },
+  badgeLocked: { backgroundColor: Colors.bg.elevated },
+  badgeName: { ...Type.caption, color: Colors.ink.tertiary },
 });
