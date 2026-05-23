@@ -16,6 +16,12 @@ interface Props {
    * affordance appears above the helper row and copies those values on tap.
    */
   previousValues?: Record<string, FieldValue>;
+  /**
+   * Optional long-press handler on numeric field chips. Receives the field
+   * definition and the current numeric value (0 if unset). Parent decides
+   * what to do — e.g., open the plate calculator on the weight chip.
+   */
+  onLongPressField?: (field: FieldDefinition, currentValue: number) => void;
 }
 
 const KEYS: { label: string; value: string }[] = [
@@ -40,7 +46,7 @@ const HELPER_KEYS: { label: string; delta: number }[] = [
 
 const PRIMARY_NUMERIC_TYPES = new Set(['number', 'time']);
 
-export default function SetInput({ fields, values, onChange, previousValues }: Props) {
+export default function SetInput({ fields, values, onChange, previousValues, onLongPressField }: Props) {
   const numericFields = useMemo(
     () => fields.filter((f) => PRIMARY_NUMERIC_TYPES.has(f.type)).sort((a, b) => a.order - b.order),
     [fields],
@@ -112,6 +118,16 @@ export default function SetInput({ fields, values, onChange, previousValues }: P
           const isActive = f.id === activeFieldId;
           const v = values[f.id];
           const display = v == null || v === '' ? '—' : String(v);
+          const isNumeric = PRIMARY_NUMERIC_TYPES.has(f.type);
+          // Forward long-press only for numeric fields — parent decides
+          // whether to act (e.g., open plate calc when the chip is `weight`).
+          const longPress = isNumeric && onLongPressField
+            ? () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                const n = typeof v === 'number' ? v : 0;
+                onLongPressField(f, n);
+              }
+            : undefined;
           return (
             <Pressable
               key={f.id}
@@ -119,6 +135,8 @@ export default function SetInput({ fields, values, onChange, previousValues }: P
                 tap();
                 setActiveFieldId(f.id);
               }}
+              onLongPress={longPress}
+              delayLongPress={longPress ? 350 : undefined}
               style={[styles.fieldChip, isActive && styles.fieldChipActive]}
             >
               <Text style={styles.fieldLabel}>

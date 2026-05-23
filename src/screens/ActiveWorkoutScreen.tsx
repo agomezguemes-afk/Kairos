@@ -26,6 +26,7 @@ import KIcon from '../components/icons/KIcon';
 import RestTimer from '../components/workout/RestTimer';
 import SetInput from '../components/workout/SetInput';
 import WorkoutSummary from '../components/workout/WorkoutSummary';
+import PlateCalculator from '../components/workout/PlateCalculator';
 import AddExerciseSheet from '../features/blocks/components/AddExerciseSheet';
 import { useWorkoutStore, type WorkoutHistoryEntry } from '../store/workoutStore';
 import { useScheduleStore } from '../store/scheduleStore';
@@ -150,6 +151,12 @@ export default function ActiveWorkoutScreen() {
   const [summary, setSummary] = useState<WorkoutHistoryEntry | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
+  // ===== plate calculator =====
+  // Opened by long-press on the weight chip in SetInput. Confirms back into
+  // draftValues['weight'] so the regular Complete Set flow handles persistence.
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcTarget, setCalcTarget] = useState(60);
+
   // ===== current state =====
   const exercise: ExerciseCard | null = useMemo(() => {
     if (!aw) return null;
@@ -256,6 +263,26 @@ export default function ActiveWorkoutScreen() {
   const handleFieldChange = useCallback((fieldId: string, value: FieldValue) => {
     setDraftValues((prev) => ({ ...prev, [fieldId]: value }));
   }, []);
+
+  // Long-press on a numeric chip — open plate calculator if the field is
+  // a kg-based weight field. Gated upstream of the modal so non-weight
+  // fields silently ignore the gesture rather than opening an irrelevant UI.
+  const handleLongPressField = useCallback(
+    (field: FieldDefinition, currentValue: number) => {
+      const isWeightLike = field.id === 'weight' || field.unit === 'kg';
+      if (!isWeightLike) return;
+      setCalcTarget(currentValue > 0 ? currentValue : 60);
+      setCalcOpen(true);
+    },
+    [],
+  );
+
+  const handleCalcConfirm = useCallback(
+    (newTarget: number) => {
+      handleFieldChange('weight', newTarget);
+    },
+    [handleFieldChange],
+  );
 
   // ===== PR detection state =====
   // Floats the PR badge above the bottom CTA for 2.5s after a qualifying set.
@@ -573,6 +600,7 @@ export default function ActiveWorkoutScreen() {
                             values={draftValues}
                             onChange={handleFieldChange}
                             previousValues={previousValues}
+                            onLongPressField={handleLongPressField}
                           />
                         </View>
                       )}
@@ -629,6 +657,13 @@ export default function ActiveWorkoutScreen() {
         blockDiscipline={block?.discipline ?? 'general'}
         onAdd={handleAddExercise}
         onClose={() => setShowAdd(false)}
+      />
+
+      <PlateCalculator
+        visible={calcOpen}
+        initialTarget={calcTarget}
+        onConfirm={handleCalcConfirm}
+        onClose={() => setCalcOpen(false)}
       />
     </View>
   );
