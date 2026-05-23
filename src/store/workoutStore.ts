@@ -29,6 +29,8 @@ import {
   getNextOrder,
   reorderNodes,
 } from '../types/content';
+import { writeWorkout, isHealthKitAvailable } from '../lib/health/healthkit';
+import { estimateKcal } from '../lib/health/met';
 
 const MOCK_USER_ID = 'user_001';
 
@@ -105,6 +107,10 @@ interface WorkoutState {
   userGoal: 'strength' | 'endurance' | 'flexibility' | 'health' | null;
   setUserName: (name: string) => void;
   setUserGoal: (goal: 'strength' | 'endurance' | 'flexibility' | 'health') => void;
+  healthkitEnabled: boolean;
+  bodyWeightKg: number | null;
+  setHealthkitEnabled: (enabled: boolean) => void;
+  setBodyWeight: (kg: number | null) => void;
   activeWorkout: ActiveWorkout | null;
   workoutHistory: WorkoutHistoryEntry[];
 
@@ -279,6 +285,10 @@ export const useWorkoutStore = create<WorkoutState>()(
       setUserName: (name) => set({ userName: name.trim() }),
       setUserGoal: (goal) =>
         set({ userGoal: goal as 'strength' | 'endurance' | 'flexibility' | 'health' }),
+      healthkitEnabled: false,
+      bodyWeightKg: null,
+      setHealthkitEnabled: (enabled) => set({ healthkitEnabled: enabled }),
+      setBodyWeight: (kg) => set({ bodyWeightKg: kg }),
       activeWorkout: null,
       workoutHistory: [],
 
@@ -634,6 +644,30 @@ export const useWorkoutStore = create<WorkoutState>()(
               .then((m) => m.runPostWorkoutInsights())
               .catch(() => {});
           }, 0);
+        }
+
+        // Fire-and-forget HealthKit write. Only runs when the user opted in
+        // AND the native module is loadable — both checks are cheap. We never
+        // block the caller (summary return) on the round-trip.
+        // (TS can't track the assignment inside set(), hence the explicit cast.)
+        const finalized = summary as WorkoutHistoryEntry | null;
+        if (finalized) {
+          const state = get();
+          if (state.healthkitEnabled && isHealthKitAvailable()) {
+            const block = state.blocks.find((b) => b.id === finalized.blockId);
+            const discipline = block?.discipline ?? 'general';
+            const kcal = estimateKcal({
+              discipline,
+              durationMs: finalized.endedAt - finalized.startedAt,
+              bodyWeightKg: state.bodyWeightKg ?? 75,
+            });
+            writeWorkout({
+              discipline,
+              startMs: finalized.startedAt,
+              endMs: finalized.endedAt,
+              totalEnergyKcal: kcal,
+            }).catch(() => { /* noop, already logged in module */ });
+          }
         }
 
         return summary;
