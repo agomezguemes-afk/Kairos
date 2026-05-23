@@ -111,6 +111,8 @@ interface WorkoutState {
     values: Record<string, FieldValue>,
   ) => void;
   skipRest: () => void;
+  extendRest: (additionalSec: number) => void;
+  setExerciseRestForCurrent: (newRestSeconds: number) => void;
   nextExercise: () => void;
   previousExercise: () => void;
   goToSet: (setIndex: number) => void;
@@ -354,6 +356,41 @@ export const useWorkoutStore = create<WorkoutState>()(
               ...state.activeWorkout,
               restTimer: { ...state.activeWorkout.restTimer, active: false },
             },
+          };
+        });
+      },
+
+      // Add seconds to a live rest timer. Bails when the timer is idle so we
+      // can't accidentally extend a rest that never started.
+      extendRest: (additionalSec) => {
+        set((state) => {
+          if (!state.activeWorkout || !state.activeWorkout.restTimer.active) return state;
+          const rt = state.activeWorkout.restTimer;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              restTimer: {
+                ...rt,
+                duration: rt.duration + additionalSec,
+              },
+            },
+          };
+        });
+      },
+
+      // In-session override of rest_seconds for the current exercise. Does NOT
+      // persist to the underlying block — only mutates the active workout copy.
+      setExerciseRestForCurrent: (newRestSeconds) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          const idx = aw.currentExerciseIndex;
+          const ex = aw.exercises[idx];
+          if (!ex) return state;
+          const exercises = aw.exercises.slice();
+          exercises[idx] = { ...ex, rest_seconds: Math.max(0, Math.floor(newRestSeconds)) };
+          return {
+            activeWorkout: { ...aw, exercises },
           };
         });
       },
