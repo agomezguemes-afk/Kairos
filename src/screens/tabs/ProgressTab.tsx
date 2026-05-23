@@ -3,6 +3,7 @@ import { ScrollView, View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Type, Spacing, Radius } from '../../theme/tokens';
 import { useWorkoutStore } from '../../store/workoutStore';
+import { useScheduleStore } from '../../store/scheduleStore';
 import { useGamification } from '../../context/GamificationContext';
 import { BADGE_DEFINITIONS } from '../../types/gamification';
 import {
@@ -11,19 +12,43 @@ import {
   weeklyVolumeSeries,
   computeSummaryStats,
 } from './progress/lib/aggregations';
+import { oneRMSeries, summarize1RM } from './progress/lib/oneRM';
+import { buildMonthAdherence } from './progress/lib/adherence';
+import { detectPlateau, detectPRStreak, detectGap, detectConsistent } from './progress/lib/insights';
+import { todayISO } from '../../features/planner/lib/dates';
 import Sparkline from './progress/components/Sparkline';
 import VolumeBarChart from './progress/components/VolumeBarChart';
+import MonthAdherenceGrid from './progress/components/MonthAdherenceGrid';
 
 const SCREEN_W = Dimensions.get('window').width;
 
 export default function ProgressTab() {
   const insets = useSafeAreaInsets();
   const history = useWorkoutStore((s) => s.workoutHistory);
+  const assignments = useScheduleStore((s) => s.assignments);
   const { streak, badges } = useGamification();
 
   const summary = useMemo(() => computeSummaryStats(history), [history]);
   const top = useMemo(() => topExercisesByFrequency(history, 5), [history]);
+  const top1RM = useMemo(() => topExercisesByFrequency(history, 3), [history]);
   const weekly = useMemo(() => weeklyVolumeSeries(history, 12), [history]);
+
+  // Resolve current-month adherence. resolveRange is a non-reactive selector,
+  // so we depend on assignments (reactive) + history to retrigger.
+  const monthAdherence = useMemo(
+    () => buildMonthAdherence({
+      anchor: todayISO(),
+      resolveRange: (s, e) => useScheduleStore.getState().resolveRange(s, e),
+      history,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [assignments, history],
+  );
+
+  const headerInsight = useMemo(
+    () => detectGap(history) ?? detectConsistent(history),
+    [history],
+  );
 
   const chartW = SCREEN_W - Spacing.screen.horizontal * 2;
   const unlockedIds = new Set(badges.map((b) => b.id));
@@ -36,6 +61,10 @@ export default function ProgressTab() {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.title}>Progreso</Text>
+
+      {headerInsight && (
+        <Text style={styles.headerInsight}>{headerInsight.label}</Text>
+      )}
 
       {/* Summary stats */}
       <View style={styles.statRow}>
@@ -59,6 +88,46 @@ export default function ProgressTab() {
       {/* Volumen 12 semanas */}
       <Section eyebrow="VOLUMEN 12 SEMANAS">
         <VolumeBarChart data={weekly} width={chartW} height={100} />
+      </Section>
+
+      {/* 1RM estimado */}
+      <Section eyebrow="1RM ESTIMADO">
+        {top1RM.length === 0 ? (
+          <Text style={styles.empty}>Aún sin sesiones registradas</Text>
+        ) : (
+          top1RM.map((ex) => {
+            const series = oneRMSeries(history, ex.exerciseId, 12);
+            const sum = summarize1RM(series);
+            const plateau = detectPlateau(history, ex.exerciseId);
+            const prStreak = detectPRStreak(history, ex.exerciseId);
+            const exInsight = prStreak ?? plateau;
+            return (
+              <View key={ex.exerciseId} style={styles.exerciseBlock}>
+                <View style={styles.exerciseRow}>
+                  <Text style={styles.exerciseName} numberOfLines={1}>{ex.name}</Text>
+                  <View style={styles.oneRMValues}>
+                    <Text style={styles.exerciseLatest}>
+                      {sum.current > 0 ? `${stripZero(sum.current)} kg` : '—'}
+                    </Text>
+                    <Text style={[styles.trend, trendStyle(sum.trendPct)]}>
+                      {formatTrend(sum.trendPct)}
+                    </Text>
+                  </View>
+                </View>
+                <Sparkline
+                  points={series.map((p) => ({ x: p.date, y: p.oneRM }))}
+                  width={chartW}
+                  height={40}
+                  stroke={Colors.gold.deep}
+                  showLastDot
+                />
+                {exInsight && (
+                  <Text style={styles.exerciseInsight}>{exInsight.label}</Text>
+                )}
+              </View>
+            );
+          })
+        )}
       </Section>
 
       {/* Peso máximo */}
@@ -92,6 +161,22 @@ export default function ProgressTab() {
       {/* Constancia */}
       <Section eyebrow="CONSTANCIA">
         <KVRow label="Días activos" value={String(streak.current)} />
+      </Section>
+
+      {/* Adherencia */}
+      <Section eyebrow="ADHERENCIA">
+        <View style={styles.statRow}>
+          <Stat
+            label="Adherencia"
+            value={monthAdherence.adherencePct != null ? `${monthAdherence.adherencePct}%` : '—'}
+          />
+          <Stat
+            label="Planeadas"
+            value={`${monthAdherence.done}/${monthAdherence.planned}`}
+          />
+          <Stat label="Extra" value={String(monthAdherence.unplanned)} />
+        </View>
+        <MonthAdherenceGrid data={monthAdherence} />
       </Section>
 
       {/* Logros */}
@@ -150,6 +235,20 @@ function stripZero(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1).replace(/\.0$/, '');
 }
 
+function formatTrend(pct: number | null): string {
+  if (pct == null) return '—';
+  const sign = pct > 0 ? '+' : pct < 0 ? '−' : '';
+  const abs = Math.abs(pct);
+  return `${sign}${abs.toFixed(1)}%`;
+}
+
+function trendStyle(pct: number | null) {
+  if (pct == null) return { color: Colors.ink.muted };
+  if (pct > 0) return { color: Colors.semantic.success };
+  if (pct < 0) return { color: Colors.ink.muted };
+  return { color: Colors.ink.tertiary };
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.bg.void },
   content: { paddingHorizontal: Spacing.screen.horizontal },
@@ -193,6 +292,14 @@ const styles = StyleSheet.create({
   },
   exerciseName: { ...Type.bodyEmph, color: Colors.ink.primary, flex: 1 },
   exerciseLatest: { ...Type.bodyEmph, color: Colors.ink.tertiary },
+  oneRMValues: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm },
+  trend: { ...Type.micro, fontWeight: '600' },
+  exerciseInsight: { ...Type.micro, color: Colors.ink.tertiary, marginTop: 4 },
+
+  headerInsight: {
+    ...Type.bodyEmph, color: Colors.ink.secondary,
+    marginBottom: Spacing.md,
+  },
 
   empty: { ...Type.caption, color: Colors.ink.muted, paddingVertical: Spacing.sm },
 
