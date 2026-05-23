@@ -16,6 +16,10 @@ interface Props {
   onSkip: () => void;
   onComplete?: () => void;
   onExtend?: (seconds: number) => void;
+  // Current exercise rest target — when both are present we render a small
+  // "Próximo descanso" strip with −15/+15 controls. In-session only.
+  currentRestSeconds?: number;
+  onChangeRestSeconds?: (newRestSeconds: number) => void;
 }
 
 const TICK_MS = 200;
@@ -25,6 +29,7 @@ const RADIUS = (RING_SIZE - STROKE_W) / 2;
 const CIRC = 2 * Math.PI * RADIUS;
 const CENTER = RING_SIZE / 2;
 const EXTEND_SECONDS = 15;
+const REST_ADJUST_STEP = 15;
 
 export default function RestTimer({
   durationSec,
@@ -32,6 +37,8 @@ export default function RestTimer({
   onSkip,
   onComplete,
   onExtend,
+  currentRestSeconds,
+  onChangeRestSeconds,
 }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const firedRef = useRef(false);
@@ -64,6 +71,14 @@ export default function RestTimer({
     if (!onExtend) return;
     Haptics.selectionAsync().catch(() => {});
     onExtend(EXTEND_SECONDS);
+  };
+
+  const showRestAdjust =
+    typeof currentRestSeconds === 'number' && typeof onChangeRestSeconds === 'function';
+  const handleAdjustRest = (delta: number) => {
+    if (!onChangeRestSeconds || typeof currentRestSeconds !== 'number') return;
+    Haptics.selectionAsync().catch(() => {});
+    onChangeRestSeconds(Math.max(0, currentRestSeconds + delta));
   };
 
   return (
@@ -140,6 +155,36 @@ export default function RestTimer({
       >
         <Text style={styles.skipText}>Saltar descanso</Text>
       </Pressable>
+
+      {/* In-session rest tuning for THIS exercise. Edits the active workout
+          copy only — not persisted back to the block. */}
+      {showRestAdjust ? (
+        <View style={styles.adjustRow}>
+          <Text style={styles.adjustLabel}>
+            Próximo descanso: <Text style={styles.adjustValue}>{currentRestSeconds}s</Text>
+          </Text>
+          <View style={styles.adjustBtns}>
+            <Pressable
+              onPress={() => handleAdjustRest(-REST_ADJUST_STEP)}
+              accessibilityRole="button"
+              accessibilityLabel="Reducir descanso 15 segundos"
+              hitSlop={8}
+              style={({ pressed }) => [styles.adjustBtn, pressed && { opacity: 0.6 }]}
+            >
+              <Text style={styles.adjustBtnText}>−15</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleAdjustRest(REST_ADJUST_STEP)}
+              accessibilityRole="button"
+              accessibilityLabel="Aumentar descanso 15 segundos"
+              hitSlop={8}
+              style={({ pressed }) => [styles.adjustBtn, pressed && { opacity: 0.6 }]}
+            >
+              <Text style={styles.adjustBtnText}>+15</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -209,6 +254,37 @@ const styles = StyleSheet.create({
   skipText: {
     ...Type.micro,
     color: Colors.ink.tertiary,
+    fontWeight: '600',
+  },
+  // Optional in-session rest tuning. Pure ghost — no fills, no chrome.
+  adjustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  adjustLabel: {
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+  },
+  adjustValue: {
+    color: Colors.ink.secondary,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '600',
+  },
+  adjustBtns: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  adjustBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: Radius.sm,
+  },
+  adjustBtnText: {
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+    fontVariant: ['tabular-nums'],
     fontWeight: '600',
   },
 });
