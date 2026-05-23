@@ -17,6 +17,8 @@ import Animated, {
   runOnJS,
   Easing,
   useReducedMotion,
+  FadeIn,
+  FadeOut,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -37,6 +39,7 @@ import {
   formatReference,
   type PreviousReference,
 } from '../components/workout/lib/previousReference';
+import { detectPR, formatPRDelta, PR_LABEL, type PRResult } from '../components/workout/lib/prDetection';
 
 type Route = RouteProp<RootStackParamList, 'ActiveWorkout'>;
 
@@ -254,11 +257,53 @@ export default function ActiveWorkoutScreen() {
     setDraftValues((prev) => ({ ...prev, [fieldId]: value }));
   }, []);
 
+  // ===== PR detection state =====
+  // Floats the PR badge above the bottom CTA for 2.5s after a qualifying set.
+  // setId stamp prevents an old timer dismissing a freshly-detected PR.
+  const [recentPR, setRecentPR] = useState<{ setId: string; pr: PRResult } | null>(null);
+  const prTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (prTimerRef.current) clearTimeout(prTimerRef.current);
+    };
+  }, []);
+
   const handleCompleteSet = useCallback(() => {
     if (!aw || !exercise || !currentSet) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+
+    // Resolve weight/reps from the live draft (preferred) with fallback to the
+    // set's persisted values — preloaded goal weights and the "Repetir anterior"
+    // affordance both flow through values, so a user who taps "Complete" without
+    // touching the keypad still gets PR detection.
+    const w =
+      typeof draftValues['weight'] === 'number'
+        ? (draftValues['weight'] as number)
+        : typeof currentSet.values['weight'] === 'number'
+          ? (currentSet.values['weight'] as number)
+          : null;
+    const r =
+      typeof draftValues['reps'] === 'number'
+        ? (draftValues['reps'] as number)
+        : typeof currentSet.values['reps'] === 'number'
+          ? (currentSet.values['reps'] as number)
+          : null;
+
+    const pr = detectPR({
+      exerciseId: exercise.id,
+      set: { weight: w, reps: r },
+      history: workoutHistory,
+    });
+
     completeSet(exercise.id, currentSet.id, draftValues);
-  }, [aw, exercise, currentSet, draftValues, completeSet]);
+
+    if (pr) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setRecentPR({ setId: currentSet.id, pr });
+      if (prTimerRef.current) clearTimeout(prTimerRef.current);
+      prTimerRef.current = setTimeout(() => setRecentPR(null), 2500);
+    }
+  }, [aw, exercise, currentSet, draftValues, completeSet, workoutHistory]);
 
   // Mark the matching schedule occurrence as completed. Capture context BEFORE
   // finishWorkout() runs because that call clears activeWorkout.
@@ -554,6 +599,20 @@ export default function ActiveWorkoutScreen() {
       {/* Footer — single primary CTA that morphs when allCompleted */}
       {!restActive && (
         <View style={styles.footer}>
+          {recentPR ? (
+            <Animated.View
+              key={recentPR.setId}
+              entering={FadeIn.duration(200).easing(Easing.out(Easing.cubic))}
+              exiting={FadeOut.duration(200)}
+              style={styles.prBadge}
+              accessibilityRole="text"
+              accessibilityLabel={`Récord: ${PR_LABEL[recentPR.pr.kind]} ${formatPRDelta(recentPR.pr)}`}
+            >
+              <Text style={styles.prBadgeLabel}>{PR_LABEL[recentPR.pr.kind]}</Text>
+              <Text style={styles.prBadgeDot}>·</Text>
+              <Text style={styles.prBadgeDelta}>{formatPRDelta(recentPR.pr)}</Text>
+            </Animated.View>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={ctaLabel}
@@ -760,6 +819,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
+  },
+  // PR badge floats above the CTA after a qualifying set; auto-dismisses
+  // after 2.5s. Sober gold-on-warm, never any exclamation marks.
+  prBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: Colors.gold.glow,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    marginBottom: Spacing.sm,
+    gap: 6,
+  },
+  prBadgeLabel: {
+    ...Type.micro,
+    color: Colors.gold.deep,
+    fontWeight: '600',
+  },
+  prBadgeDelta: {
+    ...Type.micro,
+    color: Colors.gold.deep,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  prBadgeDot: {
+    ...Type.micro,
+    color: Colors.gold.deep,
+    opacity: 0.6,
   },
   // Single gold CTA — morphs label between "Completar set" and "Finalizar sesión".
   cta: {
