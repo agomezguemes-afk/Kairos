@@ -35,7 +35,7 @@ interface Props {
 export default function KIcon({
   name,
   size = 24,
-  color = Colors.gold[500],
+  color = Colors.gold.base,
   strokeWidth = 1.5,
 }: Props) {
   const stroke = color;

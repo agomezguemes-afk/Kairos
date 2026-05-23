@@ -221,6 +221,8 @@ export interface ExerciseCard {
   sets: ExerciseSet[];
   default_sets_count: number;
   rest_seconds: number;
+  goalWeight?: number;
+  goalReps?: number;
   created_at: ISOTimestamp;
   updated_at: ISOTimestamp;
 }

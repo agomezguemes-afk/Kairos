@@ -36,7 +36,7 @@ import * as Haptics from 'expo-haptics';
 import KIcon, { type KIconName } from '../../components/icons/KIcon';
 import AnimatedLogoPulse from '../../components/AnimatedLogoPulse';
 import { useTheme } from '../../theme/ThemeContext';
-import { Typography } from '../../theme/tokens';
+import { Colors, Typography } from '../../theme/tokens';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { useUserProfile } from '../../context/UserProfileContext';
 import { generateStarterRoutine } from '../../lib/routines/generateStarterRoutine';
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   goalCardShadow: {
-    shadowColor: '#1A1A2E',
+    shadowColor: Colors.ink.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -905,7 +905,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   equipChipShadow: {
-    shadowColor: '#1A1A2E',
+    shadowColor: Colors.ink.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,

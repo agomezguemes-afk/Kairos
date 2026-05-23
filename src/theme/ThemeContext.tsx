@@ -1,5 +1,9 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import { Appearance, type ColorSchemeName } from 'react-native';
+// KAIROS — Theme Context v2
+// Spec §3 (Phase 1): dark mode deferred — always resolves to light.
+// Public interface (useTheme, useThemeColors) unchanged so no call site breaks.
+// WHY: removes the three-palette fragmentation by locking to the v3 light palette.
+
+import React, { createContext, useContext, useMemo, useCallback } from 'react';
 
 import { buildThemeColors, type ThemeColors, type ThemeMode } from './tokens';
 import { useWorkoutStore, type ThemePreference } from '../store/workoutStore';
@@ -14,39 +18,30 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function resolveMode(pref: ThemePreference, system: ColorSchemeName): ThemeMode {
-  if (pref === 'light') return 'light';
-  if (pref === 'dark') return 'dark';
-  return system === 'dark' ? 'dark' : 'light';
-}
+// Light palette is the only palette for now.
+const LIGHT_COLORS: ThemeColors = buildThemeColors('light');
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const preference = useWorkoutStore((s) => s.themePreference);
   const setPreference = useWorkoutStore((s) => s.setThemePreference);
 
-  const [systemScheme, setSystemScheme] = useState<ColorSchemeName>(
-    Appearance.getColorScheme() ?? 'light',
-  );
-
-  useEffect(() => {
-    const sub = Appearance.addChangeListener(({ colorScheme }) => {
-      setSystemScheme(colorScheme ?? 'light');
-    });
-    return () => sub.remove();
-  }, []);
-
-  const mode = resolveMode(preference, systemScheme);
-  const colors = useMemo(() => buildThemeColors(mode), [mode]);
-
+  // themePreference is preserved in the store for future dark-mode
+  // reintroduction, but always resolves to 'light' here (spec §8).
   const toggleTheme = useCallback(() => {
-    if (preference === 'system') setPreference(mode === 'dark' ? 'light' : 'dark');
-    else if (preference === 'light') setPreference('dark');
+    // no-op for now; preference round-trips through the store for future use
+    if (preference === 'light') setPreference('dark');
     else setPreference('light');
-  }, [preference, mode, setPreference]);
+  }, [preference, setPreference]);
 
   const value: ThemeContextValue = useMemo(
-    () => ({ mode, preference, colors, setPreference, toggleTheme }),
-    [mode, preference, colors, setPreference, toggleTheme],
+    () => ({
+      mode:       'light' as ThemeMode,
+      preference,
+      colors:     LIGHT_COLORS,
+      setPreference,
+      toggleTheme,
+    }),
+    [preference, setPreference, toggleTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

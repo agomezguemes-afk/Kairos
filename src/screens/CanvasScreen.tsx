@@ -13,12 +13,11 @@ import EmptyState from '../components/EmptyState';
 import InsightWidget from '../components/widgets/InsightWidget';
 import KIcon from '../components/icons/KIcon';
 import { useWorkoutStore } from '../store/workoutStore';
-import { useTheme } from '../theme/ThemeContext';
 import { getNodeLabel } from '../features/blocks/components/nodeMeta';
 import type { RootStackParamList } from '../types/navigation';
 import type { WidgetData } from '../types/core';
 import { DEFAULT_CANVAS_SETTINGS } from '../types/core';
-import { Typography, Spacing, Radius, Shadows } from '../theme/tokens';
+import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/tokens';
 
 type CanvasRoute = RouteProp<RootStackParamList, 'Canvas'>;
 
@@ -30,8 +29,6 @@ export default function CanvasScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { blockId } = route.params;
-  const { colors, preference, setPreference, mode } = useTheme();
-
   const block = useWorkoutStore(
     useCallback((s) => s.blocks.find((b) => b.id === blockId) ?? null, [blockId]),
   );
@@ -117,45 +114,48 @@ export default function CanvasScreen() {
     [blockId, updateCanvasSettings],
   );
 
-  const cycleTheme = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (preference === 'system') setPreference('light');
-    else if (preference === 'light') setPreference('dark');
-    else setPreference('system');
-  }, [preference, setPreference]);
-
-  const themeIcon = preference === 'system' ? 'settings' : preference === 'dark' ? 'lock' : 'eye';
+  // Dark mode deferred (spec §8) — theme toggle removed from header.
+  // The icon button slot is preserved for future use.
 
   if (!block) {
     return (
-      <View style={[styles.screen, styles.center, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.empty, { color: colors.text.secondary }]}>Bloque no encontrado</Text>
+      <View style={[styles.screen, styles.center]}>
+        <Text style={styles.empty}>Bloque no encontrado</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.surface, paddingTop: insets.top }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => nav.goBack()} hitSlop={8} style={styles.iconBtn}>
-          <KIcon name="x" size={18} color={colors.text.primary} />
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar canvas"
+          onPress={() => nav.goBack()}
+          hitSlop={8}
+          style={styles.iconBtn}
+        >
+          <KIcon name="x" size={18} color={Colors.ink.primary} />
         </Pressable>
         <View style={styles.titleWrap}>
-          <Text style={[styles.title, { color: colors.text.primary }]} numberOfLines={1}>
+          <Text style={styles.title} numberOfLines={1}>
             {block.name}
           </Text>
-          <Text style={[styles.subtitle, { color: colors.text.muted }]}>
-            Canvas · {widgets.length} widgets · {mode}
+          <Text style={styles.subtitle}>
+            Canvas · {widgets.length} widgets
           </Text>
         </View>
-        <Pressable onPress={cycleTheme} hitSlop={8} style={styles.iconBtn}>
-          <KIcon name={themeIcon} size={18} color={colors.gold[500]} />
-        </Pressable>
-        <Pressable onPress={handleToggleGrid} hitSlop={8} style={styles.iconBtn}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={settings.showGrid ? 'Ocultar grid' : 'Mostrar grid'}
+          onPress={handleToggleGrid}
+          hitSlop={8}
+          style={styles.iconBtn}
+        >
           <KIcon
             name="grid"
             size={18}
-            color={settings.showGrid ? colors.gold[500] : colors.text.muted}
+            color={settings.showGrid ? Colors.gold.base : Colors.ink.muted}
           />
         </Pressable>
       </View>
@@ -181,22 +181,29 @@ export default function CanvasScreen() {
 
       <InsightWidget />
 
+      {/* FAB — gold bg, ink.primary icon (spec §5.5: black-on-gold more legible) */}
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Añadir widget al canvas"
         onPress={handleAddNodeWidget}
-        style={[styles.fab, { backgroundColor: colors.gold[500], bottom: insets.bottom + 24 }]}
+        style={[styles.fab, { bottom: insets.bottom + 24 }]}
       >
-        <KIcon name="plus" size={22} color="#FFFFFF" />
+        <KIcon name="plus" size={22} color={Colors.ink.primary} />
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.bg.surface,
+  },
   center: { alignItems: 'center', justifyContent: 'center' },
   empty: {
     fontSize: Typography.body.fontSize,
     lineHeight: Typography.body.lineHeight,
+    color: Colors.ink.secondary,
   },
   header: {
     flexDirection: 'row',
@@ -205,6 +212,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.hair.subtle,
+    backgroundColor: Colors.bg.surface,
   },
   iconBtn: { padding: Spacing.xs },
   titleWrap: { flex: 1 },
@@ -212,11 +221,13 @@ const styles = StyleSheet.create({
     fontSize: Typography.heading.fontSize,
     fontWeight: Typography.heading.fontWeight,
     lineHeight: Typography.heading.lineHeight,
+    color: Colors.ink.primary,
   },
   subtitle: {
     fontSize: Typography.caption.fontSize,
     fontWeight: Typography.caption.fontWeight,
     lineHeight: Typography.caption.lineHeight,
+    color: Colors.ink.muted,
   },
   emptyOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -231,6 +242,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.gold.base,
     ...Shadows.modal,
   },
 });

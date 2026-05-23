@@ -17,7 +17,7 @@ import NodeRenderer from '../features/blocks/components/NodeRenderer';
 import { getNodeIcon, getNodeLabel } from '../features/blocks/components/nodeMeta';
 import type { WidgetData } from '../types/core';
 import { useWorkoutStore } from '../store/workoutStore';
-import { Radius, Shadows, Spacing, Typography } from '../theme/tokens';
+import { Colors, Radius, Shadows, Spacing, Typography } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 import { type GuideSlot } from './GuideLines';
 import KIcon from './icons/KIcon';
@@ -539,7 +539,7 @@ function WidgetInner({ blockId, widget, ctx }: WidgetProps) {
 
       {matchLabel && (
         <View style={[styles.matchLabelWrap, { backgroundColor: colors.gold[500] }]} pointerEvents="none">
-          <Text style={[styles.matchLabel, { color: '#1A1A2E' }]}>{matchLabel}</Text>
+          <Text style={[styles.matchLabel, { color: Colors.ink.primary }]}>{matchLabel}</Text>
         </View>
       )}
 

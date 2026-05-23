@@ -307,7 +307,7 @@ export default function BlockDetailScreen({ route, navigation }: any) {
           onPress={() => navigation.navigate('ActiveWorkout', { blockId })}
           style={[styles.startWorkoutBtn, { bottom: insets.bottom + 20 }]}
         >
-          <Feather name="play" size={18} color="#1A1A2E" />
+          <Feather name="play" size={18} color={Colors.ink.primary} />
           <Text style={styles.startWorkoutText}>Iniciar entrenamiento</Text>
         </Pressable>
       )}
@@ -537,12 +537,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.gold[500],
+    backgroundColor: Colors.gold.base,
     ...Shadows.elevated,
   },
   startWorkoutText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: Colors.ink.primary,
   },
 });
