@@ -85,6 +85,46 @@ function formatRelativeAgo(ts: number): string {
   return `hace ${months} meses`;
 }
 
+// Inline micro-badges for set metadata (kind/RPE/note). Rendered next to the
+// values text inside the set row — kept compact so the row stays one line.
+// We deliberately use single-letter pills (W/D/F) for set kind because the
+// user already knows what they tagged; full labels live in the action sheet.
+function SetMetadataBadges({ set }: { set: ExerciseSet }) {
+  const kind = set.kind ?? 'working';
+  const hasNote = !!(set.notes && set.notes.length > 0);
+  const hasRpe = set.rpe != null;
+  if (kind === 'working' && !hasNote && !hasRpe) return null;
+  return (
+    <View style={styles.badgeRow}>
+      {kind === 'warmup' ? (
+        <View style={styles.badge}>
+          <Text style={[styles.badgeText, { color: Colors.semantic.info }]}>W</Text>
+        </View>
+      ) : null}
+      {kind === 'drop' ? (
+        <View style={styles.badge}>
+          <Text style={[styles.badgeText, { color: Colors.semantic.warning }]}>D</Text>
+        </View>
+      ) : null}
+      {kind === 'failure' ? (
+        <View style={styles.badge}>
+          <Text style={[styles.badgeText, { color: Colors.semantic.error }]}>F</Text>
+        </View>
+      ) : null}
+      {hasRpe ? (
+        <View style={styles.badge}>
+          <Text style={[styles.badgeText, { color: Colors.gold.deep }]}>RPE {set.rpe}</Text>
+        </View>
+      ) : null}
+      {hasNote ? (
+        <View style={[styles.badge, styles.badgeIcon]}>
+          <KIcon name="note" size={11} color={Colors.ink.tertiary} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 // Sober "Última · 60 kg × 8 · hace 4 días" pill.
 // Hidden when no prior reference is available — never render a hollow shell.
 function PreviousRefPill({ reference }: { reference: PreviousReference }) {
@@ -571,10 +611,16 @@ export default function ActiveWorkoutScreen() {
                   const summary = s.completed
                     ? formatSetSummary(s, exercise.fields)
                     : '';
+                  const kind = s.kind ?? 'working';
+                  const a11yMeta =
+                    (kind !== 'working' ? `, tipo ${kind}` : '') +
+                    (s.rpe != null ? `, RPE ${s.rpe}` : '') +
+                    (s.notes ? ', con nota' : '');
                   const a11y =
                     `Set ${i + 1}` +
                     (s.completed ? `, completado${summary ? `, ${summary}` : ''}` :
-                     isCurrent  ? ', activo' : '');
+                     isCurrent  ? ', activo' : '') +
+                    a11yMeta;
                   const handleSetLongPress = () => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
                     setActionTarget({ exerciseId: exercise.id, setId: s.id });
@@ -610,6 +656,7 @@ export default function ActiveWorkoutScreen() {
                             {summary}
                           </Text>
                         ) : null}
+                        <SetMetadataBadges set={s} />
                       </Pressable>
                       {isCurrent && !s.completed && (
                         <View style={styles.inputAttached}>
@@ -856,6 +903,34 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: Colors.ink.tertiary,
     flex: 1,
+  },
+  // Inline metadata badges row inside a set row (W/D/F pills, RPE chip, note
+  // icon). Sits to the right of the values summary — micro-sized so the set
+  // row stays a single visual line.
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 'auto',
+  },
+  badge: {
+    minHeight: 18,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.bg.elevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeIcon: {
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    ...Type.micro,
+    fontWeight: '700',
+    fontSize: 10,
+    lineHeight: 12,
   },
   // Input panel attaches to the active set row only — no longer a separate
   // section below the pills.
