@@ -12,6 +12,7 @@ import type {
   WidgetData,
   CanvasSettings,
   CanvasData,
+  SetKind,
 } from '../types/core';
 import {
   createWorkoutBlock,
@@ -65,7 +66,17 @@ export interface ExerciseHistorySummary {
   plannedWeight?: number;
   plannedReps?: number;
   plannedSetsCount?: number;
-  performedSets?: Array<{ weight: number | null; reps: number | null; completed: boolean }>;
+  performedSets?: Array<{
+    weight: number | null;
+    reps: number | null;
+    completed: boolean;
+    /** Set kind (warmup/drop/failure). Undefined = 'working'. */
+    kind?: SetKind;
+    /** RPE 1..10 if rated. */
+    rpe?: number;
+    /** Per-set freeform note (may be empty). */
+    notes?: string | null;
+  }>;
 }
 
 export interface WorkoutHistoryEntry {
@@ -123,6 +134,15 @@ interface WorkoutState {
     blockId: string,
     exerciseId: string,
     goal: { goalWeight?: number; goalReps?: number },
+  ) => void;
+  /**
+   * Patch metadata on a set inside the active workout (kind, rpe, notes).
+   * Passing `null` for `rpe` clears it; omitting a field leaves it unchanged.
+   */
+  updateSetMetadata: (
+    exerciseId: string,
+    setId: string,
+    patch: { kind?: SetKind; rpe?: number | null; notes?: string | null },
   ) => void;
   finishWorkout: () => WorkoutHistoryEntry | null;
   cancelWorkout: () => void;
@@ -517,6 +537,28 @@ export const useWorkoutStore = create<WorkoutState>()(
         });
       },
 
+      updateSetMetadata: (exerciseId, setId, patch) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const exercises = state.activeWorkout.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex;
+            const sets = ex.sets.map((s) => {
+              if (s.id !== setId) return s;
+              const next: ExerciseSet = { ...s };
+              if (patch.kind !== undefined) next.kind = patch.kind;
+              if (patch.rpe !== undefined) {
+                if (patch.rpe === null) next.rpe = undefined;
+                else next.rpe = patch.rpe;
+              }
+              if (patch.notes !== undefined) next.notes = patch.notes;
+              return next;
+            });
+            return { ...ex, sets };
+          });
+          return { activeWorkout: { ...state.activeWorkout, exercises } };
+        });
+      },
+
       finishWorkout: () => {
         let summary: WorkoutHistoryEntry | null = null;
         set((state) => {
@@ -530,11 +572,18 @@ export const useWorkoutStore = create<WorkoutState>()(
             let maxW = 0;
             let exVol = 0;
             let setsDone = 0;
-            const performedSets: Array<{ weight: number | null; reps: number | null; completed: boolean }> = [];
+            const performedSets: ExerciseHistorySummary['performedSets'] = [];
             for (const s of ex.sets) {
               const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
               const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : null;
-              performedSets.push({ weight: w, reps: r, completed: s.completed });
+              performedSets.push({
+                weight: w,
+                reps: r,
+                completed: s.completed,
+                kind: s.kind,
+                rpe: s.rpe,
+                notes: s.notes,
+              });
               if (!s.completed) continue;
               setsDone += 1;
               totalSets += 1;
