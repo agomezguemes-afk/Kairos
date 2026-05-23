@@ -27,6 +27,7 @@ import RestTimer from '../components/workout/RestTimer';
 import SetInput from '../components/workout/SetInput';
 import WorkoutSummary from '../components/workout/WorkoutSummary';
 import PlateCalculator from '../components/workout/PlateCalculator';
+import SetActionSheet from '../components/workout/SetActionSheet';
 import AddExerciseSheet from '../features/blocks/components/AddExerciseSheet';
 import { useWorkoutStore, type WorkoutHistoryEntry } from '../store/workoutStore';
 import { useScheduleStore } from '../store/scheduleStore';
@@ -158,6 +159,10 @@ export default function ActiveWorkoutScreen() {
   // draftValues['weight'] so the regular Complete Set flow handles persistence.
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcTarget, setCalcTarget] = useState(60);
+
+  // ===== per-set action sheet (kind/RPE/notes) =====
+  // Opened by long-press on any set row. Targets a specific (exerciseId, setId).
+  const [actionTarget, setActionTarget] = useState<{ exerciseId: string; setId: string } | null>(null);
 
   // ===== current state =====
   const exercise: ExerciseCard | null = useMemo(() => {
@@ -558,7 +563,8 @@ export default function ActiveWorkoutScreen() {
               </View>
 
               {/* Set rows — leading dot + index, completed shows inline values,
-                  active row mounts the input panel beneath. */}
+                  active row mounts the input panel beneath. Long-press opens
+                  the per-set action sheet (kind / RPE / note). */}
               <View style={styles.setList}>
                 {exercise.sets.map((s, i) => {
                   const isCurrent = i === aw.currentSetIndex;
@@ -569,12 +575,19 @@ export default function ActiveWorkoutScreen() {
                     `Set ${i + 1}` +
                     (s.completed ? `, completado${summary ? `, ${summary}` : ''}` :
                      isCurrent  ? ', activo' : '');
+                  const handleSetLongPress = () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                    setActionTarget({ exerciseId: exercise.id, setId: s.id });
+                  };
                   return (
                     <View key={s.id}>
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={a11y}
+                        accessibilityHint="Mantén pulsado para añadir nota, RPE o tipo de set"
                         onPress={() => goToSet(i)}
+                        onLongPress={handleSetLongPress}
+                        delayLongPress={350}
                         style={({ pressed }) => [
                           styles.setRow,
                           isCurrent && styles.setRowActive,
@@ -670,6 +683,15 @@ export default function ActiveWorkoutScreen() {
         onConfirm={handleCalcConfirm}
         onClose={() => setCalcOpen(false)}
       />
+
+      {actionTarget ? (
+        <SetActionSheet
+          visible
+          exerciseId={actionTarget.exerciseId}
+          setId={actionTarget.setId}
+          onClose={() => setActionTarget(null)}
+        />
+      ) : null}
     </View>
   );
 }
