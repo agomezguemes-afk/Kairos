@@ -119,6 +119,7 @@ export default function ActiveWorkoutScreen() {
   const startWorkout         = useWorkoutStore((s) => s.startWorkout);
   const completeSet          = useWorkoutStore((s) => s.completeSet);
   const skipRest             = useWorkoutStore((s) => s.skipRest);
+  const extendRest           = useWorkoutStore((s) => s.extendRest);
   const nextExercise         = useWorkoutStore((s) => s.nextExercise);
   const previousExercise     = useWorkoutStore((s) => s.previousExercise);
   const goToSet              = useWorkoutStore((s) => s.goToSet);
@@ -528,6 +529,7 @@ export default function ActiveWorkoutScreen() {
               startTime={aw.restTimer.startTime}
               onSkip={skipRest}
               onComplete={skipRest}
+              onExtend={extendRest}
             />
           ) : (
             <ScrollView
