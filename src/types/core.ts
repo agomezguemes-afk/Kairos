@@ -172,6 +172,12 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
 
 // ======================== SET ========================
 
+/**
+ * Classification of a working set. Undefined is treated as `'working'` by
+ * consumers — kept optional so legacy persisted sets keep deserializing.
+ */
+export type SetKind = 'working' | 'warmup' | 'drop' | 'failure';
+
 export interface ExerciseSet {
   id: string;
   exercise_card_id: string;
@@ -180,6 +186,10 @@ export interface ExerciseSet {
   completed: boolean;
   completed_at: ISOTimestamp | null;
   notes: string | null;
+  /** Defaults to 'working' when undefined. */
+  kind?: SetKind;
+  /** RPE 1..10. Undefined = not rated. */
+  rpe?: number;
 }
 
 export function createSetId(): string {
