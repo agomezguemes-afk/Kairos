@@ -9,15 +9,7 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
-  Dimensions,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -35,8 +27,8 @@ import ExerciseLibrarySheet from './components/ExerciseLibrarySheet';
 import ComponentPalette from './components/ComponentPalette';
 import SlashCommandMenu from './components/SlashCommandMenu';
 import BlockActionSheet from './components/BlockActionSheet';
-import DraggableNode from './components/DraggableNode';
 import BlockAISheet from './components/BlockAISheet';
+import Spine from './components/Spine';
 import EmptyState from '../../components/EmptyState';
 import CompletionCelebration from '../../components/CompletionCelebration';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
@@ -55,62 +47,12 @@ import {
   createSpacerNode,
   createColumnSectionNode,
   getNextOrder,
-  buildRenderGroups,
-  type RenderGroup,
 } from '../../types/content';
+import { buildSpineRows, type SpineRow as SpineRowData } from './lib/spineLayout';
 import type { RootStackParamList } from '../../types/navigation';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 import { useBlockEditor } from './hooks/useBlockEditor';
-
-const SCREEN_W = Dimensions.get('window').width;
-
-// ======================== DRAG COLUMN WRAPPER ========================
-
-const DragColumn = React.memo(function DragColumn({
-  colIdx,
-  dragSourceColumn,
-  dragSectionIdx,
-  dragTargetSectionIdx,
-  dragTargetColumn,
-  dragActive,
-  sectionIndex,
-  style,
-  children,
-}: {
-  colIdx: number;
-  dragSourceColumn: SharedValue<number>;
-  dragSectionIdx: SharedValue<number>;
-  dragTargetSectionIdx: SharedValue<number>;
-  dragTargetColumn: SharedValue<number>;
-  dragActive: SharedValue<number>;
-  sectionIndex: number;
-  style: any;
-  children: React.ReactNode;
-}) {
-  const liftStyle = useAnimatedStyle(() => ({
-    zIndex: dragSourceColumn.value === colIdx && dragSectionIdx.value === sectionIndex ? 1000 : 0,
-  }));
-
-  const dropZoneStyle = useAnimatedStyle(() => {
-    const isTarget = dragActive.value >= 0
-      && dragTargetSectionIdx.value === sectionIndex
-      && dragTargetColumn.value === colIdx
-      && dragSectionIdx.value !== sectionIndex;
-    return {
-      backgroundColor: isTarget ? Colors.accent.primary + '0A' : 'transparent',
-      borderColor: isTarget ? Colors.accent.primary + '30' : 'transparent',
-      borderWidth: withTiming(isTarget ? 1.5 : 0, { duration: 150 }),
-      borderRadius: 10,
-    };
-  });
-
-  return (
-    <Animated.View style={[style, liftStyle, dropZoneStyle]}>
-      {children}
-    </Animated.View>
-  );
-});
 
 // ======================== WIDTH PRESETS ========================
 
@@ -132,7 +74,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const confettiRef = useRef<ConfettiRef | null>(null);
-  const sectionLayoutsRef = useRef<Map<number, { y: number; height: number; sectionId: string | null; cols: number }>>(new Map());
 
   const {
     block,
@@ -154,7 +95,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const deleteContentNode = useWorkoutStore((s) => s.deleteContentNode);
   const duplicateContentNode = useWorkoutStore((s) => s.duplicateContentNode);
   const moveContentNode = useWorkoutStore((s) => s.moveContentNode);
-  const reorderContentNodes = useWorkoutStore((s) => s.reorderContentNodes);
   const updateBlock = useWorkoutStore((s) => s.updateBlock);
   const addBlock = useWorkoutStore((s) => s.addBlock);
 
@@ -186,20 +126,13 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   // Floating AI assistant
   const [showAI, setShowAI] = useState(false);
 
-  // Drag-and-drop state (unified, section-aware)
+  // Scroll lock (M2: kept for future drag reorder in M4)
   const [scrollLocked, setScrollLocked] = useState(false);
-  const dragActive = useSharedValue(-1);
-  const dragDrop = useSharedValue(-1);
-  const dragHeight = useSharedValue(60);
-  const dragSourceCol = useSharedValue(-1);
-  const dragTargetCol = useSharedValue(-1);
-  const dragSectionIdx = useSharedValue(-1);
-  const dragTargetSectionIdx = useSharedValue(-1);
 
   const stats = useMemo(() => block ? calculateBlockStats(block) : null, [block]);
 
-  const renderGroups = useMemo(
-    () => block ? buildRenderGroups(block.content) : [],
+  const spineRows = useMemo(
+    () => block ? buildSpineRows(block.content) : [],
     [block],
   );
 
@@ -467,64 +400,10 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     updateContentNode(blockId, nodeId, { data: { ...node.data, format } } as any);
   }, [blockId, updateContentNode]);
 
-  // ======================== DRAG REORDER ========================
-
-  const handleDragDrop = useCallback((
-    sourceNodes: ContentNode[],
-    fromIndex: number,
-    toIndex: number,
-    sourceCol: number,
-    targetCol: number,
-    sourceSectionId: string | null,
-    targetSectionIdx: number,
-    sourceSectionIdx: number,
-  ) => {
-    const node = sourceNodes[fromIndex];
-    if (!node) return;
-    const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
-    if (!fresh) return;
-
-    const crossSection = targetSectionIdx !== sourceSectionIdx;
-    let targetSectionId: string | null = null;
-
-    if (crossSection) {
-      const groups = buildRenderGroups(fresh.content);
-      let idx = 0;
-      for (const g of groups) {
-        if (idx === targetSectionIdx) {
-          targetSectionId = g.type === 'section' ? g.sectionNode.id : null;
-          break;
-        }
-        idx++;
-      }
-    } else {
-      targetSectionId = sourceSectionId;
-    }
-
-    if (!crossSection && sourceCol === targetCol) {
-      const ids = sourceNodes.map(n => n.id);
-      const [movedId] = ids.splice(fromIndex, 1);
-      ids.splice(Math.max(0, toIndex), 0, movedId);
-      reorderContentNodes(blockId, ids);
-    } else {
-      const targetNodes = fresh.content
-        .filter(n => (n.column ?? 0) === targetCol && (targetSectionId ? n.section === targetSectionId : !n.section))
-        .sort((a, b) => a.order - b.order);
-      const newOrder = targetNodes.length > 0
-        ? Math.max(...targetNodes.map(n => n.order)) + 1
-        : 0;
-      updateContentNode(blockId, node.id, {
-        column: targetCol,
-        order: newOrder,
-        section: targetSectionId ?? undefined,
-      } as any);
-      setTimeout(normalizeOrders, 50);
-    }
-  }, [blockId, reorderContentNodes, updateContentNode, normalizeOrders]);
-
-  const handleDragActiveChange = useCallback((active: boolean) => {
-    setScrollLocked(active);
-  }, []);
+  // NOTE: drag reorder via DraggableNode was removed in Batch M2. M4 will
+  // re-introduce reordering on the spine using react-native-draggable-flatlist.
+  // The handlers above (reorderContentNodes, moveContentNode) are kept for
+  // that work plus for BlockActionSheet's Move Up / Move Down options.
 
   // ======================== EXERCISE ========================
 
@@ -687,36 +566,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     }
   };
 
-  const renderDraggableList = (nodes: ContentNode[], colIdx: number, colCount: number, colWidth: number, sectionIndex: number, sectionId: string | null, compact: boolean) => {
-    return nodes.map((node, idx) => (
-      <DraggableNode
-        key={node.id}
-        index={idx}
-        totalCount={nodes.length}
-        columnIndex={colIdx}
-        columnCount={colCount}
-        columnWidth={colWidth}
-        sectionIndex={sectionIndex}
-        sectionId={sectionId}
-        activeDragIndex={dragActive}
-        currentDropIndex={dragDrop}
-        dragItemHeight={dragHeight}
-        dragSourceColumn={dragSourceCol}
-        dragTargetColumn={dragTargetCol}
-        dragSectionIdx={dragSectionIdx}
-        dragTargetSectionIdx={dragTargetSectionIdx}
-        onDrop={(from, to, tgtCol, tgtSectionIdx) => handleDragDrop(
-          nodes, from, to, colIdx, tgtCol,
-          sectionId, tgtSectionIdx, sectionIndex,
-        )}
-        onTapHandle={() => handleOpenActions(node)}
-        onDragActiveChange={handleDragActiveChange}
-      >
-        {renderNode(node, compact)}
-      </DraggableNode>
-    ));
-  };
-
   const renderBlankInput = (sectionId: string | null, colIdx: number, compact: boolean = false) => {
     const key = blankKeyFn(sectionId, colIdx);
     const draft = blankDrafts[key] ?? '';
@@ -745,13 +594,13 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     );
   };
 
-  const renderSectionHeader = (sectionNode: ColumnSectionContentNode, sectionIndex: number) => {
+  const renderSectionTile = (sectionNode: ColumnSectionContentNode) => {
     const cols = sectionNode.data.columns;
     const widths = sectionNode.data.widths;
     const presets = cols === 2 ? WIDTH_PRESETS_2 : WIDTH_PRESETS_3;
 
     return (
-      <Animated.View entering={FadeIn.duration(150)} style={styles.sectionHeader}>
+      <View style={styles.sectionHeader}>
         <View style={styles.sectionHeaderLeft}>
           <Feather name="columns" size={12} color={Colors.text.disabled} />
           <Text style={styles.sectionLabel}>{cols} col</Text>
@@ -766,6 +615,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
                 key={i}
                 onPress={() => handleSectionWidthChange(sectionNode.id, preset.widths)}
                 style={[styles.sectionWidthBtn, isActive && styles.sectionWidthBtnActive]}
+                accessibilityLabel={`Anchos ${preset.label}`}
               >
                 <Text style={[styles.sectionWidthText, isActive && styles.sectionWidthTextActive]}>
                   {preset.label}
@@ -774,95 +624,48 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
             );
           })}
         </View>
-        <Pressable onPress={() => handleDeleteNode(sectionNode.id)} hitSlop={8}>
+        <Pressable
+          onPress={() => handleDeleteNode(sectionNode.id)}
+          hitSlop={8}
+          accessibilityLabel="Eliminar sección"
+        >
           <Feather name="x" size={14} color={Colors.text.disabled} />
         </Pressable>
-      </Animated.View>
-    );
-  };
-
-  const renderColumnSection = (group: RenderGroup & { type: 'section' }, sectionIndex: number) => {
-    const { sectionNode, children } = group;
-    const cols = sectionNode.data.columns;
-    const widths = sectionNode.data.widths;
-    const hPad = Spacing.screen.horizontal * 2;
-    const gap = Spacing.md * (cols - 1);
-    const totalAvail = SCREEN_W - hPad - gap;
-
-    const colWidthsPx = widths && widths.length === cols
-      ? widths.map(w => w * totalAvail)
-      : Array(cols).fill(totalAvail / cols);
-
-    const avgColWidth = totalAvail / cols;
-
-    const colNodes: ContentNode[][] = Array.from({ length: cols }, () => []);
-    for (const node of children) {
-      const col = Math.min(node.column ?? 0, cols - 1);
-      colNodes[col].push(node);
-    }
-    for (const arr of colNodes) arr.sort((a, b) => a.order - b.order);
-
-    return (
-      <View key={sectionNode.id} style={styles.sectionContainer}>
-        {renderSectionHeader(sectionNode, sectionIndex)}
-        <View style={styles.columnsRow}>
-          {colNodes.map((nodes, colIdx) => (
-            <DragColumn
-              key={colIdx}
-              colIdx={colIdx}
-              dragSourceColumn={dragSourceCol}
-              dragSectionIdx={dragSectionIdx}
-              dragTargetSectionIdx={dragTargetSectionIdx}
-              dragTargetColumn={dragTargetCol}
-              dragActive={dragActive}
-              sectionIndex={sectionIndex}
-              style={[
-                styles.column,
-                widths ? { flex: 0, width: colWidthsPx[colIdx] } : null,
-              ]}
-            >
-              {renderDraggableList(nodes, colIdx, cols, avgColWidth, sectionIndex, sectionNode.id, true)}
-              {slashActive && slashKey === blankKeyFn(sectionNode.id, colIdx) && (
-                <SlashCommandMenu query={slashQuery} onSelect={handleSlashSelect} insideSection />
-              )}
-              {renderBlankInput(sectionNode.id, colIdx, true)}
-            </DragColumn>
-          ))}
-        </View>
       </View>
     );
   };
 
-  const renderFullWidthGroup = (group: RenderGroup & { type: 'fullWidth' }, sectionIndex: number) => {
-    return (
-      <DragColumn
-        key={`fw-${sectionIndex}`}
-        colIdx={0}
-        dragSourceColumn={dragSourceCol}
-        dragSectionIdx={dragSectionIdx}
-        dragTargetSectionIdx={dragTargetSectionIdx}
-        dragTargetColumn={dragTargetCol}
-        dragActive={dragActive}
-        sectionIndex={sectionIndex}
-        style={styles.fullWidthGroup}
-      >
-        {renderDraggableList(group.nodes, 0, 1, SCREEN_W, sectionIndex, null, false)}
-      </DragColumn>
-    );
-  };
+  // Spine renderer — every node renders as one full-width tile attached to a
+  // station node on the gold vertical spine. Long-press the station opens
+  // BlockActionSheet (move / duplicate / transform / delete). Column data is
+  // preserved but not visually rendered side-by-side in this MVP iteration.
+  const renderRowTile = useCallback((row: SpineRowData): React.ReactNode => {
+    const node = row.tiles[0]?.node;
+    if (!node) return null;
+    if (row.kind === 'divider') return null;
+    if (row.kind === 'section' && node.type === 'columnSection') {
+      return renderSectionTile(node);
+    }
+    return renderNode(node, false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block, blockId]);
+
+  const handleRowLongPress = useCallback((row: SpineRowData) => {
+    const node = row.tiles[0]?.node;
+    if (node) handleOpenActions(node);
+  }, [handleOpenActions]);
 
   const renderContent = () => {
     if (block && block.content.length === 0) {
       return <EmptyState type="blocks" />;
     }
-    let secIdx = 0;
-    return renderGroups.map((group) => {
-      const idx = secIdx++;
-      if (group.type === 'section') {
-        return renderColumnSection(group, idx);
-      }
-      return renderFullWidthGroup(group, idx);
-    });
+    return (
+      <Spine
+        rows={spineRows}
+        renderRow={renderRowTile}
+        onRowLongPress={handleRowLongPress}
+      />
+    );
   };
 
   return (
