@@ -23,6 +23,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 
 import KIcon from '../components/icons/KIcon';
+import WorkoutSpineProgress from '../components/workout/WorkoutSpineProgress';
 import RestTimer from '../components/workout/RestTimer';
 import SetInput from '../components/workout/SetInput';
 import WorkoutSummary from '../components/workout/WorkoutSummary';
@@ -427,35 +428,7 @@ export default function ActiveWorkoutScreen() {
     return true;
   }, [aw]);
 
-  // Total set completion across the whole workout — used by the header
-  // progress bar so the user has a single, ambient sense of "how far in".
-  const progressPct = useMemo(() => {
-    if (!aw) return 0;
-    let total = 0;
-    let done = 0;
-    for (const ex of aw.exercises) {
-      total += ex.sets.length;
-      for (const s of ex.sets) if (s.completed) done++;
-    }
-    return total > 0 ? done / total : 0;
-  }, [aw]);
-
   const reducedMotion = useReducedMotion();
-  const progressShared = useSharedValue(0);
-  useEffect(() => {
-    if (reducedMotion) {
-      progressShared.value = progressPct;
-      return;
-    }
-    progressShared.value = withTiming(progressPct, {
-      duration: Animation.duration.normal,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [progressPct, progressShared, reducedMotion]);
-
-  const progressBarStyle = useAnimatedStyle(() => ({
-    width: `${Math.max(0, Math.min(1, progressShared.value)) * 100}%`,
-  }));
 
   useEffect(() => {
     if (allCompleted && aw && !summary) {
@@ -557,13 +530,14 @@ export default function ActiveWorkoutScreen() {
         </View>
       </View>
 
-      {/* Global progress bar — 1px hairline showing total set ratio */}
-      <View
-        style={styles.progressTrack}
-        accessibilityRole="progressbar"
-        accessibilityValue={{ min: 0, max: 1, now: progressPct }}
-      >
-        <Animated.View style={[styles.progressFill, progressBarStyle]} />
+      {/* Spine progress strip — horizontal variant of the editor's vertical
+          spine. Completed exercises fill solid gold, current pulses, future
+          stay hollow. Replaces the prior 1px hairline progress bar. */}
+      <View style={styles.spineWrap}>
+        <WorkoutSpineProgress
+          exercises={aw.exercises}
+          currentIndex={aw.currentExerciseIndex}
+        />
       </View>
 
       {/* Main */}
@@ -784,16 +758,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     letterSpacing: 0.5,
   },
-  // Hairline progress under header — single ambient indicator of total ratio.
-  progressTrack: {
-    height: 1,
-    backgroundColor: Colors.hair.base,
+  // Spine progress strip — horizontal variant of the editor's vertical spine.
+  spineWrap: {
     marginHorizontal: Spacing.lg,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 1,
-    backgroundColor: Colors.gold.base,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   main: {
     flex: 1,
