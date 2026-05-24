@@ -29,6 +29,8 @@ import SlashCommandMenu from './components/SlashCommandMenu';
 import BlockActionSheet from './components/BlockActionSheet';
 import BlockAISheet from './components/BlockAISheet';
 import Spine from './components/Spine';
+import CompoundTile from './components/tiles/CompoundTile';
+import AccessoryTile from './components/tiles/AccessoryTile';
 import EmptyState from '../../components/EmptyState';
 import CompletionCelebration from '../../components/CompletionCelebration';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
@@ -635,6 +637,14 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     );
   };
 
+  // First exercise on the spine renders as CompoundTile (hero); subsequent
+  // exercises render as AccessoryTile (compact). This keeps the visual
+  // rhythm of a typical session: one anchor lift, accessories under it.
+  const firstExerciseRowId = useMemo(() => {
+    const r = spineRows.find(row => row.kind === 'exercise');
+    return r?.id ?? null;
+  }, [spineRows]);
+
   // Spine renderer — every node renders as one full-width tile attached to a
   // station node on the gold vertical spine. Long-press the station opens
   // BlockActionSheet (move / duplicate / transform / delete). Column data is
@@ -646,9 +656,26 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     if (row.kind === 'section' && node.type === 'columnSection') {
       return renderSectionTile(node);
     }
+    if (row.kind === 'exercise' && node.type === 'exercise') {
+      const Tile = row.id === firstExerciseRowId ? CompoundTile : AccessoryTile;
+      return (
+        <Tile
+          exercise={node.data.exercise}
+          blockId={blockId}
+          index={node.order}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdateName={handleUpdateExerciseName}
+          onUpdateSetValue={handleUpdateSetValue}
+          onToggleSetComplete={handleSetComplete}
+          onAddSet={handleAddSet}
+          onRemoveSet={handleRemoveSet}
+          onDeleteExercise={handleDeleteExerciseConfirm}
+        />
+      );
+    }
     return renderNode(node, false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [block, blockId]);
+  }, [block, blockId, firstExerciseRowId]);
 
   const handleRowLongPress = useCallback((row: SpineRowData) => {
     const node = row.tiles[0]?.node;
