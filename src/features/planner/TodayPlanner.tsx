@@ -18,6 +18,7 @@ import AssignBlockSheet from './components/AssignBlockSheet';
 import RecurrenceEditorSheet from './components/RecurrenceEditorSheet';
 import MovePicker from './components/MovePicker';
 import ChangeBlockPicker from './components/ChangeBlockPicker';
+import TemplatePickerSheet from '../blocks/components/TemplatePickerSheet';
 
 import { todayISO } from './lib/dates';
 import { kaiSignal, type KaiSignal } from './lib/kaiSignal';
@@ -43,6 +44,7 @@ export default function TodayPlanner() {
   const [editSeriesSheet, setEditSeriesSheet]   = useState<string | null>(null);
   const [moveTarget, setMoveTarget]             = useState<{ assignmentId: string; fromDate: ISODate } | null>(null);
   const [changeBlockTarget, setChangeBlockTarget] = useState<{ assignmentId: string; date: ISODate } | null>(null);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
 
   const startWorkout  = useWorkoutStore((s) => s.startWorkout);
   const blocks        = useWorkoutStore((s) => s.blocks);
@@ -153,6 +155,7 @@ export default function TodayPlanner() {
           onMove={(assignmentId, fromDate) => setMoveTarget({ assignmentId, fromDate })}
           onEditSeries={(assignmentId) => setEditSeriesSheet(assignmentId)}
           onCreateBlock={handleCreateBlock}
+          onChooseTemplate={() => setTemplatePickerOpen(true)}
           onSeeBlockFull={handleSeeBlockFull}
           onPlanWeek={handlePlanWeek}
         />
@@ -181,6 +184,17 @@ export default function TodayPlanner() {
         assignmentId={changeBlockTarget?.assignmentId ?? null}
         date={changeBlockTarget?.date ?? null}
         onClose={() => setChangeBlockTarget(null)}
+      />
+      <TemplatePickerSheet
+        visible={templatePickerOpen}
+        onClose={() => setTemplatePickerOpen(false)}
+        onCreated={() => {
+          // After a fresh template instantiation the user is one tap from
+          // assigning. Chain into the assign sheet on the currently-selected
+          // date — keeps the empty → planned arc end-to-end in two taps.
+          setTemplatePickerOpen(false);
+          setAssignSheetOpen(true);
+        }}
       />
     </View>
   );

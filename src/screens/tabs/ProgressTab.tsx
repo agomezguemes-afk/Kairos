@@ -75,7 +75,7 @@ export default function ProgressTab() {
 
       {isEmpty && (
         <View style={styles.emptyHint}>
-          <Text style={styles.emptyHintText}>Sin entrenamientos registrados aún</Text>
+          <Text style={styles.emptyHintText}>Aquí verás tu progreso cuando termines una sesión</Text>
         </View>
       )}
 
@@ -93,7 +93,7 @@ export default function ProgressTab() {
       {/* 1RM estimado */}
       <Section eyebrow="1RM ESTIMADO">
         {top1RM.length === 0 ? (
-          <Text style={styles.empty}>Aún sin sesiones registradas</Text>
+          <Text style={styles.empty}>Sin sesiones registradas aún</Text>
         ) : (
           top1RM.map((ex) => {
             const series = oneRMSeries(history, ex.exerciseId, 12);
@@ -133,7 +133,7 @@ export default function ProgressTab() {
       {/* Peso máximo */}
       <Section eyebrow="PESO MÁXIMO POR EJERCICIO">
         {top.length === 0 ? (
-          <Text style={styles.empty}>Aún sin sesiones registradas</Text>
+          <Text style={styles.empty}>Sin sesiones registradas aún</Text>
         ) : (
           top.map((ex) => {
             const series = maxWeightSeries(history, ex.exerciseId, 12);
@@ -197,7 +197,7 @@ export default function ProgressTab() {
           })}
         </ScrollView>
         {badges.length === 0 && (
-          <Text style={styles.empty}>Aún sin logros</Text>
+          <Text style={styles.empty}>Tus logros aparecerán aquí</Text>
         )}
       </Section>
     </ScrollView>

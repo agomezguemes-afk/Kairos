@@ -14,7 +14,7 @@ export default function VolumeBarChart({ data, width, height }: Props) {
   if (data.length === 0 || data.every((d) => d.volume === 0)) {
     return (
       <View style={[styles.empty, { width, height }]}>
-        <Text style={styles.emptyText}>Aún sin volumen registrado</Text>
+        <Text style={styles.emptyText}>Volumen aparecerá al completar sesiones</Text>
       </View>
     );
   }

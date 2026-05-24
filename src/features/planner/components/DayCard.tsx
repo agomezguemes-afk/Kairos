@@ -37,6 +37,9 @@ interface Props {
   onMove:          (assignmentId: string, fromDate: ISODate) => void;
   onEditSeries:    (assignmentId: string) => void;
   onCreateBlock:   () => void;
+  /** When provided, no-blocks variant offers a primary "Empezar con plantilla"
+   *  CTA that opens the template picker. Falls back to single-CTA when absent. */
+  onChooseTemplate?: () => void;
   onSeeBlockFull:  (block: WorkoutBlock) => void;
   onPlanWeek:      () => void;
   onSeeSummary?:   (date: ISODate) => void;
@@ -55,7 +58,10 @@ export default function DayCard(props: Props) {
 function Variant(props: Props & { state: DayCardState }) {
   const { state, ...handlers } = props;
   switch (state.variant) {
-    case 'no-blocks':       return <VariantNoBlocks   onCreateBlock={handlers.onCreateBlock} />;
+    case 'no-blocks':       return <VariantNoBlocks
+                              onCreateBlock={handlers.onCreateBlock}
+                              onChooseTemplate={handlers.onChooseTemplate}
+                            />;
     case 'empty':           return <VariantEmptyToday {...handlers} state={state} />;
     case 'assigned':        return <VariantAssigned   state={state} {...handlers} />;
     case 'in-progress':     return <VariantInProgress state={state} {...handlers} />;
@@ -165,7 +171,33 @@ function SecondaryActions({
 
 // ── Variants ────────────────────────────────────────────────────────────
 
-function VariantNoBlocks({ onCreateBlock }: { onCreateBlock: () => void }) {
+function VariantNoBlocks({
+  onCreateBlock,
+  onChooseTemplate,
+}: {
+  onCreateBlock: () => void;
+  onChooseTemplate?: () => void;
+}) {
+  // When a template handler is wired, prefer it as the primary action — a
+  // brand-new user gets a working block in one tap instead of staring at a
+  // blank editor. The "from scratch" path is still one ghost tap away.
+  if (onChooseTemplate) {
+    return (
+      <CardShell>
+        <View style={styles.centeredEmpty}>
+          <HeroSerif>Tu primer bloque</HeroSerif>
+          <Text style={styles.centeredHint}>Empieza con una plantilla o créala desde cero.</Text>
+          <View style={styles.centeredCtaWrap}>
+            <PrimaryCTA label="Empezar con plantilla" onPress={onChooseTemplate} />
+          </View>
+          <View style={styles.linkRow}>
+            <GhostLink label="Crear desde cero" onPress={onCreateBlock} />
+          </View>
+        </View>
+      </CardShell>
+    );
+  }
+
   return (
     <CardShell>
       <View style={styles.centeredEmpty}>
@@ -180,15 +212,19 @@ function VariantNoBlocks({ onCreateBlock }: { onCreateBlock: () => void }) {
 }
 
 function VariantEmptyToday(props: Props & { state: DayCardState }) {
+  // We're in the "has at least one block, but today is unassigned" lane.
+  // Show the count as quiet meta so the user remembers they have inventory.
+  const blocksCount = useWorkoutStore(
+    (s) => s.blocks.filter((b) => !b.is_archived).length,
+  );
+  const meta = `${blocksCount} ${blocksCount === 1 ? 'bloque' : 'bloques'} disponible${blocksCount === 1 ? '' : 's'}`;
   return (
     <CardShell>
       <View style={styles.centeredEmpty}>
         <HeroSerif>Día sin plan</HeroSerif>
+        <Text style={styles.centeredHint}>{meta}</Text>
         <View style={styles.centeredCtaWrap}>
           <PrimaryCTA label="Asignar bloque" onPress={() => props.onAssign(props.date)} />
-        </View>
-        <View style={styles.linkRow}>
-          <GhostLink label="Sugerir plan" onPress={props.onPlanWeek} />
         </View>
       </View>
     </CardShell>
