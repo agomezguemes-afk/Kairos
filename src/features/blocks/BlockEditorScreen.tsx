@@ -3,13 +3,13 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   Pressable,
   StyleSheet,
   Alert,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { NestableScrollContainer } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -29,6 +29,7 @@ import SlashCommandMenu from './components/SlashCommandMenu';
 import BlockActionSheet from './components/BlockActionSheet';
 import BlockAISheet from './components/BlockAISheet';
 import Spine from './components/Spine';
+import AddStation, { type InsertableType } from './components/AddStation';
 import CompoundTile from './components/tiles/CompoundTile';
 import AccessoryTile from './components/tiles/AccessoryTile';
 import SectionHeaderTile from './components/tiles/SectionHeaderTile';
@@ -87,6 +88,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const deleteContentNode = useWorkoutStore((s) => s.deleteContentNode);
   const duplicateContentNode = useWorkoutStore((s) => s.duplicateContentNode);
   const moveContentNode = useWorkoutStore((s) => s.moveContentNode);
+  const reorderContentNodes = useWorkoutStore((s) => s.reorderContentNodes);
   const updateBlock = useWorkoutStore((s) => s.updateBlock);
   const addBlock = useWorkoutStore((s) => s.addBlock);
 
@@ -655,10 +657,19 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [block, blockId, firstExerciseRowId]);
 
-  const handleRowLongPress = useCallback((row: SpineRowData) => {
+  const handleRowTap = useCallback((row: SpineRowData) => {
     const node = row.tiles[0]?.node;
     if (node) handleOpenActions(node);
   }, [handleOpenActions]);
+
+  const handleReorder = useCallback((orderedIds: string[]) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    reorderContentNodes(blockId, orderedIds);
+  }, [blockId, reorderContentNodes]);
+
+  const handleAddInsert = useCallback((type: InsertableType) => {
+    insertNode(type, null, 0);
+  }, [insertNode]);
 
   const renderContent = () => {
     if (block && block.content.length === 0) {
@@ -668,7 +679,8 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
       <Spine
         rows={spineRows}
         renderRow={renderRowTile}
-        onRowLongPress={handleRowLongPress}
+        onRowTap={handleRowTap}
+        onReorder={handleReorder}
       />
     );
   };
@@ -681,7 +693,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <NestableScrollContainer
           style={{ flex: 1 }}
           contentContainerStyle={[
             styles.scrollContent,
@@ -764,15 +776,12 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
             </View>
           )}
 
-          {/* Content groups */}
+          {/* Spine renderer with reorderable rows */}
           {renderContent()}
 
-          {/* Bottom slash menu + blank input (always full-width, outside sections) */}
-          {slashActive && slashKey === 'root_0' && (
-            <SlashCommandMenu query={slashQuery} onSelect={handleSlashSelect} />
-          )}
-          {renderBlankInput(null, 0, false)}
-        </ScrollView>
+          {/* Trailing add-station with inline menu */}
+          {block && <AddStation onInsert={handleAddInsert} />}
+        </NestableScrollContainer>
       </KeyboardAvoidingView>
 
       {/* Component palette */}
