@@ -55,6 +55,38 @@ export type Discipline =
   | 'swimming'
   | 'general';
 
+// ======================== MUSCLE GROUPS ========================
+
+export type MuscleGroup =
+  | 'chest' | 'back' | 'shoulders'
+  | 'biceps' | 'triceps' | 'forearms'
+  | 'quads' | 'hamstrings' | 'glutes' | 'calves'
+  | 'core' | 'full_body'
+  | 'cardio_engine' | 'mobility';
+
+export interface MuscleGroupConfig {
+  id: MuscleGroup;
+  label: string;
+  region: 'upper' | 'lower' | 'core' | 'other';
+}
+
+export const MUSCLE_GROUP_CONFIGS: Record<MuscleGroup, MuscleGroupConfig> = {
+  chest:         { id: 'chest',         label: 'Pecho',           region: 'upper' },
+  back:          { id: 'back',          label: 'Espalda',         region: 'upper' },
+  shoulders:     { id: 'shoulders',     label: 'Hombros',         region: 'upper' },
+  biceps:        { id: 'biceps',        label: 'Bíceps',          region: 'upper' },
+  triceps:       { id: 'triceps',       label: 'Tríceps',         region: 'upper' },
+  forearms:      { id: 'forearms',      label: 'Antebrazos',      region: 'upper' },
+  quads:         { id: 'quads',         label: 'Cuádriceps',      region: 'lower' },
+  hamstrings:    { id: 'hamstrings',    label: 'Isquios',         region: 'lower' },
+  glutes:        { id: 'glutes',        label: 'Glúteos',         region: 'lower' },
+  calves:        { id: 'calves',        label: 'Gemelos',         region: 'lower' },
+  core:          { id: 'core',          label: 'Core',            region: 'core' },
+  full_body:     { id: 'full_body',     label: 'Cuerpo completo', region: 'other' },
+  cardio_engine: { id: 'cardio_engine', label: 'Cardio',          region: 'other' },
+  mobility:      { id: 'mobility',      label: 'Movilidad',       region: 'other' },
+};
+
 export interface DisciplineConfig {
   id: Discipline;
   name: string;
@@ -233,6 +265,7 @@ export interface ExerciseCard {
   rest_seconds: number;
   goalWeight?: number;
   goalReps?: number;
+  muscle_groups?: MuscleGroup[];
   created_at: ISOTimestamp;
   updated_at: ISOTimestamp;
 }
@@ -241,7 +274,7 @@ export function createExerciseCard(
   blockId: string,
   order: number,
   discipline: Discipline = 'strength',
-  overrides?: Partial<Pick<ExerciseCard, 'name' | 'icon' | 'color'>> & { fields?: FieldDefinition[] }
+  overrides?: Partial<Pick<ExerciseCard, 'name' | 'icon' | 'color' | 'muscle_groups'>> & { fields?: FieldDefinition[] }
 ): ExerciseCard {
   const config = DISCIPLINE_CONFIGS[discipline];
   const now = new Date().toISOString();
@@ -264,6 +297,7 @@ export function createExerciseCard(
     sets: Array.from({ length: 4 }, (_: unknown, i: number): ExerciseSet => createEmptySet(id, i, fields)),
     default_sets_count: 4,
     rest_seconds: discipline === 'strength' ? 90 : 60,
+    muscle_groups: overrides?.muscle_groups,
     created_at: now,
     updated_at: now,
   };
