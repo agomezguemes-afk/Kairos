@@ -114,6 +114,12 @@ interface WorkoutState {
   bodyWeightKg: number | null;
   setHealthkitEnabled: (enabled: boolean) => void;
   setBodyWeight: (kg: number | null) => void;
+  // First-launch planner tour. `null` until the user completes or skips the
+  // 3-screen overlay — flipped to an ISO timestamp once seen so HomeTab knows
+  // not to mount it again. `resetTour` exists for dev / settings reset.
+  tourCompletedAt: string | null;
+  markTourCompleted: () => void;
+  resetTour: () => void;
   activeWorkout: ActiveWorkout | null;
   workoutHistory: WorkoutHistoryEntry[];
 
@@ -294,6 +300,9 @@ export const useWorkoutStore = create<WorkoutState>()(
       bodyWeightKg: null,
       setHealthkitEnabled: (enabled) => set({ healthkitEnabled: enabled }),
       setBodyWeight: (kg) => set({ bodyWeightKg: kg }),
+      tourCompletedAt: null,
+      markTourCompleted: () => set({ tourCompletedAt: new Date().toISOString() }),
+      resetTour: () => set({ tourCompletedAt: null }),
       activeWorkout: null,
       workoutHistory: [],
 
