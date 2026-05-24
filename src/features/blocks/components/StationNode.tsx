@@ -27,7 +27,11 @@ function ariaLabel(kind: StationKind, state: StationState): string {
   if (kind === 'divider') return 'Divisor';
   if (kind === 'section') return 'Sección';
   if (kind === 'note')    return 'Nota';
-  const head = kind === 'exercise' ? 'Ejercicio' : 'Elemento';
+  const head = kind === 'exercise'
+    ? 'Ejercicio'
+    : kind === 'superset'
+      ? 'Superserie'
+      : 'Elemento';
   switch (state) {
     case 'completed':  return `${head}, completado`;
     case 'inProgress': return `${head}, en progreso`;
@@ -49,6 +53,15 @@ function StationNodeImpl({ kind, state }: Props) {
     return (
       <View style={styles.diamondWrap} accessibilityLabel={ariaLabel(kind, state)}>
         <View style={styles.diamond} />
+      </View>
+    );
+  }
+
+  if (kind === 'superset') {
+    return (
+      <View style={styles.stackWrap} accessibilityLabel={ariaLabel(kind, state)}>
+        <View style={[styles.circleBase, styles.circlePending, styles.stackBack]} />
+        <View style={[styles.circleBase, styles.circlePending, styles.stackFront]} />
       </View>
     );
   }
@@ -149,5 +162,21 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: Colors.gold.base,
     borderRadius: 2,
+  },
+  stackWrap: {
+    width: STATION_SIZE + 4,
+    height: STATION_SIZE + 4,
+    position: 'relative',
+  },
+  stackBack: {
+    position: 'absolute',
+    top: 0,
+    left: 4,
+    backgroundColor: Colors.gold.glow,
+  },
+  stackFront: {
+    position: 'absolute',
+    top: 4,
+    left: 0,
   },
 });

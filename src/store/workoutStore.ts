@@ -237,6 +237,41 @@ function getExercisesFromBlock(block: WorkoutBlock): ExerciseCard[] {
     .map(n => n.data.exercise);
 }
 
+/**
+ * Expand a superset node into a flat queue of single-set exercises,
+ * interleaved by cycle. Used by startWorkout. Each cycle iteration of
+ * each exercise becomes its own ExerciseCard entry with a unique id and
+ * a single set, so the existing currentExerciseIndex / currentSetIndex
+ * progression naturally walks A1, B1, A2, B2, ...
+ */
+function expandSuperset(node: Extract<ContentNode, { type: 'superset' }>): ExerciseCard[] {
+  const { exercises, cycles } = node.data;
+  if (exercises.length === 0 || cycles <= 0) return [];
+  const out: ExerciseCard[] = [];
+  for (let c = 0; c < cycles; c++) {
+    for (const ex of exercises) {
+      const baseSet = ex.sets[c] ?? ex.sets[0];
+      const clonedSet = baseSet
+        ? {
+            ...JSON.parse(JSON.stringify(baseSet)),
+            id: `${baseSet.id}_c${c}`,
+            completed: false,
+            completed_at: null,
+          }
+        : null;
+      const cycleEx: ExerciseCard = {
+        ...JSON.parse(JSON.stringify(ex)),
+        id: `${ex.id}_c${c}`,
+        name: cycles > 1 ? `${ex.name} · ${c + 1}/${cycles}` : ex.name,
+        sets: clonedSet ? [clonedSet] : [],
+        rest_seconds: c === exercises.length - 1 ? node.data.restSeconds : 0,
+      };
+      out.push(cycleEx);
+    }
+  }
+  return out;
+}
+
 function migrateBlock(block: any): WorkoutBlock {
   if (block.content && Array.isArray(block.content)) return block;
   const content: ContentNode[] = [];
@@ -274,10 +309,19 @@ export const useWorkoutStore = create<WorkoutState>()(
       startWorkout: (blockId, ctx) => {
         const block = get().blocks.find((b) => b.id === blockId);
         if (!block) return;
-        const exercises: ExerciseCard[] = block.content
-          .filter((n): n is Extract<ContentNode, { type: 'exercise' }> => n.type === 'exercise')
-          .sort((a, b) => a.order - b.order)
-          .map((n) => JSON.parse(JSON.stringify(n.data.exercise)) as ExerciseCard);
+        // Expand block content into a flat queue of exercises. Standalone
+        // exercises pass through unchanged. Supersets get interleaved per
+        // cycle: [A1, B1, A2, B2, ...] so the user moves through them
+        // round-robin instead of completing all sets of A before B.
+        const exercises: ExerciseCard[] = [];
+        const sorted = [...block.content].sort((a, b) => a.order - b.order);
+        for (const n of sorted) {
+          if (n.type === 'exercise') {
+            exercises.push(JSON.parse(JSON.stringify(n.data.exercise)) as ExerciseCard);
+          } else if (n.type === 'superset') {
+            exercises.push(...expandSuperset(n));
+          }
+        }
         if (exercises.length === 0) return;
 
         // Preload set values from per-exercise goals so the user starts each

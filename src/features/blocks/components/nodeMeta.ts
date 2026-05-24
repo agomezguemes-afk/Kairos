@@ -15,6 +15,7 @@ export function getNodeIcon(node: ContentNode): FeatherIcon {
     case 'timer': return 'clock';
     case 'spacer': return 'square';
     case 'columnSection': return 'columns';
+    case 'superset': return 'shuffle';
     default: return 'square';
   }
 }
@@ -31,6 +32,7 @@ export function getNodeLabel(node: ContentNode): string {
     case 'timer': return node.data.label || 'Timer';
     case 'spacer': return 'Espacio';
     case 'columnSection': return `${node.data.columns} cols`;
+    case 'superset': return node.data.label || `Superserie · ${node.data.exercises.length} ej.`;
     default: return '';
   }
 }

@@ -21,6 +21,7 @@ import type {
 
 export type StationKind =
   | 'exercise'   // ExerciseContentNode
+  | 'superset'   // SupersetContentNode (rendered as wide tile with sub-bento)
   | 'note'       // TextContentNode
   | 'divider'    // DividerContentNode
   | 'section'    // ColumnSectionContentNode header
@@ -50,6 +51,7 @@ export interface SpineRow {
 export function stationKindFor(node: ContentNode): StationKind {
   switch (node.type) {
     case 'exercise':       return 'exercise';
+    case 'superset':       return 'superset';
     case 'text':           return 'note';
     case 'divider':        return 'divider';
     case 'columnSection':  return 'section';

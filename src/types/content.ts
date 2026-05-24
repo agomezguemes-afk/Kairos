@@ -56,7 +56,18 @@ export interface DashboardNodeData {
   color: string;
 }
 
-export type ContentNodeType = 'text' | 'exercise' | 'subBlock' | 'image' | 'divider' | 'customField' | 'dashboard' | 'timer' | 'spacer' | 'columnSection';
+export interface SupersetNodeData {
+  /** Exercises in cycling order. Owned by the superset; not referenced elsewhere. */
+  exercises: ExerciseCard[];
+  /** Number of times to cycle through the exercises during a workout. */
+  cycles: number;
+  /** Rest seconds between cycles. */
+  restSeconds: number;
+  /** Optional label. Falls back to "Superserie" in UI. */
+  label?: string;
+}
+
+export type ContentNodeType = 'text' | 'exercise' | 'subBlock' | 'image' | 'divider' | 'customField' | 'dashboard' | 'timer' | 'spacer' | 'columnSection' | 'superset';
 
 export interface ColumnSectionData {
   columns: 2 | 3;
@@ -80,6 +91,7 @@ export interface DashboardContentNode extends NodeBase { type: 'dashboard'; data
 export interface TimerContentNode extends NodeBase { type: 'timer'; data: TimerNodeData }
 export interface SpacerContentNode extends NodeBase { type: 'spacer'; data: SpacerNodeData }
 export interface ColumnSectionContentNode extends NodeBase { type: 'columnSection'; data: ColumnSectionData }
+export interface SupersetContentNode extends NodeBase { type: 'superset'; data: SupersetNodeData }
 
 export type ContentNode =
   | TextContentNode
@@ -91,7 +103,8 @@ export type ContentNode =
   | DashboardContentNode
   | TimerContentNode
   | SpacerContentNode
-  | ColumnSectionContentNode;
+  | ColumnSectionContentNode
+  | SupersetContentNode;
 
 export interface BlockLayout {
   columns: 1 | 2 | 3;
@@ -149,6 +162,22 @@ export function createTimerNode(
 
 export function createSpacerNode(order: number, height: number = 24): SpacerContentNode {
   return { id: generateId(), type: 'spacer', order, column: 0, data: { height } };
+}
+
+export function createSupersetNode(
+  order: number,
+  exercises: ExerciseCard[] = [],
+  cycles: number = 3,
+  restSeconds: number = 90,
+  label?: string,
+): SupersetContentNode {
+  return {
+    id: generateId(),
+    type: 'superset',
+    order,
+    column: 0,
+    data: { exercises, cycles, restSeconds, label },
+  };
 }
 
 export function createDashboardNode(

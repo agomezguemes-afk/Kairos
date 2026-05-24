@@ -35,6 +35,7 @@ import AccessoryTile from './components/tiles/AccessoryTile';
 import SectionHeaderTile from './components/tiles/SectionHeaderTile';
 import NoteTile from './components/tiles/NoteTile';
 import InlineDashboardTile from './components/tiles/InlineDashboardTile';
+import SupersetTile from './components/tiles/SupersetTile';
 import EmptyState from '../../components/EmptyState';
 import CompletionCelebration from '../../components/CompletionCelebration';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
@@ -52,6 +53,7 @@ import {
   createTimerNode,
   createSpacerNode,
   createColumnSectionNode,
+  createSupersetNode,
   getNextOrder,
 } from '../../types/content';
 import { buildSpineRows, type SpineRow as SpineRowData } from './lib/spineLayout';
@@ -203,7 +205,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
       case 'timer_stopwatch': createAndAdd(createTimerNode(order, 'stopwatch')); break;
       case 'rest': createAndAdd(createTimerNode(order, 'countdown', 60, 'Descanso')); break;
       case 'spacer': createAndAdd(createSpacerNode(order)); break;
-      case 'superset': createAndAdd(createTextNode(order, 'h3', 'Superserie')); break;
+      case 'superset': createAndAdd(createSupersetNode(order)); break;
       case 'divider': createAndAdd(createDividerNode(order)); break;
       case 'image': createAndAdd(createImageNode(order)); break;
       case 'link': createAndAdd(createTextNode(order, 'paragraph', '')); break;
@@ -650,6 +652,21 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
           onLongPress={() => handleOpenActions(node)}
           onUpdate={handleDashboardUpdate}
           onDelete={handleDeleteNode}
+        />
+      );
+    }
+    if (node.type === 'superset') {
+      return (
+        <SupersetTile
+          node={node}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdate={(nodeId, partial) => {
+            const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
+            const n = fresh?.content.find(c => c.id === nodeId);
+            if (n?.type === 'superset') {
+              updateContentNode(blockId, nodeId, { data: { ...n.data, ...partial } } as any);
+            }
+          }}
         />
       );
     }
