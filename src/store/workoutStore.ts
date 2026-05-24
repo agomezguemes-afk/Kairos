@@ -9,17 +9,12 @@ import type {
   FieldValue,
   Discipline,
   BlockCover,
-  WidgetData,
-  CanvasSettings,
-  CanvasData,
   SetKind,
 } from '../types/core';
 import {
   createWorkoutBlock,
   createExerciseCard,
   createEmptySet,
-  createWidget,
-  DEFAULT_CANVAS_SETTINGS,
   generateId,
 } from '../types/core';
 import type { ContentNode } from '../types/content';
@@ -219,36 +214,6 @@ interface WorkoutState {
   removeSet: (blockId: string, exerciseId: string, setId: string) => void;
 
   setHighlight: (blockId: string | null) => void;
-
-  // ===== Canvas (widget mode) =====
-  ensureCanvasData: (blockId: string) => void;
-  addWidget: (
-    blockId: string,
-    contentNodeId: string,
-    position: { x: number; y: number },
-    size?: { w: number; h: number },
-  ) => string | null;
-  updateWidgetPosition: (blockId: string, widgetId: string, position: { x: number; y: number }) => void;
-  updateWidgetSize: (blockId: string, widgetId: string, size: { w: number; h: number }) => void;
-  toggleWidgetFreeze: (blockId: string, widgetId: string) => void;
-  removeWidget: (blockId: string, widgetId: string) => void;
-  updateCanvasSettings: (blockId: string, updates: Partial<CanvasSettings>) => void;
-  hydrateCanvasFromContent: (blockId: string) => void;
-}
-
-function buildCascadeWidgets(
-  content: import('../types/content').ContentNode[],
-): Record<string, WidgetData> {
-  const out: Record<string, WidgetData> = {};
-  const sorted = [...content].sort((a, b) => a.order - b.order);
-  let i = 0;
-  for (const node of sorted) {
-    if (node.type === 'columnSection') continue;
-    const w = createWidget(node.id, { x: 24 + i * 32, y: 24 + i * 48 }, { w: 280, h: 160 }, i);
-    out[w.id] = w;
-    i += 1;
-  }
-  return out;
 }
 
 function updateExerciseInContent(
@@ -1065,145 +1030,6 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
 
       setHighlight: (blockId) => { set({ pendingHighlight: blockId }); },
-
-      // ======================== CANVAS ========================
-
-      ensureCanvasData: (blockId) => {
-        set((state) => ({
-          blocks: state.blocks.map((block) => {
-            if (block.id !== blockId) return block;
-            if (block.canvasData) return block;
-            const canvasData: CanvasData = {
-              widgets: {},
-              settings: { ...DEFAULT_CANVAS_SETTINGS },
-            };
-            return { ...block, canvasData, updated_at: new Date().toISOString() };
-          }),
-        }));
-      },
-
-      hydrateCanvasFromContent: (blockId) => {
-        set((state) => ({
-          blocks: state.blocks.map((block) => {
-            if (block.id !== blockId) return block;
-            const existing = block.canvasData;
-            if (existing && Object.keys(existing.widgets).length > 0) return block;
-            const widgets = buildCascadeWidgets(block.content);
-            const canvasData: CanvasData = {
-              widgets,
-              settings: existing?.settings ?? { ...DEFAULT_CANVAS_SETTINGS },
-            };
-            return { ...block, canvasData, updated_at: new Date().toISOString() };
-          }),
-        }));
-      },
-
-      addWidget: (blockId, contentNodeId, position, size) => {
-        let createdId: string | null = null;
-        set((state) => ({
-          blocks: state.blocks.map((block) => {
-            if (block.id !== blockId) return block;
-            const cd: CanvasData = block.canvasData ?? {
-              widgets: {},
-              settings: { ...DEFAULT_CANVAS_SETTINGS },
-            };
-            const maxZ = Object.values(cd.widgets).reduce((m, w) => Math.max(m, w.zIndex), 0);
-            const widget = createWidget(contentNodeId, position, size, maxZ + 1);
-            createdId = widget.id;
-            return {
-              ...block,
-              canvasData: { ...cd, widgets: { ...cd.widgets, [widget.id]: widget } },
-              updated_at: new Date().toISOString(),
-            };
-          }),
-        }));
-        return createdId;
-      },
-
-      updateWidgetPosition: (blockId, widgetId, position) => {
-        set((state) => ({
-          blocks: state.blocks.map((block) => {
-            if (block.id !== blockId || !block.canvasData) return block;
-            const w = block.canvasData.widgets[widgetId];
-            if (!w || w.frozen) return block;
-            return {
-              ...block,
-              canvasData: {
-                ...block.canvasData,
-                widgets: { ...block.canvasData.widgets, [widgetId]: { ...w, position } },
-              },
-            };
-          }),
-        }));
-      },
-
-      updateWidgetSize: (blockId, widgetId, size) => {
-        set((state) => ({
-          blocks: state.blocks.map((block) => {
-            if (block.id !== blockId || !block.canvasData) return block;
-            const w = block.canvasData.widgets[widgetId];
-            if (!w || w.frozen) return block;
-            return {
-              ...block,
-              canvasData: {
-                ...block.canvasData,
-                widgets: { ...block.canvasData.widgets, [widgetId]: { ...w, size } },
-              },
-            };
-          }),
-        }));
-      },
-
-      toggleWidgetFreeze: (blockId, widgetId) => {
-        set((state) => ({
-          blocks: state.blocks.map((block) => {
-            if (block.id !== blockId || !block.canvasData) return block;
-            const w = block.canvasData.widgets[widgetId];
-            if (!w) return block;
-            return {
-              ...block,
-              canvasData: {
-                ...block.canvasData,
-                widgets: {
-                  ...block.canvasData.widgets,
-                  [widgetId]: { ...w, frozen: !w.frozen },
-                },
-              },
-            };
-          }),
-        }));
-      },
-
-      removeWidget: (blockId, widgetId) => {
-        set((state) => ({
-          blocks: state.blocks.map((block) => {
-            if (block.id !== blockId || !block.canvasData) return block;
-            const next = { ...block.canvasData.widgets };
-            delete next[widgetId];
-            return {
-              ...block,
-              canvasData: { ...block.canvasData, widgets: next },
-              updated_at: new Date().toISOString(),
-            };
-          }),
-        }));
-      },
-
-      updateCanvasSettings: (blockId, updates) => {
-        set((state) => ({
-          blocks: state.blocks.map((block) => {
-            if (block.id !== blockId) return block;
-            const cd: CanvasData = block.canvasData ?? {
-              widgets: {},
-              settings: { ...DEFAULT_CANVAS_SETTINGS },
-            };
-            return {
-              ...block,
-              canvasData: { ...cd, settings: { ...cd.settings, ...updates } },
-            };
-          }),
-        }));
-      },
     }),
     {
       name: 'kairos_workout_store',

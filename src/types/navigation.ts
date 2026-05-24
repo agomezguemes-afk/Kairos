@@ -24,7 +24,6 @@ export type RootStackParamList = {
   // Main app
   Dashboard: NavigatorScreenParams<DashboardTabParamList> | undefined;
   BlockDetail: { blockId: string };
-  Canvas: { blockId: string };
   ActiveWorkout: {
     blockId: string;
     /** Schedule assignment this session belongs to. Absent for free starts. */

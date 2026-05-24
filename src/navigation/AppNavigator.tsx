@@ -27,7 +27,6 @@ import BadgesScreen from '../screens/BadgesScreen';
 import PRCardsScreen from '../screens/PRCardsScreen';
 import ProgressTreeScreen from '../screens/ProgressTreeScreen';
 import AIChatScreen from '../screens/AIChatScreen';
-import CanvasScreen from '../screens/CanvasScreen';
 import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
 import KairosTabBar from '../components/KairosTabBar';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
@@ -82,7 +81,6 @@ export default function AppNavigator() {
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Dashboard"    component={DashboardTabs} />
               <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-              <Stack.Screen name="Canvas"        component={CanvasScreen} options={{ animation: 'fade' }} />
               <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
               <Stack.Screen name="Badges"        component={BadgesScreen} />
               <Stack.Screen name="PRCards"       component={PRCardsScreen} />
@@ -95,7 +93,6 @@ export default function AppNavigator() {
               <Stack.Screen name="Onboarding" component={OnboardingScreen} />
               <Stack.Screen name="Dashboard"  component={DashboardTabs} />
               <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-              <Stack.Screen name="Canvas"        component={CanvasScreen} options={{ animation: 'fade' }} />
               <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
               <Stack.Screen name="Badges"        component={BadgesScreen} />
               <Stack.Screen name="PRCards"       component={PRCardsScreen} />
@@ -149,14 +146,12 @@ export default function AppNavigator() {
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="Dashboard"  component={DashboardTabs} />
             <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="Canvas"        component={CanvasScreen} options={{ animation: 'fade' }} />
             <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
           </>
         ) : (
           <>
             <Stack.Screen name="Dashboard"    component={DashboardTabs} />
             <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="Canvas"        component={CanvasScreen} options={{ animation: 'fade' }} />
             <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
             <Stack.Screen name="Badges"        component={BadgesScreen} />
             <Stack.Screen name="PRCards"       component={PRCardsScreen} />

@@ -259,15 +259,7 @@ export default function SessionScreen() {
           {/* Timer stays gold — it's the single live indicator on this screen */}
           <Text style={styles.sessionTimer}>{fmtSessionTime(elapsedSec)}</Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Abrir canvas del bloque"
-          onPress={() => nav.navigate('Canvas', { blockId })}
-          hitSlop={10}
-          style={styles.headerBtn}
-        >
-          <KIcon name="dashboard" size={20} color={Colors.ink.tertiary} />
-        </Pressable>
+        <View style={styles.headerBtn} />
       </View>
 
       {focusedExercise ? (

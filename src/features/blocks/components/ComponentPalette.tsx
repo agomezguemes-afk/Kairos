@@ -42,7 +42,7 @@ const SECTIONS: PaletteSection[] = [
   {
     title: 'Entrenamiento',
     items: [
-      { type: 'exercise', label: 'Ejercicio', desc: 'Widget con series y campos', icon: 'activity', color: '#E84545' },
+      { type: 'exercise', label: 'Ejercicio', desc: 'Series y campos', icon: 'activity', color: '#E84545' },
       { type: 'subBlock', label: 'Sub-bloque', desc: 'Bloque anidado', icon: 'layers', color: '#8B5CF6' },
       { type: 'timer', label: 'Cuenta regresiva', desc: 'Temporizador con preset', icon: 'clock', color: '#06B6D4' },
       { type: 'timer_stopwatch', label: 'Cronómetro', desc: 'Tiempo libre', icon: 'watch', color: '#06B6D4' },
@@ -53,7 +53,7 @@ const SECTIONS: PaletteSection[] = [
   {
     title: 'Dashboards',
     items: [
-      { type: 'dashboard', label: 'Widget de datos', desc: 'Volumen, series, etc.', icon: 'bar-chart-2', color: Colors.accent.primary },
+      { type: 'dashboard', label: 'Datos y resumen', desc: 'Volumen, series, etc.', icon: 'bar-chart-2', color: Colors.accent.primary },
       { type: 'dashboard_progress', label: 'Barra de progreso', desc: 'Avance del bloque', icon: 'pie-chart', color: '#10B981' },
       { type: 'dashboard_list', label: 'Lista de ejercicios', desc: 'Estado por ejercicio', icon: 'list', color: '#3B82F6' },
     ],

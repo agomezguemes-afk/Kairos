@@ -336,7 +336,6 @@ export interface WorkoutBlock {
   sort_order: number;
   size: 'small' | 'medium' | 'large';
   cover: BlockCover | null;
-  canvasData?: CanvasData;
   created_at: ISOTimestamp;
   updated_at: ISOTimestamp;
 }
@@ -373,54 +372,6 @@ export function createWorkoutBlock(
     updated_at: now,
   };
 }
-
-// ======================== CANVAS / WIDGETS ========================
-
-export interface WidgetData {
-  id: string;
-  contentNodeId: string;
-  position: { x: number; y: number };
-  size: { w: number; h: number };
-  zIndex: number;
-  frozen: boolean;
-  snapToGrid: boolean;
-  linkedWidgetIds: string[];
-}
-
-export interface CanvasSettings {
-  showGrid: boolean;
-  gridSize: number;
-  zoom: number;
-}
-
-export interface CanvasData {
-  widgets: Record<string, WidgetData>;
-  settings: CanvasSettings;
-}
-
-export function createWidget(
-  contentNodeId: string,
-  position: { x: number; y: number },
-  size: { w: number; h: number } = { w: 280, h: 160 },
-  zIndex: number = 0,
-): WidgetData {
-  return {
-    id: generateId(),
-    contentNodeId,
-    position,
-    size,
-    zIndex,
-    frozen: false,
-    snapToGrid: false,
-    linkedWidgetIds: [],
-  };
-}
-
-export const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
-  showGrid: true,
-  gridSize: 24,
-  zoom: 1,
-};
 
 export function getBlockExercises(block: WorkoutBlock): ExerciseCard[] {
   const result: ExerciseCard[] = [];
