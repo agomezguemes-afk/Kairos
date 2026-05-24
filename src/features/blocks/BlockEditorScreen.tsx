@@ -31,6 +31,9 @@ import BlockAISheet from './components/BlockAISheet';
 import Spine from './components/Spine';
 import CompoundTile from './components/tiles/CompoundTile';
 import AccessoryTile from './components/tiles/AccessoryTile';
+import SectionHeaderTile from './components/tiles/SectionHeaderTile';
+import NoteTile from './components/tiles/NoteTile';
+import InlineDashboardTile from './components/tiles/InlineDashboardTile';
 import EmptyState from '../../components/EmptyState';
 import CompletionCelebration from '../../components/CompletionCelebration';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
@@ -55,19 +58,6 @@ import type { RootStackParamList } from '../../types/navigation';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 import { useBlockEditor } from './hooks/useBlockEditor';
-
-// ======================== WIDTH PRESETS ========================
-
-const WIDTH_PRESETS_2 = [
-  { label: '50 / 50', widths: undefined as number[] | undefined },
-  { label: '30 / 70', widths: [0.3, 0.7] },
-  { label: '70 / 30', widths: [0.7, 0.3] },
-];
-const WIDTH_PRESETS_3 = [
-  { label: '1/3 cada', widths: undefined as number[] | undefined },
-  { label: '50/25/25', widths: [0.5, 0.25, 0.25] },
-  { label: '25/50/25', widths: [0.25, 0.5, 0.25] },
-];
 
 // ======================== MAIN COMPONENT ========================
 
@@ -596,47 +586,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     );
   };
 
-  const renderSectionTile = (sectionNode: ColumnSectionContentNode) => {
-    const cols = sectionNode.data.columns;
-    const widths = sectionNode.data.widths;
-    const presets = cols === 2 ? WIDTH_PRESETS_2 : WIDTH_PRESETS_3;
-
-    return (
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionHeaderLeft}>
-          <Feather name="columns" size={12} color={Colors.text.disabled} />
-          <Text style={styles.sectionLabel}>{cols} col</Text>
-        </View>
-        <View style={styles.sectionWidthRow}>
-          {presets.map((preset, i) => {
-            const isActive = preset.widths
-              ? JSON.stringify(widths) === JSON.stringify(preset.widths)
-              : !widths;
-            return (
-              <Pressable
-                key={i}
-                onPress={() => handleSectionWidthChange(sectionNode.id, preset.widths)}
-                style={[styles.sectionWidthBtn, isActive && styles.sectionWidthBtnActive]}
-                accessibilityLabel={`Anchos ${preset.label}`}
-              >
-                <Text style={[styles.sectionWidthText, isActive && styles.sectionWidthTextActive]}>
-                  {preset.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Pressable
-          onPress={() => handleDeleteNode(sectionNode.id)}
-          hitSlop={8}
-          accessibilityLabel="Eliminar sección"
-        >
-          <Feather name="x" size={14} color={Colors.text.disabled} />
-        </Pressable>
-      </View>
-    );
-  };
-
   // First exercise on the spine renders as CompoundTile (hero); subsequent
   // exercises render as AccessoryTile (compact). This keeps the visual
   // rhythm of a typical session: one anchor lift, accessories under it.
@@ -654,7 +603,13 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     if (!node) return null;
     if (row.kind === 'divider') return null;
     if (row.kind === 'section' && node.type === 'columnSection') {
-      return renderSectionTile(node);
+      return (
+        <SectionHeaderTile
+          sectionNode={node}
+          onChangeWidth={handleSectionWidthChange}
+          onDelete={handleDeleteNode}
+        />
+      );
     }
     if (row.kind === 'exercise' && node.type === 'exercise') {
       const Tile = row.id === firstExerciseRowId ? CompoundTile : AccessoryTile;
@@ -670,6 +625,29 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
           onAddSet={handleAddSet}
           onRemoveSet={handleRemoveSet}
           onDeleteExercise={handleDeleteExerciseConfirm}
+        />
+      );
+    }
+    if (row.kind === 'note' && node.type === 'text') {
+      return (
+        <NoteTile
+          node={node}
+          onUpdate={handleTextUpdate}
+          onChangeFormat={handleTextFormatChange}
+          onToggleCheck={handleCheckToggle}
+          onDelete={handleDeleteNode}
+          onInsertAfter={handleInsertAfter}
+        />
+      );
+    }
+    if (node.type === 'dashboard') {
+      return (
+        <InlineDashboardTile
+          node={node}
+          block={block!}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdate={handleDashboardUpdate}
+          onDelete={handleDeleteNode}
         />
       );
     }
