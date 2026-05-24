@@ -1,11 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, Switch } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useUserProfile } from '../../context/UserProfileContext';
+import { useWorkoutStore } from '../../store/workoutStore';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 export default function ProfileTab() {
   const { profile, resetProfile } = useUserProfile();
+  const notificationsEnabled = useWorkoutStore(s => s.notificationsEnabled);
+  const setNotificationsEnabled = useWorkoutStore(s => s.setNotificationsEnabled);
 
   const handleReset = () => {
     Alert.alert(
@@ -47,6 +50,24 @@ export default function ProfileTab() {
         <Feather name="settings" size={20} color={Colors.text.secondary} />
         <Text style={styles.cardTitle}>Configuración</Text>
         <Feather name="chevron-right" size={18} color={Colors.text.tertiary} style={styles.chevron} />
+      </View>
+
+      {/* Notifications opt-in toggle */}
+      <View style={styles.card}>
+        <Feather name="bell" size={20} color={Colors.text.secondary} />
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>Notificaciones</Text>
+          <Text style={styles.cardSub}>
+            Recordatorios de sesiones y nudges suaves tras 36h sin entrenar.
+          </Text>
+        </View>
+        <Switch
+          value={notificationsEnabled === true}
+          onValueChange={setNotificationsEnabled}
+          trackColor={{ false: Colors.hair.base, true: Colors.gold.base }}
+          thumbColor={Colors.bg.surface}
+          accessibilityLabel="Activar notificaciones locales"
+        />
       </View>
 
       <View style={styles.card}>

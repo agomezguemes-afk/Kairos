@@ -115,6 +115,11 @@ interface WorkoutState {
   tourCompletedAt: string | null;
   markTourCompleted: () => void;
   resetTour: () => void;
+  // Local notifications opt-in. `null` = never asked, `true`/`false` = user
+  // explicit choice. Adapter layer (src/lib/notifications/adapter.ts) reads
+  // this flag before scheduling reminders.
+  notificationsEnabled: boolean | null;
+  setNotificationsEnabled: (enabled: boolean) => void;
   activeWorkout: ActiveWorkout | null;
   workoutHistory: WorkoutHistoryEntry[];
 
@@ -303,6 +308,8 @@ export const useWorkoutStore = create<WorkoutState>()(
       tourCompletedAt: null,
       markTourCompleted: () => set({ tourCompletedAt: new Date().toISOString() }),
       resetTour: () => set({ tourCompletedAt: null }),
+      notificationsEnabled: null,
+      setNotificationsEnabled: (enabled) => set({ notificationsEnabled: enabled }),
       activeWorkout: null,
       workoutHistory: [],
 
