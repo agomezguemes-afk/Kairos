@@ -31,6 +31,7 @@ import DashboardNode from './components/DashboardNode';
 import TimerNode from './components/TimerNode';
 import ImageNode from './components/ImageNode';
 import AddExerciseSheet from './components/AddExerciseSheet';
+import ExerciseLibrarySheet from './components/ExerciseLibrarySheet';
 import ComponentPalette from './components/ComponentPalette';
 import SlashCommandMenu from './components/SlashCommandMenu';
 import BlockActionSheet from './components/BlockActionSheet';
@@ -162,6 +163,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const [showPalette, setShowPalette] = useState(false);
   const [insertAfterNodeId, setInsertAfterNodeId] = useState<string | null>(null);
   const [showAddExercise, setShowAddExercise] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [celebrationBlock, setCelebrationBlock] = useState<WorkoutBlock | null>(null);
   const [addExerciseSection, setAddExerciseSection] = useState<string | null>(null);
   const [addExerciseColumn, setAddExerciseColumn] = useState(0);
@@ -908,6 +910,16 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
                   color={block.is_favorite ? Colors.accent.primary : Colors.text.tertiary}
                 />
               </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowLibrary(true);
+                }}
+                hitSlop={8}
+                accessibilityLabel="Añadir desde librería"
+              >
+                <Feather name="book-open" size={18} color={Colors.accent.primary} />
+              </Pressable>
               <Pressable onPress={() => handleOpenPalette(null, 0)} hitSlop={8}>
                 <View style={styles.topBarPlus}>
                   <Feather name="plus" size={18} color={Colors.accent.primary} />
@@ -983,6 +995,13 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
         blockDiscipline={block.discipline}
         onAdd={handleExerciseAdd}
         onClose={() => setShowAddExercise(false)}
+      />
+
+      {/* Exercise library picker */}
+      <ExerciseLibrarySheet
+        visible={showLibrary}
+        blockId={blockId}
+        onClose={() => setShowLibrary(false)}
       />
 
       {/* Block action sheet */}

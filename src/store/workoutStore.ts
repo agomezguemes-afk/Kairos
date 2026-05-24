@@ -31,6 +31,9 @@ import {
 } from '../types/content';
 import { writeWorkout, isHealthKitAvailable } from '../lib/health/healthkit';
 import { estimateKcal } from '../lib/health/met';
+import { getTemplate } from '../data/blockTemplates';
+import { getLibraryEntry } from '../data/exerciseLibrary';
+import { instantiateTemplate, cloneLibraryEntry } from '../data/libraryHelpers';
 
 const MOCK_USER_ID = 'user_001';
 
@@ -162,6 +165,8 @@ interface WorkoutState {
     discipline?: Discipline,
     overrides?: { name?: string; icon?: string; color?: string; cover?: BlockCover },
   ) => string;
+  addBlockFromTemplate: (templateId: string) => string | null;
+  addExerciseFromLibrary: (blockId: string, libraryId: string) => string | null;
   updateBlock: (blockId: string, updates: Partial<WorkoutBlock>) => void;
   deleteBlock: (blockId: string) => void;
   reorderBlocks: (blocks: WorkoutBlock[]) => void;
@@ -691,6 +696,33 @@ export const useWorkoutStore = create<WorkoutState>()(
           : block;
         set((state) => ({ blocks: [...state.blocks, blockWithCover] }));
         return blockWithCover.id;
+      },
+
+      addBlockFromTemplate: (templateId) => {
+        const tpl = getTemplate(templateId);
+        if (!tpl) return null;
+        const { block, exercises } = instantiateTemplate(tpl, MOCK_USER_ID, get().blocks.length);
+        const content = exercises.map((ex, i) => createExerciseNode(i, ex));
+        const fullBlock = { ...block, content };
+        set((state) => ({ blocks: [...state.blocks, fullBlock] }));
+        return fullBlock.id;
+      },
+
+      addExerciseFromLibrary: (blockId, libraryId) => {
+        const entry = getLibraryEntry(libraryId);
+        if (!entry) return null;
+        const target = get().blocks.find((b) => b.id === blockId);
+        if (!target) return null;
+        const exerciseCount = target.content.filter((n) => n.type === 'exercise').length;
+        const exercise = cloneLibraryEntry(entry, blockId, exerciseCount);
+        const node = createExerciseNode(target.content.length, exercise);
+        const now = new Date().toISOString();
+        set((state) => ({
+          blocks: state.blocks.map((b) =>
+            b.id !== blockId ? b : { ...b, content: [...b.content, node], updated_at: now },
+          ),
+        }));
+        return exercise.id;
       },
 
       updateBlock: (blockId, updates) => {
