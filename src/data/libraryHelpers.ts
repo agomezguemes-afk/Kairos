@@ -24,6 +24,7 @@ export function cloneLibraryEntry(
   card.sets = Array.from({ length: targetSets }, (_, i) => createEmptySet(card.id, i, fields));
   card.default_sets_count = targetSets;
   card.rest_seconds = entry.defaultRestSeconds;
+  card.libraryId = entry.id;
   if (overrides?.goalWeight != null) card.goalWeight = overrides.goalWeight;
   if (overrides?.goalReps != null) card.goalReps = overrides.goalReps;
   return card;

@@ -266,6 +266,14 @@ export interface ExerciseCard {
   goalWeight?: number;
   goalReps?: number;
   muscle_groups?: MuscleGroup[];
+  /**
+   * Stable identifier of the library entry this card was cloned from.
+   * Used to correlate session history across blocks: two "Bench Press"
+   * cards cloned from the same library entry share progression, PR
+   * detection, and sparkline data. Custom exercises (created without
+   * a library entry) leave this undefined and fall back to name match.
+   */
+  libraryId?: string;
   created_at: ISOTimestamp;
   updated_at: ISOTimestamp;
 }

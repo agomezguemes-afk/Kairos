@@ -57,6 +57,12 @@ export interface ActiveWorkout {
 
 export interface ExerciseHistorySummary {
   exerciseId: string;
+  /**
+   * Stable library identifier when the exercise was cloned from the library.
+   * Used to correlate progression across blocks; absent for custom exercises
+   * (callers fall back to normalized-name match).
+   */
+  libraryId?: string;
   name: string;
   maxWeight: number;
   totalVolume: number;
@@ -635,6 +641,7 @@ export const useWorkoutStore = create<WorkoutState>()(
             }
             perEx.push({
               exerciseId: ex.id,
+              libraryId: ex.libraryId,
               name: ex.name,
               maxWeight: maxW,
               totalVolume: exVol,
