@@ -121,8 +121,7 @@ const styles = StyleSheet.create({
     right: 8,
     top: RAIL_HEIGHT / 2 - 1,
     height: 2,
-    backgroundColor: Colors.gold.base,
-    opacity: 0.32,
+    backgroundColor: Colors.hair.strong,
     borderRadius: 1,
   },
   nodes: {
@@ -144,8 +143,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg.void,
   },
   nodePending: {
-    borderWidth: 2,
-    borderColor: Colors.gold.deep,
+    borderWidth: 1.5,
+    borderColor: Colors.hair.strong,
   },
   nodeCompleted: {
     backgroundColor: Colors.gold.base,

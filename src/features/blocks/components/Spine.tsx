@@ -86,8 +86,9 @@ const styles = StyleSheet.create({
     top: 14,
     bottom: 14,
     width: SPINE_LINE_WIDTH,
-    backgroundColor: Colors.gold.base,
-    opacity: 0.32,
+    // Structural rail — neutral so completion gold reads as signal,
+    // not decoration. Gold lives on completed stations only.
+    backgroundColor: Colors.hair.strong,
     borderRadius: 1,
   },
   rows: {

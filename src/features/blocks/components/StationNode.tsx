@@ -1,14 +1,17 @@
 // Station node — visual anchor on the spine for one row.
 //
-// Combines SHAPE + ICON + COLOR per WCAG (info not conveyed by color alone).
-// Six variants:
-//   pending     → hollow gold circle
-//   inProgress  → concentric (gold ring + gold inner dot)
-//   completed   → solid gold + check icon
+// Combines SHAPE + ICON + COLOR per WCAG (info never conveyed by color
+// alone). Six variants:
+//   pending     → hollow neutral ring
+//   inProgress  → neutral ring + filled inner dot
+//   completed   → solid gold + check icon (the only routine gold moment)
 //   skipped     → hollow neutral + × icon
-//   note        → diamond outline (rotated square)
-//   divider     → short horizontal gold bar across the spine
-//   section     → solid gold capsule (thicker than divider, marks structure)
+//   note        → diamond outline
+//   divider     → short neutral bar across the rail
+//   section     → solid neutral capsule (thicker than divider)
+//
+// Gold appears only on `completed`. Pending and structural stations stay
+// neutral so the user's eye is drawn to what they've actually done.
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -84,7 +87,7 @@ function StationNodeImpl({ kind, state }: Props) {
         style={[styles.circleBase, styles.circleSkipped]}
         accessibilityLabel={ariaLabel(kind, state)}
       >
-        <Feather name="x" size={9} color={Colors.hair.strong} />
+        <Feather name="x" size={9} color={Colors.ink.muted} />
       </View>
     );
   }
@@ -92,7 +95,7 @@ function StationNodeImpl({ kind, state }: Props) {
   if (state === 'inProgress') {
     return (
       <View
-        style={[styles.circleBase, styles.circlePending]}
+        style={[styles.circleBase, styles.circleInProgress]}
         accessibilityLabel={ariaLabel(kind, state)}
       >
         <View style={styles.innerDot} />
@@ -121,21 +124,32 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg.void,
   },
   circlePending: {
-    borderWidth: 2,
-    borderColor: Colors.gold.deep,
+    borderWidth: 1.5,
+    borderColor: Colors.hair.strong,
+  },
+  circleInProgress: {
+    borderWidth: 1.5,
+    borderColor: Colors.ink.secondary,
   },
   circleCompleted: {
     backgroundColor: Colors.gold.base,
+    // Tiny shadow so the only chromatic moment on the rail also reads
+    // as the only deeper-than-flat element. Cheap polish, big payoff.
+    shadowColor: Colors.gold.deep,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
+    elevation: 2,
   },
   circleSkipped: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: Colors.hair.strong,
   },
   innerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.gold.base,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: Colors.ink.secondary,
   },
   diamondWrap: {
     width: STATION_SIZE,
@@ -146,21 +160,21 @@ const styles = StyleSheet.create({
   diamond: {
     width: STATION_SIZE - 4,
     height: STATION_SIZE - 4,
-    borderWidth: 2,
-    borderColor: Colors.gold.deep,
+    borderWidth: 1.5,
+    borderColor: Colors.hair.strong,
     backgroundColor: Colors.bg.void,
     transform: [{ rotate: '45deg' }],
   },
   dividerBar: {
     width: STATION_SIZE + 6,
     height: 2,
-    backgroundColor: Colors.gold.deep,
+    backgroundColor: Colors.hair.strong,
     borderRadius: 1,
   },
   sectionCap: {
     width: STATION_SIZE,
     height: 4,
-    backgroundColor: Colors.gold.base,
+    backgroundColor: Colors.ink.secondary,
     borderRadius: 2,
   },
   stackWrap: {
@@ -172,7 +186,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 4,
-    backgroundColor: Colors.gold.glow,
+    backgroundColor: Colors.bg.surface,
   },
   stackFront: {
     position: 'absolute',

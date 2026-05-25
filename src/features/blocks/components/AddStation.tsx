@@ -119,7 +119,7 @@ function AddStationImpl({ onInsert }: Props) {
               accessibilityHint={item.hint}
             >
               <View style={styles.menuIcon}>
-                <Feather name={item.icon} size={14} color={Colors.gold.deep} />
+                <Feather name={item.icon} size={14} color={Colors.ink.secondary} />
               </View>
               <View style={styles.menuTextBlock}>
                 <Text style={styles.menuLabel}>{item.label}</Text>
@@ -171,8 +171,8 @@ const styles = StyleSheet.create({
   },
   labelText: {
     ...Type.caption,
-    color: Colors.gold.deep,
-    fontWeight: '600',
+    color: Colors.ink.secondary,
+    fontWeight: '500',
   },
   menu: {
     marginLeft: SPINE_RAIL_WIDTH,
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.gold.glow,
+    backgroundColor: Colors.bg.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
