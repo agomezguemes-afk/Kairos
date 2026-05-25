@@ -4,21 +4,26 @@
 //   • Warm canvas (bg.warm) marks this tile as the primary lift, against
 //     the cooler bg.void of the screen and the white surfaces of accessory
 //     tiles. The hierarchy reads at a glance.
-//   • Exercise name renders editorial-large (Type.heading). Tabular target
-//     summary sits beneath as a quiet support line.
+//   • Header line shows progression at a glance: last top-set value
+//     (numHero serif), Δ vs previous session, and a sparkline of the
+//     last ~7 sessions. When there's no history yet, the header collapses
+//     to a quiet target summary instead of showing empty chrome.
 //   • The embedded ExerciseRow keeps owning sets editing; this tile only
-//     owns the header chrome.
+//     owns the header.
 //
-// No eyebrow label — the shape (hero variant) and the station node on the
-// spine already encode "this is an exercise". Repeating "EJERCICIO" on
-// every tile is noise. We reserve eyebrows for editorial moments (PR cards,
-// section breaks).
+// No eyebrow — the hero variant + the spine station already encode type.
 
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { ExerciseCard, FieldValue } from '../../../../types/core';
 import { Colors, Spacing, Type } from '../../../../theme/tokens';
+import { useWorkoutStore } from '../../../../store/workoutStore';
+import {
+  getExerciseHistoryFor,
+  computeExerciseStats,
+} from '../../../../lib/history/exerciseHistory';
 import TileFrame from './TileFrame';
+import Sparkline from './Sparkline';
 import ExerciseRow from '../ExerciseRow';
 
 interface Props {
@@ -37,13 +42,73 @@ interface Props {
 
 function CompoundTileImpl(props: Props) {
   const { exercise, isActive, onLongPress } = props;
+
+  const workoutHistory = useWorkoutStore(s => s.workoutHistory);
+  const stats = useMemo(() => {
+    const history = getExerciseHistoryFor(exercise, workoutHistory);
+    return computeExerciseStats(history);
+  }, [exercise, workoutHistory]);
+
+  const lastTop = stats.last?.topWeight ?? null;
+  const lastReps = stats.last?.topReps ?? null;
+  const delta = useMemo(() => {
+    if (stats.last?.topWeight == null || stats.previous?.topWeight == null) return null;
+    const d = stats.last.topWeight - stats.previous.topWeight;
+    return Math.round(d * 10) / 10;
+  }, [stats.last, stats.previous]);
+
+  const atOrNearMax =
+    stats.allTimeMaxWeight != null &&
+    lastTop != null &&
+    lastTop >= stats.allTimeMaxWeight - 0.01;
+
   const targetSummary = useMemo(() => formatTarget(exercise), [exercise]);
 
   return (
     <TileFrame variant="hero" isActive={isActive} onLongPress={onLongPress}>
-      {targetSummary && (
-        <Text style={styles.targetLine}>{targetSummary}</Text>
+      {/* Header — progression at a glance, or quiet target line as fallback. */}
+      {lastTop != null ? (
+        <View style={styles.headerProgression}>
+          <View style={styles.headerLeft}>
+            <View style={styles.lastValueRow}>
+              <Text style={styles.lastValue}>{trimZero(lastTop)}</Text>
+              <Text style={styles.lastUnit}>kg</Text>
+              {lastReps != null && (
+                <Text style={styles.lastReps}>× {lastReps}</Text>
+              )}
+            </View>
+            <View style={styles.deltaRow}>
+              <Text style={styles.deltaLabel}>vs anterior</Text>
+              {delta != null ? (
+                <Text
+                  style={[
+                    styles.deltaValue,
+                    delta > 0 && styles.deltaValuePositive,
+                    delta < 0 && styles.deltaValueNegative,
+                  ]}
+                >
+                  {delta > 0 ? '+' : ''}{trimZero(delta)} kg
+                </Text>
+              ) : (
+                <Text style={styles.deltaValue}>—</Text>
+              )}
+            </View>
+          </View>
+          <View style={styles.sparkSlot}>
+            <Sparkline
+              data={stats.sparkline}
+              width={72}
+              height={22}
+              highlight={atOrNearMax}
+            />
+          </View>
+        </View>
+      ) : (
+        targetSummary && (
+          <Text style={styles.targetLine}>{targetSummary}</Text>
+        )
       )}
+
       <View style={styles.body}>
         <ExerciseRow
           exercise={props.exercise}
@@ -62,11 +127,6 @@ function CompoundTileImpl(props: Props) {
   );
 }
 
-/**
- * Quiet target summary above the exercise row: "4 × 8 · 80 kg target".
- * Drawn from goal data when present, falls back to set count + first set.
- * Returns null when there's nothing meaningful to say.
- */
 function formatTarget(exercise: ExerciseCard): string | null {
   const setsCount = exercise.sets.length;
   if (setsCount === 0) return null;
@@ -76,16 +136,6 @@ function formatTarget(exercise: ExerciseCard): string | null {
   if (goalW != null || goalR != null) {
     const repsStr = goalR != null ? `${setsCount} × ${goalR}` : `${setsCount} series`;
     const wStr = goalW != null ? ` · ${trimZero(goalW)} kg objetivo` : '';
-    return repsStr + wStr;
-  }
-
-  // Fallback: peek at first set values.
-  const s = exercise.sets[0];
-  const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
-  const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : null;
-  if (w != null || r != null) {
-    const repsStr = r != null ? `${setsCount} × ${r}` : `${setsCount} series`;
-    const wStr = w != null ? ` · ${trimZero(w)} kg` : '';
     return repsStr + wStr;
   }
 
@@ -103,8 +153,64 @@ const styles = StyleSheet.create({
   targetLine: {
     ...Type.caption,
     color: Colors.ink.tertiary,
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
+
+  headerProgression: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  lastValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  lastValue: {
+    ...Type.numLarge,
+    color: Colors.ink.primary,
+  },
+  lastUnit: {
+    ...Type.caption,
+    color: Colors.ink.tertiary,
+  },
+  lastReps: {
+    ...Type.caption,
+    color: Colors.ink.secondary,
+    marginLeft: 4,
+  },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginTop: 2,
+  },
+  deltaLabel: {
+    ...Type.micro,
+    color: Colors.ink.muted,
+  },
+  deltaValue: {
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+    fontWeight: '600',
+  },
+  deltaValuePositive: {
+    color: Colors.semantic.success,
+  },
+  deltaValueNegative: {
+    color: Colors.semantic.error,
+  },
+  sparkSlot: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+
   body: {
     marginHorizontal: -Spacing.sm,
   },

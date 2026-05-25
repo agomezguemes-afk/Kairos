@@ -1,14 +1,21 @@
 // AccessoryTile — compact secondary-lift variant.
 //
-// Standard white surface, hairline border, tighter padding. No eyebrow
-// (the station node on the spine encodes type). The embedded ExerciseRow
-// renders in compact mode.
+// Standard white surface, hairline border, tighter padding. When there's
+// progression history a slim sparkline + last-value pill renders inline
+// above the embedded ExerciseRow; otherwise the row stands alone. No
+// eyebrow.
 
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import type { ExerciseCard, FieldValue } from '../../../../types/core';
-import { Spacing } from '../../../../theme/tokens';
+import { Colors, Spacing, Type } from '../../../../theme/tokens';
+import { useWorkoutStore } from '../../../../store/workoutStore';
+import {
+  getExerciseHistoryFor,
+  computeExerciseStats,
+} from '../../../../lib/history/exerciseHistory';
 import TileFrame from './TileFrame';
+import Sparkline from './Sparkline';
 import ExerciseRow from '../ExerciseRow';
 
 interface Props {
@@ -26,10 +33,42 @@ interface Props {
 }
 
 function AccessoryTileImpl(props: Props) {
-  const { isActive, onLongPress } = props;
+  const { exercise, isActive, onLongPress } = props;
+
+  const workoutHistory = useWorkoutStore(s => s.workoutHistory);
+  const stats = useMemo(() => {
+    const history = getExerciseHistoryFor(exercise, workoutHistory);
+    return computeExerciseStats(history);
+  }, [exercise, workoutHistory]);
+
+  const lastTop = stats.last?.topWeight ?? null;
+  const lastReps = stats.last?.topReps ?? null;
+  const atOrNearMax =
+    stats.allTimeMaxWeight != null &&
+    lastTop != null &&
+    lastTop >= stats.allTimeMaxWeight - 0.01;
 
   return (
     <TileFrame variant="standard" isActive={isActive} onLongPress={onLongPress}>
+      {lastTop != null && (
+        <View style={styles.progressionRow}>
+          <Text style={styles.lastValue}>
+            {trimZero(lastTop)}
+            <Text style={styles.lastUnit}> kg</Text>
+            {lastReps != null && (
+              <Text style={styles.lastReps}>  × {lastReps}</Text>
+            )}
+          </Text>
+          <Sparkline
+            data={stats.sparkline}
+            width={48}
+            height={14}
+            highlight={atOrNearMax}
+            hideDot
+          />
+        </View>
+      )}
+
       <View style={styles.body}>
         <ExerciseRow
           exercise={props.exercise}
@@ -48,10 +87,34 @@ function AccessoryTileImpl(props: Props) {
   );
 }
 
+function trimZero(n: number): string {
+  return n % 1 === 0 ? String(n) : n.toFixed(1).replace(/\.0$/, '');
+}
+
 const AccessoryTile = React.memo(AccessoryTileImpl);
 export default AccessoryTile;
 
 const styles = StyleSheet.create({
+  progressionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    gap: Spacing.sm,
+  },
+  lastValue: {
+    ...Type.micro,
+    color: Colors.ink.secondary,
+    fontWeight: '700',
+  },
+  lastUnit: {
+    color: Colors.ink.tertiary,
+    fontWeight: '500',
+  },
+  lastReps: {
+    color: Colors.ink.tertiary,
+    fontWeight: '500',
+  },
   body: {
     marginHorizontal: -Spacing.xs,
   },
