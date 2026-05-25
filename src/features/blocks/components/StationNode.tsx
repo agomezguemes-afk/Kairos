@@ -15,6 +15,15 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Colors } from '../../../theme/tokens';
 import type { StationKind, StationState } from '../lib/spineLayout';
@@ -94,12 +103,7 @@ function StationNodeImpl({ kind, state }: Props) {
 
   if (state === 'inProgress') {
     return (
-      <View
-        style={[styles.circleBase, styles.circleInProgress]}
-        accessibilityLabel={ariaLabel(kind, state)}
-      >
-        <View style={styles.innerDot} />
-      </View>
+      <InProgressNode label={ariaLabel(kind, state)} />
     );
   }
 
@@ -108,6 +112,42 @@ function StationNodeImpl({ kind, state }: Props) {
       style={[styles.circleBase, styles.circlePending]}
       accessibilityLabel={ariaLabel(kind, state)}
     />
+  );
+}
+
+/**
+ * Active station — slightly larger than peers, ink.primary border + dot,
+ * dot breathes via a subtle pulse. Reduced-motion users get the steady
+ * state. Stays on the neutral palette: gold is reserved for completion.
+ */
+function InProgressNode({ label }: { label: string }) {
+  const reduceMotion = useReducedMotion();
+  const pulse = useSharedValue(0);
+
+  React.useEffect(() => {
+    if (reduceMotion) {
+      pulse.value = 0.5;
+      return;
+    }
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.cubic) }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(pulse);
+  }, [pulse, reduceMotion]);
+
+  const dotStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.9 + pulse.value * 0.25 }],
+    opacity: 0.7 + pulse.value * 0.3,
+  }));
+
+  return (
+    <View style={styles.inProgressWrap} accessibilityLabel={label}>
+      <View style={styles.circleInProgressActive}>
+        <Animated.View style={[styles.innerDotActive, dotStyle]} />
+      </View>
+    </View>
   );
 }
 
@@ -130,6 +170,28 @@ const styles = StyleSheet.create({
   circleInProgress: {
     borderWidth: 1.5,
     borderColor: Colors.ink.secondary,
+  },
+  inProgressWrap: {
+    width: STATION_SIZE + 4,
+    height: STATION_SIZE + 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circleInProgressActive: {
+    width: STATION_SIZE + 2,
+    height: STATION_SIZE + 2,
+    borderRadius: (STATION_SIZE + 2) / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.bg.void,
+    borderWidth: 2,
+    borderColor: Colors.ink.primary,
+  },
+  innerDotActive: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.ink.primary,
   },
   circleCompleted: {
     backgroundColor: Colors.gold.base,
