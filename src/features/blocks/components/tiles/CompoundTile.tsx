@@ -62,14 +62,26 @@ function CompoundTileImpl(props: Props) {
     lastTop != null &&
     lastTop >= stats.allTimeMaxWeight - 0.01;
 
+  const relativeLast = useMemo(
+    () => stats.last ? formatRelativeShort(Date.now() - stats.last.at) : null,
+    [stats.last],
+  );
+
+  const showSparkline = stats.sparkline.length >= 3;
+
   const targetSummary = useMemo(() => formatTarget(exercise), [exercise]);
 
   return (
     <TileFrame variant="hero" isActive={isActive} onLongPress={onLongPress}>
-      {/* Header — progression at a glance, or quiet target line as fallback. */}
+      {/* Header — progression at a glance, or quiet target line as fallback.
+          Eyebrow "ÚLTIMA SESIÓN · hace 3 días" disambiguates historical data
+          from the live sets shown by the ExerciseRow underneath. */}
       {lastTop != null ? (
         <View style={styles.headerProgression}>
           <View style={styles.headerLeft}>
+            <Text style={styles.eyebrow}>
+              Última sesión{relativeLast ? ` · ${relativeLast}` : ''}
+            </Text>
             <View style={styles.lastValueRow}>
               <Text style={styles.lastValue}>{trimZero(lastTop)}</Text>
               <Text style={styles.lastUnit}>kg</Text>
@@ -77,31 +89,28 @@ function CompoundTileImpl(props: Props) {
                 <Text style={styles.lastReps}>× {lastReps}</Text>
               )}
             </View>
-            <View style={styles.deltaRow}>
-              <Text style={styles.deltaLabel}>vs anterior</Text>
-              {delta != null ? (
-                <Text
-                  style={[
-                    styles.deltaValue,
-                    delta > 0 && styles.deltaValuePositive,
-                    delta < 0 && styles.deltaValueNegative,
-                  ]}
-                >
-                  {delta > 0 ? '+' : ''}{trimZero(delta)} kg
-                </Text>
-              ) : (
-                <Text style={styles.deltaValue}>—</Text>
-              )}
+            {delta != null && (
+              <Text
+                style={[
+                  styles.deltaValue,
+                  delta > 0 && styles.deltaValuePositive,
+                  delta < 0 && styles.deltaValueNegative,
+                ]}
+              >
+                {delta > 0 ? '+' : ''}{trimZero(delta)} kg vs anterior
+              </Text>
+            )}
+          </View>
+          {showSparkline && (
+            <View style={styles.sparkSlot}>
+              <Sparkline
+                data={stats.sparkline}
+                width={72}
+                height={22}
+                highlight={atOrNearMax}
+              />
             </View>
-          </View>
-          <View style={styles.sparkSlot}>
-            <Sparkline
-              data={stats.sparkline}
-              width={72}
-              height={22}
-              highlight={atOrNearMax}
-            />
-          </View>
+          )}
         </View>
       ) : (
         targetSummary && (
@@ -146,6 +155,18 @@ function trimZero(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1).replace(/\.0$/, '');
 }
 
+function formatRelativeShort(ms: number): string {
+  const days = Math.floor(ms / 86400_000);
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  if (days < 7)   return `hace ${days} días`;
+  const weeks = Math.floor(days / 7);
+  if (weeks === 1) return 'hace 1 sem';
+  if (weeks < 8)   return `hace ${weeks} sem`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? 'hace 1 mes' : `hace ${months} meses`;
+}
+
 const CompoundTile = React.memo(CompoundTileImpl);
 export default CompoundTile;
 
@@ -166,6 +187,11 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
     minWidth: 0,
+    gap: 2,
+  },
+  eyebrow: {
+    ...Type.eyebrow,
+    color: Colors.ink.muted,
   },
   lastValueRow: {
     flexDirection: 'row',
@@ -184,16 +210,6 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: Colors.ink.secondary,
     marginLeft: 4,
-  },
-  deltaRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-    marginTop: 2,
-  },
-  deltaLabel: {
-    ...Type.micro,
-    color: Colors.ink.muted,
   },
   deltaValue: {
     ...Type.micro,

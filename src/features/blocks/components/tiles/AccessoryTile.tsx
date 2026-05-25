@@ -47,25 +47,37 @@ function AccessoryTileImpl(props: Props) {
     stats.allTimeMaxWeight != null &&
     lastTop != null &&
     lastTop >= stats.allTimeMaxWeight - 0.01;
+  const relativeLast = useMemo(
+    () => stats.last ? formatRelativeShort(Date.now() - stats.last.at) : null,
+    [stats.last],
+  );
+  const showSparkline = stats.sparkline.length >= 3;
 
   return (
     <TileFrame variant="standard" isActive={isActive} onLongPress={onLongPress}>
       {lastTop != null && (
         <View style={styles.progressionRow}>
-          <Text style={styles.lastValue}>
-            {trimZero(lastTop)}
-            <Text style={styles.lastUnit}> kg</Text>
-            {lastReps != null && (
-              <Text style={styles.lastReps}>  × {lastReps}</Text>
+          <View style={styles.progressionLeft}>
+            <Text style={styles.lastValue}>
+              {trimZero(lastTop)}
+              <Text style={styles.lastUnit}> kg</Text>
+              {lastReps != null && (
+                <Text style={styles.lastReps}>  × {lastReps}</Text>
+              )}
+            </Text>
+            {relativeLast && (
+              <Text style={styles.relativeLabel}>{relativeLast}</Text>
             )}
-          </Text>
-          <Sparkline
-            data={stats.sparkline}
-            width={48}
-            height={14}
-            highlight={atOrNearMax}
-            hideDot
-          />
+          </View>
+          {showSparkline && (
+            <Sparkline
+              data={stats.sparkline}
+              width={48}
+              height={14}
+              highlight={atOrNearMax}
+              hideDot
+            />
+          )}
         </View>
       )}
 
@@ -91,6 +103,17 @@ function trimZero(n: number): string {
   return n % 1 === 0 ? String(n) : n.toFixed(1).replace(/\.0$/, '');
 }
 
+function formatRelativeShort(ms: number): string {
+  const days = Math.floor(ms / 86400_000);
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  if (days < 7)   return `hace ${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 8) return `hace ${weeks}sem`;
+  const months = Math.floor(days / 30);
+  return `hace ${months}m`;
+}
+
 const AccessoryTile = React.memo(AccessoryTileImpl);
 export default AccessoryTile;
 
@@ -102,10 +125,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     gap: Spacing.sm,
   },
+  progressionLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
   lastValue: {
     ...Type.micro,
     color: Colors.ink.secondary,
     fontWeight: '700',
+  },
+  relativeLabel: {
+    ...Type.micro,
+    color: Colors.ink.muted,
+    fontSize: 10,
   },
   lastUnit: {
     color: Colors.ink.tertiary,
