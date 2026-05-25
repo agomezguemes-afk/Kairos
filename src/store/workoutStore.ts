@@ -929,7 +929,21 @@ export const useWorkoutStore = create<WorkoutState>()(
               exerciseId,
               (ex) => ({ ...ex, ...updates, updated_at: new Date().toISOString() }),
             );
-            return { ...block, content, updated_at: new Date().toISOString() };
+            // When the exercise's name changes, dashboard nodes inside the
+            // same block that bind this exerciseId have a stale cached
+            // exerciseName. Sync them in the same set() so the UI never
+            // shows the old label after a rename.
+            const syncedContent = updates.name === undefined
+              ? content
+              : content.map((n) => {
+                  if (n.type !== 'dashboard') return n;
+                  if (n.data.exerciseId !== exerciseId) return n;
+                  return {
+                    ...n,
+                    data: { ...n.data, exerciseName: updates.name },
+                  } as ContentNode;
+                });
+            return { ...block, content: syncedContent, updated_at: new Date().toISOString() };
           }),
         }));
       },
@@ -938,10 +952,22 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
+            // Dashboards bound to this exerciseId lose the concrete card
+            // reference but keep libraryId + exerciseName, so historical
+            // metrics keep resolving via the index. The config picker will
+            // simply show no chip as active until the user rebinds.
+            const cleared = block.content.map((n) => {
+              if (n.type !== 'dashboard') return n;
+              if (n.data.exerciseId !== exerciseId) return n;
+              return {
+                ...n,
+                data: { ...n.data, exerciseId: undefined },
+              } as ContentNode;
+            });
             return {
               ...block,
               content: reorderNodes(
-                block.content.filter(
+                cleared.filter(
                   (n) => !(n.type === 'exercise' && n.data.exercise.id === exerciseId),
                 ),
               ),
