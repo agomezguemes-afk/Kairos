@@ -40,20 +40,62 @@ export interface CustomFieldNodeData {
   value: FieldValue;
 }
 
+/**
+ * Block-scope metrics (operate on the current block's content).
+ * Exercise-scope metrics require `exerciseId` / `libraryId` on the node
+ * and pull data from `workoutHistory`.
+ */
 export type DashboardMetric =
+  // Block scope
   | 'total_volume'
   | 'completed_sets'
   | 'total_exercises'
   | 'completion_pct'
-  | 'estimated_duration';
+  | 'estimated_duration'
+  // Exercise scope
+  | 'exercise_max_weight'
+  | 'exercise_volume'
+  | 'exercise_estimated_1rm'
+  | 'exercise_freq'
+  | 'exercise_last_top';
 
-export type DashboardViz = 'counter' | 'progress' | 'list';
+export const EXERCISE_SCOPED_METRICS: DashboardMetric[] = [
+  'exercise_max_weight',
+  'exercise_volume',
+  'exercise_estimated_1rm',
+  'exercise_freq',
+  'exercise_last_top',
+];
+
+export function isExerciseScopedMetric(metric: DashboardMetric): boolean {
+  return EXERCISE_SCOPED_METRICS.includes(metric);
+}
+
+export type DashboardViz = 'counter' | 'progress' | 'list' | 'sparkline';
+
+/**
+ * Lookback window for exercise-scope metrics. "all" includes every history
+ * entry; "session" reads the most recent one only.
+ */
+export type DashboardLookback = 'session' | '4w' | '12w' | 'all';
 
 export interface DashboardNodeData {
   metric: DashboardMetric;
   viz: DashboardViz;
   label: string;
   color: string;
+  /**
+   * Exercise binding for exercise-scoped metrics. `exerciseId` matches the
+   * current block's card; `libraryId` matches across blocks. Both undefined
+   * for block-scope metrics. When the bound card is deleted, the dashboard
+   * gracefully renders an empty state without breaking.
+   */
+  exerciseId?: string;
+  libraryId?: string;
+  /** Cached display name of the bound exercise (survives card deletion). */
+  exerciseName?: string;
+  /** Lookback for exercise-scope metrics. Defaults to '4w'. */
+  lookback?: DashboardLookback;
 }
 
 export interface SupersetNodeData {
@@ -187,21 +229,27 @@ export function createDashboardNode(
   label?: string,
   color: string = '#C9A96E',
 ): DashboardContentNode {
-  const defaultLabels: Record<DashboardMetric, string> = {
-    total_volume: 'Volumen total',
-    completed_sets: 'Series completadas',
-    total_exercises: 'Ejercicios',
-    completion_pct: 'Progreso',
-    estimated_duration: 'Duración estimada',
-  };
   return {
     id: generateId(),
     type: 'dashboard',
     order,
     column: 0,
-    data: { metric, viz, label: label ?? defaultLabels[metric], color },
+    data: { metric, viz, label: label ?? DASHBOARD_METRIC_LABELS[metric], color },
   };
 }
+
+export const DASHBOARD_METRIC_LABELS: Record<DashboardMetric, string> = {
+  total_volume: 'Volumen total',
+  completed_sets: 'Series completadas',
+  total_exercises: 'Ejercicios',
+  completion_pct: 'Progreso',
+  estimated_duration: 'Duración estimada',
+  exercise_max_weight: 'Peso máximo',
+  exercise_volume: 'Volumen',
+  exercise_estimated_1rm: '1RM estimado',
+  exercise_freq: 'Frecuencia',
+  exercise_last_top: 'Último top set',
+};
 
 export function getExercisesFromContent(content: ContentNode[]): ExerciseCard[] {
   return content
