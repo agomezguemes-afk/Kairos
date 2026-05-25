@@ -1,8 +1,10 @@
-// AccessoryTile — compact variant of CompoundTile. Same content surface but
-// tighter chrome: no eyebrow, ExerciseRow in compact mode, smaller padding.
-// Used for secondary lifts and accessory work.
+// AccessoryTile — compact secondary-lift variant.
+//
+// Standard white surface, hairline border, tighter padding. No eyebrow
+// (the station node on the spine encodes type). The embedded ExerciseRow
+// renders in compact mode.
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { ExerciseCard, FieldValue } from '../../../../types/core';
 import { Spacing } from '../../../../theme/tokens';
@@ -24,16 +26,10 @@ interface Props {
 }
 
 function AccessoryTileImpl(props: Props) {
-  const { exercise, isActive, onLongPress } = props;
-  const lastRef = useMemo(() => formatLastReference(exercise), [exercise]);
+  const { isActive, onLongPress } = props;
 
   return (
-    <TileFrame
-      pill={lastRef}
-      isActive={isActive}
-      compact
-      onLongPress={onLongPress}
-    >
+    <TileFrame variant="standard" isActive={isActive} onLongPress={onLongPress}>
       <View style={styles.body}>
         <ExerciseRow
           exercise={props.exercise}
@@ -52,29 +48,11 @@ function AccessoryTileImpl(props: Props) {
   );
 }
 
-function formatLastReference(exercise: ExerciseCard): string | null {
-  for (let i = exercise.sets.length - 1; i >= 0; i--) {
-    const s = exercise.sets[i];
-    if (!s.completed) continue;
-    const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
-    const r = typeof s.values['reps']   === 'number' ? (s.values['reps']   as number) : null;
-    if (w == null && r == null) continue;
-    const wStr = w != null ? `${trimZero(w)} kg` : '';
-    const rStr = r != null ? `× ${r}` : '';
-    return ['última:', wStr, rStr].filter(Boolean).join(' ');
-  }
-  return null;
-}
-
-function trimZero(n: number): string {
-  return n % 1 === 0 ? String(n) : n.toFixed(1).replace(/\.0$/, '');
-}
-
 const AccessoryTile = React.memo(AccessoryTileImpl);
 export default AccessoryTile;
 
 const styles = StyleSheet.create({
   body: {
-    marginHorizontal: -Spacing.sm,
+    marginHorizontal: -Spacing.xs,
   },
 });

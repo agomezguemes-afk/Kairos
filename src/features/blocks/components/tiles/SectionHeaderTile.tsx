@@ -1,7 +1,8 @@
-// SectionHeaderTile — thin row marking the start of a column section.
-// Eyebrow caps + column-count chip + width preset selector + delete X.
-// The chevron slot is reserved for a future collapse interaction (data
-// lives on ColumnSectionData; collapse-state plumbing lands in M4+).
+// SectionHeaderTile — thin marker for the start of a column section.
+//
+// Quiet column-count chip + width preset selector + delete X. No eyebrow
+// label — the columns glyph names the type. Width presets read as
+// editorial controls, not gold-tinted decoration.
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
@@ -33,12 +34,9 @@ function SectionHeaderTileImpl({ sectionNode, onChangeWidth, onDelete }: Props) 
 
   return (
     <View style={styles.row}>
-      <View style={styles.left}>
-        <Text style={styles.eyebrow}>SECCIÓN</Text>
-        <View style={styles.colChip}>
-          <Feather name="columns" size={10} color={Colors.gold.deep} />
-          <Text style={styles.colChipText}>{cols}</Text>
-        </View>
+      <View style={styles.colChip}>
+        <Feather name="columns" size={11} color={Colors.ink.secondary} />
+        <Text style={styles.colChipText}>{cols} col</Text>
       </View>
       <View style={styles.presets}>
         {presets.map((preset, i) => {
@@ -80,31 +78,23 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
-    backgroundColor: Colors.bg.warm,
+    backgroundColor: Colors.bg.elevated,
     borderRadius: Radius.sm,
-  },
-  left: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  eyebrow: {
-    ...Type.eyebrow,
-    color: Colors.gold.deep,
   },
   colChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    backgroundColor: Colors.gold.glow,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: Colors.bg.surface,
     borderRadius: Radius.pill,
   },
   colChipText: {
     ...Type.micro,
-    color: Colors.gold.deep,
+    color: Colors.ink.secondary,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   presets: {
     flex: 1,
@@ -118,7 +108,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
   },
   presetBtnActive: {
-    backgroundColor: Colors.gold.glow,
+    backgroundColor: Colors.bg.surface,
   },
   presetText: {
     fontSize: 9,
@@ -126,7 +116,7 @@ const styles = StyleSheet.create({
     color: Colors.ink.muted,
   },
   presetTextActive: {
-    color: Colors.gold.deep,
+    color: Colors.ink.primary,
     fontWeight: '700',
   },
 });

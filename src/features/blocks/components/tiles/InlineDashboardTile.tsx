@@ -1,8 +1,7 @@
-// InlineDashboardTile — wraps DashboardNode in the Spine-Bento frame.
-// The existing DashboardNode owns counter / progress / list visualizations;
-// the tile just adds eyebrow chrome and the optional active highlight.
-// Sparkline viz remains future work — when added to DashboardViz it slots
-// in here naturally.
+// InlineDashboardTile — wraps DashboardNode in the standard Spine-Bento frame.
+//
+// No eyebrow — the metric label inside the viz already names the data.
+// The widget itself does the talking.
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -23,12 +22,7 @@ interface Props {
 
 function InlineDashboardTileImpl(props: Props) {
   return (
-    <TileFrame
-      eyebrow="DASHBOARD"
-      isActive={props.isActive}
-      compact
-      onLongPress={props.onLongPress}
-    >
+    <TileFrame variant="standard" isActive={props.isActive} onLongPress={props.onLongPress}>
       <View style={styles.body}>
         <DashboardNode
           node={props.node}
@@ -47,6 +41,6 @@ export default InlineDashboardTile;
 
 const styles = StyleSheet.create({
   body: {
-    marginHorizontal: -Spacing.sm,
+    marginHorizontal: -Spacing.xs,
   },
 });

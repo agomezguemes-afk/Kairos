@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   accent: {
     width: 2,
     marginVertical: 4,
-    backgroundColor: Colors.gold.base,
+    backgroundColor: Colors.hair.strong,
     borderRadius: 1,
   },
   body: {

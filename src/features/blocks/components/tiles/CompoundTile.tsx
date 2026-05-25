@@ -1,15 +1,23 @@
-// CompoundTile — Spine-Bento hero variant for exercise nodes.
+// CompoundTile — Spine-Bento hero variant for the anchor exercise.
 //
-// Visual shape: eyebrow "EJERCICIO", inline-editable name (Type.heading),
-// 1-line sets summary, optional "última" pill. Embeds the existing
-// ExerciseRow underneath so the heavy sets-editing logic (SetRow, field
-// config, swipe to remove) stays in one place. The tile only owns the
-// header chrome and the previous-reference pill.
+// Visual contract:
+//   • Warm canvas (bg.warm) marks this tile as the primary lift, against
+//     the cooler bg.void of the screen and the white surfaces of accessory
+//     tiles. The hierarchy reads at a glance.
+//   • Exercise name renders editorial-large (Type.heading). Tabular target
+//     summary sits beneath as a quiet support line.
+//   • The embedded ExerciseRow keeps owning sets editing; this tile only
+//     owns the header chrome.
+//
+// No eyebrow label — the shape (hero variant) and the station node on the
+// spine already encode "this is an exercise". Repeating "EJERCICIO" on
+// every tile is noise. We reserve eyebrows for editorial moments (PR cards,
+// section breaks).
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import type { ExerciseCard, FieldValue } from '../../../../types/core';
-import { Spacing } from '../../../../theme/tokens';
+import { Colors, Spacing, Type } from '../../../../theme/tokens';
 import TileFrame from './TileFrame';
 import ExerciseRow from '../ExerciseRow';
 
@@ -29,16 +37,13 @@ interface Props {
 
 function CompoundTileImpl(props: Props) {
   const { exercise, isActive, onLongPress } = props;
-
-  const lastRef = useMemo(() => formatLastReference(exercise), [exercise]);
+  const targetSummary = useMemo(() => formatTarget(exercise), [exercise]);
 
   return (
-    <TileFrame
-      eyebrow="EJERCICIO"
-      pill={lastRef}
-      isActive={isActive}
-      onLongPress={onLongPress}
-    >
+    <TileFrame variant="hero" isActive={isActive} onLongPress={onLongPress}>
+      {targetSummary && (
+        <Text style={styles.targetLine}>{targetSummary}</Text>
+      )}
       <View style={styles.body}>
         <ExerciseRow
           exercise={props.exercise}
@@ -57,18 +62,34 @@ function CompoundTileImpl(props: Props) {
   );
 }
 
-function formatLastReference(exercise: ExerciseCard): string | null {
-  for (let i = exercise.sets.length - 1; i >= 0; i--) {
-    const s = exercise.sets[i];
-    if (!s.completed) continue;
-    const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
-    const r = typeof s.values['reps']   === 'number' ? (s.values['reps']   as number) : null;
-    if (w == null && r == null) continue;
-    const wStr = w != null ? `${trimZero(w)} kg` : '';
-    const rStr = r != null ? `× ${r}` : '';
-    return ['última:', wStr, rStr].filter(Boolean).join(' ');
+/**
+ * Quiet target summary above the exercise row: "4 × 8 · 80 kg target".
+ * Drawn from goal data when present, falls back to set count + first set.
+ * Returns null when there's nothing meaningful to say.
+ */
+function formatTarget(exercise: ExerciseCard): string | null {
+  const setsCount = exercise.sets.length;
+  if (setsCount === 0) return null;
+
+  const goalW = exercise.goalWeight;
+  const goalR = exercise.goalReps;
+  if (goalW != null || goalR != null) {
+    const repsStr = goalR != null ? `${setsCount} × ${goalR}` : `${setsCount} series`;
+    const wStr = goalW != null ? ` · ${trimZero(goalW)} kg objetivo` : '';
+    return repsStr + wStr;
   }
-  return null;
+
+  // Fallback: peek at first set values.
+  const s = exercise.sets[0];
+  const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
+  const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : null;
+  if (w != null || r != null) {
+    const repsStr = r != null ? `${setsCount} × ${r}` : `${setsCount} series`;
+    const wStr = w != null ? ` · ${trimZero(w)} kg` : '';
+    return repsStr + wStr;
+  }
+
+  return `${setsCount} ${setsCount === 1 ? 'serie' : 'series'}`;
 }
 
 function trimZero(n: number): string {
@@ -79,7 +100,12 @@ const CompoundTile = React.memo(CompoundTileImpl);
 export default CompoundTile;
 
 const styles = StyleSheet.create({
+  targetLine: {
+    ...Type.caption,
+    color: Colors.ink.tertiary,
+    marginBottom: Spacing.xs,
+  },
   body: {
-    marginHorizontal: -Spacing.md,
+    marginHorizontal: -Spacing.sm,
   },
 });

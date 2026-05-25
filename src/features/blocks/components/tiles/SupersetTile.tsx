@@ -1,7 +1,13 @@
-// SupersetTile — wide hero tile that renders a superset as a stack of
-// mini-tiles (sub-bento) plus a cycle/rest indicator. Mini-tiles are
-// read-only quick previews; tapping the chevron expands the embedded
-// exercises for inline editing (deferred — wired in a future iteration).
+// SupersetTile — exercises chained in a round-robin sequence.
+//
+// Header row: shuffle glyph + editable title (or "Superserie") + cycle/rest
+// chip. The body is a stack of read-only mini-tiles previewing each
+// exercise's first set. Long-press opens the action sheet; tapping the
+// chip stepper adjusts cycle count.
+//
+// No eyebrow — the shuffle glyph and the body shape encode the type.
+// Gold is reserved for completion states elsewhere; here we use neutral
+// tones so the superset reads as structural, not decorative.
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
@@ -28,13 +34,14 @@ function SupersetTileImpl({ node, isActive, onLongPress, onUpdate }: Props) {
   };
 
   return (
-    <TileFrame
-      eyebrow="SUPERSERIE"
-      isActive={isActive}
-      onLongPress={onLongPress}
-    >
+    <TileFrame variant="standard" isActive={isActive} onLongPress={onLongPress}>
       <View style={styles.header}>
-        <Text style={styles.title}>{label || 'Superserie'}</Text>
+        <View style={styles.titleRow}>
+          <Feather name="shuffle" size={14} color={Colors.ink.secondary} />
+          <Text style={styles.title} numberOfLines={1}>
+            {label || 'Superserie'}
+          </Text>
+        </View>
         <View style={styles.meta}>
           <Pressable
             onPress={() => adjustCycles(-1)}
@@ -43,7 +50,7 @@ function SupersetTileImpl({ node, isActive, onLongPress, onUpdate }: Props) {
             accessibilityLabel="Reducir ciclos"
             style={({ pressed }) => [styles.metaBtn, pressed && styles.metaBtnPressed]}
           >
-            <Feather name="minus" size={12} color={Colors.gold.deep} />
+            <Feather name="minus" size={11} color={Colors.ink.secondary} />
           </Pressable>
           <Text style={styles.metaText}>
             {cycles} {cycles === 1 ? 'ciclo' : 'ciclos'} · {restLabel}
@@ -55,7 +62,7 @@ function SupersetTileImpl({ node, isActive, onLongPress, onUpdate }: Props) {
             accessibilityLabel="Añadir ciclo"
             style={({ pressed }) => [styles.metaBtn, pressed && styles.metaBtnPressed]}
           >
-            <Feather name="plus" size={12} color={Colors.gold.deep} />
+            <Feather name="plus" size={11} color={Colors.ink.secondary} />
           </Pressable>
         </View>
       </View>
@@ -65,7 +72,9 @@ function SupersetTileImpl({ node, isActive, onLongPress, onUpdate }: Props) {
           {exercises.map((ex, i) => (
             <View key={ex.id} style={styles.miniTile}>
               <View style={styles.miniIndex}>
-                <Text style={styles.miniIndexText}>{i + 1}</Text>
+                <Text style={styles.miniIndexText}>
+                  {String.fromCharCode(65 + i)}
+                </Text>
               </View>
               <View style={styles.miniBody}>
                 <Text style={styles.miniName} numberOfLines={1}>
@@ -116,12 +125,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
-  title: {
-    ...Type.heading,
-    color: Colors.ink.primary,
+  titleRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  title: {
+    ...Type.bodyEmph,
+    color: Colors.ink.primary,
+    flexShrink: 1,
   },
   meta: {
     flexDirection: 'row',
@@ -129,13 +146,13 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: Colors.gold.glow,
+    backgroundColor: Colors.bg.elevated,
     borderRadius: Radius.pill,
   },
   metaText: {
     ...Type.micro,
-    color: Colors.gold.deep,
-    fontWeight: '700',
+    color: Colors.ink.secondary,
+    fontWeight: '600',
   },
   metaBtn: {
     width: 18,
@@ -145,11 +162,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metaBtnPressed: {
-    backgroundColor: Colors.gold.light,
+    backgroundColor: Colors.hair.subtle,
   },
   bento: {
     gap: 6,
-    marginTop: Spacing.xs,
   },
   miniTile: {
     flexDirection: 'row',
@@ -164,7 +180,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: Colors.gold.base,
+    backgroundColor: Colors.ink.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -172,6 +188,7 @@ const styles = StyleSheet.create({
     ...Type.micro,
     color: Colors.ink.inverse,
     fontWeight: '700',
+    letterSpacing: 0.4,
   },
   miniBody: {
     flex: 1,
