@@ -182,7 +182,7 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
         }}
         style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
       >
-        {renderViz(node.data, value, METRIC_ICONS[node.data.metric], blockExercises)}
+        {renderViz(node.data, value, METRIC_ICONS[node.data.metric], blockExercises, !!compact)}
       </Pressable>
 
       {/* Config modal */}
@@ -338,6 +338,7 @@ function renderViz(
   v: ReturnType<typeof computeDashboardValue>,
   icon: keyof typeof Feather.glyphMap,
   blockExercises: ExerciseCard[],
+  compact: boolean,
 ) {
   const accent = data.color;
 
@@ -346,20 +347,24 @@ function renderViz(
       <View style={styles.sparkLayout}>
         <View style={styles.sparkHeader}>
           <Text style={styles.sparkLabel}>{data.label}</Text>
-          <Feather name={icon} size={14} color={Colors.ink.tertiary} />
+          <Feather name={icon} size={compact ? 12 : 14} color={Colors.ink.tertiary} />
         </View>
         <View style={styles.sparkValueRow}>
-          <Text style={styles.sparkValue}>{v.formatted}</Text>
+          <Text style={[styles.sparkValue, compact && styles.sparkValueCompact]}>{v.formatted}</Text>
           {v.unit ? <Text style={styles.sparkUnit}>{v.unit}</Text> : null}
         </View>
         <View style={styles.sparkChart}>
-          {v.sparkline.length >= 2 ? (
-            <Sparkline data={v.sparkline} width={160} height={32} />
+          {v.sparkline.length >= 3 ? (
+            <Sparkline
+              data={v.sparkline}
+              width={compact ? 120 : 160}
+              height={compact ? 24 : 32}
+            />
           ) : (
             <Text style={styles.captionFallback}>{v.caption ?? 'Sin datos suficientes'}</Text>
           )}
         </View>
-        {v.caption && v.sparkline.length >= 2 ? (
+        {v.caption && v.sparkline.length >= 3 ? (
           <Text style={styles.sparkCaption}>{v.caption}</Text>
         ) : null}
       </View>
@@ -406,12 +411,18 @@ function renderViz(
 
   // counter (default)
   return (
-    <View style={styles.counterLayout}>
-      <View style={[styles.metricIconBg, { backgroundColor: accent + '18' }]}>
-        <Feather name={icon} size={18} color={accent} />
+    <View style={[styles.counterLayout, compact && styles.counterLayoutCompact]}>
+      <View style={[
+        styles.metricIconBg,
+        compact && styles.metricIconBgCompact,
+        { backgroundColor: accent + '18' },
+      ]}>
+        <Feather name={icon} size={compact ? 14 : 18} color={accent} />
       </View>
       <View style={styles.counterText}>
-        <Text style={styles.counterValueSerif}>{v.formatted}</Text>
+        <Text style={[styles.counterValueSerif, compact && styles.counterValueSerifCompact]}>
+          {v.formatted}
+        </Text>
         {v.unit ? <Text style={styles.counterUnit}>{v.unit}</Text> : null}
       </View>
       <Text style={styles.counterLabel} numberOfLines={1}>{data.label}</Text>
@@ -442,12 +453,21 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
   },
+  counterLayoutCompact: {
+    paddingVertical: 2,
+    gap: 4,
+  },
   metricIconBg: {
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  metricIconBgCompact: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
   },
   counterText: {
     flexDirection: 'row',
@@ -459,6 +479,10 @@ const styles = StyleSheet.create({
     fontSize: 44,
     lineHeight: 48,
     color: Colors.ink.primary,
+  },
+  counterValueSerifCompact: {
+    fontSize: 30,
+    lineHeight: 34,
   },
   counterUnit: {
     fontSize: Typography.size.caption,
@@ -499,6 +523,10 @@ const styles = StyleSheet.create({
   sparkValue: {
     ...Type.numLarge,
     color: Colors.ink.primary,
+  },
+  sparkValueCompact: {
+    fontSize: 20,
+    lineHeight: 24,
   },
   sparkUnit: {
     ...Type.caption,
