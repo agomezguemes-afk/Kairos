@@ -17,11 +17,11 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { ExerciseCard, FieldValue } from '../../../../types/core';
 import { Colors, Spacing, Type } from '../../../../theme/tokens';
-import { useWorkoutStore } from '../../../../store/workoutStore';
 import {
-  getExerciseHistoryFor,
+  lookupExerciseHistory,
   computeExerciseStats,
 } from '../../../../lib/history/exerciseHistory';
+import { useExerciseHistoryIndex } from '../../../../lib/history/useExerciseHistoryIndex';
 import TileFrame from './TileFrame';
 import Sparkline from './Sparkline';
 import ExerciseRow from '../ExerciseRow';
@@ -43,11 +43,11 @@ interface Props {
 function CompoundTileImpl(props: Props) {
   const { exercise, isActive, onLongPress } = props;
 
-  const workoutHistory = useWorkoutStore(s => s.workoutHistory);
+  const historyIndex = useExerciseHistoryIndex();
   const stats = useMemo(() => {
-    const history = getExerciseHistoryFor(exercise, workoutHistory);
+    const history = lookupExerciseHistory(exercise, historyIndex);
     return computeExerciseStats(history);
-  }, [exercise, workoutHistory]);
+  }, [exercise, historyIndex]);
 
   const lastTop = stats.last?.topWeight ?? null;
   const lastReps = stats.last?.topReps ?? null;

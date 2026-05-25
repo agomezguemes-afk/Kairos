@@ -54,6 +54,12 @@ export interface ExerciseSessionPoint {
   setsCompleted: number;
   /** Estimated 1RM for the top set (Epley). Null when no weighted set. */
   estimatedOneRm: number | null;
+  /**
+   * Library id of the source summary, when present. Lets the index
+   * filter library-keyed lookups without re-traversing history.
+   * Internal use — consumers should query via `lookupExerciseHistory`.
+   */
+  libraryId?: string;
 }
 
 /**
@@ -122,6 +128,7 @@ function summaryToPoint(
     volume,
     setsCompleted: completed,
     estimatedOneRm: estimateOneRepMax(topWeight, topReps),
+    libraryId: summary.libraryId,
   };
 }
 
@@ -305,6 +312,121 @@ export function detectPr(
   }
 
   return { isPr: false, kind: null, delta: 0 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Indexed lookups
+//
+// For UIs that render N tiles each needing the same exercise's history,
+// build the index once and read N times instead of traversing
+// workoutHistory once per tile.
+
+export interface ExerciseHistoryIndex {
+  byLibraryId: Map<string, ExerciseSessionPoint[]>;
+  byName:      Map<string, ExerciseSessionPoint[]>;
+  empty:       readonly ExerciseSessionPoint[];
+}
+
+/**
+ * Build an index keyed by libraryId AND normalized name in one pass over
+ * workoutHistory. Every summary contributes its point to `byName`; when
+ * a summary has a libraryId it ALSO appears in `byLibraryId`. Lookups
+ * combine both to reproduce the slow-path semantics exactly.
+ *
+ * Pure — same input produces the same Map shape. Wrap in useMemo at
+ * the consumer to keep references stable across renders.
+ */
+export function buildExerciseHistoryIndex(
+  workoutHistory: WorkoutHistoryEntry[],
+): ExerciseHistoryIndex {
+  const byLibraryId = new Map<string, ExerciseSessionPoint[]>();
+  const byName      = new Map<string, ExerciseSessionPoint[]>();
+
+  const sorted = [...workoutHistory].sort((a, b) => a.endedAt - b.endedAt);
+  for (const entry of sorted) {
+    for (const summary of entry.exercises) {
+      const point = summaryToPoint(summary, entry.endedAt);
+      if (summary.libraryId) {
+        const arr = byLibraryId.get(summary.libraryId);
+        if (arr) arr.push(point);
+        else byLibraryId.set(summary.libraryId, [point]);
+      }
+      const key = normalizeExerciseName(summary.name);
+      const nameArr = byName.get(key);
+      if (nameArr) nameArr.push(point);
+      else byName.set(key, [point]);
+    }
+  }
+
+  return { byLibraryId, byName, empty: [] };
+}
+
+/**
+ * Read an exercise's session points from a pre-built index. Mirrors
+ * `getExerciseHistoryFor` / `isSameExercise` semantics:
+ *   • Both sides have libraryId — match on libraryId.
+ *   • Either side lacks libraryId — match on normalized name.
+ *
+ * So a query with libraryId matches BOTH same-libraryId entries AND
+ * same-name entries that lack a libraryId. Merge keeps chronology and
+ * dedupes by `at`.
+ */
+export function lookupExerciseHistory(
+  ex: { libraryId?: string; name: string },
+  index: ExerciseHistoryIndex,
+  limit?: number,
+): ExerciseSessionPoint[] {
+  const nameKey = normalizeExerciseName(ex.name);
+  let points: ExerciseSessionPoint[];
+
+  if (ex.libraryId) {
+    const libHits  = index.byLibraryId.get(ex.libraryId) ?? [];
+    const nameHits = index.byName.get(nameKey) ?? [];
+    // Take libHits as-is; union with name-only hits (entries without a
+    // libraryId on the persisted side). Skip nameHits already covered.
+    const merged: ExerciseSessionPoint[] = libHits.slice();
+    for (const p of nameHits) {
+      if (p.libraryId === ex.libraryId) continue;  // already in libHits
+      if (p.libraryId != null) continue;            // different libraryId → not same exercise
+      merged.push(p);
+    }
+    merged.sort((a, b) => a.at - b.at);
+    points = merged;
+  } else {
+    points = index.byName.get(nameKey) ?? [];
+  }
+
+  if (points.length === 0) return index.empty as ExerciseSessionPoint[];
+  if (limit != null && limit > 0 && points.length > limit) {
+    return points.slice(points.length - limit);
+  }
+  return points;
+}
+
+/**
+ * Index-based variant of getLastCompletedReference. Faster when you
+ * already hold the index in scope.
+ */
+export function lookupLastCompletedReference(
+  ex: { libraryId?: string; name: string },
+  workoutHistory: WorkoutHistoryEntry[],
+  index: ExerciseHistoryIndex,
+): LastCompletedReference | null {
+  const points = lookupExerciseHistory(ex, index);
+  if (points.length === 0) return null;
+  // Walk newest → oldest looking for any session that has a weight/reps pair.
+  // We need the full WorkoutHistoryEntry to read performedSets, so cross-check
+  // against the index hit and fall back to the slow path for that detail.
+  // In practice the last index entry corresponds to the most recent session,
+  // so reading its top values is enough for ghost placeholders.
+  for (let i = points.length - 1; i >= 0; i--) {
+    const p = points[i];
+    if (p.topWeight != null || p.topReps != null) {
+      return { weight: p.topWeight, reps: p.topReps, at: p.at };
+    }
+  }
+  // If somehow no point exposes a top set, fall back to the deep scan.
+  return getLastCompletedReference(ex, workoutHistory);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

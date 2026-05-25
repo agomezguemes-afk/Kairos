@@ -8,6 +8,9 @@ import {
   estimateOneRepMax,
   detectPr,
   getLastCompletedReference,
+  buildExerciseHistoryIndex,
+  lookupExerciseHistory,
+  lookupLastCompletedReference,
   type ExerciseSessionPoint,
 } from './exerciseHistory';
 import type { WorkoutHistoryEntry } from '../../store/workoutStore';
@@ -184,6 +187,41 @@ check('last squat ref weight = 100',    lastSquat?.weight === 100);
 
 const noRef = getLastCompletedReference({ name: 'Unknown' }, history);
 check('no ref returns null',            noRef === null);
+
+// ── buildExerciseHistoryIndex + lookup ─────────────────────────────────────
+const idx = buildExerciseHistoryIndex(history);
+check('index has bench by libraryId',   idx.byLibraryId.get('bench_press')?.length === 2);
+check('index has bench by name (3 incl no-lib entry)',
+  idx.byName.get('bench press')?.length === 3);
+check('index has squat by libraryId',   idx.byLibraryId.get('squat')?.length === 1);
+check('index has squat by name',        idx.byName.get('back squat')?.length === 1);
+check('index empty array is reused',    idx.empty.length === 0);
+
+const benchByLookup = lookupExerciseHistory(
+  { libraryId: 'bench_press', name: 'Bench Press' }, idx,
+);
+check('lookup bench by libraryId merges name-only entry = 3', benchByLookup.length === 3);
+check('lookup is chronological',        benchByLookup[0].at < benchByLookup[2].at);
+check('lookup includes newest 85',      benchByLookup[2].topWeight === 85);
+
+const benchByName = lookupExerciseHistory({ name: 'Bench Press' }, idx);
+check('lookup bench by name only = 3 entries', benchByName.length === 3);
+
+const lookupLimit = lookupExerciseHistory(
+  { name: 'Bench Press' }, idx, 1,
+);
+check('lookup with limit=1 returns newest only', lookupLimit.length === 1);
+check('lookup newest is from S3',        lookupLimit[0].topWeight === 85);
+
+const noHit = lookupExerciseHistory({ libraryId: 'nope', name: 'Unknown' }, idx);
+check('lookup unknown returns empty (same ref)', noHit === idx.empty);
+
+const indexedLastRef = lookupLastCompletedReference(
+  { libraryId: 'bench_press', name: 'Bench Press' }, history, idx,
+);
+check('indexed lastRef weight = 85',     indexedLastRef?.weight === 85);
+check('indexed lastRef matches slow path',
+  indexedLastRef?.weight === getLastCompletedReference({ libraryId: 'bench_press', name: 'Bench Press' }, history)?.weight);
 
 // ── summary ────────────────────────────────────────────────────────────────
 if (failed > 0) {

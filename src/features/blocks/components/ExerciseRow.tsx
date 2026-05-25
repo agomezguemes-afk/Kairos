@@ -18,7 +18,8 @@ import FieldConfigSheet from './FieldConfigSheet';
 import type { ExerciseCard, FieldDefinition, FieldValue } from '../../../types/core';
 import { getExerciseSummary } from '../../../types/core';
 import { useWorkoutStore } from '../../../store/workoutStore';
-import { getLastCompletedReference } from '../../../lib/history/exerciseHistory';
+import { lookupLastCompletedReference } from '../../../lib/history/exerciseHistory';
+import { useExerciseHistoryIndex } from '../../../lib/history/useExerciseHistoryIndex';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -55,13 +56,14 @@ function ExerciseRowInner({
   const [showFieldConfig, setShowFieldConfig] = useState(false);
   const updateExercise = useWorkoutStore(s => s.updateExercise);
   const workoutHistory = useWorkoutStore(s => s.workoutHistory);
+  const historyIndex = useExerciseHistoryIndex();
 
   // Ghost values shown in empty sets — drawn from the user's most recent
   // completed set for this exercise. Falls back to goalWeight/goalReps so
   // brand-new exercises with intent (a target) also surface placeholders.
   const ghostValues = React.useMemo(() => {
     const out: Record<string, string> = {};
-    const ref = getLastCompletedReference(exercise, workoutHistory);
+    const ref = lookupLastCompletedReference(exercise, workoutHistory, historyIndex);
     if (ref?.weight != null) out.weight = trimZero(ref.weight);
     if (ref?.reps != null)   out.reps   = String(ref.reps);
     if (ref == null) {
@@ -69,7 +71,7 @@ function ExerciseRowInner({
       if (exercise.goalReps   != null) out.reps   = String(exercise.goalReps);
     }
     return out;
-  }, [exercise, workoutHistory]);
+  }, [exercise, workoutHistory, historyIndex]);
 
   const completedSets = exercise.sets.filter(s => s.completed).length;
   const totalSets = exercise.sets.length;
