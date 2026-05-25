@@ -10,9 +10,15 @@ interface FieldInputProps {
   value: FieldValue;
   onChange: (fieldId: string, value: FieldValue) => void;
   isCompleted: boolean;
+  /**
+   * Reference string shown in muted ink when value is empty — typically
+   * the last completed value for this exercise. Tapping into edit does
+   * NOT prefill from ghost; it's purely visual continuity.
+   */
+  ghost?: string | null;
 }
 
-function FieldInputInner({ field, value, onChange, isCompleted }: FieldInputProps) {
+function FieldInputInner({ field, value, onChange, isCompleted, ghost }: FieldInputProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
@@ -92,13 +98,18 @@ function FieldInputInner({ field, value, onChange, isCompleted }: FieldInputProp
     );
   }
 
+  const showGhost = !displayValue && ghost != null && ghost.length > 0;
   return (
     <Pressable onPress={handleStartEdit} style={[styles.valueContainer, isCompleted && styles.valueCompleted]}>
       <Text
-        style={[styles.valueText, !displayValue && styles.valuePlaceholder, isCompleted && styles.valueTextCompleted]}
+        style={[
+          styles.valueText,
+          !displayValue && (showGhost ? styles.valueGhost : styles.valuePlaceholder),
+          isCompleted && styles.valueTextCompleted,
+        ]}
         numberOfLines={1}
       >
-        {displayValue || '—'}
+        {displayValue || (showGhost ? ghost : '—')}
       </Text>
     </Pressable>
   );
@@ -147,6 +158,11 @@ const styles = StyleSheet.create({
   },
   valuePlaceholder: {
     color: Colors.text.disabled,
+  },
+  valueGhost: {
+    color: Colors.ink.muted,
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
   booleanContainer: {
     flex: 1,

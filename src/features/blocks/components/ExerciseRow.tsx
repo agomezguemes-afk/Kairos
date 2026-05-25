@@ -18,6 +18,7 @@ import FieldConfigSheet from './FieldConfigSheet';
 import type { ExerciseCard, FieldDefinition, FieldValue } from '../../../types/core';
 import { getExerciseSummary } from '../../../types/core';
 import { useWorkoutStore } from '../../../store/workoutStore';
+import { getLastCompletedReference } from '../../../lib/history/exerciseHistory';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -53,6 +54,22 @@ function ExerciseRowInner({
   const [nameDraft, setNameDraft] = useState(exercise.name);
   const [showFieldConfig, setShowFieldConfig] = useState(false);
   const updateExercise = useWorkoutStore(s => s.updateExercise);
+  const workoutHistory = useWorkoutStore(s => s.workoutHistory);
+
+  // Ghost values shown in empty sets — drawn from the user's most recent
+  // completed set for this exercise. Falls back to goalWeight/goalReps so
+  // brand-new exercises with intent (a target) also surface placeholders.
+  const ghostValues = React.useMemo(() => {
+    const out: Record<string, string> = {};
+    const ref = getLastCompletedReference(exercise, workoutHistory);
+    if (ref?.weight != null) out.weight = trimZero(ref.weight);
+    if (ref?.reps != null)   out.reps   = String(ref.reps);
+    if (ref == null) {
+      if (exercise.goalWeight != null) out.weight = trimZero(exercise.goalWeight);
+      if (exercise.goalReps   != null) out.reps   = String(exercise.goalReps);
+    }
+    return out;
+  }, [exercise, workoutHistory]);
 
   const completedSets = exercise.sets.filter(s => s.completed).length;
   const totalSets = exercise.sets.length;
@@ -241,6 +258,7 @@ function ExerciseRowInner({
               onToggleComplete={handleToggleSet}
               onRemove={handleRemoveSet}
               compact={compact}
+              ghostValues={ghostValues}
             />
           ))}
 
@@ -327,6 +345,10 @@ function GoalControl({ label, value, suffix, onDecrement, onIncrement, compact }
       </View>
     </View>
   );
+}
+
+function trimZero(n: number): string {
+  return n % 1 === 0 ? String(n) : n.toFixed(1).replace(/\.0$/, '');
 }
 
 function areExerciseRowPropsEqual(prev: ExerciseRowProps, next: ExerciseRowProps): boolean {

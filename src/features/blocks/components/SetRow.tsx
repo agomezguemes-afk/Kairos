@@ -23,9 +23,14 @@ interface SetRowProps {
   onToggleComplete: (setId: string) => void;
   onRemove: (setId: string) => void;
   compact?: boolean;
+  /**
+   * Per-field reference values shown in muted ink when the set is empty.
+   * Typically the user's last completed value for that field.
+   */
+  ghostValues?: Record<string, string>;
 }
 
-function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, onRemove, compact }: SetRowProps) {
+function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, onRemove, compact, ghostValues }: SetRowProps) {
   const checkScale = useSharedValue(1);
   const setId = set.id;
 
@@ -70,6 +75,7 @@ function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, o
               value={set.values[field.id]}
               onChange={handleFieldChange}
               isCompleted={set.completed}
+              ghost={ghostValues?.[field.id] ?? null}
             />
           </View>
         ))}

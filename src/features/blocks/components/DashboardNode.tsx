@@ -14,6 +14,7 @@ import type { DashboardContentNode, DashboardMetric, DashboardViz } from '../../
 import type { WorkoutBlock } from '../../../types/core';
 import { calculateBlockStats } from '../../../types/core';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
+import { Type } from '../../../theme/tokens';
 
 interface DashboardNodeProps {
   node: DashboardContentNode;
@@ -106,11 +107,15 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
       return (
         <View style={styles.counterLayout}>
           <View style={[styles.metricIconBg, { backgroundColor: color + '18' }]}>
-            <Feather name={metricInfo.icon} size={20} color={color} />
+            <Feather name={metricInfo.icon} size={18} color={color} />
           </View>
           <View style={styles.counterText}>
-            <Text style={[styles.counterValue, { color }]}>{formattedValue}</Text>
-            <Text style={styles.counterUnit}>{metricInfo.unit}</Text>
+            <Text style={[styles.counterValueSerif, { color: Colors.ink.primary }]}>
+              {formattedValue}
+            </Text>
+            {metricInfo.unit ? (
+              <Text style={styles.counterUnit}>{metricInfo.unit}</Text>
+            ) : null}
           </View>
           <Text style={styles.counterLabel}>{node.data.label}</Text>
         </View>
@@ -268,10 +273,12 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: 4,
   },
-  counterValue: {
-    fontSize: 28,
-    fontWeight: Typography.weight.bold,
-    letterSpacing: Typography.tracking.tight,
+  // Editorial serif numeral — premium hero treatment for the headline
+  // figure, reserved for dashboard counters and stat summaries.
+  counterValueSerif: {
+    ...Type.numHero,
+    fontSize: 44,
+    lineHeight: 48,
   },
   counterUnit: {
     fontSize: Typography.size.caption,
