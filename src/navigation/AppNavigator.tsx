@@ -83,7 +83,22 @@ export default function AppNavigator() {
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Dashboard"    component={DashboardTabs} />
               <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-              <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+              <Stack.Screen
+                name="ActiveWorkout"
+                component={ActiveWorkoutScreen}
+                options={{
+                  // Immersive full-screen presentation so the dashboard
+                  // never peeks behind the active session. Slide-from-
+                  // bottom for the "arranca" affordance + a slightly
+                  // longer easing curve so the transition reads as a
+                  // moment, not a swipe. Gesture dismissal blocked —
+                  // a workout shouldn't end by accident.
+                  presentation: 'fullScreenModal',
+                  animation: 'slide_from_bottom',
+                  animationDuration: 380,
+                  gestureEnabled: false,
+                }}
+              />
               <Stack.Screen name="Badges"        component={BadgesScreen} />
               <Stack.Screen name="PRCards"       component={PRCardsScreen} />
               <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
@@ -95,7 +110,22 @@ export default function AppNavigator() {
               <Stack.Screen name="Onboarding" component={OnboardingScreen} />
               <Stack.Screen name="Dashboard"  component={DashboardTabs} />
               <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-              <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+              <Stack.Screen
+                name="ActiveWorkout"
+                component={ActiveWorkoutScreen}
+                options={{
+                  // Immersive full-screen presentation so the dashboard
+                  // never peeks behind the active session. Slide-from-
+                  // bottom for the "arranca" affordance + a slightly
+                  // longer easing curve so the transition reads as a
+                  // moment, not a swipe. Gesture dismissal blocked —
+                  // a workout shouldn't end by accident.
+                  presentation: 'fullScreenModal',
+                  animation: 'slide_from_bottom',
+                  animationDuration: 380,
+                  gestureEnabled: false,
+                }}
+              />
               <Stack.Screen name="Badges"        component={BadgesScreen} />
               <Stack.Screen name="PRCards"       component={PRCardsScreen} />
               <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
