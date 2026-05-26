@@ -47,7 +47,8 @@ import {
 import { useExerciseHistoryIndex } from '../lib/history/useExerciseHistoryIndex';
 import { lookupExerciseHistory } from '../lib/history/exerciseHistory';
 import { formatVolume } from '../lib/stats/weekStats';
-import { Colors, Type, Typography, Spacing, Radius, Shadows } from '../theme/index';
+import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
+import { Type } from '../theme/tokens';
 import { springs } from '../theme/animations';
 
 interface Props {

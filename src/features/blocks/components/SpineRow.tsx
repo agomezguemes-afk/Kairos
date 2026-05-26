@@ -12,7 +12,7 @@
 // + shadow lift. Respects useReducedMotion().
 
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -21,7 +21,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import StationNode from './StationNode';
