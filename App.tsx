@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import { TrainingProvider } from './src/context/TrainingContext';
 import { UserProfileProvider } from './src/context/UserProfileContext';
@@ -44,6 +45,10 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        {/* Light bg (#F7F7F5) — keep status bar text dark across the app.
+            Screens with dark/gold full-bleed hero surfaces can override
+            locally with another <StatusBar style="light" />. */}
+        <StatusBar style="dark" />
         <AppContent />
       </SafeAreaProvider>
     </GestureHandlerRootView>

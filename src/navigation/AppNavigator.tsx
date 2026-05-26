@@ -4,11 +4,13 @@
 // the main tabs directly (with a SplashScreen overlay on first launch).
 
 import React, { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { RootStackParamList, DashboardTabParamList } from '../types/navigation';
+import AnimatedKairosLogo from '../components/AnimatedKairosLogo';
+import { Type, Spacing } from '../theme/tokens';
 
 // Screens
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -113,15 +115,9 @@ export default function AppNavigator() {
   if (!isInitialized || profileLoading) {
     return (
       <>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: Colors.bg.void,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <ActivityIndicator color={Colors.gold.base} />
+        <View style={loadingStyles.container}>
+          <AnimatedKairosLogo size={72} />
+          <Text style={loadingStyles.caption}>Preparando tu espacio</Text>
         </View>
         {splashVisible && <SplashScreen onDone={() => setSplashVisible(false)} />}
       </>
@@ -164,3 +160,17 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const loadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.bg.void,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.lg,
+  },
+  caption: {
+    ...Type.caption,
+    color: Colors.ink.muted,
+  },
+});
