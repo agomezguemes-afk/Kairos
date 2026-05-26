@@ -1,11 +1,13 @@
-// KAIROS — Tab Bar v2 (floating capsule)
+// KAIROS — Tab Bar v3 (floating capsule, simplified active state)
 // Spec: docs/superpowers/specs/2026-04-27-kairos-visual-refinement-design.md §4.1
 //
 // Design:
 //   - Floating capsule with BlurView + warm overlay, hairline border, elevated shadow.
 //   - Single animated gold glow pill tracks the active tab (springs.indicator).
-//   - Icon-only. No labels. accessibilityLabel carries the human name for VoiceOver.
+//   - Icon-only. accessibilityLabel carries the human name for VoiceOver.
 //   - Active icon: strokeWidth 2, gold. Inactive: strokeWidth 1.6, ink.muted.
+//     Color and weight swap on focus change (no cross-fade — Apple-style snap).
+//   - Pop on focus: scale 1.0 → 1.12 → 1.0 in 240ms via spring (springs.tap).
 //   - Haptic on tab change: selectionAsync.
 
 import React, { useEffect, useRef, useCallback } from 'react';
@@ -22,8 +24,9 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withSequence,
   withTiming,
-  interpolateColor,
+  useReducedMotion,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -48,36 +51,43 @@ const TAB_LABELS: Record<string, string> = {
   ProfileTab:  'Perfil',
 };
 
-interface AnimatedIconProps {
+interface TabIconProps {
   name: KIconName;
   focused: boolean;
 }
 
-const AnimatedIcon = React.memo(function AnimatedIcon({ name, focused }: AnimatedIconProps) {
-  const progress = useSharedValue(focused ? 1 : 0);
+/**
+ * Tab icon with snap color/weight switch on focus and a subtle scale-pop
+ * to reinforce the change. No cross-fade layer — the gold pill behind
+ * the icon already carries the spatial motion; the icon itself reads as
+ * a discrete state change, which is faster and matches iOS conventions.
+ */
+const TabIcon = React.memo(function TabIcon({ name, focused }: TabIconProps) {
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
 
   useEffect(() => {
-    progress.value = withTiming(focused ? 1 : 0, timings.normal);
-  }, [focused, progress]);
+    if (!focused || reduceMotion) return;
+    // Pop only when becoming focused. Inactive→inactive shouldn't fire.
+    scale.value = withSequence(
+      withSpring(1.12, { ...springs.tap, mass: 0.4 }),
+      withSpring(1.0,  springs.tap),
+    );
+  }, [focused, reduceMotion, scale]);
 
-  // We can't interpolate strokeWidth directly through Reanimated on a non-Animated
-  // component. Instead we render both weights and cross-fade them.
-  const activeStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-  }));
-  const inactiveStyle = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
   }));
 
   return (
-    <View style={iconStyles.wrapper}>
-      <Animated.View style={[StyleSheet.absoluteFill, iconStyles.iconAbsolute, inactiveStyle]}>
-        <KIcon name={name} size={22} color={Colors.ink.muted} strokeWidth={1.6} />
-      </Animated.View>
-      <Animated.View style={[StyleSheet.absoluteFill, iconStyles.iconAbsolute, activeStyle]}>
-        <KIcon name={name} size={22} color={Colors.gold.base} strokeWidth={2} />
-      </Animated.View>
-    </View>
+    <Animated.View style={[iconStyles.wrapper, animatedStyle]}>
+      <KIcon
+        name={name}
+        size={22}
+        color={focused ? Colors.gold.base : Colors.ink.muted}
+        strokeWidth={focused ? 2 : 1.6}
+      />
+    </Animated.View>
   );
 });
 
@@ -85,9 +95,6 @@ const iconStyles = StyleSheet.create({
   wrapper: {
     width: 22,
     height: 22,
-    position: 'relative',
-  },
-  iconAbsolute: {
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -187,7 +194,7 @@ export default function KairosTabBar({ state, navigation }: BottomTabBarProps) {
               }}
               style={styles.tab}
             >
-              <AnimatedIcon name={icon} focused={focused} />
+              <TabIcon name={icon} focused={focused} />
             </Pressable>
           );
         })}
