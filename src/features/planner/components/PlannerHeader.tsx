@@ -1,5 +1,14 @@
 // src/features/planner/components/PlannerHeader.tsx
-// "Hoy" + fecha + frase de momentum + streak pill (gold).
+// "Hoy" + fecha + frase de momentum + streak pill (tiered).
+//
+// The streak pill ramps visually with milestones:
+//   • 0       → muted neutral (no signal)
+//   • 1-6     → tier 1: gold.glow bg, gold.deep text — "iniciando"
+//   • 7-29    → tier 2: gold.base bg, ink.inverse text — "constante"
+//   • 30+     → tier 3: gold.deep bg + halo shadow — "veterano"
+// Crossing into 7, 30 (and 100, 365 for future) is a meaningful
+// dopamine moment; the pill visibly deepens so the user feels the
+// promotion without needing a separate badge surface.
 
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
@@ -12,10 +21,20 @@ interface Props {
   onStreakPress?: () => void;
 }
 
+type StreakTier = 'none' | 'start' | 'steady' | 'veteran';
+
+function streakTier(days: number): StreakTier {
+  if (days <= 0)  return 'none';
+  if (days < 7)   return 'start';
+  if (days < 30)  return 'steady';
+  return 'veteran';
+}
+
 export default function PlannerHeader({ onStreakPress }: Props) {
   const today = todayISO();
   const phrase = useMomentumPhrase();
   const { streak } = useGamification();
+  const tier = streakTier(streak.current);
 
   return (
     <View style={styles.container}>
@@ -28,11 +47,45 @@ export default function PlannerHeader({ onStreakPress }: Props) {
           onPress={onStreakPress}
           accessibilityRole="button"
           accessibilityLabel={`Constancia ${streak.current} días`}
-          style={({ pressed }) => [styles.streakPill, pressed && styles.streakPillPressed]}
+          style={({ pressed }) => [
+            styles.streakPill,
+            tier === 'none'    && styles.streakPillNone,
+            tier === 'start'   && styles.streakPillStart,
+            tier === 'steady'  && styles.streakPillSteady,
+            tier === 'veteran' && styles.streakPillVeteran,
+            pressed && styles.streakPillPressed,
+          ]}
         >
-          <Text style={styles.streakLabel}>Constancia</Text>
-          <Text style={styles.streakDot}>·</Text>
-          <Text style={styles.streakText}>{streak.current}</Text>
+          <Text
+            style={[
+              styles.streakLabel,
+              tier === 'none'    && styles.streakLabelNone,
+              tier === 'start'   && styles.streakLabelStart,
+              (tier === 'steady' || tier === 'veteran') && styles.streakLabelStrong,
+            ]}
+          >
+            Constancia
+          </Text>
+          <Text
+            style={[
+              styles.streakDot,
+              tier === 'none'    && styles.streakLabelNone,
+              tier === 'start'   && styles.streakLabelStart,
+              (tier === 'steady' || tier === 'veteran') && styles.streakLabelStrong,
+            ]}
+          >
+            ·
+          </Text>
+          <Text
+            style={[
+              styles.streakText,
+              tier === 'none'    && styles.streakLabelNone,
+              tier === 'start'   && styles.streakLabelStart,
+              (tier === 'steady' || tier === 'veteran') && styles.streakLabelStrong,
+            ]}
+          >
+            {streak.current}
+          </Text>
         </Pressable>
       </View>
       <Text style={styles.phrase}>{phrase}</Text>
@@ -66,30 +119,49 @@ const styles = StyleSheet.create({
     color: Colors.ink.secondary,
     marginTop: Spacing.md,
   },
+
+  // ── Streak pill: base + tier overlays ──────────────────────────────
   streakPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
-    backgroundColor: Colors.gold.glow,
     borderRadius: Radius.full,
   },
+  streakPillNone: {
+    backgroundColor: Colors.bg.elevated,
+  },
+  streakPillStart: {
+    backgroundColor: Colors.gold.glow,
+  },
+  streakPillSteady: {
+    backgroundColor: Colors.gold.base,
+  },
+  streakPillVeteran: {
+    backgroundColor: Colors.gold.deep,
+    shadowColor: Colors.gold.deep,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   streakPillPressed: { opacity: 0.7 },
-  // Sober label — "Constancia · N", no flame iconography.
+
+  // Base text style (size + weight) — color overridden by tier classes below.
   streakLabel: {
     ...Type.micro,
-    color: Colors.gold.deep,
     fontWeight: '600',
   },
   streakDot: {
     ...Type.micro,
-    color: Colors.gold.deep,
     fontWeight: '700',
   },
   streakText: {
     ...Type.micro,
-    color: Colors.gold.deep,
     fontWeight: '700',
   },
+  streakLabelNone:   { color: Colors.ink.tertiary },
+  streakLabelStart:  { color: Colors.gold.deep },
+  streakLabelStrong: { color: Colors.ink.inverse },
 });
