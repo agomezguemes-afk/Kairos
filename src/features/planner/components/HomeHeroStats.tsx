@@ -21,6 +21,30 @@ export default function HomeHeroStats() {
   const history = useWorkoutStore(s => s.workoutHistory);
   const stats = useMemo(() => computeWeekStats(history), [history]);
 
+  // Brand-new user — no sessions ever, or none in either of the rolling
+  // 14d windows. Show an invitation instead of two depressing zeros.
+  const hasAnyHistory =
+    stats.sessionsThisWeek > 0 ||
+    stats.sessionsLastWeek > 0 ||
+    history.length > 0;
+
+  if (!hasAnyHistory) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.eyebrow}>Esta semana</Text>
+        <View style={styles.emptyRow}>
+          <Text style={styles.emptyValue}>0</Text>
+          <View style={styles.emptyCopy}>
+            <Text style={styles.emptyHeadline}>Tu primera semana</Text>
+            <Text style={styles.emptySub}>
+              Programa un bloque y empieza a construir tu historia.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   const sessionsDeltaLabel = formatDeltaLabel(stats.sessionsDelta, 'sesión', 'sesiones');
   const volumeDeltaLabel   = formatVolumeDelta(stats.volumeDelta);
 
@@ -143,5 +167,31 @@ const styles = StyleSheet.create({
   },
   deltaNegative: {
     color: Colors.semantic.error,
+  },
+
+  // Empty state
+  emptyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+  },
+  emptyValue: {
+    ...Type.numHero,
+    fontSize: 56,
+    lineHeight: 60,
+    color: Colors.ink.muted,
+  },
+  emptyCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  emptyHeadline: {
+    ...Type.subheading,
+    color: Colors.ink.primary,
+  },
+  emptySub: {
+    ...Type.caption,
+    color: Colors.ink.tertiary,
+    marginTop: 2,
   },
 });
