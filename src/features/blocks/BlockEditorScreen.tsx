@@ -740,6 +740,15 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
         <Animated.View style={[StyleSheet.absoluteFill, headerBackdropStyle]} pointerEvents="none">
           <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
           <View style={styles.stickyHeaderOverlay} />
+          {/* Discipline accent strip — 2pt color band at the bottom edge
+              of the sticky header, tying the chrome to the block identity
+              once the user has scrolled past the inline strip below. */}
+          <View
+            style={[
+              styles.stickyHeaderDisciplineStrip,
+              { backgroundColor: disciplineColor },
+            ]}
+          />
           <View style={styles.stickyHeaderHairline} />
         </Animated.View>
 
@@ -967,6 +976,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.hair.base,
+  },
+  stickyHeaderDisciplineStrip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 2,
+    opacity: 0.75,
   },
   stickyHeaderRow: {
     height: 56,

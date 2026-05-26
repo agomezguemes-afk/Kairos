@@ -11,6 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Colors } from '../../theme/tokens';
 import PlannerHeader from './components/PlannerHeader';
+import HomeHeroStats from './components/HomeHeroStats';
 import CalendarView from './components/CalendarView';
 import DayCard from './components/DayCard';
 import KaiSignalCard from './components/KaiSignal';
@@ -144,6 +145,7 @@ export default function TodayPlanner() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <HomeHeroStats />
         <PlannerHeader />
         <CalendarView selectedDate={selectedDate} onSelect={setSelectedDate} />
         <DayCard
