@@ -11,6 +11,14 @@ import {
 } from 'react-native';
 import { NestableScrollContainer } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
@@ -131,6 +139,26 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     () => block ? buildSpineRows(block.content) : [],
     [block],
   );
+
+  // ── Sticky header — header chrome rises with a blur backdrop when the
+  // user scrolls past the block title. Empty-state-friendly: the block
+  // name appears centered in the header so the user always knows where
+  // they are. Apple Notes / Mail pattern.
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+  const headerBackdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [40, 90], [0, 1], Extrapolation.CLAMP),
+  }));
+  const headerTitleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [60, 110], [0, 1], Extrapolation.CLAMP),
+    transform: [{
+      translateY: interpolate(scrollY.value, [60, 110], [6, 0], Extrapolation.CLAMP),
+    }],
+  }));
 
   // ======================== NAME EDITING ========================
 
@@ -706,6 +734,64 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     <View style={styles.screen}>
       <ConfettiBurst confettiRef={confettiRef} />
 
+      {/* Sticky header — gains a blur backdrop and shows the block name
+          centered as the user scrolls past the title. Apple Notes pattern. */}
+      <View style={[styles.stickyHeader, { paddingTop: insets.top }]} pointerEvents="box-none">
+        <Animated.View style={[StyleSheet.absoluteFill, headerBackdropStyle]} pointerEvents="none">
+          <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={styles.stickyHeaderOverlay} />
+          <View style={styles.stickyHeaderHairline} />
+        </Animated.View>
+
+        <View style={styles.stickyHeaderRow}>
+          <Pressable
+            onPress={() => nav.goBack()}
+            hitSlop={12}
+            style={styles.backButton}
+            accessibilityLabel="Volver"
+          >
+            <Feather name="chevron-left" size={22} color={Colors.ink.primary} />
+            <Text style={styles.backLabel}>Atrás</Text>
+          </Pressable>
+
+          <Animated.Text
+            style={[styles.stickyTitle, headerTitleStyle]}
+            numberOfLines={1}
+            pointerEvents="none"
+          >
+            {block.name}
+          </Animated.Text>
+
+          <View style={styles.stickyActions}>
+            <Pressable onPress={handleToggleFavorite} hitSlop={8}>
+              <Feather
+                name="star"
+                size={18}
+                color={block.is_favorite ? Colors.gold.base : Colors.ink.tertiary}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowLibrary(true);
+              }}
+              hitSlop={8}
+              accessibilityLabel="Añadir desde librería"
+            >
+              <Feather name="book-open" size={18} color={Colors.ink.secondary} />
+            </Pressable>
+            <Pressable onPress={() => handleOpenPalette(null, 0)} hitSlop={8}>
+              <View style={styles.topBarPlus}>
+                <Feather name="plus" size={16} color={Colors.gold.base} />
+              </View>
+            </Pressable>
+            <Pressable onPress={handleDeleteBlock} hitSlop={8}>
+              <Feather name="trash-2" size={18} color={Colors.ink.tertiary} />
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -714,46 +800,17 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
           style={{ flex: 1 }}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 100 },
+            {
+              paddingTop: insets.top + 56 + Spacing.md,
+              paddingBottom: insets.bottom + 100,
+            },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!scrollLocked}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
         >
-          {/* Top bar */}
-          <View style={styles.topBar}>
-            <Pressable onPress={() => nav.goBack()} hitSlop={12}>
-              <Feather name="arrow-left" size={22} color={Colors.text.primary} />
-            </Pressable>
-            <View style={styles.topBarActions}>
-              <Pressable onPress={handleToggleFavorite} hitSlop={8}>
-                <Feather
-                  name="star"
-                  size={18}
-                  color={block.is_favorite ? Colors.accent.primary : Colors.text.tertiary}
-                />
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowLibrary(true);
-                }}
-                hitSlop={8}
-                accessibilityLabel="Añadir desde librería"
-              >
-                <Feather name="book-open" size={18} color={Colors.accent.primary} />
-              </Pressable>
-              <Pressable onPress={() => handleOpenPalette(null, 0)} hitSlop={8}>
-                <View style={styles.topBarPlus}>
-                  <Feather name="plus" size={18} color={Colors.accent.primary} />
-                </View>
-              </Pressable>
-              <Pressable onPress={handleDeleteBlock} hitSlop={8}>
-                <Feather name="trash-2" size={18} color={Colors.text.tertiary} />
-              </Pressable>
-            </View>
-          </View>
-
           {/* Discipline color strip */}
           <View style={[styles.colorStrip, { backgroundColor: disciplineColor }]} />
 
@@ -892,22 +949,65 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screen.horizontal,
   },
 
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
   },
-  topBarActions: {
+  stickyHeaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(247,247,245,0.78)',
+  },
+  stickyHeaderHairline: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.hair.base,
+  },
+  stickyHeaderRow: {
+    height: 56,
     flexDirection: 'row',
-    gap: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.screen.horizontal,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: -6,
+  },
+  backLabel: {
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.regular,
+    color: Colors.ink.primary,
+  },
+  stickyTitle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.ink.primary,
+    letterSpacing: Typography.tracking.tight,
+    paddingHorizontal: 88,
+  },
+  stickyActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
   },
   topBarPlus: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: Colors.accent.primary,
+    borderColor: Colors.gold.base,
     alignItems: 'center',
     justifyContent: 'center',
   },
