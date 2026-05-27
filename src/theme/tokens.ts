@@ -100,23 +100,6 @@ export const Colors = {
       glow:    'rgba(201,169,110,0.35)',
     };
   },
-  // v2 tokens — kept for call sites that haven't migrated yet
-  /** @deprecated */
-  gold_v2: { 300: '#E8D48B', 500: '#C9A96E', 700: '#8C6E2A' },
-  /** @deprecated */
-  success_v2: '#2D6A4F',
-  /** @deprecated */
-  warning_v2: '#E09F3E',
-  /** @deprecated */
-  danger: '#C1292E',
-  /** @deprecated Use Colors.bg.surface / Colors.bg.warm */
-  surface_v2: { light: '#FFFFFF', warm: '#F5F0E8', dark: '#1A1A2E' },
-  /** @deprecated Use Colors.ink.* */
-  text_v2: {
-    primary:   { light: '#1C1C1E', dark: '#F5F0E8' },
-    secondary: { light: '#6B7280', dark: '#9CA3AF' },
-    muted:     { light: '#9CA3AF', dark: '#6B7280' },
-  },
 } as const;
 
 export type ThemeMode = 'light' | 'dark';

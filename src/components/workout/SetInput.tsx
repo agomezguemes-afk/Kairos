@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   fieldValue: {
     fontSize: 22,
     fontWeight: '600',
-    color: Colors.text_v2.primary.dark,
+    color: Colors.ink.inverse,
     fontVariant: ['tabular-nums'],
   },
   fieldValueActive: {
@@ -267,6 +267,6 @@ const styles = StyleSheet.create({
   padKeyText: {
     fontSize: 22,
     fontWeight: '600',
-    color: Colors.text_v2.primary.dark,
+    color: Colors.ink.inverse,
   },
 });
