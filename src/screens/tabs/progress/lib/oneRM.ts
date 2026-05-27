@@ -23,9 +23,7 @@ export function brzycki1RM(weight: number, reps: number): number {
 
 /** Best estimated 1RM (Epley) across all completed sets in this exercise summary. */
 export function sessionBest1RM(
-  performedSets:
-    | { weight: number | null; reps: number | null; completed: boolean }[]
-    | undefined,
+  performedSets: { weight: number | null; reps: number | null; completed: boolean }[] | undefined,
 ): number {
   if (!performedSets) return 0;
   let best = 0;

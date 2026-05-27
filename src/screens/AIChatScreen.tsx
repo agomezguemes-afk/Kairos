@@ -39,7 +39,7 @@ import { processGlobalChat, AIUnavailableError } from '../lib/ai/chat/globalChat
 import { getGlobalSuggestions } from '../lib/ai/chat/globalSuggestions';
 import type { AgentProgressEvent } from '../lib/ai/agent';
 import type { RawUserContext } from '../utils/userContext';
-import { generateId , getBlockExercises } from '../types/core';
+import { generateId, getBlockExercises } from '../types/core';
 import type { AIMessage } from '../types/ai';
 import { useWorkoutStore } from '../store/workoutStore';
 import { useUserProfile } from '../context/UserProfileContext';

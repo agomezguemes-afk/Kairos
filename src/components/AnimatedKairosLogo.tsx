@@ -82,7 +82,6 @@ export default function AnimatedKairosLogo({
       delay + 1300,
       withTiming(1, { duration: 200, easing: ease }, (finished) => {
         if (finished && onReady) {
-           
           runReady();
         }
       }),

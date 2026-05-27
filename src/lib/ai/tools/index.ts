@@ -31,7 +31,6 @@ import {
 import type { GroqToolDefinition } from '../client';
 import type { ToolDefinition, ToolRegistry } from './types';
 
- 
 const ALL: ToolDefinition<any, any>[] = [
   // Block-level
   createBlockTool,

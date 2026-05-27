@@ -10,7 +10,7 @@ import Animated, {
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-import type { ContentNode , TextFormat } from '../../../types/content';
+import type { ContentNode, TextFormat } from '../../../types/content';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
 
 const TIMING_IN = { duration: 250, easing: Easing.out(Easing.cubic) };

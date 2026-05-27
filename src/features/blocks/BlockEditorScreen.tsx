@@ -633,7 +633,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
         );
       }
       return renderNodeDeferred(node, false);
-       
     },
     [block, blockId, firstExerciseRowId],
   );
