@@ -1,0 +1,61 @@
+{
+  "//": "Kairos EAS Build profiles — one per environment. Each profile",
+  "// injects APP_ENV so the dynamic app.config.ts picks the matching",
+  "// bundle identifier, name, and scheme. Native builds are reproducible",
+  "// regardless of which machine triggers them.",
+  "//": "",
+  "// Local builds (xcodebuild against the Mac) bypass EAS — keep using",
+  "// the scripts in CLAUDE.md > 'Physical iPhone Deployment'.",
+
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "development"
+      },
+      "ios": {
+        "simulator": false,
+        "resourceClass": "m-medium"
+      },
+      "channel": "development"
+    },
+
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "staging"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "channel": "staging"
+    },
+
+    "production": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "APP_ENV": "production"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "channel": "production"
+    }
+  },
+
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "agomezguemes@gmail.com",
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID"
+      }
+    }
+  }
+}

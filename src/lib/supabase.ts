@@ -12,7 +12,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { SKIP_AUTH } from '../config/constants';
 
-const SUPABASE_URL = 'https://odueiggkwtquidzbjgqf.supabase.co';
+// URL + anon key both come from env so dev / staging / prod can point
+// at different Supabase projects. A hardcoded URL would tie every build
+// variant to the same backend, which defeats the purpose of envs.
+const SUPABASE_URL =
+  process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() || 'https://odueiggkwtquidzbjgqf.supabase.co';
 
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
 
