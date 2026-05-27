@@ -33,7 +33,6 @@ import ImageNode from './components/ImageNode';
 import AddExerciseSheet from './components/AddExerciseSheet';
 import ExerciseLibrarySheet from './components/ExerciseLibrarySheet';
 import ComponentPalette from './components/ComponentPalette';
-import SlashCommandMenu from './components/SlashCommandMenu';
 import BlockActionSheet from './components/BlockActionSheet';
 import BlockAISheet from './components/BlockAISheet';
 import Spine from './components/Spine';
@@ -81,7 +80,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const {
     block,
     handleUpdateName,
-    handleUpdateDescription,
     handleToggleFavorite,
     handleDelete,
     handleAddExercise,
@@ -114,24 +112,12 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const [paletteSection, setPaletteSection] = useState<string | null>(null);
   const [paletteColumn, setPaletteColumn] = useState(0);
 
-  // Slash command state
-  const [slashActive, setSlashActive] = useState(false);
-  const [slashQuery, setSlashQuery] = useState('');
-  const [slashKey, setSlashKey] = useState('root_0');
-
-  // Blank drafts keyed by `${sectionId|root}_${colIdx}`
-  const [blankDrafts, setBlankDrafts] = useState<Record<string, string>>({});
-  const blankInputRefs = useRef<Record<string, TextInput | null>>({});
-
   // Block action sheet state
   const [actionNode, setActionNode] = useState<ContentNode | null>(null);
   const [showActions, setShowActions] = useState(false);
 
   // Floating AI assistant
   const [showAI, setShowAI] = useState(false);
-
-  // Scroll lock (M2: kept for future drag reorder in M4)
-  const [scrollLocked, setScrollLocked] = useState(false);
 
   const stats = useMemo(() => block ? calculateBlockStats(block) : null, [block]);
 
@@ -182,9 +168,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     const renumbered = sorted.map((n, i) => ({ ...n, order: i }));
     updateBlock(blockId, { content: renumbered as ContentNode[] });
   }, [blockId, updateBlock]);
-
-  const blankKeyFn = useCallback((sectionId: string | null, colIdx: number) =>
-    `${sectionId ?? 'root'}_${colIdx}`, []);
 
   // ======================== NODE INSERTION ========================
 
@@ -315,63 +298,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     setPaletteColumn(node?.column ?? 0);
     setShowPalette(true);
   }, [block]);
-
-  // ======================== BLANK INPUTS ========================
-
-  const handleBlankChange = useCallback((text: string, key: string) => {
-    setBlankDrafts(prev => ({ ...prev, [key]: text }));
-    const slashIdx = text.lastIndexOf('/');
-    if (slashIdx >= 0 && (slashIdx === 0 || text[slashIdx - 1] === ' ' || text[slashIdx - 1] === '\n')) {
-      setSlashActive(true);
-      setSlashQuery(text.substring(slashIdx + 1));
-      setSlashKey(key);
-    } else {
-      if (slashKey === key) {
-        setSlashActive(false);
-        setSlashQuery('');
-      }
-    }
-  }, [slashKey]);
-
-  const parseBlankKey = useCallback((key: string): { sectionId: string | null; colIdx: number } => {
-    const lastUnderscore = key.lastIndexOf('_');
-    const sectionPart = key.substring(0, lastUnderscore);
-    const colPart = key.substring(lastUnderscore + 1);
-    return {
-      sectionId: sectionPart === 'root' ? null : sectionPart,
-      colIdx: parseInt(colPart, 10) || 0,
-    };
-  }, []);
-
-  const handleSlashSelect = useCallback((type: string) => {
-    const key = slashKey;
-    setSlashActive(false);
-    setSlashQuery('');
-    setBlankDrafts(prev => ({ ...prev, [key]: '' }));
-    const { sectionId, colIdx } = parseBlankKey(key);
-    insertNode(type, sectionId, colIdx);
-  }, [slashKey, insertNode, parseBlankKey]);
-
-  const handleBlankSubmit = useCallback((key: string) => {
-    if (slashActive && slashKey === key) return;
-    const draft = blankDrafts[key] ?? '';
-    if (!block || !draft.trim()) return;
-    const { sectionId, colIdx } = parseBlankKey(key);
-
-    const relevant = sectionId
-      ? block.content.filter(n => n.section === sectionId && (n.column ?? 0) === colIdx)
-      : block.content.filter(n => !n.section);
-    const order = getNextOrder(relevant.length > 0 ? relevant : block.content);
-
-    const node = {
-      ...createTextNode(order, 'paragraph', draft.trim()),
-      column: colIdx,
-      section: sectionId ?? undefined,
-    } as ContentNode;
-    addContentNode(blockId, node);
-    setBlankDrafts(prev => ({ ...prev, [key]: '' }));
-    setTimeout(normalizeOrders, 50);
-  }, [block, blockId, blankDrafts, slashActive, slashKey, addContentNode, parseBlankKey, normalizeOrders]);
 
   // ======================== COMPONENT PALETTE ========================
 
@@ -590,34 +516,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     }
   };
 
-  const renderBlankInput = (sectionId: string | null, colIdx: number, compact: boolean = false) => {
-    const key = blankKeyFn(sectionId, colIdx);
-    const draft = blankDrafts[key] ?? '';
-    return (
-      <View style={[styles.blankRow, compact && styles.blankRowCompact]} key={`blank-${key}`}>
-        <Pressable
-          onPress={() => handleOpenPalette(sectionId, colIdx)}
-          hitSlop={6}
-          style={styles.blankAddBtn}
-        >
-          <Feather name="plus" size={compact ? 13 : 15} color={Colors.accent.primary} />
-        </Pressable>
-        <TextInput
-          ref={(r) => { blankInputRefs.current[key] = r; }}
-          style={[styles.blankInput, compact && styles.blankInputCompact]}
-          value={draft}
-          onChangeText={(text) => handleBlankChange(text, key)}
-          onSubmitEditing={() => handleBlankSubmit(key)}
-          placeholder={compact ? '/ insertar...' : 'Escribe o usa / para insertar...'}
-          placeholderTextColor={Colors.text.disabled}
-          multiline
-          blurOnSubmit
-          returnKeyType="done"
-        />
-      </View>
-    );
-  };
-
   // First exercise on the spine renders as CompoundTile (hero); subsequent
   // exercises render as AccessoryTile (compact). This keeps the visual
   // rhythm of a typical session: one anchor lift, accessories under it.
@@ -816,7 +714,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          scrollEnabled={!scrollLocked}
           onScroll={onScroll}
           scrollEventThrottle={16}
         >
@@ -1083,116 +980,11 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
   },
 
-  // Full-width group
-  fullWidthGroup: {
-    gap: Spacing.xs,
-    overflow: 'visible' as const,
-  },
-
-  // Column sections
-  sectionContainer: {
-    marginVertical: Spacing.sm,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    marginBottom: Spacing.xs,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.background.elevated,
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  sectionLabel: {
-    fontSize: Typography.size.micro,
-    fontWeight: Typography.weight.semibold,
-    color: Colors.text.disabled,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sectionWidthRow: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 4,
-    justifyContent: 'center',
-  },
-  sectionWidthBtn: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
-  },
-  sectionWidthBtnActive: {
-    backgroundColor: Colors.accent.dim,
-  },
-  sectionWidthText: {
-    fontSize: 9,
-    fontWeight: Typography.weight.medium,
-    color: Colors.text.disabled,
-  },
-  sectionWidthTextActive: {
-    color: Colors.accent.primary,
-    fontWeight: Typography.weight.bold,
-  },
-
-  columnsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    overflow: 'visible' as const,
-  },
-  column: {
-    flex: 1,
-    minWidth: 0,
-    gap: Spacing.xs,
-  },
-
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.border.medium,
     marginVertical: Spacing.xl,
     marginHorizontal: Spacing.lg,
-  },
-
-  blankRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: Spacing.md,
-    paddingTop: Spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border.subtle,
-  },
-  blankAddBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.accent.dim,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.md,
-    marginRight: Spacing.xs,
-  },
-  blankInput: {
-    flex: 1,
-    fontSize: Typography.size.body,
-    color: Colors.text.primary,
-    lineHeight: Typography.size.body * Typography.lineHeight.relaxed,
-    minHeight: 80,
-    paddingVertical: Spacing.md,
-    textAlignVertical: 'top',
-  },
-  blankRowCompact: {
-    marginTop: Spacing.sm,
-    paddingTop: Spacing.xs,
-  },
-  blankInputCompact: {
-    fontSize: Typography.size.caption,
-    minHeight: 36,
-    paddingVertical: Spacing.sm,
   },
 
   aiFab: {
