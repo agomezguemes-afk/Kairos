@@ -9,6 +9,7 @@ import type {
   FieldValue,
   Discipline,
   BlockCover,
+  SetKind,
 } from '../types/core';
 import {
   createWorkoutBlock,
@@ -19,40 +20,186 @@ import {
 import type { ContentNode } from '../types/content';
 import {
   createExerciseNode,
-  createTextNode,
-  createDividerNode,
-  createSubBlockNode,
-  createImageNode,
+  createColumnSectionNode,
   getNextOrder,
   reorderNodes,
 } from '../types/content';
-import type { AIAction, AIExerciseTemplate } from '../types/ai';
+import { writeWorkout, isHealthKitAvailable } from '../lib/health/healthkit';
+import { estimateKcal } from '../lib/health/met';
+import { getTemplate } from '../data/blockTemplates';
+import { getLibraryEntry } from '../data/exerciseLibrary';
+import { instantiateTemplate, cloneLibraryEntry } from '../data/libraryHelpers';
 
 const MOCK_USER_ID = 'user_001';
+
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+export interface ActiveWorkoutRestTimer {
+  duration: number;
+  startTime: number;
+  active: boolean;
+}
+
+export interface ActiveWorkout {
+  blockId: string;
+  /** Schedule assignment this session belongs to. Absent for free starts. */
+  assignmentId?: string;
+  /** ISO date YYYY-MM-DD this session is scheduled for. */
+  scheduledDate?: string;
+  /** Where the user came from. Drives history attribution + Kai signal context. */
+  source?: 'today' | 'calendar' | 'free' | 'history';
+  startTime: number;
+  currentExerciseIndex: number;
+  currentSetIndex: number;
+  restTimer: ActiveWorkoutRestTimer;
+  exercises: ExerciseCard[];
+}
+
+export interface ExerciseHistorySummary {
+  exerciseId: string;
+  /**
+   * Stable library identifier when the exercise was cloned from the library.
+   * Used to correlate progression across blocks; absent for custom exercises
+   * (callers fall back to normalized-name match).
+   */
+  libraryId?: string;
+  name: string;
+  maxWeight: number;
+  totalVolume: number;
+  setsCompleted: number;
+  // Planned-vs-performed snapshot. Optional for backwards compatibility with
+  // history entries written before this field existed.
+  plannedWeight?: number;
+  plannedReps?: number;
+  plannedSetsCount?: number;
+  performedSets?: Array<{
+    weight: number | null;
+    reps: number | null;
+    completed: boolean;
+    /** Set kind (warmup/drop/failure). Undefined = 'working'. */
+    kind?: SetKind;
+    /** RPE 1..10 if rated. */
+    rpe?: number;
+    /** Per-set freeform note (may be empty). */
+    notes?: string | null;
+  }>;
+}
+
+export interface WorkoutHistoryEntry {
+  id: string;
+  blockId: string;
+  blockName: string;
+  /** Schedule context — present when the session was started from a planned occurrence. */
+  assignmentId?: string;
+  scheduledDate?: string;
+  source?: 'today' | 'calendar' | 'free' | 'history';
+  startedAt: number;
+  endedAt: number;
+  exerciseCount: number;
+  setCount: number;
+  totalVolume: number;
+  durationSec: number;
+  exercises: ExerciseHistorySummary[];
+}
 
 interface WorkoutState {
   blocks: WorkoutBlock[];
   pendingHighlight: string | null;
+  themePreference: ThemePreference;
+  setThemePreference: (pref: ThemePreference) => void;
+  userName: string;
+  userGoal: 'strength' | 'endurance' | 'flexibility' | 'health' | null;
+  setUserName: (name: string) => void;
+  setUserGoal: (goal: 'strength' | 'endurance' | 'flexibility' | 'health') => void;
+  healthkitEnabled: boolean;
+  bodyWeightKg: number | null;
+  setHealthkitEnabled: (enabled: boolean) => void;
+  setBodyWeight: (kg: number | null) => void;
+  // First-launch planner tour. `null` until the user completes or skips the
+  // 3-screen overlay — flipped to an ISO timestamp once seen so HomeTab knows
+  // not to mount it again. `resetTour` exists for dev / settings reset.
+  tourCompletedAt: string | null;
+  markTourCompleted: () => void;
+  resetTour: () => void;
+  // Local notifications opt-in. `null` = never asked, `true`/`false` = user
+  // explicit choice. Adapter layer (src/lib/notifications/adapter.ts) reads
+  // this flag before scheduling reminders.
+  notificationsEnabled: boolean | null;
+  setNotificationsEnabled: (enabled: boolean) => void;
+  activeWorkout: ActiveWorkout | null;
+  workoutHistory: WorkoutHistoryEntry[];
+
+  startWorkout: (
+    blockId: string,
+    ctx?: {
+      assignmentId?: string;
+      scheduledDate?: string;
+      source?: 'today' | 'calendar' | 'free' | 'history';
+    },
+  ) => void;
+  completeSet: (
+    exerciseId: string,
+    setId: string,
+    values: Record<string, FieldValue>,
+  ) => void;
+  skipRest: () => void;
+  extendRest: (additionalSec: number) => void;
+  setExerciseRestForCurrent: (newRestSeconds: number) => void;
+  nextExercise: () => void;
+  previousExercise: () => void;
+  goToSet: (setIndex: number) => void;
+  appendActiveExercise: (exercise: ExerciseCard) => void;
+  reorderActiveExercises: (orderedIds: string[]) => void;
+  removeActiveExercise: (exerciseId: string) => void;
+  setExerciseGoal: (
+    blockId: string,
+    exerciseId: string,
+    goal: { goalWeight?: number; goalReps?: number },
+  ) => void;
+  /**
+   * Patch metadata on a set inside the active workout (kind, rpe, notes).
+   * Passing `null` for `rpe` clears it; omitting a field leaves it unchanged.
+   */
+  updateSetMetadata: (
+    exerciseId: string,
+    setId: string,
+    patch: { kind?: SetKind; rpe?: number | null; notes?: string | null },
+  ) => void;
+  finishWorkout: () => WorkoutHistoryEntry | null;
+  cancelWorkout: () => void;
+
+  activeInsights: string[];
+  addInsight: (text: string) => void;
+  clearInsight: (index: number) => void;
+  clearAllInsights: () => void;
 
   addBlock: (
     discipline?: Discipline,
     overrides?: { name?: string; icon?: string; color?: string; cover?: BlockCover },
   ) => string;
+  addBlockFromTemplate: (templateId: string) => string | null;
+  addExerciseFromLibrary: (blockId: string, libraryId: string) => string | null;
   updateBlock: (blockId: string, updates: Partial<WorkoutBlock>) => void;
   deleteBlock: (blockId: string) => void;
   reorderBlocks: (blocks: WorkoutBlock[]) => void;
   replaceAllBlocks: (blocks: WorkoutBlock[]) => void;
 
   addContentNode: (blockId: string, node: ContentNode) => void;
+  insertContentNode: (blockId: string, node: ContentNode, position?: number) => void;
   updateContentNode: (blockId: string, nodeId: string, updates: Partial<ContentNode>) => void;
   deleteContentNode: (blockId: string, nodeId: string) => void;
   reorderContentNodes: (blockId: string, nodeIds: string[]) => void;
   duplicateContentNode: (blockId: string, nodeId: string) => void;
   moveContentNode: (blockId: string, nodeId: string, direction: 'up' | 'down') => void;
+  wrapNodesInColumns: (
+    blockId: string,
+    nodeIds: string[],
+    columns: 2 | 3,
+  ) => string | null;
 
   addExercise: (
     blockId: string,
-    opts?: { name?: string; icon?: string; color?: string; discipline?: Discipline; section?: string; column?: number },
+    opts?: { name?: string; icon?: string; color?: string; discipline?: Discipline; section?: string; column?: number; fields?: import('../types/core').FieldDefinition[] },
   ) => void;
   updateExercise: (
     blockId: string,
@@ -65,19 +212,18 @@ interface WorkoutState {
   updateSetValue: (
     blockId: string,
     exerciseId: string,
-    setIndex: number,
+    setId: string,
     fieldId: string,
     value: FieldValue,
   ) => void;
   toggleSetComplete: (
     blockId: string,
     exerciseId: string,
-    setIndex: number,
+    setId: string,
   ) => { exercise: ExerciseCard; set: ExerciseSet; wasCompleted: boolean } | null;
   addSet: (blockId: string, exerciseId: string) => void;
-  removeSet: (blockId: string, exerciseId: string, setIndex: number) => void;
+  removeSet: (blockId: string, exerciseId: string, setId: string) => void;
 
-  dispatchAIActions: (actions: AIAction[]) => string | null;
   setHighlight: (blockId: string | null) => void;
 }
 
@@ -96,50 +242,45 @@ function updateExerciseInContent(
   return { content: next, exercise: found };
 }
 
-function applyTemplateToExercise(
-  ex: ExerciseCard,
-  template: AIExerciseTemplate,
-): ExerciseCard {
-  const setsCount = template.sets_count ?? ex.default_sets_count;
-  const nextRest = template.rest_seconds ?? ex.rest_seconds;
-  const sets = Array.from({ length: setsCount }, (_, i) =>
-    createEmptySet(ex.id, i, ex.fields),
-  );
-
-  if (template.reps !== undefined) {
-    const repsField = ex.fields.find((f) => f.id === 'reps');
-    const durationField = ex.fields.find(
-      (f) =>
-        f.id === 'duration' ||
-        f.name.toLowerCase().includes('duration') ||
-        f.name.toLowerCase().includes('hold'),
-    );
-
-    if (typeof template.reps === 'number' && repsField) {
-      for (const s of sets) s.values[repsField.id] = template.reps;
-    } else if (typeof template.reps === 'string') {
-      const seconds = parseInt(template.reps, 10);
-      if (!Number.isNaN(seconds) && durationField) {
-        for (const s of sets) s.values[durationField.id] = seconds;
-      } else if (!Number.isNaN(seconds) && repsField) {
-        for (const s of sets) s.values[repsField.id] = seconds;
-      }
-    }
-  }
-
-  return {
-    ...ex,
-    sets,
-    default_sets_count: setsCount,
-    rest_seconds: nextRest,
-    updated_at: new Date().toISOString(),
-  };
-}
-
 function getExercisesFromBlock(block: WorkoutBlock): ExerciseCard[] {
   return block.content
     .filter((n): n is Extract<ContentNode, { type: 'exercise' }> => n.type === 'exercise')
     .map(n => n.data.exercise);
+}
+
+/**
+ * Expand a superset node into a flat queue of single-set exercises,
+ * interleaved by cycle. Used by startWorkout. Each cycle iteration of
+ * each exercise becomes its own ExerciseCard entry with a unique id and
+ * a single set, so the existing currentExerciseIndex / currentSetIndex
+ * progression naturally walks A1, B1, A2, B2, ...
+ */
+function expandSuperset(node: Extract<ContentNode, { type: 'superset' }>): ExerciseCard[] {
+  const { exercises, cycles } = node.data;
+  if (exercises.length === 0 || cycles <= 0) return [];
+  const out: ExerciseCard[] = [];
+  for (let c = 0; c < cycles; c++) {
+    for (const ex of exercises) {
+      const baseSet = ex.sets[c] ?? ex.sets[0];
+      const clonedSet = baseSet
+        ? {
+            ...JSON.parse(JSON.stringify(baseSet)),
+            id: `${baseSet.id}_c${c}`,
+            completed: false,
+            completed_at: null,
+          }
+        : null;
+      const cycleEx: ExerciseCard = {
+        ...JSON.parse(JSON.stringify(ex)),
+        id: `${ex.id}_c${c}`,
+        name: cycles > 1 ? `${ex.name} · ${c + 1}/${cycles}` : ex.name,
+        sets: clonedSet ? [clonedSet] : [],
+        rest_seconds: c === exercises.length - 1 ? node.data.restSeconds : 0,
+      };
+      out.push(cycleEx);
+    }
+  }
+  return out;
 }
 
 function migrateBlock(block: any): WorkoutBlock {
@@ -159,6 +300,426 @@ export const useWorkoutStore = create<WorkoutState>()(
     (set, get) => ({
       blocks: [],
       pendingHighlight: null,
+      themePreference: 'system' as ThemePreference,
+      setThemePreference: (pref) => set({ themePreference: pref }),
+      userName: '',
+      userGoal: null,
+      setUserName: (name) => set({ userName: name.trim() }),
+      setUserGoal: (goal) =>
+        set({ userGoal: goal as 'strength' | 'endurance' | 'flexibility' | 'health' }),
+      healthkitEnabled: false,
+      bodyWeightKg: null,
+      setHealthkitEnabled: (enabled) => set({ healthkitEnabled: enabled }),
+      setBodyWeight: (kg) => set({ bodyWeightKg: kg }),
+      tourCompletedAt: null,
+      markTourCompleted: () => set({ tourCompletedAt: new Date().toISOString() }),
+      resetTour: () => set({ tourCompletedAt: null }),
+      notificationsEnabled: null,
+      setNotificationsEnabled: (enabled) => set({ notificationsEnabled: enabled }),
+      activeWorkout: null,
+      workoutHistory: [],
+
+      startWorkout: (blockId, ctx) => {
+        const block = get().blocks.find((b) => b.id === blockId);
+        if (!block) return;
+        // Expand block content into a flat queue of exercises. Standalone
+        // exercises pass through unchanged. Supersets get interleaved per
+        // cycle: [A1, B1, A2, B2, ...] so the user moves through them
+        // round-robin instead of completing all sets of A before B.
+        const exercises: ExerciseCard[] = [];
+        const sorted = [...block.content].sort((a, b) => a.order - b.order);
+        for (const n of sorted) {
+          if (n.type === 'exercise') {
+            exercises.push(JSON.parse(JSON.stringify(n.data.exercise)) as ExerciseCard);
+          } else if (n.type === 'superset') {
+            exercises.push(...expandSuperset(n));
+          }
+        }
+        if (exercises.length === 0) return;
+
+        // Preload set values from per-exercise goals so the user starts each
+        // set with the planned target instead of an empty input. We only fill
+        // empty slots — sets that already have an explicit value win.
+        for (const ex of exercises) {
+          for (const s of ex.sets) {
+            if (ex.goalWeight != null && s.values['weight'] == null) {
+              s.values['weight'] = ex.goalWeight;
+            }
+            if (ex.goalReps != null && s.values['reps'] == null) {
+              s.values['reps'] = ex.goalReps;
+            }
+          }
+        }
+
+        set({
+          activeWorkout: {
+            blockId,
+            assignmentId: ctx?.assignmentId,
+            scheduledDate: ctx?.scheduledDate,
+            source: ctx?.source ?? 'free',
+            startTime: Date.now(),
+            currentExerciseIndex: 0,
+            currentSetIndex: 0,
+            restTimer: { duration: 0, startTime: 0, active: false },
+            exercises,
+          },
+        });
+      },
+
+      completeSet: (exerciseId, setId, values) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          const exercises = aw.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex;
+            return {
+              ...ex,
+              sets: ex.sets.map((s) =>
+                s.id === setId
+                  ? {
+                      ...s,
+                      values: { ...s.values, ...values },
+                      completed: true,
+                      completed_at: new Date().toISOString(),
+                    }
+                  : s,
+              ),
+            };
+          });
+
+          const currentEx = exercises[aw.currentExerciseIndex];
+          const isLastSet = aw.currentSetIndex >= currentEx.sets.length - 1;
+          const isLastExercise = aw.currentExerciseIndex >= exercises.length - 1;
+
+          let nextExIdx = aw.currentExerciseIndex;
+          let nextSetIdx = aw.currentSetIndex + 1;
+          if (isLastSet && !isLastExercise) {
+            nextExIdx = aw.currentExerciseIndex + 1;
+            nextSetIdx = 0;
+          } else if (isLastSet && isLastExercise) {
+            nextSetIdx = aw.currentSetIndex; // pin to last
+          }
+
+          const restDuration = currentEx.rest_seconds || 90;
+
+          return {
+            activeWorkout: {
+              ...aw,
+              exercises,
+              currentExerciseIndex: nextExIdx,
+              currentSetIndex: nextSetIdx,
+              restTimer: { duration: restDuration, startTime: Date.now(), active: true },
+            },
+          };
+        });
+      },
+
+      skipRest: () => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              restTimer: { ...state.activeWorkout.restTimer, active: false },
+            },
+          };
+        });
+      },
+
+      // Add seconds to a live rest timer. Bails when the timer is idle so we
+      // can't accidentally extend a rest that never started.
+      extendRest: (additionalSec) => {
+        set((state) => {
+          if (!state.activeWorkout || !state.activeWorkout.restTimer.active) return state;
+          const rt = state.activeWorkout.restTimer;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              restTimer: {
+                ...rt,
+                duration: rt.duration + additionalSec,
+              },
+            },
+          };
+        });
+      },
+
+      // In-session override of rest_seconds for the current exercise. Does NOT
+      // persist to the underlying block — only mutates the active workout copy.
+      setExerciseRestForCurrent: (newRestSeconds) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          const idx = aw.currentExerciseIndex;
+          const ex = aw.exercises[idx];
+          if (!ex) return state;
+          const exercises = aw.exercises.slice();
+          exercises[idx] = { ...ex, rest_seconds: Math.max(0, Math.floor(newRestSeconds)) };
+          return {
+            activeWorkout: { ...aw, exercises },
+          };
+        });
+      },
+
+      nextExercise: () => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          if (aw.currentExerciseIndex >= aw.exercises.length - 1) return state;
+          return {
+            activeWorkout: {
+              ...aw,
+              currentExerciseIndex: aw.currentExerciseIndex + 1,
+              currentSetIndex: 0,
+            },
+          };
+        });
+      },
+
+      previousExercise: () => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          if (aw.currentExerciseIndex <= 0) return state;
+          return {
+            activeWorkout: {
+              ...aw,
+              currentExerciseIndex: aw.currentExerciseIndex - 1,
+              currentSetIndex: 0,
+            },
+          };
+        });
+      },
+
+      goToSet: (setIndex) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const ex = state.activeWorkout.exercises[state.activeWorkout.currentExerciseIndex];
+          if (!ex) return state;
+          const clamped = Math.max(0, Math.min(ex.sets.length - 1, setIndex));
+          return {
+            activeWorkout: { ...state.activeWorkout, currentSetIndex: clamped },
+          };
+        });
+      },
+
+      appendActiveExercise: (exercise) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: [...state.activeWorkout.exercises, exercise],
+            },
+          };
+        });
+      },
+
+      reorderActiveExercises: (orderedIds) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const map = new Map(state.activeWorkout.exercises.map((e) => [e.id, e]));
+          const reordered: ExerciseCard[] = [];
+          for (const id of orderedIds) {
+            const ex = map.get(id);
+            if (ex) reordered.push(ex);
+          }
+          for (const ex of state.activeWorkout.exercises) {
+            if (!orderedIds.includes(ex.id)) reordered.push(ex);
+          }
+          const activeId = state.activeWorkout.exercises[state.activeWorkout.currentExerciseIndex]?.id;
+          const newIdx = activeId ? reordered.findIndex((e) => e.id === activeId) : 0;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: reordered,
+              currentExerciseIndex: Math.max(0, newIdx),
+            },
+          };
+        });
+      },
+
+      removeActiveExercise: (exerciseId) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          const idx = aw.exercises.findIndex((e) => e.id === exerciseId);
+          if (idx === -1) return state;
+          const exercises = aw.exercises.filter((e) => e.id !== exerciseId);
+          if (exercises.length === 0) {
+            return { activeWorkout: { ...aw, exercises, currentExerciseIndex: 0, currentSetIndex: 0 } };
+          }
+          let nextIdx = aw.currentExerciseIndex;
+          if (idx < aw.currentExerciseIndex) nextIdx = aw.currentExerciseIndex - 1;
+          else if (idx === aw.currentExerciseIndex) nextIdx = Math.min(idx, exercises.length - 1);
+          return {
+            activeWorkout: {
+              ...aw,
+              exercises,
+              currentExerciseIndex: Math.max(0, nextIdx),
+              currentSetIndex: 0,
+            },
+          };
+        });
+      },
+
+      setExerciseGoal: (blockId, exerciseId, goal) => {
+        get().updateExercise(blockId, exerciseId, {
+          goalWeight: goal.goalWeight,
+          goalReps: goal.goalReps,
+        });
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          return {
+            activeWorkout: {
+              ...state.activeWorkout,
+              exercises: state.activeWorkout.exercises.map((ex) =>
+                ex.id === exerciseId
+                  ? { ...ex, goalWeight: goal.goalWeight, goalReps: goal.goalReps }
+                  : ex,
+              ),
+            },
+          };
+        });
+      },
+
+      updateSetMetadata: (exerciseId, setId, patch) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const exercises = state.activeWorkout.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex;
+            const sets = ex.sets.map((s) => {
+              if (s.id !== setId) return s;
+              const next: ExerciseSet = { ...s };
+              if (patch.kind !== undefined) next.kind = patch.kind;
+              if (patch.rpe !== undefined) {
+                if (patch.rpe === null) next.rpe = undefined;
+                else next.rpe = patch.rpe;
+              }
+              if (patch.notes !== undefined) next.notes = patch.notes;
+              return next;
+            });
+            return { ...ex, sets };
+          });
+          return { activeWorkout: { ...state.activeWorkout, exercises } };
+        });
+      },
+
+      finishWorkout: () => {
+        let summary: WorkoutHistoryEntry | null = null;
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const aw = state.activeWorkout;
+          const block = state.blocks.find((b) => b.id === aw.blockId);
+          let totalSets = 0;
+          let totalVolume = 0;
+          const perEx: ExerciseHistorySummary[] = [];
+          for (const ex of aw.exercises) {
+            let maxW = 0;
+            let exVol = 0;
+            let setsDone = 0;
+            const performedSets: ExerciseHistorySummary['performedSets'] = [];
+            for (const s of ex.sets) {
+              const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
+              const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : null;
+              performedSets.push({
+                weight: w,
+                reps: r,
+                completed: s.completed,
+                kind: s.kind,
+                rpe: s.rpe,
+                notes: s.notes,
+              });
+              if (!s.completed) continue;
+              setsDone += 1;
+              totalSets += 1;
+              const wNum = w ?? 0;
+              const rNum = r ?? 0;
+              if (wNum > maxW) maxW = wNum;
+              exVol += wNum * rNum;
+              totalVolume += wNum * rNum;
+            }
+            perEx.push({
+              exerciseId: ex.id,
+              libraryId: ex.libraryId,
+              name: ex.name,
+              maxWeight: maxW,
+              totalVolume: exVol,
+              setsCompleted: setsDone,
+              plannedWeight: ex.goalWeight,
+              plannedReps: ex.goalReps,
+              plannedSetsCount: ex.sets.length,
+              performedSets,
+            });
+          }
+          const endedAt = Date.now();
+          summary = {
+            id: generateId(),
+            blockId: aw.blockId,
+            blockName: block?.name ?? 'Workout',
+            assignmentId: aw.assignmentId,
+            scheduledDate: aw.scheduledDate,
+            source: aw.source,
+            startedAt: aw.startTime,
+            endedAt,
+            exerciseCount: aw.exercises.length,
+            setCount: totalSets,
+            totalVolume,
+            durationSec: Math.round((endedAt - aw.startTime) / 1000),
+            exercises: perEx,
+          };
+          return {
+            activeWorkout: null,
+            workoutHistory: [summary, ...state.workoutHistory].slice(0, 100),
+          };
+        });
+
+        // Fire-and-forget insight detection (non-blocking, dynamic import to avoid cycles).
+        if (summary) {
+          setTimeout(() => {
+            import('../lib/ai/insights')
+              .then((m) => m.runPostWorkoutInsights())
+              .catch(() => {});
+          }, 0);
+        }
+
+        // Fire-and-forget HealthKit write. Only runs when the user opted in
+        // AND the native module is loadable — both checks are cheap. We never
+        // block the caller (summary return) on the round-trip.
+        // (TS can't track the assignment inside set(), hence the explicit cast.)
+        const finalized = summary as WorkoutHistoryEntry | null;
+        if (finalized) {
+          const state = get();
+          if (state.healthkitEnabled && isHealthKitAvailable()) {
+            const block = state.blocks.find((b) => b.id === finalized.blockId);
+            const discipline = block?.discipline ?? 'general';
+            const kcal = estimateKcal({
+              discipline,
+              durationMs: finalized.endedAt - finalized.startedAt,
+              bodyWeightKg: state.bodyWeightKg ?? 75,
+            });
+            writeWorkout({
+              discipline,
+              startMs: finalized.startedAt,
+              endMs: finalized.endedAt,
+              totalEnergyKcal: kcal,
+            }).catch(() => { /* noop, already logged in module */ });
+          }
+        }
+
+        return summary;
+      },
+
+      cancelWorkout: () => set({ activeWorkout: null }),
+
+      activeInsights: [],
+      addInsight: (text) =>
+        set((state) => ({ activeInsights: [...state.activeInsights, text].slice(-5) })),
+      clearInsight: (index) =>
+        set((state) => ({
+          activeInsights: state.activeInsights.filter((_, i) => i !== index),
+        })),
+      clearAllInsights: () => set({ activeInsights: [] }),
 
       addBlock: (discipline = 'general', overrides) => {
         const block = createWorkoutBlock(MOCK_USER_ID, get().blocks.length, discipline, overrides);
@@ -167,6 +728,33 @@ export const useWorkoutStore = create<WorkoutState>()(
           : block;
         set((state) => ({ blocks: [...state.blocks, blockWithCover] }));
         return blockWithCover.id;
+      },
+
+      addBlockFromTemplate: (templateId) => {
+        const tpl = getTemplate(templateId);
+        if (!tpl) return null;
+        const { block, exercises } = instantiateTemplate(tpl, MOCK_USER_ID, get().blocks.length);
+        const content = exercises.map((ex, i) => createExerciseNode(i, ex));
+        const fullBlock = { ...block, content };
+        set((state) => ({ blocks: [...state.blocks, fullBlock] }));
+        return fullBlock.id;
+      },
+
+      addExerciseFromLibrary: (blockId, libraryId) => {
+        const entry = getLibraryEntry(libraryId);
+        if (!entry) return null;
+        const target = get().blocks.find((b) => b.id === blockId);
+        if (!target) return null;
+        const exerciseCount = target.content.filter((n) => n.type === 'exercise').length;
+        const exercise = cloneLibraryEntry(entry, blockId, exerciseCount);
+        const node = createExerciseNode(target.content.length, exercise);
+        const now = new Date().toISOString();
+        set((state) => ({
+          blocks: state.blocks.map((b) =>
+            b.id !== blockId ? b : { ...b, content: [...b.content, node], updated_at: now },
+          ),
+        }));
+        return exercise.id;
       },
 
       updateBlock: (blockId, updates) => {
@@ -200,6 +788,29 @@ export const useWorkoutStore = create<WorkoutState>()(
               content: [...block.content, node],
               updated_at: new Date().toISOString(),
             };
+          }),
+        }));
+      },
+
+      insertContentNode: (blockId, node, position) => {
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            const sorted = [...block.content].sort((a, b) => a.order - b.order);
+            // Append when position is missing or out of range.
+            const insertIdx =
+              position === undefined || position < 0 || position > sorted.length
+                ? sorted.length
+                : position;
+            const before = sorted.slice(0, insertIdx);
+            const after = sorted.slice(insertIdx);
+            const inserted: ContentNode = { ...node, order: insertIdx } as ContentNode;
+            const reseq = [
+              ...before,
+              inserted,
+              ...after.map((n, i) => ({ ...n, order: insertIdx + 1 + i }) as ContentNode),
+            ];
+            return { ...block, content: reseq, updated_at: new Date().toISOString() };
           }),
         }));
       },
@@ -293,6 +904,7 @@ export const useWorkoutStore = create<WorkoutState>()(
               name: opts?.name,
               icon: opts?.icon,
               color: opts?.color,
+              fields: opts?.fields,
             });
             const node = {
               ...createExerciseNode(getNextOrder(block.content), ex),
@@ -317,7 +929,21 @@ export const useWorkoutStore = create<WorkoutState>()(
               exerciseId,
               (ex) => ({ ...ex, ...updates, updated_at: new Date().toISOString() }),
             );
-            return { ...block, content, updated_at: new Date().toISOString() };
+            // When the exercise's name changes, dashboard nodes inside the
+            // same block that bind this exerciseId have a stale cached
+            // exerciseName. Sync them in the same set() so the UI never
+            // shows the old label after a rename.
+            const syncedContent = updates.name === undefined
+              ? content
+              : content.map((n) => {
+                  if (n.type !== 'dashboard') return n;
+                  if (n.data.exerciseId !== exerciseId) return n;
+                  return {
+                    ...n,
+                    data: { ...n.data, exerciseName: updates.name },
+                  } as ContentNode;
+                });
+            return { ...block, content: syncedContent, updated_at: new Date().toISOString() };
           }),
         }));
       },
@@ -326,10 +952,22 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
+            // Dashboards bound to this exerciseId lose the concrete card
+            // reference but keep libraryId + exerciseName, so historical
+            // metrics keep resolving via the index. The config picker will
+            // simply show no chip as active until the user rebinds.
+            const cleared = block.content.map((n) => {
+              if (n.type !== 'dashboard') return n;
+              if (n.data.exerciseId !== exerciseId) return n;
+              return {
+                ...n,
+                data: { ...n.data, exerciseId: undefined },
+              } as ContentNode;
+            });
             return {
               ...block,
               content: reorderNodes(
-                block.content.filter(
+                cleared.filter(
                   (n) => !(n.type === 'exercise' && n.data.exercise.id === exerciseId),
                 ),
               ),
@@ -359,14 +997,14 @@ export const useWorkoutStore = create<WorkoutState>()(
 
       // ======================== SET ACTIONS (via content nodes) ========================
 
-      updateSetValue: (blockId, exerciseId, setIndex, fieldId, value) => {
+      updateSetValue: (blockId, exerciseId, setId, fieldId, value) => {
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
             const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => ({
               ...ex,
-              sets: ex.sets.map((s, i) =>
-                i === setIndex ? { ...s, values: { ...s.values, [fieldId]: value } } : s,
+              sets: ex.sets.map((s) =>
+                s.id === setId ? { ...s, values: { ...s.values, [fieldId]: value } } : s,
               ),
               updated_at: new Date().toISOString(),
             }));
@@ -375,14 +1013,14 @@ export const useWorkoutStore = create<WorkoutState>()(
         }));
       },
 
-      toggleSetComplete: (blockId, exerciseId, setIndex) => {
+      toggleSetComplete: (blockId, exerciseId, setId) => {
         let result: { exercise: ExerciseCard; set: ExerciseSet; wasCompleted: boolean } | null = null;
 
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
             const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => {
-              const target = ex.sets[setIndex];
+              const target = ex.sets.find((s) => s.id === setId);
               if (!target) return ex;
               const wasCompleted = !target.completed;
               const newSet: ExerciseSet = {
@@ -390,7 +1028,7 @@ export const useWorkoutStore = create<WorkoutState>()(
                 completed: wasCompleted,
                 completed_at: wasCompleted ? new Date().toISOString() : null,
               };
-              const newSets = ex.sets.map((s, i) => (i === setIndex ? newSet : s));
+              const newSets = ex.sets.map((s) => (s.id === setId ? newSet : s));
               const updatedEx: ExerciseCard = { ...ex, sets: newSets, updated_at: new Date().toISOString() };
               result = { exercise: updatedEx, set: newSet, wasCompleted };
               return updatedEx;
@@ -415,12 +1053,12 @@ export const useWorkoutStore = create<WorkoutState>()(
         }));
       },
 
-      removeSet: (blockId, exerciseId, setIndex) => {
+      removeSet: (blockId, exerciseId, setId) => {
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
             const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => {
-              const filtered = ex.sets.filter((_, i) => i !== setIndex).map((s, i) => ({ ...s, order: i }));
+              const filtered = ex.sets.filter((s) => s.id !== setId).map((s, i) => ({ ...s, order: i }));
               return { ...ex, sets: filtered, updated_at: new Date().toISOString() };
             });
             return { ...block, content, updated_at: new Date().toISOString() };
@@ -428,105 +1066,51 @@ export const useWorkoutStore = create<WorkoutState>()(
         }));
       },
 
-      // ======================== AI DISPATCHER ========================
+      wrapNodesInColumns: (blockId, nodeIds, columns) => {
+        let sectionId: string | null = null;
 
-      dispatchAIActions: (actions) => {
-        let createdBlockId: string | null = null;
-        const store = get();
+        set((state) => ({
+          blocks: state.blocks.map((block) => {
+            if (block.id !== blockId) return block;
+            const targetIds = new Set(nodeIds);
+            const targets = block.content.filter((n) => targetIds.has(n.id));
+            if (targets.length === 0) return block;
 
-        for (const action of actions) {
-          switch (action.type) {
-            case 'create_block': {
-              const { name, discipline, icon, color, cover, exercises } = action.payload;
-              const id = store.addBlock(discipline, { name, icon, color, cover });
-              createdBlockId = id;
+            // Insert the columnSection right before the first target node so
+            // visual order is preserved. Children are reassigned `section` and
+            // distributed round-robin across columns 0..N-1.
+            const sortedAll = [...block.content].sort((a, b) => a.order - b.order);
+            const firstTargetIdx = sortedAll.findIndex((n) => targetIds.has(n.id));
+            const beforeAnchor = sortedAll.slice(0, firstTargetIdx);
+            const afterAnchor = sortedAll.slice(firstTargetIdx);
 
-              if (exercises && exercises.length > 0) {
-                for (const tpl of exercises) {
-                  store.addExercise(id, {
-                    name: tpl.name,
-                    icon: tpl.icon,
-                    color: tpl.color,
-                    discipline: tpl.discipline,
-                  });
+            const section = createColumnSectionNode(0, columns);
+            sectionId = section.id;
 
-                  const fresh = get().blocks.find((b) => b.id === id);
-                  if (fresh) {
-                    const exNodes = getExercisesFromBlock(fresh);
-                    const added = exNodes[exNodes.length - 1];
-                    if (added) {
-                      const rebuilt = applyTemplateToExercise(added, tpl);
-                      store.updateExercise(id, added.id, {
-                        sets: rebuilt.sets,
-                        default_sets_count: rebuilt.default_sets_count,
-                        rest_seconds: rebuilt.rest_seconds,
-                      });
-                    }
-                  }
-                }
-              }
-              break;
-            }
+            // Re-sequence: keep non-target nodes in their original order, the
+            // section sits where the first target was, targets become children.
+            const nonTargetsBefore = beforeAnchor;
+            const nonTargetsAfter = afterAnchor.filter((n) => !targetIds.has(n.id));
+            const targetsOrdered = afterAnchor.filter((n) => targetIds.has(n.id));
 
-            case 'update_exercise': {
-              const { exerciseId, updates } = action.payload;
-              const ownerBlock = get().blocks.find((b) =>
-                getExercisesFromBlock(b).some((ex) => ex.id === exerciseId),
-              );
-              if (ownerBlock) store.updateExercise(ownerBlock.id, exerciseId, updates);
-              break;
-            }
+            const reChildren = targetsOrdered.map((n, i) => ({
+              ...n,
+              section: section.id,
+              column: i % columns,
+            } as ContentNode));
 
-            case 'add_exercise': {
-              const { blockId, name: exName, icon, color, discipline, sets_count, reps, rest_seconds } = action.payload;
-              const targetId = blockId || createdBlockId;
-              if (targetId) {
-                store.addExercise(targetId, { name: exName, icon, color, discipline });
-                if (sets_count !== undefined || reps !== undefined || rest_seconds !== undefined) {
-                  const fresh = get().blocks.find((b) => b.id === targetId);
-                  if (fresh) {
-                    const exNodes = getExercisesFromBlock(fresh);
-                    const added = exNodes[exNodes.length - 1];
-                    if (added) {
-                      const rebuilt = applyTemplateToExercise(added, {
-                        name: exName, icon, color, discipline, sets_count, reps, rest_seconds,
-                      });
-                      store.updateExercise(targetId, added.id, {
-                        sets: rebuilt.sets,
-                        default_sets_count: rebuilt.default_sets_count,
-                        rest_seconds: rebuilt.rest_seconds,
-                      });
-                    }
-                  }
-                }
-              }
-              break;
-            }
+            const merged = [
+              ...nonTargetsBefore,
+              { ...section, order: 0 } as ContentNode,
+              ...reChildren,
+              ...nonTargetsAfter,
+            ].map((n, i) => ({ ...n, order: i }) as ContentNode);
 
-            case 'delete_exercise': {
-              const { blockId, exerciseId } = action.payload;
-              const block = get().blocks.find((b) => b.id === blockId);
-              if (block) {
-                const ex = getExercisesFromBlock(block).find((e) => e.id === exerciseId);
-                if (ex) store.deleteExerciseByName(blockId, ex.name);
-              }
-              break;
-            }
+            return { ...block, content: merged, updated_at: new Date().toISOString() };
+          }),
+        }));
 
-            case 'update_block_meta': {
-              const { blockId: metaBlockId, updates } = action.payload;
-              store.updateBlock(metaBlockId, updates);
-              break;
-            }
-
-            case 'delete_block': {
-              store.deleteBlock(action.payload.blockId);
-              break;
-            }
-          }
-        }
-
-        return createdBlockId;
+        return sectionId;
       },
 
       setHighlight: (blockId) => { set({ pendingHighlight: blockId }); },

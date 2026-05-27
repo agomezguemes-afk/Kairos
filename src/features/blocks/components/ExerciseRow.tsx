@@ -18,6 +18,8 @@ import FieldConfigSheet from './FieldConfigSheet';
 import type { ExerciseCard, FieldDefinition, FieldValue } from '../../../types/core';
 import { getExerciseSummary } from '../../../types/core';
 import { useWorkoutStore } from '../../../store/workoutStore';
+import { lookupLastCompletedReference } from '../../../lib/history/exerciseHistory';
+import { useExerciseHistoryIndex } from '../../../lib/history/useExerciseHistoryIndex';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -29,10 +31,10 @@ interface ExerciseRowProps {
   blockId: string;
   index: number;
   onUpdateName: (exerciseId: string, name: string) => void;
-  onUpdateSetValue: (exerciseId: string, setIndex: number, fieldId: string, value: FieldValue) => void;
-  onToggleSetComplete: (exerciseId: string, setIndex: number) => void;
+  onUpdateSetValue: (exerciseId: string, setId: string, fieldId: string, value: FieldValue) => void;
+  onToggleSetComplete: (exerciseId: string, setId: string) => void;
   onAddSet: (exerciseId: string) => void;
-  onRemoveSet: (exerciseId: string, setIndex: number) => void;
+  onRemoveSet: (exerciseId: string, setId: string) => void;
   onDeleteExercise: (exerciseId: string) => void;
   compact?: boolean;
 }
@@ -53,6 +55,23 @@ function ExerciseRowInner({
   const [nameDraft, setNameDraft] = useState(exercise.name);
   const [showFieldConfig, setShowFieldConfig] = useState(false);
   const updateExercise = useWorkoutStore(s => s.updateExercise);
+  const workoutHistory = useWorkoutStore(s => s.workoutHistory);
+  const historyIndex = useExerciseHistoryIndex();
+
+  // Ghost values shown in empty sets — drawn from the user's most recent
+  // completed set for this exercise. Falls back to goalWeight/goalReps so
+  // brand-new exercises with intent (a target) also surface placeholders.
+  const ghostValues = React.useMemo(() => {
+    const out: Record<string, string> = {};
+    const ref = lookupLastCompletedReference(exercise, workoutHistory, historyIndex);
+    if (ref?.weight != null) out.weight = trimZero(ref.weight);
+    if (ref?.reps != null)   out.reps   = String(ref.reps);
+    if (ref == null) {
+      if (exercise.goalWeight != null) out.weight = trimZero(exercise.goalWeight);
+      if (exercise.goalReps   != null) out.reps   = String(exercise.goalReps);
+    }
+    return out;
+  }, [exercise, workoutHistory, historyIndex]);
 
   const completedSets = exercise.sets.filter(s => s.completed).length;
   const totalSets = exercise.sets.length;
@@ -77,22 +96,22 @@ function ExerciseRowInner({
   }, [nameDraft, exercise.name, exercise.id, onUpdateName]);
 
   const handleSetValueChange = useCallback(
-    (setIndex: number, fieldId: string, value: FieldValue) => {
-      onUpdateSetValue(exercise.id, setIndex, fieldId, value);
+    (setId: string, fieldId: string, value: FieldValue) => {
+      onUpdateSetValue(exercise.id, setId, fieldId, value);
     },
     [exercise.id, onUpdateSetValue],
   );
 
   const handleToggleSet = useCallback(
-    (setIndex: number) => {
-      onToggleSetComplete(exercise.id, setIndex);
+    (setId: string) => {
+      onToggleSetComplete(exercise.id, setId);
     },
     [exercise.id, onToggleSetComplete],
   );
 
   const handleRemoveSet = useCallback(
-    (setIndex: number) => {
-      onRemoveSet(exercise.id, setIndex);
+    (setId: string) => {
+      onRemoveSet(exercise.id, setId);
     },
     [exercise.id, onRemoveSet],
   );
@@ -100,6 +119,29 @@ function ExerciseRowInner({
   const handleSaveFields = useCallback((newFields: FieldDefinition[]) => {
     updateExercise(blockId, exercise.id, { fields: newFields });
   }, [blockId, exercise.id, updateExercise]);
+
+  // Goal + rest are surfaced in the editor so the user sees the planned
+  // numbers a workout will preload (see workoutStore.startWorkout).
+  const adjustGoalWeight = useCallback((delta: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    const current = exercise.goalWeight ?? 0;
+    const next = Math.max(0, Math.round((current + delta) * 10) / 10);
+    updateExercise(blockId, exercise.id, { goalWeight: next });
+  }, [blockId, exercise.id, exercise.goalWeight, updateExercise]);
+
+  const adjustGoalReps = useCallback((delta: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    const current = exercise.goalReps ?? 0;
+    const next = Math.max(0, current + delta);
+    updateExercise(blockId, exercise.id, { goalReps: next });
+  }, [blockId, exercise.id, exercise.goalReps, updateExercise]);
+
+  const adjustRest = useCallback((delta: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    const current = exercise.rest_seconds ?? 0;
+    const next = Math.max(0, current + delta);
+    updateExercise(blockId, exercise.id, { rest_seconds: next });
+  }, [blockId, exercise.id, exercise.rest_seconds, updateExercise]);
 
   const maxFields = compact ? 2 : 4;
   const visibleFields = exercise.fields
@@ -166,6 +208,33 @@ function ExerciseRowInner({
       {/* Expanded content */}
       {expanded && (
         <View style={[styles.setsContainer, compact && styles.setsContainerCompact]}>
+          {/* Goals + rest strip — feeds startWorkout's preloaded set values */}
+          <View style={[styles.goalsStrip, compact && styles.goalsStripCompact]}>
+            <GoalControl
+              label="Peso obj."
+              value={exercise.goalWeight}
+              suffix="kg"
+              onDecrement={() => adjustGoalWeight(-2.5)}
+              onIncrement={() => adjustGoalWeight(2.5)}
+              compact={compact}
+            />
+            <GoalControl
+              label="Reps obj."
+              value={exercise.goalReps}
+              onDecrement={() => adjustGoalReps(-1)}
+              onIncrement={() => adjustGoalReps(1)}
+              compact={compact}
+            />
+            <GoalControl
+              label="Descanso"
+              value={exercise.rest_seconds}
+              suffix="s"
+              onDecrement={() => adjustRest(-15)}
+              onIncrement={() => adjustRest(15)}
+              compact={compact}
+            />
+          </View>
+
           {!compact && (
             <View style={styles.columnHeaders}>
               <Text style={[styles.columnLabel, styles.setNumCol]}>#</Text>
@@ -191,6 +260,7 @@ function ExerciseRowInner({
               onToggleComplete={handleToggleSet}
               onRemove={handleRemoveSet}
               compact={compact}
+              ghostValues={ghostValues}
             />
           ))}
 
@@ -242,7 +312,84 @@ function ExerciseRowInner({
   );
 }
 
-export default React.memo(ExerciseRowInner);
+interface GoalControlProps {
+  label: string;
+  value: number | undefined;
+  suffix?: string;
+  onDecrement: () => void;
+  onIncrement: () => void;
+  compact?: boolean;
+}
+
+function GoalControl({ label, value, suffix, onDecrement, onIncrement, compact }: GoalControlProps) {
+  const display = value == null ? '—' : suffix ? `${value}${suffix}` : String(value);
+  return (
+    <View style={[styles.goalControl, compact && styles.goalControlCompact]}>
+      <Text style={styles.goalLabel} numberOfLines={1}>{label}</Text>
+      <View style={styles.goalRow}>
+        <Pressable
+          onPress={onDecrement}
+          hitSlop={6}
+          style={styles.goalStepBtn}
+          accessibilityLabel={`Reducir ${label}`}
+        >
+          <Feather name="minus" size={12} color={Colors.text.secondary} />
+        </Pressable>
+        <Text style={styles.goalValue} numberOfLines={1}>{display}</Text>
+        <Pressable
+          onPress={onIncrement}
+          hitSlop={6}
+          style={styles.goalStepBtn}
+          accessibilityLabel={`Aumentar ${label}`}
+        >
+          <Feather name="plus" size={12} color={Colors.text.secondary} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function trimZero(n: number): string {
+  return n % 1 === 0 ? String(n) : n.toFixed(1).replace(/\.0$/, '');
+}
+
+function areExerciseRowPropsEqual(prev: ExerciseRowProps, next: ExerciseRowProps): boolean {
+  if (prev.compact !== next.compact) return false;
+  if (prev.blockId !== next.blockId) return false;
+  if (prev.index !== next.index) return false;
+  if (
+    prev.onUpdateName !== next.onUpdateName ||
+    prev.onUpdateSetValue !== next.onUpdateSetValue ||
+    prev.onToggleSetComplete !== next.onToggleSetComplete ||
+    prev.onAddSet !== next.onAddSet ||
+    prev.onRemoveSet !== next.onRemoveSet ||
+    prev.onDeleteExercise !== next.onDeleteExercise
+  ) {
+    return false;
+  }
+
+  const a = prev.exercise;
+  const b = next.exercise;
+  if (a === b) return true;
+  if (a.id !== b.id) return false;
+  if (a.name !== b.name || a.color !== b.color || a.icon !== b.icon) return false;
+  if (a.goalWeight !== b.goalWeight) return false;
+  if (a.goalReps !== b.goalReps) return false;
+  if (a.rest_seconds !== b.rest_seconds) return false;
+  if (a.updated_at !== b.updated_at) return false;
+  if (a.fields !== b.fields && JSON.stringify(a.fields) !== JSON.stringify(b.fields)) return false;
+  if (a.sets.length !== b.sets.length) return false;
+  for (let i = 0; i < a.sets.length; i++) {
+    const sa = a.sets[i];
+    const sb = b.sets[i];
+    if (sa.id !== sb.id) return false;
+    if (sa.completed !== sb.completed) return false;
+    if (sa.values !== sb.values && JSON.stringify(sa.values) !== JSON.stringify(sb.values)) return false;
+  }
+  return true;
+}
+
+export default React.memo(ExerciseRowInner, areExerciseRowPropsEqual);
 
 const styles = StyleSheet.create({
   container: {
@@ -418,5 +565,53 @@ const styles = StyleSheet.create({
   fieldsBtnCompact: {
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
+  },
+  goalsStrip: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.background.elevated,
+    borderRadius: Radius.sm,
+  },
+  goalsStripCompact: {
+    paddingVertical: Spacing.xs,
+    gap: 2,
+  },
+  goalControl: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  goalControlCompact: {
+    gap: 0,
+  },
+  goalLabel: {
+    fontSize: Typography.size.micro,
+    fontWeight: Typography.weight.medium,
+    color: Colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  goalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  goalStepBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.background.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalValue: {
+    fontSize: Typography.size.body,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.text.primary,
+    minWidth: 44,
+    textAlign: 'center',
   },
 });

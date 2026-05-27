@@ -4,11 +4,13 @@
 // the main tabs directly (with a SplashScreen overlay on first launch).
 
 import React, { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { RootStackParamList, DashboardTabParamList } from '../types/navigation';
+import AnimatedKairosLogo from '../components/AnimatedKairosLogo';
+import { Type, Spacing } from '../theme/tokens';
 
 // Screens
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -20,17 +22,20 @@ import SplashScreen from '../screens/SplashScreen';
 import HomeTab from '../screens/tabs/HomeTab';
 import BlocksScreen from '../features/blocks/BlocksScreen';
 import BlockEditorScreen from '../features/blocks/BlockEditorScreen';
-import AchievementsTab from '../screens/tabs/AchievementsTab';
+import ProgressTab from '../screens/tabs/ProgressTab';
 import AILabScreen from '../screens/AILabScreen';
 import ProfileTab from '../screens/tabs/ProfileTab';
 import BadgesScreen from '../screens/BadgesScreen';
 import PRCardsScreen from '../screens/PRCardsScreen';
 import ProgressTreeScreen from '../screens/ProgressTreeScreen';
 import AIChatScreen from '../screens/AIChatScreen';
-import CustomTabBar from '../components/CustomTabBar';
+import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
+import KairosTabBar from '../components/KairosTabBar';
+import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 
 import { useAuthStore } from '../store/useAuthStore';
 import { useUserProfile } from '../context/UserProfileContext';
+import { useWorkoutStore } from '../store/workoutStore';
 import { Colors } from '../theme/index';
 import { SKIP_AUTH } from '../config/constants';
 
@@ -42,14 +47,18 @@ const Tab   = createBottomTabNavigator<DashboardTabParamList>();
 function DashboardTabs() {
   return (
     <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <KairosTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        // Tab bar is floating (absolute), so screens extend behind it.
+        // Each screen's ScrollView adds paddingBottom: 88 to compensate.
+        tabBarStyle: { position: 'absolute' },
+      }}
     >
-      <Tab.Screen name="HomeTab"         component={HomeTab} />
-      <Tab.Screen name="WorkoutTab"      component={BlocksScreen} />
-      <Tab.Screen name="AchievementsTab" component={AchievementsTab} />
-      <Tab.Screen name="AILabTab"        component={AILabScreen} />
-      <Tab.Screen name="ProfileTab"      component={ProfileTab} />
+      <Tab.Screen name="HomeTab"     component={HomeTab} />
+      <Tab.Screen name="WorkoutTab"  component={BlocksScreen} />
+      <Tab.Screen name="ProgressTab" component={ProgressTab} />
+      <Tab.Screen name="ProfileTab"  component={ProfileTab} />
     </Tab.Navigator>
   );
 }
@@ -59,6 +68,8 @@ function DashboardTabs() {
 export default function AppNavigator() {
   const { session, isInitialized } = useAuthStore();
   const { isLoading: profileLoading, isOnboardingComplete } = useUserProfile();
+  const userName = useWorkoutStore((s) => s.userName);
+  const onboarded = userName.trim().length > 0;
 
   // Splash overlay state — shown once on launch
   const [splashVisible, setSplashVisible] = useState(true);
@@ -68,14 +79,60 @@ export default function AppNavigator() {
     return (
       <>
         <NavigationContainer>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Dashboard"    component={DashboardTabs} />
-            <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="Badges"        component={BadgesScreen} />
-            <Stack.Screen name="PRCards"       component={PRCardsScreen} />
-            <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
-            <Stack.Screen name="AIChat"        component={AIChatScreen} />
-          </Stack.Navigator>
+          {onboarded ? (
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Dashboard"    component={DashboardTabs} />
+              <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
+              <Stack.Screen
+                name="ActiveWorkout"
+                component={ActiveWorkoutScreen}
+                options={{
+                  // Immersive full-screen presentation so the dashboard
+                  // never peeks behind the active session. Slide-from-
+                  // bottom for the "arranca" affordance + a slightly
+                  // longer easing curve so the transition reads as a
+                  // moment, not a swipe. Gesture dismissal blocked —
+                  // a workout shouldn't end by accident.
+                  presentation: 'fullScreenModal',
+                  animation: 'slide_from_bottom',
+                  animationDuration: 380,
+                  gestureEnabled: false,
+                }}
+              />
+              <Stack.Screen name="Badges"        component={BadgesScreen} />
+              <Stack.Screen name="PRCards"       component={PRCardsScreen} />
+              <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
+              <Stack.Screen name="AIChat"        component={AIChatScreen} />
+              <Stack.Screen name="AILabScreen"   component={AILabScreen} options={{ presentation: 'modal' }} />
+            </Stack.Navigator>
+          ) : (
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+              <Stack.Screen name="Dashboard"  component={DashboardTabs} />
+              <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
+              <Stack.Screen
+                name="ActiveWorkout"
+                component={ActiveWorkoutScreen}
+                options={{
+                  // Immersive full-screen presentation so the dashboard
+                  // never peeks behind the active session. Slide-from-
+                  // bottom for the "arranca" affordance + a slightly
+                  // longer easing curve so the transition reads as a
+                  // moment, not a swipe. Gesture dismissal blocked —
+                  // a workout shouldn't end by accident.
+                  presentation: 'fullScreenModal',
+                  animation: 'slide_from_bottom',
+                  animationDuration: 380,
+                  gestureEnabled: false,
+                }}
+              />
+              <Stack.Screen name="Badges"        component={BadgesScreen} />
+              <Stack.Screen name="PRCards"       component={PRCardsScreen} />
+              <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
+              <Stack.Screen name="AIChat"        component={AIChatScreen} />
+              <Stack.Screen name="AILabScreen"   component={AILabScreen} options={{ presentation: 'modal' }} />
+            </Stack.Navigator>
+          )}
         </NavigationContainer>
 
         {/* Splash sits on top of everything and fades itself out */}
@@ -88,15 +145,9 @@ export default function AppNavigator() {
   if (!isInitialized || profileLoading) {
     return (
       <>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: Colors.background.void,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <ActivityIndicator color={Colors.accent.primary} />
+        <View style={loadingStyles.container}>
+          <AnimatedKairosLogo size={72} />
+          <Text style={loadingStyles.caption}>Preparando tu espacio</Text>
         </View>
         {splashVisible && <SplashScreen onDone={() => setSplashVisible(false)} />}
       </>
@@ -116,17 +167,40 @@ export default function AppNavigator() {
             <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
             <Stack.Screen name="Onboarding"   component={OnboardingChatScreen} />
           </>
+        ) : !onboarded ? (
+          <>
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="Dashboard"  component={DashboardTabs} />
+            <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+          </>
         ) : (
           <>
             <Stack.Screen name="Dashboard"    component={DashboardTabs} />
             <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
             <Stack.Screen name="Badges"        component={BadgesScreen} />
             <Stack.Screen name="PRCards"       component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
             <Stack.Screen name="AIChat"        component={AIChatScreen} />
+            <Stack.Screen name="AILabScreen"   component={AILabScreen} options={{ presentation: 'modal' }} />
           </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
+
+const loadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.bg.void,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.lg,
+  },
+  caption: {
+    ...Type.caption,
+    color: Colors.ink.muted,
+  },
+});

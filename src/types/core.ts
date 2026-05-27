@@ -12,7 +12,7 @@ export function generateId(): string {
 
 // ======================== FIELD SYSTEM ========================
 
-export type FieldType = 'number' | 'text' | 'boolean' | 'rating';
+export type FieldType = 'number' | 'text' | 'boolean' | 'rating' | 'time';
 
 export type BaseFieldId =
   | 'weight'
@@ -54,6 +54,38 @@ export type Discipline =
   | 'cycling'
   | 'swimming'
   | 'general';
+
+// ======================== MUSCLE GROUPS ========================
+
+export type MuscleGroup =
+  | 'chest' | 'back' | 'shoulders'
+  | 'biceps' | 'triceps' | 'forearms'
+  | 'quads' | 'hamstrings' | 'glutes' | 'calves'
+  | 'core' | 'full_body'
+  | 'cardio_engine' | 'mobility';
+
+export interface MuscleGroupConfig {
+  id: MuscleGroup;
+  label: string;
+  region: 'upper' | 'lower' | 'core' | 'other';
+}
+
+export const MUSCLE_GROUP_CONFIGS: Record<MuscleGroup, MuscleGroupConfig> = {
+  chest:         { id: 'chest',         label: 'Pecho',           region: 'upper' },
+  back:          { id: 'back',          label: 'Espalda',         region: 'upper' },
+  shoulders:     { id: 'shoulders',     label: 'Hombros',         region: 'upper' },
+  biceps:        { id: 'biceps',        label: 'Bíceps',          region: 'upper' },
+  triceps:       { id: 'triceps',       label: 'Tríceps',         region: 'upper' },
+  forearms:      { id: 'forearms',      label: 'Antebrazos',      region: 'upper' },
+  quads:         { id: 'quads',         label: 'Cuádriceps',      region: 'lower' },
+  hamstrings:    { id: 'hamstrings',    label: 'Isquios',         region: 'lower' },
+  glutes:        { id: 'glutes',        label: 'Glúteos',         region: 'lower' },
+  calves:        { id: 'calves',        label: 'Gemelos',         region: 'lower' },
+  core:          { id: 'core',          label: 'Core',            region: 'core' },
+  full_body:     { id: 'full_body',     label: 'Cuerpo completo', region: 'other' },
+  cardio_engine: { id: 'cardio_engine', label: 'Cardio',          region: 'other' },
+  mobility:      { id: 'mobility',      label: 'Movilidad',       region: 'other' },
+};
 
 export interface DisciplineConfig {
   id: Discipline;
@@ -172,6 +204,12 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
 
 // ======================== SET ========================
 
+/**
+ * Classification of a working set. Undefined is treated as `'working'` by
+ * consumers — kept optional so legacy persisted sets keep deserializing.
+ */
+export type SetKind = 'working' | 'warmup' | 'drop' | 'failure';
+
 export interface ExerciseSet {
   id: string;
   exercise_card_id: string;
@@ -180,6 +218,14 @@ export interface ExerciseSet {
   completed: boolean;
   completed_at: ISOTimestamp | null;
   notes: string | null;
+  /** Defaults to 'working' when undefined. */
+  kind?: SetKind;
+  /** RPE 1..10. Undefined = not rated. */
+  rpe?: number;
+}
+
+export function createSetId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 export function createEmptySet(
@@ -192,7 +238,7 @@ export function createEmptySet(
     values[field.id] = field.defaultValue ?? null;
   }
   return {
-    id: generateId(),
+    id: createSetId(),
     exercise_card_id: exerciseCardId,
     order,
     values,
@@ -217,6 +263,17 @@ export interface ExerciseCard {
   sets: ExerciseSet[];
   default_sets_count: number;
   rest_seconds: number;
+  goalWeight?: number;
+  goalReps?: number;
+  muscle_groups?: MuscleGroup[];
+  /**
+   * Stable identifier of the library entry this card was cloned from.
+   * Used to correlate session history across blocks: two "Bench Press"
+   * cards cloned from the same library entry share progression, PR
+   * detection, and sparkline data. Custom exercises (created without
+   * a library entry) leave this undefined and fall back to name match.
+   */
+  libraryId?: string;
   created_at: ISOTimestamp;
   updated_at: ISOTimestamp;
 }
@@ -225,14 +282,15 @@ export function createExerciseCard(
   blockId: string,
   order: number,
   discipline: Discipline = 'strength',
-  overrides?: Partial<Pick<ExerciseCard, 'name' | 'icon' | 'color'>>
+  overrides?: Partial<Pick<ExerciseCard, 'name' | 'icon' | 'color' | 'muscle_groups'>> & { fields?: FieldDefinition[] }
 ): ExerciseCard {
   const config = DISCIPLINE_CONFIGS[discipline];
   const now = new Date().toISOString();
   const id = generateId();
-  const fields: FieldDefinition[] = config.defaultFields.map(
-    (f: FieldDefinition, i: number): FieldDefinition => ({ ...f, order: i })
-  );
+  const fields: FieldDefinition[] = (overrides?.fields && overrides.fields.length > 0
+    ? overrides.fields
+    : config.defaultFields
+  ).map((f: FieldDefinition, i: number): FieldDefinition => ({ ...f, order: i }));
 
   return {
     id,
@@ -247,6 +305,7 @@ export function createExerciseCard(
     sets: Array.from({ length: 4 }, (_: unknown, i: number): ExerciseSet => createEmptySet(id, i, fields)),
     default_sets_count: 4,
     rest_seconds: discipline === 'strength' ? 90 : 60,
+    muscle_groups: overrides?.muscle_groups,
     created_at: now,
     updated_at: now,
   };

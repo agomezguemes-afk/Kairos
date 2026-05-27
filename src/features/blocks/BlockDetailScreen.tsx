@@ -23,6 +23,7 @@ import * as Haptics from 'expo-haptics';
 
 import ExerciseRow from './components/ExerciseRow';
 import AddExerciseSheet from './components/AddExerciseSheet';
+import EmptyState from '../../components/EmptyState';
 import CompletionCelebration from '../../components/CompletionCelebration';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
 import { useBlockEditor } from './hooks/useBlockEditor';
@@ -118,8 +119,8 @@ export default function BlockDetailScreen({ route, navigation }: any) {
   );
 
   const handleSetComplete = useCallback(
-    (exerciseId: string, setIndex: number) => {
-      const completedBlock = handleToggleSetComplete(exerciseId, setIndex);
+    (exerciseId: string, setId: string) => {
+      const completedBlock = handleToggleSetComplete(exerciseId, setId);
       if (completedBlock) {
         setTimeout(() => {
           setCelebrationBlock(completedBlock);
@@ -275,11 +276,8 @@ export default function BlockDetailScreen({ route, navigation }: any) {
             </Text>
 
             {getBlockExercises(block).length === 0 ? (
-              <Animated.View entering={FadeIn.duration(300)} style={styles.emptyExercises}>
-                <Feather name="plus-circle" size={32} color={Colors.text.disabled} />
-                <Text style={styles.emptyExercisesText}>
-                  Agrega tu primer ejercicio
-                </Text>
+              <Animated.View entering={FadeIn.duration(300)}>
+                <EmptyState type="exercises" />
               </Animated.View>
             ) : (
               <View style={styles.exerciseList}>
@@ -302,6 +300,17 @@ export default function BlockDetailScreen({ route, navigation }: any) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Start workout — bottom CTA */}
+      {getBlockExercises(block).length > 0 && (
+        <Pressable
+          onPress={() => navigation.navigate('ActiveWorkout', { blockId })}
+          style={[styles.startWorkoutBtn, { bottom: insets.bottom + 20 }]}
+        >
+          <Feather name="play" size={18} color={Colors.ink.primary} />
+          <Text style={styles.startWorkoutText}>Iniciar entrenamiento</Text>
+        </Pressable>
+      )}
 
       {/* FAB — add exercise */}
       <Animated.View style={[styles.fab, fabStyle, { bottom: insets.bottom + 20 }]}>
@@ -517,5 +526,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.elevated,
+  },
+  startWorkoutBtn: {
+    position: 'absolute',
+    left: 20,
+    right: 88,
+    height: 52,
+    borderRadius: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.gold.base,
+    ...Shadows.elevated,
+  },
+  startWorkoutText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.ink.primary,
   },
 });

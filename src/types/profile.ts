@@ -15,6 +15,18 @@ export type FitnessGoal =
 
 export type WorkoutPlace = 'home' | 'gym' | 'outdoors' | 'mixed';
 
+export type EquipmentTag =
+  | 'bodyweight'
+  | 'dumbbells'
+  | 'barbell_plates'
+  | 'kettlebell'
+  | 'resistance_bands'
+  | 'pull_up_bar'
+  | 'machines_full_gym'
+  | 'cardio_equipment'
+  | 'yoga_mat'
+  | 'jump_rope';
+
 export interface UserProfile {
   id: string;
   displayName: string | null;
@@ -27,10 +39,26 @@ export interface UserProfile {
   height: number | null; // cm
   injuries: string | null;
   workoutPlace: WorkoutPlace | null;
+  /** Standardised equipment tags + free-form note (multi-select + freeform). */
+  equipment: EquipmentTag[];
+  equipmentNotes: string | null;
   onboardingCompletedAt: string | null; // ISO timestamp
   createdAt: string;
   updatedAt: string;
 }
+
+export const EQUIPMENT_OPTIONS: { value: EquipmentTag; label: string; icon: string }[] = [
+  { value: 'bodyweight', label: 'Solo peso corporal', icon: 'calisthenics' },
+  { value: 'dumbbells', label: 'Mancuernas', icon: 'weightlifting' },
+  { value: 'barbell_plates', label: 'Barra + discos', icon: 'weightlifting' },
+  { value: 'kettlebell', label: 'Kettlebell', icon: 'weightlifting' },
+  { value: 'resistance_bands', label: 'Bandas elásticas', icon: 'mobility' },
+  { value: 'pull_up_bar', label: 'Barra de dominadas', icon: 'calisthenics' },
+  { value: 'machines_full_gym', label: 'Gimnasio / máquinas', icon: 'strength' },
+  { value: 'cardio_equipment', label: 'Cardio (cinta, bici, remo)', icon: 'running' },
+  { value: 'yoga_mat', label: 'Esterilla / yoga', icon: 'mobility' },
+  { value: 'jump_rope', label: 'Cuerda de saltar', icon: 'team_sport' },
+];
 
 export function createEmptyProfile(): UserProfile {
   const now = new Date().toISOString();
@@ -46,6 +74,8 @@ export function createEmptyProfile(): UserProfile {
     height: null,
     injuries: null,
     workoutPlace: null,
+    equipment: [],
+    equipmentNotes: null,
     onboardingCompletedAt: null,
     createdAt: now,
     updatedAt: now,

@@ -19,14 +19,20 @@ interface SetRowProps {
   set: ExerciseSet;
   setIndex: number;
   fields: FieldDefinition[];
-  onUpdateValue: (setIndex: number, fieldId: string, value: FieldValue) => void;
-  onToggleComplete: (setIndex: number) => void;
-  onRemove: (setIndex: number) => void;
+  onUpdateValue: (setId: string, fieldId: string, value: FieldValue) => void;
+  onToggleComplete: (setId: string) => void;
+  onRemove: (setId: string) => void;
   compact?: boolean;
+  /**
+   * Per-field reference values shown in muted ink when the set is empty.
+   * Typically the user's last completed value for that field.
+   */
+  ghostValues?: Record<string, string>;
 }
 
-function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, onRemove, compact }: SetRowProps) {
+function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, onRemove, compact, ghostValues }: SetRowProps) {
   const checkScale = useSharedValue(1);
+  const setId = set.id;
 
   const checkStyle = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
@@ -37,12 +43,12 @@ function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, o
       withSpring(1.3, springs.pop),
       withSpring(1, springs.bouncy),
     );
-    onToggleComplete(setIndex);
-  }, [setIndex, onToggleComplete]);
+    onToggleComplete(setId);
+  }, [setId, onToggleComplete]);
 
   const handleFieldChange = useCallback((fieldId: string, value: FieldValue) => {
-    onUpdateValue(setIndex, fieldId, value);
-  }, [setIndex, onUpdateValue]);
+    onUpdateValue(setId, fieldId, value);
+  }, [setId, onUpdateValue]);
 
   const maxFields = compact ? 2 : 4;
   const visibleFields = fields
@@ -69,6 +75,7 @@ function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, o
               value={set.values[field.id]}
               onChange={handleFieldChange}
               isCompleted={set.completed}
+              ghost={ghostValues?.[field.id] ?? null}
             />
           </View>
         ))}
@@ -88,7 +95,7 @@ function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, o
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onRemove(setIndex);
+            onRemove(setId);
           }}
           hitSlop={8}
           style={styles.deleteBtn}

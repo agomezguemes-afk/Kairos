@@ -1,65 +1,185 @@
-// KAIROS DESIGN SYSTEM — TOKENS (Light theme: white + gold)
-// Premium minimalism: warm off-white canvas, charcoal text, gold accent.
+// KAIROS DESIGN SYSTEM — TOKENS v3 (single source of truth)
+// Spec: docs/superpowers/specs/2026-04-27-kairos-visual-refinement-design.md §3
+// One palette, one type ramp, one motion vocabulary.
+// Dark mode deferred — light is the only mode for now (§8).
+
+import { Platform } from 'react-native';
+import type { FontVariant } from 'react-native/Libraries/StyleSheet/StyleSheetTypes';
+
+// ── Color ────────────────────────────────────────────────────────────────────
 
 export const Colors = {
-  background: {
-    void: '#F7F7F5',         // main screen background (warm off-white)
-    surface: '#FFFFFF',       // cards, sheets, modals
-    elevated: '#F2F0EC',      // slightly raised surfaces
-    overlay: '#E9E7E2',       // overlays, pressed states
-    scrim: 'rgba(0, 0, 0, 0.38)',
-    // Subtle warm gradient helpers (use with expo-linear-gradient)
-    gradientStart: '#FFFFFF',
-    gradientEnd:   '#FFF8F0', // whisper of gold
+  bg: {
+    void:     '#F7F7F5',  // primary screen background (warm off-white)
+    surface:  '#FFFFFF',  // cards, sheets, modals
+    elevated: '#F2F0EC',  // raised surfaces, pressed states
+    warm:     '#FAF6EE',  // "premium" zones — hero cards, PR badges
+    warm2:    '#F5EFE2',  // deeper warm — PR celebration, editorial blocks
+  },
+  ink: {
+    primary:   '#1C1C1E',  // headlines, body (Apple HIG deep charcoal)
+    secondary: '#3A3A3C',  // emphasized secondary
+    tertiary:  '#636366',  // metadata
+    muted:     '#9B9B9E',  // labels, placeholders
+    inverse:   '#FFFFFF',  // text on dark/gold surfaces
+  },
+  gold: {
+    base:  '#C9A96E',                    // signature accent — primary CTAs, indicators
+    deep:  '#8C6E2A',                    // gold-on-warm text (eyebrows, chapter labels)
+    light: '#E8D5B7',                    // gold tint, subtle accents
+    glow:  'rgba(201,169,110,0.18)',     // halos, ripples, pill backgrounds
+  },
+  hair: {
+    subtle: 'rgba(28,28,30,0.06)',   // section dividers
+    base:   'rgba(28,28,30,0.08)',   // card borders (default)
+    strong: 'rgba(28,28,30,0.14)',   // pressed borders, dividers in white
   },
   discipline: {
-    strength:   '#E84545',
-    running:    '#5B8DEF',
+    strength:    '#E84545',
+    running:     '#5B8DEF',
     calisthenics:'#1DB88E',
-    mobility:   '#8B5CF6',
-    team_sport: '#F0A030',
-    cycling:    '#06B6D4',
-    swimming:   '#3B82F6',
-    general:    '#C9A96E',
-  },
-  accent: {
-    primary: '#C9A96E',             // signature gold
-    light:   '#E8D5B7',             // light gold tint
-    muted:   'rgba(201,169,110,0.18)',
-    dim:     'rgba(201,169,110,0.08)',
-    glow:    'rgba(201,169,110,0.35)',  // used for glow rings
-  },
-  text: {
-    primary:   '#1C1C1E',   // deep charcoal (matches Apple HIG)
-    secondary: '#636366',
-    tertiary:  '#9B9B9E',
-    disabled:  '#C7C7CC',
-    inverse:   '#FFFFFF',
-    onAccent:  '#FFFFFF',
-  },
-  border: {
-    subtle:    'rgba(0,0,0,0.04)',
-    light:     'rgba(0,0,0,0.07)',
-    medium:    'rgba(0,0,0,0.11)',
-    strong:    'rgba(0,0,0,0.18)',
-    warm:      '#EFECE8',           // warm off-white card border (premium feel)
+    mobility:    '#8B5CF6',
+    team_sport:  '#F0A030',
+    cycling:     '#06B6D4',
+    swimming:    '#3B82F6',
+    general:     '#C9A96E',
   },
   semantic: {
     success:       '#1AA870',
-    successMuted:  'rgba(26,168,112,0.12)',
     error:         '#D94040',
-    errorMuted:    'rgba(217,64,64,0.12)',
     warning:       '#E08C20',
-    warningMuted:  'rgba(224,140,32,0.12)',
     info:          '#4A7DE8',
-    infoMuted:     'rgba(74,125,232,0.12)',
+    successMuted:  'rgba(26,168,112,0.10)',
+    errorMuted:    'rgba(217,64,64,0.10)',
+    warningMuted:  'rgba(224,140,32,0.10)',
+    infoMuted:     'rgba(74,125,232,0.10)',
+  },
+
+  // ── Backwards-compat shims (removed after full migration) ─────────────────
+  // WHY: keeps existing call sites compiling while screens migrate to new keys.
+  /** @deprecated Use Colors.bg.void */
+  get background() {
+    return {
+      void:          this.bg.void,
+      surface:       this.bg.surface,
+      elevated:      this.bg.elevated,
+      overlay:       this.bg.elevated,
+      scrim:         'rgba(0, 0, 0, 0.38)',
+      gradientStart: '#FFFFFF',
+      gradientEnd:   '#FFF8F0',
+    };
+  },
+  /** @deprecated Use Colors.ink.* */
+  get text() {
+    return {
+      primary:   this.ink.primary,
+      secondary: this.ink.tertiary,
+      tertiary:  this.ink.tertiary,
+      disabled:  '#C7C7CC',
+      inverse:   this.ink.inverse,
+      onAccent:  this.ink.inverse,
+    };
+  },
+  /** @deprecated Use Colors.hair.* */
+  get border() {
+    return {
+      subtle: 'rgba(0,0,0,0.04)',
+      light:  'rgba(0,0,0,0.07)',
+      medium: 'rgba(0,0,0,0.11)',
+      strong: 'rgba(0,0,0,0.18)',
+      warm:   '#EFECE8',
+    };
+  },
+  /** @deprecated Use Colors.gold.* */
+  get accent() {
+    return {
+      primary: this.gold.base,
+      light:   this.gold.light,
+      muted:   this.gold.glow,
+      dim:     'rgba(201,169,110,0.08)',
+      glow:    'rgba(201,169,110,0.35)',
+    };
   },
 } as const;
 
-// ── Typography ───────────────────────────────────────────────────────────────
-// Body: system sans-serif (SF Pro / Roboto) — no extra import needed.
-// Headings: slightly tighter tracking for a distinctive editorial feel.
+export type ThemeMode = 'light' | 'dark';
 
+// ThemeColors — flat light-only values returned by useTheme().colors.
+// WHY: mirrors v2 ThemeColors shape so existing call sites (HomeScreen,
+// ProgressScreen, etc.) keep compiling while we migrate screen-by-screen.
+export interface ThemeColors {
+  surface: string;
+  surfaceWarm: string;
+  surfaceElevated: string;
+  text: { primary: string; secondary: string; muted: string };
+  border: string;
+  /** @deprecated Use Colors.gold.* directly */
+  gold: { 300: string; 500: string; 700: string };
+  success: string;
+  warning: string;
+  danger: string;
+  shadowOpacity: number;
+}
+
+/** Always returns the light palette. Dark mode deferred per spec §8. */
+export function buildThemeColors(_mode?: ThemeMode): ThemeColors {
+  return {
+    surface:         Colors.bg.surface,
+    surfaceWarm:     Colors.bg.warm,
+    surfaceElevated: Colors.bg.elevated,
+    text: {
+      primary:   Colors.ink.primary,
+      secondary: Colors.ink.tertiary,
+      muted:     Colors.ink.muted,
+    },
+    border:        Colors.hair.base,
+    gold:          { 300: Colors.gold.light, 500: Colors.gold.base, 700: Colors.gold.deep },
+    success:       Colors.semantic.success,
+    warning:       Colors.semantic.warning,
+    danger:        Colors.semantic.error,
+    shadowOpacity: 0.08,
+  };
+}
+
+// ── Typography ───────────────────────────────────────────────────────────────
+
+export const FontFamily = {
+  sans:  'System',
+  serif: Platform.select({ ios: 'New York', android: 'serif', default: 'Georgia' }),
+  mono:  Platform.select({ ios: 'Menlo', default: 'monospace' }),
+} as const;
+
+/**
+ * Type presets — v3.
+ * Serif is reserved for exactly 4 places: splash wordmark, screen large-titles,
+ * hero stat numerals, and editorial cards. Everywhere else: system sans.
+ */
+export const Type = {
+  // Editorial serif — reserved per spec §3.2
+  title:      { fontFamily: FontFamily.serif, fontSize: 32, lineHeight: 36, fontWeight: '600' as const, letterSpacing: -0.6 },
+  titleSmall: { fontFamily: FontFamily.serif, fontSize: 22, lineHeight: 28, fontWeight: '600' as const, letterSpacing: -0.3 },
+
+  // System sans — workhorse
+  heading:    { fontFamily: FontFamily.sans, fontSize: 22, lineHeight: 28, fontWeight: '700' as const, letterSpacing: -0.2 },
+  subheading: { fontFamily: FontFamily.sans, fontSize: 17, lineHeight: 24, fontWeight: '600' as const },
+  body:       { fontFamily: FontFamily.sans, fontSize: 15, lineHeight: 22, fontWeight: '400' as const },
+  bodyEmph:   { fontFamily: FontFamily.sans, fontSize: 15, lineHeight: 22, fontWeight: '600' as const },
+  caption:    { fontFamily: FontFamily.sans, fontSize: 13, lineHeight: 18, fontWeight: '500' as const },
+  micro:      { fontFamily: FontFamily.sans, fontSize: 11, lineHeight: 14, fontWeight: '500' as const },
+
+  // Editorial label — uppercase, tracked. The "CHAPTER 03" voice.
+  eyebrow:    { fontFamily: FontFamily.sans, fontSize: 11, lineHeight: 14, fontWeight: '600' as const, letterSpacing: 1.6, textTransform: 'uppercase' as const },
+
+  // Numerical — tabular for any UI showing weight/reps/time/distance
+  // WHY: fontVariant cast to FontVariant[] (RN's mutable type) so StyleSheet.create accepts it.
+  numHero:   { fontFamily: FontFamily.serif, fontSize: 56, lineHeight: 60, fontWeight: '500' as const, letterSpacing: -2, fontVariant: ['tabular-nums'] as FontVariant[] },
+  numLarge:  { fontFamily: FontFamily.sans,  fontSize: 28, lineHeight: 32, fontWeight: '700' as const, letterSpacing: -0.5, fontVariant: ['tabular-nums'] as FontVariant[] },
+  numMedium: { fontFamily: FontFamily.sans,  fontSize: 18, lineHeight: 22, fontWeight: '700' as const, fontVariant: ['tabular-nums'] as FontVariant[] },
+  numSmall:  { fontFamily: FontFamily.sans,  fontSize: 13, lineHeight: 16, fontWeight: '600' as const, fontVariant: ['tabular-nums'] as FontVariant[] },
+} as const;
+
+// ── Typography (v1 — backwards-compat shim) ─────────────────────────────────
+// WHY: many screens import Typography.size.*, Typography.weight.*, etc.
 export const Typography = {
   size: {
     hero:       34,
@@ -82,7 +202,6 @@ export const Typography = {
     normal:  1.45,
     relaxed: 1.65,
   },
-  // Letter-spacing presets (em equivalent — use as `letterSpacing` in points)
   tracking: {
     tight:    -0.5,
     normal:    0,
@@ -90,6 +209,12 @@ export const Typography = {
     extraWide: 1.5,
     caps:      2,
   },
+  // v2 presets — kept for backward compat
+  display:   { fontSize: 32, fontWeight: '700' as const, lineHeight: 40 },
+  heading:   { fontSize: 22, fontWeight: '600' as const, lineHeight: 28 },
+  body:      { fontSize: 16, fontWeight: '400' as const, lineHeight: 24 },
+  caption:   { fontSize: 12, fontWeight: '500' as const, lineHeight: 16 },
+  mono:      { fontSize: 16, fontWeight: '400' as const, fontFamily: 'monospace', lineHeight: 24 },
 } as const;
 
 // ── Spacing ──────────────────────────────────────────────────────────────────
@@ -118,17 +243,18 @@ export const Spacing = {
 // ── Radii ────────────────────────────────────────────────────────────────────
 
 export const Radius = {
-  xs:   6,
-  sm:   8,
-  md:   12,
-  lg:   16,
-  xl:   20,
-  '2xl': 24,
-  full: 9999,
+  xs:    6,
+  sm:    8,
+  md:    12,
+  lg:    16,
+  xl:    20,
+  '2xl': 22,  // WHY: matches iOS sheet corner radius (spec §3.4)
+  '3xl': 28,  // WHY: tab-bar capsule (spec §4.1)
+  pill:  99,
+  full:  9999,
 } as const;
 
 // ── Shadows ──────────────────────────────────────────────────────────────────
-// All shadows use warm-black to stay on-brand with the off-white palette.
 
 export const Shadows = {
   none: {
@@ -172,6 +298,22 @@ export const Shadows = {
     shadowOpacity: 0.16,
     shadowRadius: 28,
     elevation: 14,
+  },
+  // WHY: gold-tinted shadow for V06 press depth bloom (spec §3.5)
+  cardWarm: {
+    shadowColor: '#C9A96E',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 22,
+    elevation: 4,
+  },
+  // WHY: deeper neutral shadow for cards held down (spec §3.5)
+  pressed: {
+    shadowColor: '#1C1C1E',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.10,
+    shadowRadius: 28,
+    elevation: 8,
   },
 } as const;
 

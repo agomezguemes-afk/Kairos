@@ -10,13 +10,43 @@ interface FieldInputProps {
   value: FieldValue;
   onChange: (fieldId: string, value: FieldValue) => void;
   isCompleted: boolean;
+  /**
+   * Reference string shown in muted ink when value is empty — typically
+   * the last completed value for this exercise. Tapping into edit does
+   * NOT prefill from ghost; it's purely visual continuity.
+   */
+  ghost?: string | null;
 }
 
-function FieldInputInner({ field, value, onChange, isCompleted }: FieldInputProps) {
+function FieldInputInner({ field, value, onChange, isCompleted, ghost }: FieldInputProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
-  const displayValue = value != null ? String(value) : '';
+  const formatTime = (secs: number): string => {
+    const m = Math.floor(secs / 60);
+    const s = Math.max(0, Math.floor(secs % 60));
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+  const parseTime = (input: string): number | null => {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    if (trimmed.includes(':')) {
+      const [m, s] = trimmed.split(':');
+      const mn = parseInt(m, 10);
+      const sn = parseInt(s, 10);
+      if (isNaN(mn) || isNaN(sn)) return null;
+      return mn * 60 + sn;
+    }
+    const n = parseFloat(trimmed);
+    return isNaN(n) ? null : n;
+  };
+
+  const displayValue =
+    field.type === 'time' && typeof value === 'number'
+      ? formatTime(value)
+      : value != null
+        ? String(value)
+        : '';
 
   const handleStartEdit = useCallback(() => {
     if (field.type === 'boolean') {
@@ -33,6 +63,8 @@ function FieldInputInner({ field, value, onChange, isCompleted }: FieldInputProp
     if (field.type === 'number') {
       const num = parseFloat(draft);
       onChange(field.id, isNaN(num) ? null : num);
+    } else if (field.type === 'time') {
+      onChange(field.id, parseTime(draft));
     } else {
       onChange(field.id, draft || null);
     }
@@ -56,7 +88,7 @@ function FieldInputInner({ field, value, onChange, isCompleted }: FieldInputProp
         onChangeText={setDraft}
         onBlur={handleEndEdit}
         onSubmitEditing={handleEndEdit}
-        keyboardType={field.type === 'number' ? 'decimal-pad' : 'default'}
+        keyboardType={field.type === 'number' ? 'decimal-pad' : field.type === 'time' ? 'numbers-and-punctuation' : 'default'}
         autoFocus
         selectTextOnFocus
         returnKeyType="done"
@@ -66,13 +98,18 @@ function FieldInputInner({ field, value, onChange, isCompleted }: FieldInputProp
     );
   }
 
+  const showGhost = !displayValue && ghost != null && ghost.length > 0;
   return (
     <Pressable onPress={handleStartEdit} style={[styles.valueContainer, isCompleted && styles.valueCompleted]}>
       <Text
-        style={[styles.valueText, !displayValue && styles.valuePlaceholder, isCompleted && styles.valueTextCompleted]}
+        style={[
+          styles.valueText,
+          !displayValue && (showGhost ? styles.valueGhost : styles.valuePlaceholder),
+          isCompleted && styles.valueTextCompleted,
+        ]}
         numberOfLines={1}
       >
-        {displayValue || '—'}
+        {displayValue || (showGhost ? ghost : '—')}
       </Text>
     </Pressable>
   );
@@ -121,6 +158,11 @@ const styles = StyleSheet.create({
   },
   valuePlaceholder: {
     color: Colors.text.disabled,
+  },
+  valueGhost: {
+    color: Colors.ink.muted,
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
   booleanContainer: {
     flex: 1,

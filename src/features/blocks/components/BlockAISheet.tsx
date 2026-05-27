@@ -23,12 +23,17 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { WorkoutBlock } from '../../../types/core';
-import type { AIMessage, AIAction } from '../../../types/ai';
+import type { AIMessage } from '../../../types/ai';
 import { generateId } from '../../../types/core';
 import { useWorkoutStore } from '../../../store/workoutStore';
 import { useGamification } from '../../../context/GamificationContext';
 import { useUserProfile } from '../../../context/UserProfileContext';
-import { processBlockMessage, getBlockSuggestions } from '../../../services/blockAIService';
+import { processBlockChat } from '../../../lib/ai/chat/blockChat';
+import { AIUnavailableError } from '../../../lib/ai/chat/globalChat';
+import type { AgentProgressEvent } from '../../../lib/ai/agent';
+import type { ToolResult } from '../../../lib/ai/tools/types';
+import { getBlockSuggestions } from '../../../lib/ai/chat/suggestions';
+import { generateWorkoutPlan } from '../../../lib/ai/coach';
 import type { RawUserContext } from '../../../utils/userContext';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
 
@@ -48,10 +53,16 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [runningTool, setRunningTool] = useState<string | null>(null);
+  const [planForm, setPlanForm] = useState<{ open: boolean; objetivo: string; dias: string; duracion: string; lesiones: string }>({
+    open: false, objetivo: '', dias: '3', duracion: '45', lesiones: '',
+  });
+  const [generating, setGenerating] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const streamingIdRef = useRef<string | null>(null);
 
-  const dispatchAIActions = useWorkoutStore(s => s.dispatchAIActions);
   const blocks = useWorkoutStore(s => s.blocks);
   const { profile } = useUserProfile();
   const { streak, badges, prCards } = useGamification();
@@ -62,7 +73,10 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const suggestions = useMemo(() => getBlockSuggestions(block), [block]);
 
   const conversationHistory = useMemo(() =>
-    messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
+    messages
+      .slice(-8)
+      .filter((m): m is AIMessage & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.content })),
     [messages],
   );
 
@@ -73,7 +87,8 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     prCards,
     badges,
     activeMission: null,
-  }), [profile, blocks, streak, prCards, badges]);
+    currentBlockId: block.id,
+  }), [profile, blocks, streak, prCards, badges, block.id]);
 
   useEffect(() => {
     if (visible) {
@@ -108,40 +123,130 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
       id: generateId(),
       role: 'user',
       content: msg,
-      actions: [],
       timestamp: Date.now(),
     };
     setMessages(prev => [...prev, userMsg]);
     setThinking(true);
     scrollToBottom();
 
+    // Reserve a streaming assistant bubble.
+    const streamingId = generateId();
+    streamingIdRef.current = streamingId;
+    setMessages(prev => [
+      ...prev,
+      { id: streamingId, role: 'assistant', content: '', timestamp: Date.now() },
+    ]);
+
+    const appendDelta = (delta: string) => {
+      setMessages(prev =>
+        prev.map(m => (m.id === streamingId ? { ...m, content: m.content + delta } : m)),
+      );
+    };
+
+    const onProgress = (e: AgentProgressEvent) => {
+      if (e.type === 'text_delta') appendDelta(e.delta);
+      if (e.type === 'tool_running') setRunningTool(e.call.name);
+      if (e.type === 'tool_result' || e.type === 'final_text') setRunningTool(null);
+    };
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const freshBlock = useWorkoutStore.getState().blocks.find(b => b.id === block.id) ?? block;
       const ctx = buildContext();
-      const response = await processBlockMessage(msg, freshBlock, ctx, conversationHistory);
-
-      if (response.actions.length > 0) {
-        dispatchAIActions(response.actions);
-      }
-
-      setMessages(prev => [...prev, response]);
+      const response = await processBlockChat(msg, freshBlock, ctx, conversationHistory, {
+        onProgress,
+        signal: controller.signal,
+      });
+      setMessages(prev => {
+        const idx = prev.findIndex(m => m.id === streamingId);
+        if (idx === -1) return [...prev, response];
+        const merged: AIMessage = {
+          ...response,
+          id: prev[idx].id,
+          content: response.content || prev[idx].content,
+        };
+        const next = prev.slice();
+        next[idx] = merged;
+        return next;
+      });
     } catch (e) {
-      setMessages(prev => [...prev, {
-        id: generateId(),
-        role: 'assistant',
-        content: 'Hubo un error procesando tu mensaje. Intenta de nuevo.',
-        actions: [],
-        timestamp: Date.now(),
-      }]);
+      const isUnavailable = e instanceof AIUnavailableError;
+      const detail = e instanceof Error ? e.message : String(e);
+      const isAborted = detail.toLowerCase().includes('aborted');
+      setMessages(prev => {
+        const errMsg: AIMessage = {
+          id: generateId(),
+          role: 'assistant',
+          content: isAborted
+            ? 'Generación cancelada.'
+            : isUnavailable
+            ? `Kai no está disponible: ${detail}`
+            : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
+          timestamp: Date.now(),
+        };
+        // Replace the empty streaming placeholder if present, else append.
+        const idx = prev.findIndex(m => m.id === streamingId);
+        if (idx === -1) return [...prev, errMsg];
+        const next = prev.slice();
+        next[idx] = { ...errMsg, id: prev[idx].id };
+        return next;
+      });
     } finally {
+      streamingIdRef.current = null;
+      abortRef.current = null;
       setThinking(false);
+      setRunningTool(null);
       scrollToBottom();
     }
-  }, [input, thinking, block.id, buildContext, conversationHistory, dispatchAIActions, scrollToBottom]);
+  }, [input, thinking, block.id, buildContext, conversationHistory, scrollToBottom]);
+
+  const handleStop = useCallback(() => {
+    if (!abortRef.current) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    abortRef.current.abort();
+    abortRef.current = null;
+  }, []);
 
   const handleSuggestion = useCallback((prompt: string) => {
     handleSend(prompt);
   }, [handleSend]);
+
+  const handleGeneratePlan = useCallback(async () => {
+    if (!planForm.objetivo.trim() || generating) return;
+    setGenerating(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const plan = await generateWorkoutPlan({
+        objetivo: planForm.objetivo.trim(),
+        días: parseInt(planForm.dias, 10) || 3,
+        duración: parseInt(planForm.duracion, 10) || 45,
+        lesiones: planForm.lesiones.trim()
+          ? planForm.lesiones.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+      });
+      const note: AIMessage = {
+        id: generateId(),
+        role: 'assistant',
+        content: plan
+          ? `He creado el bloque "${plan.name}" con ${plan.content.filter((n) => n.type === 'exercise').length} ejercicios.`
+          : 'No pude generar el plan. Inténtalo de nuevo con otro objetivo.',
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, note]);
+      setPlanForm((p) => ({ ...p, open: false }));
+    } catch (e) {
+      setMessages((prev) => [...prev, {
+        id: generateId(),
+        role: 'assistant',
+        content: 'Error generando la rutina. Revisa la conexión o la API key.',
+        timestamp: Date.now(),
+      }]);
+    } finally {
+      setGenerating(false);
+    }
+  }, [planForm, generating]);
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -153,15 +258,22 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
 
   if (!visible) return null;
 
-  const actionSummary = (actions: AIAction[]) => {
+  const actionSummary = (results: ToolResult[]) => {
+    const ok = results.filter((r) => r.ok);
     const counts: Record<string, number> = {};
-    actions.forEach(a => { counts[a.type] = (counts[a.type] ?? 0) + 1; });
+    for (const r of ok) counts[r.name] = (counts[r.name] ?? 0) + 1;
     const parts: string[] = [];
-    if (counts.add_exercise) parts.push(`+${counts.add_exercise} ejercicio${counts.add_exercise > 1 ? 's' : ''}`);
-    if (counts.update_exercise) parts.push(`${counts.update_exercise} actualizado${counts.update_exercise > 1 ? 's' : ''}`);
-    if (counts.delete_exercise) parts.push(`${counts.delete_exercise} eliminado${counts.delete_exercise > 1 ? 's' : ''}`);
-    if (counts.update_block_meta) parts.push('bloque actualizado');
     if (counts.create_block) parts.push('bloque creado');
+    if (counts.add_exercise) parts.push(`+${counts.add_exercise} ejercicio${counts.add_exercise > 1 ? 's' : ''}`);
+    if (counts.add_text) parts.push(`+${counts.add_text} texto${counts.add_text > 1 ? 's' : ''}`);
+    if (counts.add_divider) parts.push(`+${counts.add_divider} separador${counts.add_divider > 1 ? 'es' : ''}`);
+    if (counts.wrap_in_columns) parts.push(`${counts.wrap_in_columns} sección${counts.wrap_in_columns > 1 ? 'es' : ''} en columnas`);
+    if (counts.wrap_in_subblock) parts.push(`${counts.wrap_in_subblock} sub-bloque${counts.wrap_in_subblock > 1 ? 's' : ''}`);
+    if (counts.delete_node) parts.push(`${counts.delete_node} eliminado${counts.delete_node > 1 ? 's' : ''}`);
+    if (counts.set_block_meta) parts.push('meta actualizada');
+    if (counts.update_set_value) parts.push(`${counts.update_set_value} set${counts.update_set_value > 1 ? 's' : ''} editado${counts.update_set_value > 1 ? 's' : ''}`);
+    const failed = results.filter((r) => !r.ok).length;
+    if (failed > 0) parts.push(`${failed} fallo${failed > 1 ? 's' : ''}`);
     return parts.join(' · ');
   };
 
@@ -212,30 +324,108 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                 </View>
               )}
 
-              {messages.map(msg => (
-                <View key={msg.id} style={[styles.bubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
-                  <Text style={[styles.bubbleText, msg.role === 'user' && styles.userBubbleText]}>
-                    {msg.content}
-                  </Text>
-                  {msg.actions.length > 0 && (
-                    <View style={styles.actionBadge}>
-                      <Feather name="check-circle" size={11} color={Colors.semantic.success} />
-                      <Text style={styles.actionBadgeText}>{actionSummary(msg.actions)}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-
-              {thinking && (
-                <View style={[styles.bubble, styles.aiBubble]}>
-                  <View style={styles.thinkingRow}>
-                    <View style={styles.thinkingDot} />
-                    <View style={[styles.thinkingDot, styles.thinkingDot2]} />
-                    <View style={[styles.thinkingDot, styles.thinkingDot3]} />
+              {messages.map(msg => {
+                const tools = msg.toolResults ?? [];
+                return (
+                  <View key={msg.id} style={[styles.bubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
+                    <Text style={[styles.bubbleText, msg.role === 'user' && styles.userBubbleText]}>
+                      {msg.content}
+                    </Text>
+                    {tools.length > 0 && (
+                      <View style={styles.actionBadge}>
+                        <Feather
+                          name={tools.every(r => r.ok) ? 'check-circle' : 'alert-circle'}
+                          size={11}
+                          color={tools.every(r => r.ok) ? Colors.semantic.success : Colors.semantic.warning}
+                        />
+                        <Text style={styles.actionBadgeText}>{actionSummary(tools)}</Text>
+                      </View>
+                    )}
                   </View>
+                );
+              })}
+
+              {thinking && runningTool && (
+                <View style={[styles.bubble, styles.aiBubble]}>
+                  <Text style={[styles.bubbleText, { fontStyle: 'italic', color: Colors.text.tertiary }]}>
+                    Ejecutando: {runningTool}
+                  </Text>
                 </View>
               )}
+              {thinking && !runningTool && (() => {
+                const id = streamingIdRef.current;
+                const m = id ? messages.find((x) => x.id === id) : undefined;
+                // Only show dots if the streaming bubble is still empty.
+                if (m && m.content.length > 0) return null;
+                return (
+                  <View style={[styles.bubble, styles.aiBubble]}>
+                    <View style={styles.thinkingRow}>
+                      <View style={styles.thinkingDot} />
+                      <View style={[styles.thinkingDot, styles.thinkingDot2]} />
+                      <View style={[styles.thinkingDot, styles.thinkingDot3]} />
+                    </View>
+                  </View>
+                );
+              })()}
             </ScrollView>
+
+            {/* Plan generator */}
+            <View style={styles.planRow}>
+              <Pressable
+                onPress={() => setPlanForm((p) => ({ ...p, open: !p.open }))}
+                style={styles.planToggle}
+              >
+                <Feather name="zap" size={13} color={Colors.accent.primary} />
+                <Text style={styles.planToggleText}>
+                  {planForm.open ? 'Cerrar generador' : 'Generar rutina'}
+                </Text>
+              </Pressable>
+            </View>
+            {planForm.open && (
+              <View style={styles.planForm}>
+                <TextInput
+                  style={styles.planInput}
+                  value={planForm.objetivo}
+                  onChangeText={(t) => setPlanForm((p) => ({ ...p, objetivo: t }))}
+                  placeholder="Objetivo (ej. hipertrofia tren superior)"
+                  placeholderTextColor={Colors.text.disabled}
+                />
+                <View style={styles.planRowInputs}>
+                  <TextInput
+                    style={[styles.planInput, styles.planInputSmall]}
+                    value={planForm.dias}
+                    onChangeText={(t) => setPlanForm((p) => ({ ...p, dias: t.replace(/[^0-9]/g, '') }))}
+                    placeholder="Días"
+                    placeholderTextColor={Colors.text.disabled}
+                    keyboardType="number-pad"
+                  />
+                  <TextInput
+                    style={[styles.planInput, styles.planInputSmall]}
+                    value={planForm.duracion}
+                    onChangeText={(t) => setPlanForm((p) => ({ ...p, duracion: t.replace(/[^0-9]/g, '') }))}
+                    placeholder="Min/sesión"
+                    placeholderTextColor={Colors.text.disabled}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                <TextInput
+                  style={styles.planInput}
+                  value={planForm.lesiones}
+                  onChangeText={(t) => setPlanForm((p) => ({ ...p, lesiones: t }))}
+                  placeholder="Lesiones (separadas por coma)"
+                  placeholderTextColor={Colors.text.disabled}
+                />
+                <Pressable
+                  onPress={handleGeneratePlan}
+                  disabled={generating || !planForm.objetivo.trim()}
+                  style={[styles.planBtn, (generating || !planForm.objetivo.trim()) && styles.planBtnDisabled]}
+                >
+                  <Text style={styles.planBtnText}>
+                    {generating ? 'Generando…' : 'Crear bloque'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
 
             {/* Suggestions */}
             {messages.length === 0 && (
@@ -273,13 +463,23 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                 onSubmitEditing={() => handleSend()}
                 editable={!thinking}
               />
-              <Pressable
-                onPress={() => handleSend()}
-                disabled={!input.trim() || thinking}
-                style={[styles.sendBtn, (!input.trim() || thinking) && styles.sendBtnDisabled]}
-              >
-                <Feather name="arrow-up" size={18} color={Colors.text.inverse} />
-              </Pressable>
+              {thinking ? (
+                <Pressable
+                  onPress={handleStop}
+                  style={[styles.sendBtn, styles.stopBtn]}
+                  accessibilityLabel="Detener generación"
+                >
+                  <Feather name="square" size={14} color={Colors.text.inverse} />
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => handleSend()}
+                  disabled={!input.trim()}
+                  style={[styles.sendBtn, !input.trim() && styles.sendBtnDisabled]}
+                >
+                  <Feather name="arrow-up" size={18} color={Colors.text.inverse} />
+                </Pressable>
+              )}
             </View>
           </Animated.View>
         </View>
@@ -490,5 +690,66 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: Colors.border.medium,
+  },
+  stopBtn: {
+    backgroundColor: Colors.text.primary,
+  },
+  planRow: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border.subtle,
+    flexDirection: 'row',
+  },
+  planToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.accent.dim,
+  },
+  planToggleText: {
+    fontSize: Typography.size.micro,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.accent.primary,
+  },
+  planForm: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  planInput: {
+    fontSize: Typography.size.caption,
+    color: Colors.text.primary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.background.elevated,
+  },
+  planInputSmall: {
+    flex: 1,
+  },
+  planRowInputs: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  planBtn: {
+    marginTop: Spacing.xs,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.accent.primary,
+    alignItems: 'center',
+  },
+  planBtnDisabled: {
+    opacity: 0.5,
+  },
+  planBtnText: {
+    fontSize: Typography.size.caption,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.inverse,
   },
 });

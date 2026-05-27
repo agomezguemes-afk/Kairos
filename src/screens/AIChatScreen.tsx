@@ -36,13 +36,15 @@ import { useGamification } from '../context/GamificationContext';
 import { useMission } from '../context/MissionContext';
 import {
   getInitialGreeting,
-  resetSession,
-  patchSessionBlockId,
   type AIChatContext,
-} from '../services/aiChatService';
-import { processWithGroq, isGroqConfigured } from '../services/aiService';
+} from '../lib/ai/chat/greeting';
+import {
+  processGlobalChat,
+  AIUnavailableError,
+} from '../lib/ai/chat/globalChat';
+import { getGlobalSuggestions } from '../lib/ai/chat/globalSuggestions';
+import type { AgentProgressEvent } from '../lib/ai/agent';
 import type { RawUserContext } from '../utils/userContext';
-import { renderWithIcons, hasIconMarkers } from '../utils/iconText';
 import { generateId } from '../types/core';
 import { getBlockExercises } from '../types/core';
 import type { AIMessage } from '../types/ai';
@@ -61,7 +63,6 @@ export default function AIChatScreen({ navigation }: any) {
   const profile = supabaseProfile ?? localProfile;
   const scrollRef = useRef<ScrollView>(null);
 
-  const dispatchAIActions = useWorkoutStore((s) => s.dispatchAIActions);
   const setHighlight = useWorkoutStore((s) => s.setHighlight);
 
   const [messages, setMessages] = useState<AIMessage[]>([]);
@@ -70,6 +71,9 @@ export default function AIChatScreen({ navigation }: any) {
   const [avatarMood, setAvatarMood] = useState<AvatarMood>('idle');
   const [nodTrigger, setNodTrigger] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [runningTool, setRunningTool] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const streamingIdRef = useRef<string | null>(null);
 
   // Build context for AI service — plain function, NOT a hook.
   // Reads blocks from the store's latest state to avoid stale captures.
@@ -97,12 +101,8 @@ export default function AIChatScreen({ navigation }: any) {
     };
   }
 
-  // Reset session on unmount so follow-up conversations start fresh
-  useEffect(() => {
-    return () => {
-      resetSession();
-    };
-  }, []);
+  // (Legacy session-reset removed: the new lib/ai chat is stateless — every
+  // request is built from the live store snapshot + the local message list.)
 
   // Initial greeting
   useEffect(() => {
@@ -116,7 +116,6 @@ export default function AIChatScreen({ navigation }: any) {
         id: generateId(),
         role: 'assistant',
         content: greeting,
-        actions: [],
         timestamp: Date.now(),
       },
     ]);
@@ -142,7 +141,6 @@ export default function AIChatScreen({ navigation }: any) {
         id: generateId(),
         role: 'user',
         content,
-        actions: [],
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, userMsg]);
@@ -152,42 +150,105 @@ export default function AIChatScreen({ navigation }: any) {
       setAvatarMood('thinking');
       scrollToBottom();
 
-      // 2. Realistic delay only when falling back to the mock path —
-      //    Groq is already ~500ms, so skip the artificial wait there.
-      if (!isGroqConfigured()) {
-        await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
-      }
-
-      // 3. Process through Groq (falls back to mock internally if it fails)
+      // 2. Build conversation history (last 6 turns max — handled inside the chat module)
       const history = messages
-        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .filter((m): m is AIMessage & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }));
       history.push({ role: 'user', content });
 
-      const aiResponse = await processWithGroq(content, buildRawCtx(), history);
+      // Reserve an in-flight assistant bubble that streamed tokens write into.
+      const streamingId = generateId();
+      streamingIdRef.current = streamingId;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: streamingId,
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now(),
+        },
+      ]);
 
-      // 4. Dispatch store mutations BEFORE rendering response
-      if (aiResponse.actions.length > 0) {
-        const createdId = dispatchAIActions(aiResponse.actions);
-        if (createdId) {
-          aiResponse.affectedBlockId = createdId;
-          // Patch session so follow-up messages target the real block
-          patchSessionBlockId(createdId);
-        }
-        if (aiResponse.affectedBlockId) {
-          setHighlight(aiResponse.affectedBlockId);
-        }
+      const appendDelta = (delta: string) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === streamingId ? { ...m, content: m.content + delta } : m,
+          ),
+        );
+      };
+
+      const onProgress = (e: AgentProgressEvent) => {
+        if (e.type === 'text_delta') appendDelta(e.delta);
+        if (e.type === 'tool_running') setRunningTool(e.call.name);
+        if (e.type === 'tool_result' || e.type === 'final_text') setRunningTool(null);
+      };
+
+      // 3. Call Groq. Failures surface as a visible system message — no fake fallbacks.
+      // Tool calls commit to the store live via the agent loop.
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      let aiResponse: AIMessage;
+      try {
+        aiResponse = await processGlobalChat(content, buildRawCtx(), history, {
+          onProgress,
+          signal: controller.signal,
+        });
+      } catch (e) {
+        const isUnavailable = e instanceof AIUnavailableError;
+        const detail = e instanceof Error ? e.message : String(e);
+        const isAborted = detail.toLowerCase().includes('aborted');
+        aiResponse = {
+          id: generateId(),
+          role: 'assistant',
+          content: isAborted
+            ? 'Generación cancelada.'
+            : isUnavailable
+            ? `Kai no está disponible ahora mismo: ${detail}`
+            : `Algo falló procesando tu mensaje (${detail}). Inténtalo de nuevo.`,
+          timestamp: Date.now(),
+        };
+      } finally {
+        abortRef.current = null;
       }
 
-      // 5. Append AI response
-      setMessages((prev) => [...prev, aiResponse]);
+      if (aiResponse.affectedBlockId) {
+        setHighlight(aiResponse.affectedBlockId);
+      }
+
+      // 4. Replace the streaming placeholder with the final assistant message.
+      // We carry over toolResults / affectedBlockId from the resolved response,
+      // and prefer the streamed content if the server returned an empty string
+      // (defensive — happens when the model only made tool calls).
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === streamingId);
+        if (idx === -1) return [...prev, aiResponse];
+        const streamed = prev[idx];
+        const merged: AIMessage = {
+          ...aiResponse,
+          id: streamed.id,
+          content: aiResponse.content || streamed.content,
+        };
+        const next = prev.slice();
+        next[idx] = merged;
+        return next;
+      });
+      streamingIdRef.current = null;
       setIsLoading(false);
+      setRunningTool(null);
       setAvatarMood('idle');
       setNodTrigger((n) => n + 1);
       scrollToBottom();
     },
-    [input, isLoading, messages, dispatchAIActions, setHighlight, scrollToBottom, profile],
+    [input, isLoading, messages, setHighlight, scrollToBottom, profile],
   );
+
+  const handleStop = useCallback(() => {
+    if (!abortRef.current) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    abortRef.current.abort();
+    abortRef.current = null;
+  }, []);
 
   // ======================== VIEW BLOCK HANDLER ========================
 
@@ -219,7 +280,7 @@ export default function AIChatScreen({ navigation }: any) {
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Kai</Text>
           <Text style={styles.headerSub}>
-            {isLoading ? 'Pensando...' : 'En línea'}
+            {runningTool ? `Ejecutando: ${runningTool}` : isLoading ? 'Pensando...' : 'En línea'}
           </Text>
         </View>
       </View>
@@ -249,7 +310,14 @@ export default function AIChatScreen({ navigation }: any) {
           ),
         )}
 
-        {isLoading && <TypingIndicator />}
+        {/* Show typing dots ONLY while we wait for the first delta. Once
+         *  tokens are flowing, the assistant bubble shows live progress. */}
+        {isLoading && (() => {
+          const streamingId = streamingIdRef.current;
+          if (!streamingId) return <TypingIndicator />;
+          const m = messages.find((x) => x.id === streamingId);
+          return m && m.content.length === 0 ? <TypingIndicator /> : null;
+        })()}
       </ScrollView>
 
       {/* Suggested prompts when chat is empty and has greeting */}
@@ -270,21 +338,35 @@ export default function AIChatScreen({ navigation }: any) {
           multiline={false}
           editable={!isLoading}
         />
-        <Pressable
-          onPress={() => handleSend()}
-          disabled={!input.trim() || isLoading}
-          style={({ pressed }) => [
-            styles.sendBtn,
-            (!input.trim() || isLoading) && styles.sendBtnDisabled,
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <Feather
-            name="send"
-            size={18}
-            color={input.trim() && !isLoading ? Colors.text.inverse : Colors.text.disabled}
-          />
-        </Pressable>
+        {isLoading ? (
+          <Pressable
+            onPress={handleStop}
+            style={({ pressed }) => [
+              styles.sendBtn,
+              styles.stopBtn,
+              pressed && { opacity: 0.7 },
+            ]}
+            accessibilityLabel="Detener generación"
+          >
+            <Feather name="square" size={16} color={Colors.text.inverse} />
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => handleSend()}
+            disabled={!input.trim()}
+            style={({ pressed }) => [
+              styles.sendBtn,
+              !input.trim() && styles.sendBtnDisabled,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Feather
+              name="send"
+              size={18}
+              color={input.trim() ? Colors.text.inverse : Colors.text.disabled}
+            />
+          </Pressable>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -340,12 +422,13 @@ function ActionCard({
   message: AIMessage;
   onViewBlock: (id: string) => void;
 }) {
-  if (message.actions.length === 0 || !message.affectedBlockId) return null;
+  const tools = message.toolResults ?? [];
+  if (tools.length === 0 || !message.affectedBlockId) return null;
 
   const blockId = message.affectedBlockId;
   const block = useWorkoutStore((s) => s.blocks.find((b) => b.id === blockId));
 
-  const isCreate = message.actions.some((a) => a.type === 'create_block');
+  const isCreate = tools.some((r) => r.ok && r.name === 'create_block');
   const iconName = isCreate ? 'sparkle' : 'arrow_forward';
   const title = isCreate ? 'Bloque creado' : 'Bloque actualizado';
   const subtitle = block
@@ -452,29 +535,24 @@ function BouncingDot({ delay: d }: { delay: number }) {
 
 // ======================== SUGGESTED PROMPTS ========================
 
-const SUGGESTED_PROMPTS = [
-  'Crea un bloque de fuerza para principiantes, 3 días en casa',
-  'Crea un bloque HIIT, 4 días a la semana',
-  'Añade dominadas a mi bloque',
-  'Aumenta las sentadillas a 12 repeticiones',
-];
-
 function SuggestedPrompts({ onSelect }: { onSelect: (text: string) => void }) {
+  const blocks = useWorkoutStore((s) => s.blocks);
+  const suggestions = getGlobalSuggestions(blocks);
   return (
     <View style={styles.suggestedContainer}>
-      {SUGGESTED_PROMPTS.map((prompt) => (
+      {suggestions.map((s) => (
         <Pressable
-          key={prompt}
+          key={s.label}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onSelect(prompt);
+            onSelect(s.prompt);
           }}
           style={({ pressed }) => [
             styles.suggestedChip,
             pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
           ]}
         >
-          <Text style={styles.suggestedText}>{prompt}</Text>
+          <Text style={styles.suggestedText}>{s.label}</Text>
         </Pressable>
       ))}
     </View>
@@ -685,5 +763,8 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: Colors.background.elevated,
+  },
+  stopBtn: {
+    backgroundColor: Colors.text.primary,
   },
 });

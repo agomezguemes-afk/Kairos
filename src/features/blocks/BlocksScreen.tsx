@@ -26,6 +26,7 @@ import BlockCard from './components/BlockCard';
 import BlockCreationSheet, { type BlockCreationOptions } from '../../components/BlockCreationSheet';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
 import KairosIcon from '../../components/KairosIcon';
+import TemplatePickerSheet from './components/TemplatePickerSheet';
 
 import type { WorkoutBlock } from '../../types/core';
 import type { RootStackParamList } from '../../types/navigation';
@@ -55,6 +56,7 @@ export default function BlocksScreen({ route }: any) {
   const listRef = useRef<FlatList>(null);
 
   const [showCreation, setShowCreation] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('recent');
   const [showSort, setShowSort] = useState(false);
 
@@ -245,11 +247,20 @@ export default function BlocksScreen({ route }: any) {
             Cada bloque contiene ejercicios con series y repeticiones que puedes rastrear.
           </Text>
           <Pressable
-            onPress={handleQuickCreate}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setTemplatePickerOpen(true);
+            }}
             style={({ pressed }) => [styles.welcomeBtn, pressed && { opacity: 0.82 }]}
           >
-            <Feather name="plus" size={18} color={Colors.text.inverse} />
-            <Text style={styles.welcomeBtnText}>Crear bloque</Text>
+            <Feather name="zap" size={18} color={Colors.text.inverse} />
+            <Text style={styles.welcomeBtnText}>Empezar con plantilla</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleQuickCreate}
+            style={({ pressed }) => [styles.welcomeBtnSecondary, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.welcomeBtnSecondaryText}>O crear bloque en blanco</Text>
           </Pressable>
           <View style={styles.hintRow}>
             <HintChip icon="grid" label="Organiza tu rutina" />
@@ -282,6 +293,20 @@ export default function BlocksScreen({ route }: any) {
         visible={showCreation}
         onClose={() => setShowCreation(false)}
         onCreate={handleCreateBlock}
+      />
+
+      {/* Template picker — empty-state activator */}
+      <TemplatePickerSheet
+        visible={templatePickerOpen}
+        onClose={() => setTemplatePickerOpen(false)}
+        onCreated={(blockId) => {
+          setTemplatePickerOpen(false);
+          const next = useWorkoutStore.getState().blocks;
+          onBlockCreated(next);
+          clearHighlight(blockId);
+          setTimeout(() => confettiRef.current?.burst(), 120);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }}
       />
     </View>
   );
@@ -391,6 +416,17 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.body,
     fontWeight: Typography.weight.semibold,
     color: Colors.text.inverse,
+  },
+  welcomeBtnSecondary: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    marginTop: -Spacing.xl,
+    marginBottom: Spacing['2xl'],
+  },
+  welcomeBtnSecondaryText: {
+    fontSize: Typography.size.caption,
+    fontWeight: Typography.weight.medium,
+    color: Colors.text.secondary,
   },
   hintRow: {
     flexDirection: 'row',

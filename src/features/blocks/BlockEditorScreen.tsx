@@ -3,22 +3,22 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   Pressable,
   StyleSheet,
   Alert,
   Platform,
   KeyboardAvoidingView,
-  Dimensions,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
+import { NestableScrollContainer } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
@@ -31,11 +31,19 @@ import DashboardNode from './components/DashboardNode';
 import TimerNode from './components/TimerNode';
 import ImageNode from './components/ImageNode';
 import AddExerciseSheet from './components/AddExerciseSheet';
+import ExerciseLibrarySheet from './components/ExerciseLibrarySheet';
 import ComponentPalette from './components/ComponentPalette';
-import SlashCommandMenu from './components/SlashCommandMenu';
 import BlockActionSheet from './components/BlockActionSheet';
-import DraggableNode from './components/DraggableNode';
 import BlockAISheet from './components/BlockAISheet';
+import Spine from './components/Spine';
+import AddStation, { type InsertableType } from './components/AddStation';
+import CompoundTile from './components/tiles/CompoundTile';
+import AccessoryTile from './components/tiles/AccessoryTile';
+import SectionHeaderTile from './components/tiles/SectionHeaderTile';
+import NoteTile from './components/tiles/NoteTile';
+import InlineDashboardTile from './components/tiles/InlineDashboardTile';
+import SupersetTile from './components/tiles/SupersetTile';
+import EmptyState from '../../components/EmptyState';
 import CompletionCelebration from '../../components/CompletionCelebration';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
 
@@ -52,76 +60,14 @@ import {
   createTimerNode,
   createSpacerNode,
   createColumnSectionNode,
+  createSupersetNode,
   getNextOrder,
-  buildRenderGroups,
-  type RenderGroup,
 } from '../../types/content';
+import { buildSpineRows, type SpineRow as SpineRowData } from './lib/spineLayout';
 import type { RootStackParamList } from '../../types/navigation';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 import { useBlockEditor } from './hooks/useBlockEditor';
-
-const SCREEN_W = Dimensions.get('window').width;
-
-// ======================== DRAG COLUMN WRAPPER ========================
-
-const DragColumn = React.memo(function DragColumn({
-  colIdx,
-  dragSourceColumn,
-  dragSectionIdx,
-  dragTargetSectionIdx,
-  dragTargetColumn,
-  dragActive,
-  sectionIndex,
-  style,
-  children,
-}: {
-  colIdx: number;
-  dragSourceColumn: SharedValue<number>;
-  dragSectionIdx: SharedValue<number>;
-  dragTargetSectionIdx: SharedValue<number>;
-  dragTargetColumn: SharedValue<number>;
-  dragActive: SharedValue<number>;
-  sectionIndex: number;
-  style: any;
-  children: React.ReactNode;
-}) {
-  const liftStyle = useAnimatedStyle(() => ({
-    zIndex: dragSourceColumn.value === colIdx && dragSectionIdx.value === sectionIndex ? 1000 : 0,
-  }));
-
-  const dropZoneStyle = useAnimatedStyle(() => {
-    const isTarget = dragActive.value >= 0
-      && dragTargetSectionIdx.value === sectionIndex
-      && dragTargetColumn.value === colIdx
-      && dragSectionIdx.value !== sectionIndex;
-    return {
-      backgroundColor: isTarget ? Colors.accent.primary + '0A' : 'transparent',
-      borderColor: isTarget ? Colors.accent.primary + '30' : 'transparent',
-      borderWidth: withTiming(isTarget ? 1.5 : 0, { duration: 150 }),
-      borderRadius: 10,
-    };
-  });
-
-  return (
-    <Animated.View style={[style, liftStyle, dropZoneStyle]}>
-      {children}
-    </Animated.View>
-  );
-});
-
-// ======================== WIDTH PRESETS ========================
-
-const WIDTH_PRESETS_2 = [
-  { label: '50 / 50', widths: undefined as number[] | undefined },
-  { label: '30 / 70', widths: [0.3, 0.7] },
-  { label: '70 / 30', widths: [0.7, 0.3] },
-];
-const WIDTH_PRESETS_3 = [
-  { label: '1/3 cada', widths: undefined as number[] | undefined },
-  { label: '50/25/25', widths: [0.5, 0.25, 0.25] },
-  { label: '25/50/25', widths: [0.25, 0.5, 0.25] },
-];
 
 // ======================== MAIN COMPONENT ========================
 
@@ -130,12 +76,10 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const confettiRef = useRef<ConfettiRef | null>(null);
-  const sectionLayoutsRef = useRef<Map<number, { y: number; height: number; sectionId: string | null; cols: number }>>(new Map());
 
   const {
     block,
     handleUpdateName,
-    handleUpdateDescription,
     handleToggleFavorite,
     handleDelete,
     handleAddExercise,
@@ -161,20 +105,12 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   const [showPalette, setShowPalette] = useState(false);
   const [insertAfterNodeId, setInsertAfterNodeId] = useState<string | null>(null);
   const [showAddExercise, setShowAddExercise] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [celebrationBlock, setCelebrationBlock] = useState<WorkoutBlock | null>(null);
   const [addExerciseSection, setAddExerciseSection] = useState<string | null>(null);
   const [addExerciseColumn, setAddExerciseColumn] = useState(0);
   const [paletteSection, setPaletteSection] = useState<string | null>(null);
   const [paletteColumn, setPaletteColumn] = useState(0);
-
-  // Slash command state
-  const [slashActive, setSlashActive] = useState(false);
-  const [slashQuery, setSlashQuery] = useState('');
-  const [slashKey, setSlashKey] = useState('root_0');
-
-  // Blank drafts keyed by `${sectionId|root}_${colIdx}`
-  const [blankDrafts, setBlankDrafts] = useState<Record<string, string>>({});
-  const blankInputRefs = useRef<Record<string, TextInput | null>>({});
 
   // Block action sheet state
   const [actionNode, setActionNode] = useState<ContentNode | null>(null);
@@ -183,22 +119,32 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   // Floating AI assistant
   const [showAI, setShowAI] = useState(false);
 
-  // Drag-and-drop state (unified, section-aware)
-  const [scrollLocked, setScrollLocked] = useState(false);
-  const dragActive = useSharedValue(-1);
-  const dragDrop = useSharedValue(-1);
-  const dragHeight = useSharedValue(60);
-  const dragSourceCol = useSharedValue(-1);
-  const dragTargetCol = useSharedValue(-1);
-  const dragSectionIdx = useSharedValue(-1);
-  const dragTargetSectionIdx = useSharedValue(-1);
-
   const stats = useMemo(() => block ? calculateBlockStats(block) : null, [block]);
 
-  const renderGroups = useMemo(
-    () => block ? buildRenderGroups(block.content) : [],
+  const spineRows = useMemo(
+    () => block ? buildSpineRows(block.content) : [],
     [block],
   );
+
+  // ── Sticky header — header chrome rises with a blur backdrop when the
+  // user scrolls past the block title. Empty-state-friendly: the block
+  // name appears centered in the header so the user always knows where
+  // they are. Apple Notes / Mail pattern.
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+  const headerBackdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [40, 90], [0, 1], Extrapolation.CLAMP),
+  }));
+  const headerTitleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [60, 110], [0, 1], Extrapolation.CLAMP),
+    transform: [{
+      translateY: interpolate(scrollY.value, [60, 110], [6, 0], Extrapolation.CLAMP),
+    }],
+  }));
 
   // ======================== NAME EDITING ========================
 
@@ -222,9 +168,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     const renumbered = sorted.map((n, i) => ({ ...n, order: i }));
     updateBlock(blockId, { content: renumbered as ContentNode[] });
   }, [blockId, updateBlock]);
-
-  const blankKeyFn = useCallback((sectionId: string | null, colIdx: number) =>
-    `${sectionId ?? 'root'}_${colIdx}`, []);
 
   // ======================== NODE INSERTION ========================
 
@@ -273,7 +216,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
       case 'timer_stopwatch': createAndAdd(createTimerNode(order, 'stopwatch')); break;
       case 'rest': createAndAdd(createTimerNode(order, 'countdown', 60, 'Descanso')); break;
       case 'spacer': createAndAdd(createSpacerNode(order)); break;
-      case 'superset': createAndAdd(createTextNode(order, 'h3', 'Superserie')); break;
+      case 'superset': createAndAdd(createSupersetNode(order)); break;
       case 'divider': createAndAdd(createDividerNode(order)); break;
       case 'image': createAndAdd(createImageNode(order)); break;
       case 'link': createAndAdd(createTextNode(order, 'paragraph', '')); break;
@@ -356,63 +299,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     setShowPalette(true);
   }, [block]);
 
-  // ======================== BLANK INPUTS ========================
-
-  const handleBlankChange = useCallback((text: string, key: string) => {
-    setBlankDrafts(prev => ({ ...prev, [key]: text }));
-    const slashIdx = text.lastIndexOf('/');
-    if (slashIdx >= 0 && (slashIdx === 0 || text[slashIdx - 1] === ' ' || text[slashIdx - 1] === '\n')) {
-      setSlashActive(true);
-      setSlashQuery(text.substring(slashIdx + 1));
-      setSlashKey(key);
-    } else {
-      if (slashKey === key) {
-        setSlashActive(false);
-        setSlashQuery('');
-      }
-    }
-  }, [slashKey]);
-
-  const parseBlankKey = useCallback((key: string): { sectionId: string | null; colIdx: number } => {
-    const lastUnderscore = key.lastIndexOf('_');
-    const sectionPart = key.substring(0, lastUnderscore);
-    const colPart = key.substring(lastUnderscore + 1);
-    return {
-      sectionId: sectionPart === 'root' ? null : sectionPart,
-      colIdx: parseInt(colPart, 10) || 0,
-    };
-  }, []);
-
-  const handleSlashSelect = useCallback((type: string) => {
-    const key = slashKey;
-    setSlashActive(false);
-    setSlashQuery('');
-    setBlankDrafts(prev => ({ ...prev, [key]: '' }));
-    const { sectionId, colIdx } = parseBlankKey(key);
-    insertNode(type, sectionId, colIdx);
-  }, [slashKey, insertNode, parseBlankKey]);
-
-  const handleBlankSubmit = useCallback((key: string) => {
-    if (slashActive && slashKey === key) return;
-    const draft = blankDrafts[key] ?? '';
-    if (!block || !draft.trim()) return;
-    const { sectionId, colIdx } = parseBlankKey(key);
-
-    const relevant = sectionId
-      ? block.content.filter(n => n.section === sectionId && (n.column ?? 0) === colIdx)
-      : block.content.filter(n => !n.section);
-    const order = getNextOrder(relevant.length > 0 ? relevant : block.content);
-
-    const node = {
-      ...createTextNode(order, 'paragraph', draft.trim()),
-      column: colIdx,
-      section: sectionId ?? undefined,
-    } as ContentNode;
-    addContentNode(blockId, node);
-    setBlankDrafts(prev => ({ ...prev, [key]: '' }));
-    setTimeout(normalizeOrders, 50);
-  }, [block, blockId, blankDrafts, slashActive, slashKey, addContentNode, parseBlankKey, normalizeOrders]);
-
   // ======================== COMPONENT PALETTE ========================
 
   const handleOpenPalette = useCallback((sectionId?: string | null, colIdx?: number) => {
@@ -464,68 +350,14 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     updateContentNode(blockId, nodeId, { data: { ...node.data, format } } as any);
   }, [blockId, updateContentNode]);
 
-  // ======================== DRAG REORDER ========================
-
-  const handleDragDrop = useCallback((
-    sourceNodes: ContentNode[],
-    fromIndex: number,
-    toIndex: number,
-    sourceCol: number,
-    targetCol: number,
-    sourceSectionId: string | null,
-    targetSectionIdx: number,
-    sourceSectionIdx: number,
-  ) => {
-    const node = sourceNodes[fromIndex];
-    if (!node) return;
-    const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
-    if (!fresh) return;
-
-    const crossSection = targetSectionIdx !== sourceSectionIdx;
-    let targetSectionId: string | null = null;
-
-    if (crossSection) {
-      const groups = buildRenderGroups(fresh.content);
-      let idx = 0;
-      for (const g of groups) {
-        if (idx === targetSectionIdx) {
-          targetSectionId = g.type === 'section' ? g.sectionNode.id : null;
-          break;
-        }
-        idx++;
-      }
-    } else {
-      targetSectionId = sourceSectionId;
-    }
-
-    if (!crossSection && sourceCol === targetCol) {
-      const ids = sourceNodes.map(n => n.id);
-      const [movedId] = ids.splice(fromIndex, 1);
-      ids.splice(Math.max(0, toIndex), 0, movedId);
-      reorderContentNodes(blockId, ids);
-    } else {
-      const targetNodes = fresh.content
-        .filter(n => (n.column ?? 0) === targetCol && (targetSectionId ? n.section === targetSectionId : !n.section))
-        .sort((a, b) => a.order - b.order);
-      const newOrder = targetNodes.length > 0
-        ? Math.max(...targetNodes.map(n => n.order)) + 1
-        : 0;
-      updateContentNode(blockId, node.id, {
-        column: targetCol,
-        order: newOrder,
-        section: targetSectionId ?? undefined,
-      } as any);
-      setTimeout(normalizeOrders, 50);
-    }
-  }, [blockId, reorderContentNodes, updateContentNode, normalizeOrders]);
-
-  const handleDragActiveChange = useCallback((active: boolean) => {
-    setScrollLocked(active);
-  }, []);
+  // NOTE: drag reorder via DraggableNode was removed in Batch M2. M4 will
+  // re-introduce reordering on the spine using react-native-draggable-flatlist.
+  // The handlers above (reorderContentNodes, moveContentNode) are kept for
+  // that work plus for BlockActionSheet's Move Up / Move Down options.
 
   // ======================== EXERCISE ========================
 
-  const handleExerciseAdd = useCallback((opts: { name: string; discipline: Discipline }) => {
+  const handleExerciseAdd = useCallback((opts: { name: string; discipline: Discipline; fields?: import('../../types/core').FieldDefinition[] }) => {
     if (!block) return;
     handleAddExercise({
       ...opts,
@@ -544,8 +376,8 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     ]);
   }, [handleDeleteExercise]);
 
-  const handleSetComplete = useCallback((exerciseId: string, setIndex: number) => {
-    const completedBlock = handleToggleSetComplete(exerciseId, setIndex);
+  const handleSetComplete = useCallback((exerciseId: string, setId: string) => {
+    const completedBlock = handleToggleSetComplete(exerciseId, setId);
     if (completedBlock) {
       setTimeout(() => {
         setCelebrationBlock(completedBlock);
@@ -684,223 +516,207 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     }
   };
 
-  const renderDraggableList = (nodes: ContentNode[], colIdx: number, colCount: number, colWidth: number, sectionIndex: number, sectionId: string | null, compact: boolean) => {
-    return nodes.map((node, idx) => (
-      <DraggableNode
-        key={node.id}
-        index={idx}
-        totalCount={nodes.length}
-        columnIndex={colIdx}
-        columnCount={colCount}
-        columnWidth={colWidth}
-        sectionIndex={sectionIndex}
-        sectionId={sectionId}
-        activeDragIndex={dragActive}
-        currentDropIndex={dragDrop}
-        dragItemHeight={dragHeight}
-        dragSourceColumn={dragSourceCol}
-        dragTargetColumn={dragTargetCol}
-        dragSectionIdx={dragSectionIdx}
-        dragTargetSectionIdx={dragTargetSectionIdx}
-        onDrop={(from, to, tgtCol, tgtSectionIdx) => handleDragDrop(
-          nodes, from, to, colIdx, tgtCol,
-          sectionId, tgtSectionIdx, sectionIndex,
-        )}
-        onTapHandle={() => handleOpenActions(node)}
-        onDragActiveChange={handleDragActiveChange}
-      >
-        {renderNode(node, compact)}
-      </DraggableNode>
-    ));
-  };
+  // First exercise on the spine renders as CompoundTile (hero); subsequent
+  // exercises render as AccessoryTile (compact). This keeps the visual
+  // rhythm of a typical session: one anchor lift, accessories under it.
+  const firstExerciseRowId = useMemo(() => {
+    const r = spineRows.find(row => row.kind === 'exercise');
+    return r?.id ?? null;
+  }, [spineRows]);
 
-  const renderBlankInput = (sectionId: string | null, colIdx: number, compact: boolean = false) => {
-    const key = blankKeyFn(sectionId, colIdx);
-    const draft = blankDrafts[key] ?? '';
-    return (
-      <View style={[styles.blankRow, compact && styles.blankRowCompact]} key={`blank-${key}`}>
-        <Pressable
-          onPress={() => handleOpenPalette(sectionId, colIdx)}
-          hitSlop={6}
-          style={styles.blankAddBtn}
-        >
-          <Feather name="plus" size={compact ? 13 : 15} color={Colors.accent.primary} />
-        </Pressable>
-        <TextInput
-          ref={(r) => { blankInputRefs.current[key] = r; }}
-          style={[styles.blankInput, compact && styles.blankInputCompact]}
-          value={draft}
-          onChangeText={(text) => handleBlankChange(text, key)}
-          onSubmitEditing={() => handleBlankSubmit(key)}
-          placeholder={compact ? '/ insertar...' : 'Escribe o usa / para insertar...'}
-          placeholderTextColor={Colors.text.disabled}
-          multiline
-          blurOnSubmit
-          returnKeyType="done"
+  // Spine renderer — every node renders as one full-width tile attached to a
+  // station node on the gold vertical spine. Long-press the station opens
+  // BlockActionSheet (move / duplicate / transform / delete). Column data is
+  // preserved but not visually rendered side-by-side in this MVP iteration.
+  const renderRowTile = useCallback((row: SpineRowData): React.ReactNode => {
+    const node = row.tiles[0]?.node;
+    if (!node) return null;
+    if (row.kind === 'divider') return null;
+    if (row.kind === 'section' && node.type === 'columnSection') {
+      return (
+        <SectionHeaderTile
+          sectionNode={node}
+          onChangeWidth={handleSectionWidthChange}
+          onDelete={handleDeleteNode}
         />
-      </View>
-    );
-  };
-
-  const renderSectionHeader = (sectionNode: ColumnSectionContentNode, sectionIndex: number) => {
-    const cols = sectionNode.data.columns;
-    const widths = sectionNode.data.widths;
-    const presets = cols === 2 ? WIDTH_PRESETS_2 : WIDTH_PRESETS_3;
-
-    return (
-      <Animated.View entering={FadeIn.duration(150)} style={styles.sectionHeader}>
-        <View style={styles.sectionHeaderLeft}>
-          <Feather name="columns" size={12} color={Colors.text.disabled} />
-          <Text style={styles.sectionLabel}>{cols} col</Text>
-        </View>
-        <View style={styles.sectionWidthRow}>
-          {presets.map((preset, i) => {
-            const isActive = preset.widths
-              ? JSON.stringify(widths) === JSON.stringify(preset.widths)
-              : !widths;
-            return (
-              <Pressable
-                key={i}
-                onPress={() => handleSectionWidthChange(sectionNode.id, preset.widths)}
-                style={[styles.sectionWidthBtn, isActive && styles.sectionWidthBtnActive]}
-              >
-                <Text style={[styles.sectionWidthText, isActive && styles.sectionWidthTextActive]}>
-                  {preset.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Pressable onPress={() => handleDeleteNode(sectionNode.id)} hitSlop={8}>
-          <Feather name="x" size={14} color={Colors.text.disabled} />
-        </Pressable>
-      </Animated.View>
-    );
-  };
-
-  const renderColumnSection = (group: RenderGroup & { type: 'section' }, sectionIndex: number) => {
-    const { sectionNode, children } = group;
-    const cols = sectionNode.data.columns;
-    const widths = sectionNode.data.widths;
-    const hPad = Spacing.screen.horizontal * 2;
-    const gap = Spacing.md * (cols - 1);
-    const totalAvail = SCREEN_W - hPad - gap;
-
-    const colWidthsPx = widths && widths.length === cols
-      ? widths.map(w => w * totalAvail)
-      : Array(cols).fill(totalAvail / cols);
-
-    const avgColWidth = totalAvail / cols;
-
-    const colNodes: ContentNode[][] = Array.from({ length: cols }, () => []);
-    for (const node of children) {
-      const col = Math.min(node.column ?? 0, cols - 1);
-      colNodes[col].push(node);
+      );
     }
-    for (const arr of colNodes) arr.sort((a, b) => a.order - b.order);
+    if (row.kind === 'exercise' && node.type === 'exercise') {
+      const Tile = row.id === firstExerciseRowId ? CompoundTile : AccessoryTile;
+      return (
+        <Tile
+          exercise={node.data.exercise}
+          blockId={blockId}
+          index={node.order}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdateName={handleUpdateExerciseName}
+          onUpdateSetValue={handleUpdateSetValue}
+          onToggleSetComplete={handleSetComplete}
+          onAddSet={handleAddSet}
+          onRemoveSet={handleRemoveSet}
+          onDeleteExercise={handleDeleteExerciseConfirm}
+        />
+      );
+    }
+    if (row.kind === 'note' && node.type === 'text') {
+      return (
+        <NoteTile
+          node={node}
+          onUpdate={handleTextUpdate}
+          onChangeFormat={handleTextFormatChange}
+          onToggleCheck={handleCheckToggle}
+          onDelete={handleDeleteNode}
+          onInsertAfter={handleInsertAfter}
+        />
+      );
+    }
+    if (node.type === 'dashboard') {
+      return (
+        <InlineDashboardTile
+          node={node}
+          block={block!}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdate={handleDashboardUpdate}
+          onDelete={handleDeleteNode}
+        />
+      );
+    }
+    if (node.type === 'superset') {
+      return (
+        <SupersetTile
+          node={node}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdate={(nodeId, partial) => {
+            const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
+            const n = fresh?.content.find(c => c.id === nodeId);
+            if (n?.type === 'superset') {
+              updateContentNode(blockId, nodeId, { data: { ...n.data, ...partial } } as any);
+            }
+          }}
+        />
+      );
+    }
+    return renderNode(node, false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block, blockId, firstExerciseRowId]);
 
-    return (
-      <View key={sectionNode.id} style={styles.sectionContainer}>
-        {renderSectionHeader(sectionNode, sectionIndex)}
-        <View style={styles.columnsRow}>
-          {colNodes.map((nodes, colIdx) => (
-            <DragColumn
-              key={colIdx}
-              colIdx={colIdx}
-              dragSourceColumn={dragSourceCol}
-              dragSectionIdx={dragSectionIdx}
-              dragTargetSectionIdx={dragTargetSectionIdx}
-              dragTargetColumn={dragTargetCol}
-              dragActive={dragActive}
-              sectionIndex={sectionIndex}
-              style={[
-                styles.column,
-                widths ? { flex: 0, width: colWidthsPx[colIdx] } : null,
-              ]}
-            >
-              {renderDraggableList(nodes, colIdx, cols, avgColWidth, sectionIndex, sectionNode.id, true)}
-              {slashActive && slashKey === blankKeyFn(sectionNode.id, colIdx) && (
-                <SlashCommandMenu query={slashQuery} onSelect={handleSlashSelect} insideSection />
-              )}
-              {renderBlankInput(sectionNode.id, colIdx, true)}
-            </DragColumn>
-          ))}
-        </View>
-      </View>
-    );
-  };
+  const handleRowTap = useCallback((row: SpineRowData) => {
+    const node = row.tiles[0]?.node;
+    if (node) handleOpenActions(node);
+  }, [handleOpenActions]);
 
-  const renderFullWidthGroup = (group: RenderGroup & { type: 'fullWidth' }, sectionIndex: number) => {
-    return (
-      <DragColumn
-        key={`fw-${sectionIndex}`}
-        colIdx={0}
-        dragSourceColumn={dragSourceCol}
-        dragSectionIdx={dragSectionIdx}
-        dragTargetSectionIdx={dragTargetSectionIdx}
-        dragTargetColumn={dragTargetCol}
-        dragActive={dragActive}
-        sectionIndex={sectionIndex}
-        style={styles.fullWidthGroup}
-      >
-        {renderDraggableList(group.nodes, 0, 1, SCREEN_W, sectionIndex, null, false)}
-      </DragColumn>
-    );
-  };
+  const handleReorder = useCallback((orderedIds: string[]) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    reorderContentNodes(blockId, orderedIds);
+  }, [blockId, reorderContentNodes]);
+
+  const handleAddInsert = useCallback((type: InsertableType) => {
+    insertNode(type, null, 0);
+  }, [insertNode]);
 
   const renderContent = () => {
-    let secIdx = 0;
-    return renderGroups.map((group) => {
-      const idx = secIdx++;
-      if (group.type === 'section') {
-        return renderColumnSection(group, idx);
-      }
-      return renderFullWidthGroup(group, idx);
-    });
+    if (block && block.content.length === 0) {
+      return <EmptyState type="blocks" />;
+    }
+    return (
+      <Spine
+        rows={spineRows}
+        renderRow={renderRowTile}
+        onRowTap={handleRowTap}
+        onReorder={handleReorder}
+      />
+    );
   };
 
   return (
     <View style={styles.screen}>
       <ConfettiBurst confettiRef={confettiRef} />
 
+      {/* Sticky header — gains a blur backdrop and shows the block name
+          centered as the user scrolls past the title. Apple Notes pattern. */}
+      <View style={[styles.stickyHeader, { paddingTop: insets.top }]} pointerEvents="box-none">
+        <Animated.View style={[StyleSheet.absoluteFill, headerBackdropStyle]} pointerEvents="none">
+          <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={styles.stickyHeaderOverlay} />
+          {/* Discipline accent strip — 2pt color band at the bottom edge
+              of the sticky header, tying the chrome to the block identity
+              once the user has scrolled past the inline strip below. */}
+          <View
+            style={[
+              styles.stickyHeaderDisciplineStrip,
+              { backgroundColor: disciplineColor },
+            ]}
+          />
+          <View style={styles.stickyHeaderHairline} />
+        </Animated.View>
+
+        <View style={styles.stickyHeaderRow}>
+          <Pressable
+            onPress={() => nav.goBack()}
+            hitSlop={12}
+            style={styles.backButton}
+            accessibilityLabel="Volver"
+          >
+            <Feather name="chevron-left" size={22} color={Colors.ink.primary} />
+            <Text style={styles.backLabel}>Atrás</Text>
+          </Pressable>
+
+          <Animated.Text
+            style={[styles.stickyTitle, headerTitleStyle]}
+            numberOfLines={1}
+            pointerEvents="none"
+          >
+            {block.name}
+          </Animated.Text>
+
+          <View style={styles.stickyActions}>
+            <Pressable onPress={handleToggleFavorite} hitSlop={8}>
+              <Feather
+                name="star"
+                size={18}
+                color={block.is_favorite ? Colors.gold.base : Colors.ink.tertiary}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowLibrary(true);
+              }}
+              hitSlop={8}
+              accessibilityLabel="Añadir desde librería"
+            >
+              <Feather name="book-open" size={18} color={Colors.ink.secondary} />
+            </Pressable>
+            <Pressable onPress={() => handleOpenPalette(null, 0)} hitSlop={8}>
+              <View style={styles.topBarPlus}>
+                <Feather name="plus" size={16} color={Colors.gold.base} />
+              </View>
+            </Pressable>
+            <Pressable onPress={handleDeleteBlock} hitSlop={8}>
+              <Feather name="trash-2" size={18} color={Colors.ink.tertiary} />
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
+        <NestableScrollContainer
           style={{ flex: 1 }}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 100 },
+            {
+              paddingTop: insets.top + 56 + Spacing.md,
+              paddingBottom: insets.bottom + 100,
+            },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          scrollEnabled={!scrollLocked}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
         >
-          {/* Top bar */}
-          <View style={styles.topBar}>
-            <Pressable onPress={() => nav.goBack()} hitSlop={12}>
-              <Feather name="arrow-left" size={22} color={Colors.text.primary} />
-            </Pressable>
-            <View style={styles.topBarActions}>
-              <Pressable onPress={handleToggleFavorite} hitSlop={8}>
-                <Feather
-                  name="star"
-                  size={18}
-                  color={block.is_favorite ? Colors.accent.primary : Colors.text.tertiary}
-                />
-              </Pressable>
-              <Pressable onPress={() => handleOpenPalette(null, 0)} hitSlop={8}>
-                <View style={styles.topBarPlus}>
-                  <Feather name="plus" size={18} color={Colors.accent.primary} />
-                </View>
-              </Pressable>
-              <Pressable onPress={handleDeleteBlock} hitSlop={8}>
-                <Feather name="trash-2" size={18} color={Colors.text.tertiary} />
-              </Pressable>
-            </View>
-          </View>
-
           {/* Discipline color strip */}
           <View style={[styles.colorStrip, { backgroundColor: disciplineColor }]} />
 
@@ -940,15 +756,12 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
             </View>
           )}
 
-          {/* Content groups */}
+          {/* Spine renderer with reorderable rows */}
           {renderContent()}
 
-          {/* Bottom slash menu + blank input (always full-width, outside sections) */}
-          {slashActive && slashKey === 'root_0' && (
-            <SlashCommandMenu query={slashQuery} onSelect={handleSlashSelect} />
-          )}
-          {renderBlankInput(null, 0, false)}
-        </ScrollView>
+          {/* Trailing add-station with inline menu */}
+          {block && <AddStation onInsert={handleAddInsert} />}
+        </NestableScrollContainer>
       </KeyboardAvoidingView>
 
       {/* Component palette */}
@@ -965,6 +778,13 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
         blockDiscipline={block.discipline}
         onAdd={handleExerciseAdd}
         onClose={() => setShowAddExercise(false)}
+      />
+
+      {/* Exercise library picker */}
+      <ExerciseLibrarySheet
+        visible={showLibrary}
+        blockId={blockId}
+        onClose={() => setShowLibrary(false)}
       />
 
       {/* Block action sheet */}
@@ -1035,22 +855,73 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screen.horizontal,
   },
 
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
   },
-  topBarActions: {
+  stickyHeaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(247,247,245,0.78)',
+  },
+  stickyHeaderHairline: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.hair.base,
+  },
+  stickyHeaderDisciplineStrip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 2,
+    opacity: 0.75,
+  },
+  stickyHeaderRow: {
+    height: 56,
     flexDirection: 'row',
-    gap: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.screen.horizontal,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: -6,
+  },
+  backLabel: {
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.regular,
+    color: Colors.ink.primary,
+  },
+  stickyTitle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: Typography.size.subheading,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.ink.primary,
+    letterSpacing: Typography.tracking.tight,
+    paddingHorizontal: 88,
+  },
+  stickyActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
   },
   topBarPlus: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: Colors.accent.primary,
+    borderColor: Colors.gold.base,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1109,116 +980,11 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
   },
 
-  // Full-width group
-  fullWidthGroup: {
-    gap: Spacing.xs,
-    overflow: 'visible' as const,
-  },
-
-  // Column sections
-  sectionContainer: {
-    marginVertical: Spacing.sm,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    marginBottom: Spacing.xs,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.background.elevated,
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  sectionLabel: {
-    fontSize: Typography.size.micro,
-    fontWeight: Typography.weight.semibold,
-    color: Colors.text.disabled,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sectionWidthRow: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 4,
-    justifyContent: 'center',
-  },
-  sectionWidthBtn: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
-  },
-  sectionWidthBtnActive: {
-    backgroundColor: Colors.accent.dim,
-  },
-  sectionWidthText: {
-    fontSize: 9,
-    fontWeight: Typography.weight.medium,
-    color: Colors.text.disabled,
-  },
-  sectionWidthTextActive: {
-    color: Colors.accent.primary,
-    fontWeight: Typography.weight.bold,
-  },
-
-  columnsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    overflow: 'visible' as const,
-  },
-  column: {
-    flex: 1,
-    minWidth: 0,
-    gap: Spacing.xs,
-  },
-
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.border.medium,
     marginVertical: Spacing.xl,
     marginHorizontal: Spacing.lg,
-  },
-
-  blankRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: Spacing.md,
-    paddingTop: Spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border.subtle,
-  },
-  blankAddBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.accent.dim,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.md,
-    marginRight: Spacing.xs,
-  },
-  blankInput: {
-    flex: 1,
-    fontSize: Typography.size.body,
-    color: Colors.text.primary,
-    lineHeight: Typography.size.body * Typography.lineHeight.relaxed,
-    minHeight: 80,
-    paddingVertical: Spacing.md,
-    textAlignVertical: 'top',
-  },
-  blankRowCompact: {
-    marginTop: Spacing.sm,
-    paddingTop: Spacing.xs,
-  },
-  blankInputCompact: {
-    fontSize: Typography.size.caption,
-    minHeight: 36,
-    paddingVertical: Spacing.sm,
   },
 
   aiFab: {

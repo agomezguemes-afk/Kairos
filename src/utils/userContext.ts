@@ -34,6 +34,21 @@ export interface BlockSummary {
   exerciseNames: string[];
 }
 
+export interface WeeklyAggregates {
+  /** Number of training sessions in the rolling 7-day window. */
+  sessions: number;
+  /** Sum of weight×reps in the window (only completed sets with both). */
+  totalVolume: number;
+  /** Total completed sets in the window. */
+  totalSets: number;
+  /** Set count by movement-pattern bucket inferred from exercise names. */
+  setsByBucket: Record<string, number>;
+  /** Top exercises by frequency (name → completed-set count). */
+  topExercises: Array<{ name: string; sets: number }>;
+  /** Crude compound vs isolation split based on a name keyword list. */
+  compoundIsolationRatio: { compound: number; isolation: number };
+}
+
 export interface UserContextSnapshot {
   profile: {
     level: string;
@@ -43,6 +58,10 @@ export interface UserContextSnapshot {
     weightKg: number | null;
     heightCm: number | null;
     disciplines: string[];
+    injuries: string | null;
+    workoutPlace: string | null;
+    equipment: string[];
+    equipmentNotes: string | null;
   };
   streak: { current: number; longest: number };
   activeMission: {
@@ -60,7 +79,10 @@ export interface UserContextSnapshot {
     unit: string | null;
     date: string;
   }>;
+  weeklyAggregates: WeeklyAggregates;
   badgeCount: number;
+  /** Optional id of the block the user is currently editing. Surfaces in the prompt. */
+  currentBlockId?: string;
 }
 
 // ======================== COLLECTOR ========================
@@ -72,6 +94,8 @@ export interface RawUserContext {
   prCards: PRCard[];
   badges: Badge[];
   activeMission: Mission | null;
+  /** Optional: pass when the user is inside a specific block editor. */
+  currentBlockId?: string;
 }
 
 /**
@@ -107,6 +131,8 @@ export function buildUserContextSnapshot(
       date: pr.date,
     }));
 
+  const weeklyAggregates = computeWeeklyAggregates(raw.blocks);
+
   return {
     profile: {
       level: raw.profile.fitnessLevel ?? 'unspecified',
@@ -116,6 +142,10 @@ export function buildUserContextSnapshot(
       weightKg: raw.profile.weight,
       heightCm: raw.profile.height,
       disciplines: raw.profile.disciplines,
+      injuries: raw.profile.injuries,
+      workoutPlace: raw.profile.workoutPlace,
+      equipment: raw.profile.equipment ?? [],
+      equipmentNotes: raw.profile.equipmentNotes ?? null,
     },
     streak: { current: raw.streak.current, longest: raw.streak.longest },
     activeMission: raw.activeMission
@@ -129,7 +159,102 @@ export function buildUserContextSnapshot(
     blocks,
     recentExercises,
     recentPRs,
+    weeklyAggregates,
     badgeCount: raw.badges.length,
+    currentBlockId: raw.currentBlockId,
+  };
+}
+
+// ======================== WEEKLY AGGREGATES ========================
+//
+// Lightweight, name-keyword based bucketing. Good enough for prompt context;
+// not a substitute for proper exercise tagging once we have it.
+
+const COMPOUND_KEYWORDS = [
+  'sentadilla',
+  'squat',
+  'press',
+  'banca',
+  'bench',
+  'peso muerto',
+  'deadlift',
+  'remo',
+  'row',
+  'dominada',
+  'pull-up',
+  'pullup',
+  'fondos',
+  'dip',
+  'clean',
+  'snatch',
+  'thruster',
+  'jerk',
+  'overhead',
+  'zancada',
+  'lunge',
+  'hip thrust',
+];
+
+const PUSH_KEYWORDS = ['press', 'banca', 'bench', 'fondos', 'dip', 'push', 'flexion', 'flexión', 'overhead'];
+const PULL_KEYWORDS = ['remo', 'row', 'dominada', 'pull-up', 'pullup', 'pull', 'curl', 'face pull'];
+const LEG_KEYWORDS = ['sentadilla', 'squat', 'lunge', 'zancada', 'peso muerto', 'deadlift', 'leg', 'calf', 'gemelo', 'hip thrust', 'glute', 'glúteo'];
+const CORE_KEYWORDS = ['plancha', 'plank', 'crunch', 'abs', 'abdominal', 'leg raise', 'hollow', 'sit-up', 'situp'];
+
+function bucketForName(name: string): string {
+  const n = name.toLowerCase();
+  if (LEG_KEYWORDS.some((k) => n.includes(k))) return 'legs';
+  if (PULL_KEYWORDS.some((k) => n.includes(k))) return 'pull';
+  if (PUSH_KEYWORDS.some((k) => n.includes(k))) return 'push';
+  if (CORE_KEYWORDS.some((k) => n.includes(k))) return 'core';
+  return 'other';
+}
+
+function isCompound(name: string): boolean {
+  const n = name.toLowerCase();
+  return COMPOUND_KEYWORDS.some((k) => n.includes(k));
+}
+
+function computeWeeklyAggregates(blocks: WorkoutBlock[]): WeeklyAggregates {
+  const cutoffMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const setsByBucket: Record<string, number> = {};
+  const setsByExercise = new Map<string, number>();
+  const sessionDates = new Set<string>();
+  let totalVolume = 0;
+  let totalSets = 0;
+  let compound = 0;
+  let isolation = 0;
+
+  for (const block of blocks) {
+    for (const ex of getBlockExercises(block)) {
+      for (const s of ex.sets) {
+        if (!s.completed || !s.completed_at) continue;
+        if (Date.parse(s.completed_at) < cutoffMs) continue;
+        totalSets += 1;
+        sessionDates.add(s.completed_at.slice(0, 10));
+        const bucket = bucketForName(ex.name);
+        setsByBucket[bucket] = (setsByBucket[bucket] ?? 0) + 1;
+        setsByExercise.set(ex.name, (setsByExercise.get(ex.name) ?? 0) + 1);
+        if (isCompound(ex.name)) compound += 1;
+        else isolation += 1;
+        const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : 0;
+        const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : 0;
+        totalVolume += w * r;
+      }
+    }
+  }
+
+  const topExercises = Array.from(setsByExercise.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, sets]) => ({ name, sets }));
+
+  return {
+    sessions: sessionDates.size,
+    totalVolume: Math.round(totalVolume),
+    totalSets,
+    setsByBucket,
+    topExercises,
+    compoundIsolationRatio: { compound, isolation },
   };
 }
 
@@ -155,6 +280,17 @@ export function renderContextForPrompt(snap: UserContextSnapshot): string {
   if (snap.profile.disciplines.length > 0) {
     lines.push(`- Disciplinas: ${snap.profile.disciplines.join(', ')}`);
   }
+  if (snap.profile.workoutPlace) {
+    lines.push(`- Lugar: ${snap.profile.workoutPlace}`);
+  }
+  if (snap.profile.equipment.length > 0 || snap.profile.equipmentNotes) {
+    const eq = [...snap.profile.equipment];
+    if (snap.profile.equipmentNotes) eq.push(`(otros: ${snap.profile.equipmentNotes})`);
+    lines.push(`- Material disponible: ${eq.join(', ') || 'ninguno indicado'}`);
+  }
+  if (snap.profile.injuries) {
+    lines.push(`- Lesiones / limitaciones: ${snap.profile.injuries}`);
+  }
 
   lines.push('');
   lines.push(`RACHA: ${snap.streak.current} días (máx ${snap.streak.longest})`);
@@ -171,11 +307,32 @@ export function renderContextForPrompt(snap: UserContextSnapshot): string {
     lines.push('BLOQUES ACTUALES (usa estos IDs al actualizar o eliminar):');
     for (const b of snap.blocks) {
       const list = b.exerciseNames.length > 0 ? ` → ${b.exerciseNames.join(', ')}` : '';
-      lines.push(`- [${b.id}] "${b.name}" (${b.discipline}, ${b.exerciseCount} ej.)${list}`);
+      const cur = b.id === snap.currentBlockId ? ' [BLOQUE ACTIVO]' : '';
+      lines.push(`- [${b.id}] "${b.name}" (${b.discipline}, ${b.exerciseCount} ej.)${list}${cur}`);
     }
   } else {
     lines.push('');
     lines.push('BLOQUES ACTUALES: ninguno. El usuario todavía no ha creado bloques.');
+  }
+
+  // Weekly aggregates — concise so we don't blow the budget.
+  const wa = snap.weeklyAggregates;
+  if (wa.totalSets > 0) {
+    lines.push('');
+    lines.push('ÚLTIMOS 7 DÍAS:');
+    lines.push(`- Sesiones: ${wa.sessions} · Series completadas: ${wa.totalSets} · Volumen: ${wa.totalVolume}kg`);
+    const buckets = Object.entries(wa.setsByBucket)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k}:${v}`);
+    if (buckets.length > 0) lines.push(`- Distribución: ${buckets.join(' / ')}`);
+    const ratio = wa.compoundIsolationRatio;
+    if (ratio.compound + ratio.isolation > 0) {
+      lines.push(`- Compuestos vs aislados: ${ratio.compound} / ${ratio.isolation}`);
+    }
+    if (wa.topExercises.length > 0) {
+      const tops = wa.topExercises.map((e) => `${e.name}(${e.sets})`).join(', ');
+      lines.push(`- Top ejercicios: ${tops}`);
+    }
   }
 
   if (snap.recentExercises.length > 0) {
