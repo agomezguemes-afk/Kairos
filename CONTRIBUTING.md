@@ -5,15 +5,48 @@ bisectable. Read once; revisit when something below feels wrong.
 
 ## Branching
 
-- `main` is the production branch. Tagged releases (`v0.1.0`, `v0.2.0`, …)
-  cut from here. Direct pushes to main are discouraged; everything goes
-  through a PR.
-- Feature branches: `feature/<topic>` (e.g. `feature/dashboards-by-exercise`).
-- Hotfixes (urgent bug on prod): `hotfix/<topic>`, PR'd straight to main,
-  back-merged into any in-flight feature branches.
+Three long-lived branches, one per environment:
 
-Branches are short-lived. If a branch has not landed within ~2 weeks it
-either ships or gets reviewed for descoping.
+```
+main      ← Production         (App Store / TestFlight External)
+            ↑ PR + approval
+staging   ← Pre-release QA      (TestFlight Internal, manual smoke test)
+            ↑ PR + green CI
+dev       ← Integration         (default working branch, every commit ships
+                                 to the development-env build)
+            ↑ PR (or direct push for hotfixes < 10 LOC)
+feature/* ← Feature work        (branch off dev, PR back to dev)
+hotfix/*  ← Urgent prod bug     (branch off main, PR to main + back-merge to staging + dev)
+```
+
+Day-to-day:
+
+1. `git switch dev && git pull`
+2. `git switch -c feature/<topic>`
+3. Work, commit, push, open PR targeting **`dev`**.
+4. Merge once CI is green.
+
+Promotion to staging:
+
+1. When `dev` has a coherent set of changes ready for QA:
+   `git switch staging && git merge --no-ff dev` → push.
+2. CI runs the same gates; smoke-test the staging build on device.
+
+Promotion to main (release):
+
+1. When staging has been validated:
+   `git switch main && git merge --no-ff staging` → push.
+2. Tag the commit: `git tag -a v0.X.0 -m "..."` → push tag.
+3. CI builds the production variant (Fase 3 will automate this).
+
+Hotfixes:
+
+1. Branch from `main`: `git switch -c hotfix/<topic> main`.
+2. PR to `main`. After merge, **back-merge to staging and dev** so the
+   fix doesn't get re-broken by the next promotion.
+
+Feature branches are short-lived. If a feature has not landed within
+~2 weeks it either ships behind a flag or gets descoped.
 
 ## Local setup
 
