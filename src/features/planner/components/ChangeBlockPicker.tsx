@@ -60,20 +60,25 @@ export default function ChangeBlockPicker({ visible, assignmentId, date, onClose
             keyExtractor={(b) => b.id}
             ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
             ListEmptyComponent={() => (
-              <Text style={styles.emptyHint}>
-                Crea un bloque primero desde la pestaña Bloques.
-              </Text>
+              <Text style={styles.emptyHint}>Crea un bloque primero desde la pestaña Bloques.</Text>
             )}
             renderItem={({ item }) => (
               <Pressable
-                onPress={() => { change(assignmentId, date, item.id); onClose(); }}
+                onPress={() => {
+                  change(assignmentId, date, item.id);
+                  onClose();
+                }}
                 style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
                 accessibilityRole="button"
                 accessibilityLabel={item.name}
               >
-                <View style={[styles.swatch, { backgroundColor: item.color || Colors.gold.glow }]} />
+                <View
+                  style={[styles.swatch, { backgroundColor: item.color || Colors.gold.glow }]}
+                />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {item.name}
+                  </Text>
                   <Text style={styles.meta}>
                     {DISCIPLINE_CONFIGS[item.discipline]?.name ?? item.discipline}
                   </Text>

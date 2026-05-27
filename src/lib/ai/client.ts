@@ -88,7 +88,10 @@ export interface GroqCompletion {
 // ======================== ERRORS ========================
 
 export class GroqError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message);
     this.name = 'GroqError';
   }
@@ -175,10 +178,7 @@ export async function chatCompletion(
  * the raw assistant text. Throws if the model returned tool_calls instead
  * of plain content (callers asking for text shouldn't be passing tools).
  */
-export async function callGroq(
-  messages: GroqMessage[],
-  opts: GroqOptions = {},
-): Promise<string> {
+export async function callGroq(messages: GroqMessage[], opts: GroqOptions = {}): Promise<string> {
   const choice = await chatCompletion(messages, opts);
   const content = choice.message.content;
   if (typeof content !== 'string') {
@@ -207,11 +207,7 @@ export interface StreamCallbacks {
    *  - `toolCalls`: assembled tool calls (empty array if none).
    *  - `finishReason`: 'stop' | 'tool_calls' | 'length' | 'content_filter' | string
    */
-  onDone?: (final: {
-    text: string;
-    toolCalls: StreamedToolCall[];
-    finishReason: string;
-  }) => void;
+  onDone?: (final: { text: string; toolCalls: StreamedToolCall[]; finishReason: string }) => void;
   /** Fires on transport / parse failure. The promise rejects too. */
   onError?: (err: GroqError) => void;
 }

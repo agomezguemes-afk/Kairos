@@ -74,28 +74,21 @@ export default function OnboardingChatScreen({ navigation }: any) {
   }, [history.length, step]);
 
   // Push a user answer + Kai's next message, then advance
-  const advanceStep = useCallback(
-    (userAnswer: string, nextStep: StepId, kaiMessage: string) => {
-      setHistory((prev) => [
-        ...prev,
-        { type: 'user', text: userAnswer },
-        { type: 'kai', text: kaiMessage },
-      ]);
-      setStep(nextStep);
-    },
-    [],
-  );
+  const advanceStep = useCallback((userAnswer: string, nextStep: StepId, kaiMessage: string) => {
+    setHistory((prev) => [
+      ...prev,
+      { type: 'user', text: userAnswer },
+      { type: 'kai', text: kaiMessage },
+    ]);
+    setStep(nextStep);
+  }, []);
 
   // ======================== HANDLERS ========================
 
   const handleGoal = useCallback(
     (goal: FitnessGoal, label: string) => {
       setPrimaryGoal(goal);
-      advanceStep(
-        label,
-        'level',
-        '¡Perfecto! ¿Cuál es tu nivel de experiencia?',
-      );
+      advanceStep(label, 'level', '¡Perfecto! ¿Cuál es tu nivel de experiencia?');
     },
     [setPrimaryGoal, advanceStep],
   );
@@ -128,11 +121,7 @@ export default function OnboardingChatScreen({ navigation }: any) {
         return opt ? opt.label : d;
       })
       .join(', ');
-    advanceStep(
-      labels,
-      'frequency',
-      '¿Cuántos días a la semana quieres entrenar?',
-    );
+    advanceStep(labels, 'frequency', '¿Cuántos días a la semana quieres entrenar?');
   }, [selectedDisciplines, setDisciplines, advanceStep]);
 
   const handleFrequency = useCallback(
@@ -314,10 +303,7 @@ export default function OnboardingChatScreen({ navigation }: any) {
             <View style={styles.bodyActions}>
               <Pressable
                 onPress={handleSubmitBody}
-                style={({ pressed }) => [
-                  styles.confirmBtn,
-                  pressed && { opacity: 0.8 },
-                ]}
+                style={({ pressed }) => [styles.confirmBtn, pressed && { opacity: 0.8 }]}
               >
                 <Text style={styles.confirmBtnText}>
                   {ageInput || weightInput || heightInput ? 'Continuar' : 'Omitir'}
@@ -362,10 +348,7 @@ export default function OnboardingChatScreen({ navigation }: any) {
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 24 },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

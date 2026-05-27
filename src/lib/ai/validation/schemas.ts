@@ -41,26 +41,18 @@ export const TextFormatSchema = v.picklist([
 ]);
 
 /** Position within a block's content. `undefined` means append. */
-export const PositionSchema = v.optional(
-  v.pipe(v.number(), v.integer(), v.minValue(0)),
-);
+export const PositionSchema = v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)));
 
 /** A reps value: number for counted, "40s" / "5m" for timed. */
 export const RepsSchema = v.optional(
-  v.union([
-    v.pipe(v.number(), v.minValue(0)),
-    v.pipe(v.string(), v.trim(), v.minLength(1)),
-  ]),
+  v.union([v.pipe(v.number(), v.minValue(0)), v.pipe(v.string(), v.trim(), v.minLength(1))]),
 );
 
 export const PositiveInt = v.pipe(v.number(), v.integer(), v.minValue(1));
 export const NonNegativeInt = v.pipe(v.number(), v.integer(), v.minValue(0));
 export const NonNegativeNumber = v.pipe(v.number(), v.minValue(0));
 
-export const HexColor = v.pipe(
-  v.string(),
-  v.regex(/^#[0-9a-fA-F]{6}$/, 'expected #RRGGBB'),
-);
+export const HexColor = v.pipe(v.string(), v.regex(/^#[0-9a-fA-F]{6}$/, 'expected #RRGGBB'));
 
 const FIELD_TYPES = [
   'number',
@@ -104,9 +96,7 @@ export const FieldDefinitionInputSchema = v.object({
   min: v.optional(v.number()),
   max: v.optional(v.number()),
   step: v.optional(v.number()),
-  defaultValue: v.optional(
-    v.union([v.number(), v.string(), v.boolean(), v.null()]),
-  ),
+  defaultValue: v.optional(v.union([v.number(), v.string(), v.boolean(), v.null()])),
 });
 
 export type FieldDefinitionInput = v.InferOutput<typeof FieldDefinitionInputSchema>;

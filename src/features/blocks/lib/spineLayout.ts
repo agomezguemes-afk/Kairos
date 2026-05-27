@@ -14,24 +14,17 @@
 // already part of the type so we don't have to rewrite the renderer when
 // pairing kicks in.
 
-import type {
-  ContentNode,
-  ColumnSectionContentNode,
-} from '../../../types/content';
+import type { ContentNode, ColumnSectionContentNode } from '../../../types/content';
 
 export type StationKind =
-  | 'exercise'   // ExerciseContentNode
-  | 'superset'   // SupersetContentNode (rendered as wide tile with sub-bento)
-  | 'note'       // TextContentNode
-  | 'divider'    // DividerContentNode
-  | 'section'    // ColumnSectionContentNode header
-  | 'tool';      // image / timer / dashboard / spacer / subBlock / customField
+  | 'exercise' // ExerciseContentNode
+  | 'superset' // SupersetContentNode (rendered as wide tile with sub-bento)
+  | 'note' // TextContentNode
+  | 'divider' // DividerContentNode
+  | 'section' // ColumnSectionContentNode header
+  | 'tool'; // image / timer / dashboard / spacer / subBlock / customField
 
-export type StationState =
-  | 'pending'
-  | 'inProgress'
-  | 'completed'
-  | 'skipped';
+export type StationState = 'pending' | 'inProgress' | 'completed' | 'skipped';
 
 export type TileSize = 'full' | 'half' | 'wide';
 
@@ -50,12 +43,18 @@ export interface SpineRow {
 
 export function stationKindFor(node: ContentNode): StationKind {
   switch (node.type) {
-    case 'exercise':       return 'exercise';
-    case 'superset':       return 'superset';
-    case 'text':           return 'note';
-    case 'divider':        return 'divider';
-    case 'columnSection':  return 'section';
-    default:               return 'tool';
+    case 'exercise':
+      return 'exercise';
+    case 'superset':
+      return 'superset';
+    case 'text':
+      return 'note';
+    case 'divider':
+      return 'divider';
+    case 'columnSection':
+      return 'section';
+    default:
+      return 'tool';
   }
 }
 
@@ -67,7 +66,7 @@ export function buildSpineRows(nodes: ContentNode[]): SpineRow[] {
   const sectionNodes = sorted.filter(
     (n): n is ColumnSectionContentNode => n.type === 'columnSection',
   );
-  const sectionIds = new Set(sectionNodes.map(n => n.id));
+  const sectionIds = new Set(sectionNodes.map((n) => n.id));
 
   const childrenBySection = new Map<string, ContentNode[]>();
   for (const id of sectionIds) childrenBySection.set(id, []);

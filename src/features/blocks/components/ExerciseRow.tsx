@@ -54,8 +54,8 @@ function ExerciseRowInner({
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(exercise.name);
   const [showFieldConfig, setShowFieldConfig] = useState(false);
-  const updateExercise = useWorkoutStore(s => s.updateExercise);
-  const workoutHistory = useWorkoutStore(s => s.workoutHistory);
+  const updateExercise = useWorkoutStore((s) => s.updateExercise);
+  const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
   const historyIndex = useExerciseHistoryIndex();
 
   // Ghost values shown in empty sets — drawn from the user's most recent
@@ -65,15 +65,15 @@ function ExerciseRowInner({
     const out: Record<string, string> = {};
     const ref = lookupLastCompletedReference(exercise, workoutHistory, historyIndex);
     if (ref?.weight != null) out.weight = trimZero(ref.weight);
-    if (ref?.reps != null)   out.reps   = String(ref.reps);
+    if (ref?.reps != null) out.reps = String(ref.reps);
     if (ref == null) {
       if (exercise.goalWeight != null) out.weight = trimZero(exercise.goalWeight);
-      if (exercise.goalReps   != null) out.reps   = String(exercise.goalReps);
+      if (exercise.goalReps != null) out.reps = String(exercise.goalReps);
     }
     return out;
   }, [exercise, workoutHistory, historyIndex]);
 
-  const completedSets = exercise.sets.filter(s => s.completed).length;
+  const completedSets = exercise.sets.filter((s) => s.completed).length;
   const totalSets = exercise.sets.length;
   const pct = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
   const allDone = completedSets === totalSets && totalSets > 0;
@@ -83,7 +83,7 @@ function ExerciseRowInner({
   const toggleExpand = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setExpanded(prev => !prev);
+    setExpanded((prev) => !prev);
   }, []);
 
   const handleNameSubmit = useCallback(() => {
@@ -116,36 +116,48 @@ function ExerciseRowInner({
     [exercise.id, onRemoveSet],
   );
 
-  const handleSaveFields = useCallback((newFields: FieldDefinition[]) => {
-    updateExercise(blockId, exercise.id, { fields: newFields });
-  }, [blockId, exercise.id, updateExercise]);
+  const handleSaveFields = useCallback(
+    (newFields: FieldDefinition[]) => {
+      updateExercise(blockId, exercise.id, { fields: newFields });
+    },
+    [blockId, exercise.id, updateExercise],
+  );
 
   // Goal + rest are surfaced in the editor so the user sees the planned
   // numbers a workout will preload (see workoutStore.startWorkout).
-  const adjustGoalWeight = useCallback((delta: number) => {
-    Haptics.selectionAsync().catch(() => {});
-    const current = exercise.goalWeight ?? 0;
-    const next = Math.max(0, Math.round((current + delta) * 10) / 10);
-    updateExercise(blockId, exercise.id, { goalWeight: next });
-  }, [blockId, exercise.id, exercise.goalWeight, updateExercise]);
+  const adjustGoalWeight = useCallback(
+    (delta: number) => {
+      Haptics.selectionAsync().catch(() => {});
+      const current = exercise.goalWeight ?? 0;
+      const next = Math.max(0, Math.round((current + delta) * 10) / 10);
+      updateExercise(blockId, exercise.id, { goalWeight: next });
+    },
+    [blockId, exercise.id, exercise.goalWeight, updateExercise],
+  );
 
-  const adjustGoalReps = useCallback((delta: number) => {
-    Haptics.selectionAsync().catch(() => {});
-    const current = exercise.goalReps ?? 0;
-    const next = Math.max(0, current + delta);
-    updateExercise(blockId, exercise.id, { goalReps: next });
-  }, [blockId, exercise.id, exercise.goalReps, updateExercise]);
+  const adjustGoalReps = useCallback(
+    (delta: number) => {
+      Haptics.selectionAsync().catch(() => {});
+      const current = exercise.goalReps ?? 0;
+      const next = Math.max(0, current + delta);
+      updateExercise(blockId, exercise.id, { goalReps: next });
+    },
+    [blockId, exercise.id, exercise.goalReps, updateExercise],
+  );
 
-  const adjustRest = useCallback((delta: number) => {
-    Haptics.selectionAsync().catch(() => {});
-    const current = exercise.rest_seconds ?? 0;
-    const next = Math.max(0, current + delta);
-    updateExercise(blockId, exercise.id, { rest_seconds: next });
-  }, [blockId, exercise.id, exercise.rest_seconds, updateExercise]);
+  const adjustRest = useCallback(
+    (delta: number) => {
+      Haptics.selectionAsync().catch(() => {});
+      const current = exercise.rest_seconds ?? 0;
+      const next = Math.max(0, current + delta);
+      updateExercise(blockId, exercise.id, { rest_seconds: next });
+    },
+    [blockId, exercise.id, exercise.rest_seconds, updateExercise],
+  );
 
   const maxFields = compact ? 2 : 4;
   const visibleFields = exercise.fields
-    .filter(f => f.type !== 'boolean' || f.isPrimary)
+    .filter((f) => f.type !== 'boolean' || f.isPrimary)
     .sort((a, b) => a.order - b.order)
     .slice(0, maxFields);
 
@@ -169,14 +181,26 @@ function ExerciseRowInner({
               returnKeyType="done"
             />
           ) : (
-            <Pressable onLongPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setEditingName(true);
-            }} delayLongPress={300}>
-              <Text style={[styles.exerciseName, compact && styles.exerciseNameCompact]} numberOfLines={1}>{exercise.name}</Text>
+            <Pressable
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setEditingName(true);
+              }}
+              delayLongPress={300}
+            >
+              <Text
+                style={[styles.exerciseName, compact && styles.exerciseNameCompact]}
+                numberOfLines={1}
+              >
+                {exercise.name}
+              </Text>
             </Pressable>
           )}
-          {!compact && <Text style={styles.exerciseSummary} numberOfLines={1}>{summary}</Text>}
+          {!compact && (
+            <Text style={styles.exerciseSummary} numberOfLines={1}>
+              {summary}
+            </Text>
+          )}
         </View>
 
         <View style={styles.headerRight}>
@@ -198,10 +222,15 @@ function ExerciseRowInner({
       {/* Mini progress bar */}
       {totalSets > 0 && !expanded && (
         <View style={styles.miniProgressTrack}>
-          <View style={[
-            styles.miniProgressFill,
-            { width: `${pct}%` as `${number}%`, backgroundColor: allDone ? Colors.semantic.success : disciplineColor },
-          ]} />
+          <View
+            style={[
+              styles.miniProgressFill,
+              {
+                width: `${pct}%` as `${number}%`,
+                backgroundColor: allDone ? Colors.semantic.success : disciplineColor,
+              },
+            ]}
+          />
         </View>
       )}
 
@@ -239,9 +268,10 @@ function ExerciseRowInner({
             <View style={styles.columnHeaders}>
               <Text style={[styles.columnLabel, styles.setNumCol]}>#</Text>
               <View style={styles.fieldsHeaderRow}>
-                {visibleFields.map(f => (
+                {visibleFields.map((f) => (
                   <Text key={f.id} style={[styles.columnLabel, styles.fieldCol]} numberOfLines={1}>
-                    {f.name}{f.unit ? ` (${f.unit})` : ''}
+                    {f.name}
+                    {f.unit ? ` (${f.unit})` : ''}
                   </Text>
                 ))}
               </View>
@@ -321,11 +351,20 @@ interface GoalControlProps {
   compact?: boolean;
 }
 
-function GoalControl({ label, value, suffix, onDecrement, onIncrement, compact }: GoalControlProps) {
+function GoalControl({
+  label,
+  value,
+  suffix,
+  onDecrement,
+  onIncrement,
+  compact,
+}: GoalControlProps) {
   const display = value == null ? '—' : suffix ? `${value}${suffix}` : String(value);
   return (
     <View style={[styles.goalControl, compact && styles.goalControlCompact]}>
-      <Text style={styles.goalLabel} numberOfLines={1}>{label}</Text>
+      <Text style={styles.goalLabel} numberOfLines={1}>
+        {label}
+      </Text>
       <View style={styles.goalRow}>
         <Pressable
           onPress={onDecrement}
@@ -335,7 +374,9 @@ function GoalControl({ label, value, suffix, onDecrement, onIncrement, compact }
         >
           <Feather name="minus" size={12} color={Colors.text.secondary} />
         </Pressable>
-        <Text style={styles.goalValue} numberOfLines={1}>{display}</Text>
+        <Text style={styles.goalValue} numberOfLines={1}>
+          {display}
+        </Text>
         <Pressable
           onPress={onIncrement}
           hitSlop={6}
@@ -384,7 +425,8 @@ function areExerciseRowPropsEqual(prev: ExerciseRowProps, next: ExerciseRowProps
     const sb = b.sets[i];
     if (sa.id !== sb.id) return false;
     if (sa.completed !== sb.completed) return false;
-    if (sa.values !== sb.values && JSON.stringify(sa.values) !== JSON.stringify(sb.values)) return false;
+    if (sa.values !== sb.values && JSON.stringify(sa.values) !== JSON.stringify(sb.values))
+      return false;
   }
   return true;
 }

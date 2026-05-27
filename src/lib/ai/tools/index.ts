@@ -4,11 +4,7 @@
 // against `TOOL_REGISTRY`. Adding a new capability = drop a `ToolDefinition`
 // here and the rest of the agent picks it up automatically.
 
-import {
-  createBlockTool,
-  deleteBlockTool,
-  setBlockMetaTool,
-} from './blockTools';
+import { createBlockTool, deleteBlockTool, setBlockMetaTool } from './blockTools';
 import {
   addCustomFieldTool,
   addDashboardTool,
@@ -35,7 +31,7 @@ import {
 import type { GroqToolDefinition } from '../client';
 import type { ToolDefinition, ToolRegistry } from './types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const ALL: ToolDefinition<any, any>[] = [
   // Block-level
   createBlockTool,
@@ -64,9 +60,7 @@ const ALL: ToolDefinition<any, any>[] = [
   removeSetTool,
 ];
 
-export const TOOL_REGISTRY: ToolRegistry = Object.fromEntries(
-  ALL.map((t) => [t.name, t]),
-);
+export const TOOL_REGISTRY: ToolRegistry = Object.fromEntries(ALL.map((t) => [t.name, t]));
 
 /** Groq-shaped definitions (the `tools` array sent in every request). */
 export const TOOL_DEFINITIONS: GroqToolDefinition[] = ALL.map((t) => ({

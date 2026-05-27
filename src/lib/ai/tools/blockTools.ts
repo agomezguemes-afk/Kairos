@@ -9,12 +9,7 @@ import * as v from 'valibot';
 
 import { useWorkoutStore } from '../../../store/workoutStore';
 import type { Discipline } from '../../../types/core';
-import {
-  DisciplineSchema,
-  HexColor,
-  IdString,
-  NonEmptyString,
-} from '../validation/schemas';
+import { DisciplineSchema, HexColor, IdString, NonEmptyString } from '../validation/schemas';
 import { getBlockOrThrow } from './helpers';
 import type { ToolDefinition } from './types';
 

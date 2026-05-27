@@ -83,10 +83,7 @@ function Dot({ index }: { index: number }) {
     const animate = () => {
       opacity.value = withDelay(
         index * 200,
-        withSequence(
-          withTiming(1, { duration: 300 }),
-          withTiming(0.3, { duration: 300 }),
-        ),
+        withSequence(withTiming(1, { duration: 300 }), withTiming(0.3, { duration: 300 })),
       );
     };
     animate();

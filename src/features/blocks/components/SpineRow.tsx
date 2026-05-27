@@ -79,9 +79,7 @@ function SpineRowImpl({ row, drag, isActive, onTap, onLongPress, children }: Pro
   return (
     <Animated.View
       layout={
-        reduceMotion
-          ? undefined
-          : LinearTransition.duration(280).easing(Easing.out(Easing.cubic))
+        reduceMotion ? undefined : LinearTransition.duration(280).easing(Easing.out(Easing.cubic))
       }
       entering={reduceMotion ? FadeIn.duration(120) : FadeIn.duration(220)}
       style={styles.row}
@@ -94,17 +92,13 @@ function SpineRowImpl({ row, drag, isActive, onTap, onLongPress, children }: Pro
         accessibilityRole="button"
         accessibilityLabel="Estación del bloque"
         accessibilityHint={
-          drag
-            ? 'Toca para acciones, mantén pulsado para mover'
-            : 'Mantén pulsado para acciones'
+          drag ? 'Toca para acciones, mantén pulsado para mover' : 'Mantén pulsado para acciones'
         }
         style={styles.rail}
       >
         <StationNode kind={row.kind} state={row.state} />
       </Pressable>
-      <Animated.View style={[styles.tile, Shadows.subtle, tileStyle]}>
-        {children}
-      </Animated.View>
+      <Animated.View style={[styles.tile, Shadows.subtle, tileStyle]}>{children}</Animated.View>
     </Animated.View>
   );
 }

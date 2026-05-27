@@ -27,28 +27,33 @@ interface Props {
 }
 
 function DayCellInner({
-  date, selected, isToday, dotColors, hasAssignment, isOtherMonth,
-  showWeekdayLabel, size = 'week', onPress,
+  date,
+  selected,
+  isToday,
+  dotColors,
+  hasAssignment,
+  isOtherMonth,
+  showWeekdayLabel,
+  size = 'week',
+  onPress,
 }: Props) {
   const handle = () => {
     Haptics.selectionAsync().catch(() => {});
     onPress(date);
   };
 
-  const numberColor =
-    isOtherMonth   ? Colors.ink.muted    :
-    selected       ? Colors.ink.inverse  :
-    isToday        ? Colors.gold.base    :
-                     Colors.ink.primary;
+  const numberColor = isOtherMonth
+    ? Colors.ink.muted
+    : selected
+      ? Colors.ink.inverse
+      : isToday
+        ? Colors.gold.base
+        : Colors.ink.primary;
 
   // Resolve final dot list. dotColors wins; legacy hasAssignment is a
   // single gold dot fallback for callers that haven't migrated.
   const dots: string[] =
-    dotColors && dotColors.length > 0
-      ? dotColors
-      : hasAssignment
-        ? [Colors.gold.base]
-        : [];
+    dotColors && dotColors.length > 0 ? dotColors : hasAssignment ? [Colors.gold.base] : [];
 
   return (
     <Pressable
@@ -66,14 +71,14 @@ function DayCellInner({
           {formatWeekdayNarrow(date)}
         </Text>
       )}
-      <View style={[
-        styles.numberWrap,
-        selected && styles.numberWrapSelected,
-        !selected && isToday && styles.numberWrapToday,
-      ]}>
-        <Text style={[styles.number, { color: numberColor }]}>
-          {formatDayNumber(date)}
-        </Text>
+      <View
+        style={[
+          styles.numberWrap,
+          selected && styles.numberWrapSelected,
+          !selected && isToday && styles.numberWrapToday,
+        ]}
+      >
+        <Text style={[styles.number, { color: numberColor }]}>{formatDayNumber(date)}</Text>
       </View>
       <View style={styles.dotRow}>
         {dots.slice(0, 3).map((c, i) => (
@@ -100,7 +105,7 @@ const styles = StyleSheet.create({
   },
   // WHY: tighter vertical extents so the persistent month grid doesn't
   // dominate the screen. minHeight reduced from 56/44 → 50/40.
-  weekSize:  { minHeight: 50, paddingHorizontal: 4 },
+  weekSize: { minHeight: 50, paddingHorizontal: 4 },
   monthSize: { minHeight: 40, paddingHorizontal: 2 },
   pressed: { opacity: 0.7 },
   weekday: {
@@ -110,9 +115,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   numberWrap: {
-    width: 32, height: 32,
+    width: 32,
+    height: 32,
     borderRadius: Radius.full,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   numberWrapSelected: {
     backgroundColor: Colors.gold.base,
@@ -126,11 +133,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dotRow: {
-    height: 6, marginTop: 3,
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    height: 6,
+    marginTop: 3,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dot: {
-    width: 4, height: 4, borderRadius: 2,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   // WHY: tiny gap between dots — read as separate signals, not a smudge.
   dotGap: {

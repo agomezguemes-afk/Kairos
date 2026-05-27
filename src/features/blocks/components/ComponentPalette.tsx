@@ -33,45 +33,153 @@ const SECTIONS: PaletteSection[] = [
   {
     title: 'Escritura',
     items: [
-      { type: 'text', label: 'Texto', desc: 'Parrafo, heading, lista', icon: 'type', color: Colors.text.secondary },
-      { type: 'text_h1', label: 'Titulo', desc: 'Heading grande', icon: 'bold', color: Colors.text.primary },
-      { type: 'text_bullet', label: 'Lista', desc: 'Viñetas o numerada', icon: 'list', color: '#3B82F6' },
-      { type: 'text_checklist', label: 'Checklist', desc: 'Lista con casillas', icon: 'check-square', color: '#10B981' },
+      {
+        type: 'text',
+        label: 'Texto',
+        desc: 'Parrafo, heading, lista',
+        icon: 'type',
+        color: Colors.text.secondary,
+      },
+      {
+        type: 'text_h1',
+        label: 'Titulo',
+        desc: 'Heading grande',
+        icon: 'bold',
+        color: Colors.text.primary,
+      },
+      {
+        type: 'text_bullet',
+        label: 'Lista',
+        desc: 'Viñetas o numerada',
+        icon: 'list',
+        color: '#3B82F6',
+      },
+      {
+        type: 'text_checklist',
+        label: 'Checklist',
+        desc: 'Lista con casillas',
+        icon: 'check-square',
+        color: '#10B981',
+      },
     ],
   },
   {
     title: 'Entrenamiento',
     items: [
-      { type: 'exercise', label: 'Ejercicio', desc: 'Series y campos', icon: 'activity', color: '#E84545' },
-      { type: 'subBlock', label: 'Sub-bloque', desc: 'Bloque anidado', icon: 'layers', color: '#8B5CF6' },
-      { type: 'timer', label: 'Cuenta regresiva', desc: 'Temporizador con preset', icon: 'clock', color: '#06B6D4' },
-      { type: 'timer_stopwatch', label: 'Cronómetro', desc: 'Tiempo libre', icon: 'watch', color: '#06B6D4' },
-      { type: 'rest', label: 'Descanso', desc: 'Temporizador de pausa', icon: 'pause-circle', color: '#64748B' },
-      { type: 'superset', label: 'Superserie', desc: 'Ejercicios sin descanso', icon: 'repeat', color: '#EC4899' },
+      {
+        type: 'exercise',
+        label: 'Ejercicio',
+        desc: 'Series y campos',
+        icon: 'activity',
+        color: '#E84545',
+      },
+      {
+        type: 'subBlock',
+        label: 'Sub-bloque',
+        desc: 'Bloque anidado',
+        icon: 'layers',
+        color: '#8B5CF6',
+      },
+      {
+        type: 'timer',
+        label: 'Cuenta regresiva',
+        desc: 'Temporizador con preset',
+        icon: 'clock',
+        color: '#06B6D4',
+      },
+      {
+        type: 'timer_stopwatch',
+        label: 'Cronómetro',
+        desc: 'Tiempo libre',
+        icon: 'watch',
+        color: '#06B6D4',
+      },
+      {
+        type: 'rest',
+        label: 'Descanso',
+        desc: 'Temporizador de pausa',
+        icon: 'pause-circle',
+        color: '#64748B',
+      },
+      {
+        type: 'superset',
+        label: 'Superserie',
+        desc: 'Ejercicios sin descanso',
+        icon: 'repeat',
+        color: '#EC4899',
+      },
     ],
   },
   {
     title: 'Dashboards',
     items: [
-      { type: 'dashboard', label: 'Datos y resumen', desc: 'Volumen, series, etc.', icon: 'bar-chart-2', color: Colors.accent.primary },
-      { type: 'dashboard_progress', label: 'Barra de progreso', desc: 'Avance del bloque', icon: 'pie-chart', color: '#10B981' },
-      { type: 'dashboard_list', label: 'Lista de ejercicios', desc: 'Estado por ejercicio', icon: 'list', color: '#3B82F6' },
+      {
+        type: 'dashboard',
+        label: 'Datos y resumen',
+        desc: 'Volumen, series, etc.',
+        icon: 'bar-chart-2',
+        color: Colors.accent.primary,
+      },
+      {
+        type: 'dashboard_progress',
+        label: 'Barra de progreso',
+        desc: 'Avance del bloque',
+        icon: 'pie-chart',
+        color: '#10B981',
+      },
+      {
+        type: 'dashboard_list',
+        label: 'Lista de ejercicios',
+        desc: 'Estado por ejercicio',
+        icon: 'list',
+        color: '#3B82F6',
+      },
     ],
   },
   {
     title: 'Estructura',
     items: [
-      { type: '2col', label: '2 columnas', desc: 'Sección dividida en 2', icon: 'columns', color: Colors.accent.primary },
-      { type: '3col', label: '3 columnas', desc: 'Sección dividida en 3', icon: 'columns', color: Colors.accent.primary },
-      { type: 'divider', label: 'Separador', desc: 'Línea horizontal', icon: 'minus', color: Colors.text.tertiary },
-      { type: 'spacer', label: 'Espaciador', desc: 'Espacio vacío', icon: 'maximize', color: Colors.text.disabled },
+      {
+        type: '2col',
+        label: '2 columnas',
+        desc: 'Sección dividida en 2',
+        icon: 'columns',
+        color: Colors.accent.primary,
+      },
+      {
+        type: '3col',
+        label: '3 columnas',
+        desc: 'Sección dividida en 3',
+        icon: 'columns',
+        color: Colors.accent.primary,
+      },
+      {
+        type: 'divider',
+        label: 'Separador',
+        desc: 'Línea horizontal',
+        icon: 'minus',
+        color: Colors.text.tertiary,
+      },
+      {
+        type: 'spacer',
+        label: 'Espaciador',
+        desc: 'Espacio vacío',
+        icon: 'maximize',
+        color: Colors.text.disabled,
+      },
     ],
   },
   {
     title: 'Media',
     items: [
       { type: 'image', label: 'Imagen', desc: 'Foto o cámara', icon: 'image', color: '#06B6D4' },
-      { type: 'customField', label: 'Campo libre', desc: 'Métrica personalizada', icon: 'sliders', color: Colors.accent.primary },
+      {
+        type: 'customField',
+        label: 'Campo libre',
+        desc: 'Métrica personalizada',
+        icon: 'sliders',
+        color: Colors.accent.primary,
+      },
     ],
   },
 ];
@@ -83,7 +191,12 @@ interface ComponentPaletteProps {
   insideSection?: boolean;
 }
 
-export default function ComponentPalette({ visible, onSelect, onClose, insideSection }: ComponentPaletteProps) {
+export default function ComponentPalette({
+  visible,
+  onSelect,
+  onClose,
+  insideSection,
+}: ComponentPaletteProps) {
   const translateY = useSharedValue(SHEET_MAX);
   const backdropOpacity = useSharedValue(0);
 
@@ -95,9 +208,13 @@ export default function ComponentPalette({ visible, onSelect, onClose, insideSec
   const animateOut = useCallback(
     (cb?: () => void) => {
       backdropOpacity.value = withTiming(0, { duration: 200 });
-      translateY.value = withTiming(SHEET_MAX, { duration: 220, easing: Easing.in(Easing.cubic) }, () => {
-        if (cb) runOnJS(cb)();
-      });
+      translateY.value = withTiming(
+        SHEET_MAX,
+        { duration: 220, easing: Easing.in(Easing.cubic) },
+        () => {
+          if (cb) runOnJS(cb)();
+        },
+      );
     },
     [backdropOpacity, translateY],
   );
@@ -129,10 +246,10 @@ export default function ComponentPalette({ visible, onSelect, onClose, insideSec
 
   const visibleSections = useMemo(() => {
     if (!insideSection) return SECTIONS;
-    return SECTIONS.map(section => ({
+    return SECTIONS.map((section) => ({
       ...section,
-      items: section.items.filter(i => i.type !== '2col' && i.type !== '3col'),
-    })).filter(s => s.items.length > 0);
+      items: section.items.filter((i) => i.type !== '2col' && i.type !== '3col'),
+    })).filter((s) => s.items.length > 0);
   }, [insideSection]);
 
   if (!visible) return null;

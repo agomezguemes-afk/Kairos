@@ -32,7 +32,7 @@ import { getBlockExercises, type WorkoutBlock } from '../../types/core';
 import type { RootStackParamList, DashboardTabParamList } from '../../types/navigation';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
-type TabNav  = NavigationProp<DashboardTabParamList>;
+type TabNav = NavigationProp<DashboardTabParamList>;
 
 export default function TodayPlanner() {
   const insets = useSafeAreaInsets();
@@ -40,18 +40,23 @@ export default function TodayPlanner() {
   // call site instead of choosing a single generic — the planner needs both.
   const nav = useNavigation<RootNav>();
 
-  const [selectedDate, setSelectedDate]         = useState<ISODate>(todayISO());
-  const [assignSheetOpen, setAssignSheetOpen]   = useState(false);
-  const [editSeriesSheet, setEditSeriesSheet]   = useState<string | null>(null);
-  const [moveTarget, setMoveTarget]             = useState<{ assignmentId: string; fromDate: ISODate } | null>(null);
-  const [changeBlockTarget, setChangeBlockTarget] = useState<{ assignmentId: string; date: ISODate } | null>(null);
+  const [selectedDate, setSelectedDate] = useState<ISODate>(todayISO());
+  const [assignSheetOpen, setAssignSheetOpen] = useState(false);
+  const [editSeriesSheet, setEditSeriesSheet] = useState<string | null>(null);
+  const [moveTarget, setMoveTarget] = useState<{ assignmentId: string; fromDate: ISODate } | null>(
+    null,
+  );
+  const [changeBlockTarget, setChangeBlockTarget] = useState<{
+    assignmentId: string;
+    date: ISODate;
+  } | null>(null);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
 
-  const startWorkout  = useWorkoutStore((s) => s.startWorkout);
-  const blocks        = useWorkoutStore((s) => s.blocks);
-  const history       = useWorkoutStore((s) => s.workoutHistory);
+  const startWorkout = useWorkoutStore((s) => s.startWorkout);
+  const blocks = useWorkoutStore((s) => s.blocks);
+  const history = useWorkoutStore((s) => s.workoutHistory);
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
-  const { streak }    = useGamification();
+  const { streak } = useGamification();
 
   // Prune expired undo entries every 5s while the screen is mounted.
   const pruneExpired = useScheduleStore((s) => s.pruneExpiredDeletions);
@@ -80,11 +85,11 @@ export default function TodayPlanner() {
     () =>
       kaiSignal({
         selectedDate,
-        isToday:          dayState.isToday,
-        isPast:           dayState.isPast,
-        resolved:         dayState.resolved,
-        streak:           streak.current,
-        blocksCount:      blocks.length,
+        isToday: dayState.isToday,
+        isPast: dayState.isPast,
+        resolved: dayState.resolved,
+        streak: streak.current,
+        blocksCount: blocks.length,
         hasActiveWorkout: !!activeWorkout,
         lastSession,
       }),
@@ -93,48 +98,64 @@ export default function TodayPlanner() {
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
-  const handleStart = useCallback((block: WorkoutBlock, resolved: ResolvedAssignment | null) => {
-    const ctx = {
-      assignmentId:  resolved?.assignmentId,
-      scheduledDate: resolved?.date ?? selectedDate,
-      source:        'today' as const,
-    };
-    startWorkout(block.id, ctx);
-    nav.navigate('ActiveWorkout', { blockId: block.id, ...ctx });
-  }, [startWorkout, nav, selectedDate]);
+  const handleStart = useCallback(
+    (block: WorkoutBlock, resolved: ResolvedAssignment | null) => {
+      const ctx = {
+        assignmentId: resolved?.assignmentId,
+        scheduledDate: resolved?.date ?? selectedDate,
+        source: 'today' as const,
+      };
+      startWorkout(block.id, ctx);
+      nav.navigate('ActiveWorkout', { blockId: block.id, ...ctx });
+    },
+    [startWorkout, nav, selectedDate],
+  );
 
-  const handleResume = useCallback((block: WorkoutBlock, resolved: ResolvedAssignment | null) => {
-    nav.navigate('ActiveWorkout', {
-      blockId:       block.id,
-      assignmentId:  resolved?.assignmentId,
-      scheduledDate: resolved?.date ?? selectedDate,
-      source:        'today',
-    });
-  }, [nav, selectedDate]);
+  const handleResume = useCallback(
+    (block: WorkoutBlock, resolved: ResolvedAssignment | null) => {
+      nav.navigate('ActiveWorkout', {
+        blockId: block.id,
+        assignmentId: resolved?.assignmentId,
+        scheduledDate: resolved?.date ?? selectedDate,
+        source: 'today',
+      });
+    },
+    [nav, selectedDate],
+  );
 
   const handleCreateBlock = useCallback(() => {
     // Tab routes aren't part of RootStackParamList — cast to the tab nav shape.
     (nav as unknown as TabNav).navigate('WorkoutTab');
   }, [nav]);
 
-  const handleSeeBlockFull = useCallback((block: WorkoutBlock) => {
-    (nav as unknown as TabNav).navigate('WorkoutTab', { highlightBlockId: block.id });
-  }, [nav]);
+  const handleSeeBlockFull = useCallback(
+    (block: WorkoutBlock) => {
+      (nav as unknown as TabNav).navigate('WorkoutTab', { highlightBlockId: block.id });
+    },
+    [nav],
+  );
 
   const handlePlanWeek = useCallback(() => {
     nav.navigate('AILabScreen');
   }, [nav]);
 
-  const handleSignalAction = useCallback((action: KaiSignal['action']) => {
-    if (!action) return;
-    switch (action.kind) {
-      case 'create-block': handleCreateBlock(); break;
-      case 'assign':       setAssignSheetOpen(true); break;
-      case 'resume':
-        if (activeWorkout) nav.navigate('ActiveWorkout', { blockId: activeWorkout.blockId });
-        break;
-    }
-  }, [handleCreateBlock, activeWorkout, nav]);
+  const handleSignalAction = useCallback(
+    (action: KaiSignal['action']) => {
+      if (!action) return;
+      switch (action.kind) {
+        case 'create-block':
+          handleCreateBlock();
+          break;
+        case 'assign':
+          setAssignSheetOpen(true);
+          break;
+        case 'resume':
+          if (activeWorkout) nav.navigate('ActiveWorkout', { blockId: activeWorkout.blockId });
+          break;
+      }
+    },
+    [handleCreateBlock, activeWorkout, nav],
+  );
 
   return (
     <View style={styles.screen}>
@@ -150,7 +171,10 @@ export default function TodayPlanner() {
         <CalendarView selectedDate={selectedDate} onSelect={setSelectedDate} />
         <DayCard
           date={selectedDate}
-          onAssign={(d) => { setSelectedDate(d); setAssignSheetOpen(true); }}
+          onAssign={(d) => {
+            setSelectedDate(d);
+            setAssignSheetOpen(true);
+          }}
           onStart={handleStart}
           onResume={handleResume}
           onChangeBlock={(assignmentId, date) => setChangeBlockTarget({ assignmentId, date })}
@@ -203,6 +227,6 @@ export default function TodayPlanner() {
 }
 
 const styles = StyleSheet.create({
-  screen:  { flex: 1, backgroundColor: Colors.bg.void },
+  screen: { flex: 1, backgroundColor: Colors.bg.void },
   content: {},
 });

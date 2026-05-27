@@ -38,7 +38,7 @@ export function topExercisesByFrequency(
 }
 
 export interface MaxWeightPoint {
-  date: number;       // entry.endedAt ms
+  date: number; // entry.endedAt ms
   weight: number;
 }
 
@@ -73,7 +73,7 @@ export function maxWeightSeries(
 }
 
 export interface WeeklyVolumePoint {
-  weekStart: number;  // Monday 00:00 ms local
+  weekStart: number; // Monday 00:00 ms local
   volume: number;
   sessions: number;
 }
@@ -86,7 +86,15 @@ export function weeklyVolumeSeries(
 ): WeeklyVolumePoint[] {
   const now = new Date(nowMs);
   const dayOfWeek = (now.getDay() + 6) % 7; // 0 = Monday
-  const startOfThisWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek, 0, 0, 0, 0);
+  const startOfThisWeek = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - dayOfWeek,
+    0,
+    0,
+    0,
+    0,
+  );
   const series: WeeklyVolumePoint[] = [];
   for (let i = weeks - 1; i >= 0; i--) {
     const weekStart = new Date(startOfThisWeek);

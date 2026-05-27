@@ -18,15 +18,13 @@ import { useWorkoutStore } from '../../../store/workoutStore';
 import { computeWeekStats, formatVolume } from '../../../lib/stats/weekStats';
 
 export default function HomeHeroStats() {
-  const history = useWorkoutStore(s => s.workoutHistory);
+  const history = useWorkoutStore((s) => s.workoutHistory);
   const stats = useMemo(() => computeWeekStats(history), [history]);
 
   // Brand-new user — no sessions ever, or none in either of the rolling
   // 14d windows. Show an invitation instead of two depressing zeros.
   const hasAnyHistory =
-    stats.sessionsThisWeek > 0 ||
-    stats.sessionsLastWeek > 0 ||
-    history.length > 0;
+    stats.sessionsThisWeek > 0 || stats.sessionsLastWeek > 0 || history.length > 0;
 
   if (!hasAnyHistory) {
     return (
@@ -46,7 +44,7 @@ export default function HomeHeroStats() {
   }
 
   const sessionsDeltaLabel = formatDeltaLabel(stats.sessionsDelta, 'sesión', 'sesiones');
-  const volumeDeltaLabel   = formatVolumeDelta(stats.volumeDelta);
+  const volumeDeltaLabel = formatVolumeDelta(stats.volumeDelta);
 
   return (
     <View style={styles.container}>
@@ -55,9 +53,7 @@ export default function HomeHeroStats() {
         <View style={styles.cell}>
           <View style={styles.valueRow}>
             <Text style={styles.value}>{stats.sessionsThisWeek}</Text>
-            <Text style={styles.unit}>
-              {stats.sessionsThisWeek === 1 ? 'sesión' : 'sesiones'}
-            </Text>
+            <Text style={styles.unit}>{stats.sessionsThisWeek === 1 ? 'sesión' : 'sesiones'}</Text>
           </View>
           {sessionsDeltaLabel && (
             <Text
@@ -79,9 +75,7 @@ export default function HomeHeroStats() {
             <Text style={styles.value}>
               {stats.volumeThisWeek > 0 ? formatVolume(stats.volumeThisWeek) : '—'}
             </Text>
-            <Text style={styles.unit}>
-              {stats.volumeThisWeek > 0 ? 'kg' : ''}
-            </Text>
+            <Text style={styles.unit}>{stats.volumeThisWeek > 0 ? 'kg' : ''}</Text>
           </View>
           {volumeDeltaLabel && (
             <Text

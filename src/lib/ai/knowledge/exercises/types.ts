@@ -23,7 +23,7 @@ export type MovementPattern =
   | 'rotation'
   | 'carry'
   | 'isolation'
-  | 'locomotion'        // running, cycling, rowing, swimming
+  | 'locomotion' // running, cycling, rowing, swimming
   | 'mobility'
   | 'plyometric'
   | 'sport_skill';

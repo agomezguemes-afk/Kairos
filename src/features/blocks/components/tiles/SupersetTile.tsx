@@ -72,18 +72,14 @@ function SupersetTileImpl({ node, isActive, onLongPress, onUpdate }: Props) {
           {exercises.map((ex, i) => (
             <View key={ex.id} style={styles.miniTile}>
               <View style={styles.miniIndex}>
-                <Text style={styles.miniIndexText}>
-                  {String.fromCharCode(65 + i)}
-                </Text>
+                <Text style={styles.miniIndexText}>{String.fromCharCode(65 + i)}</Text>
               </View>
               <View style={styles.miniBody}>
                 <Text style={styles.miniName} numberOfLines={1}>
                   {ex.name}
                 </Text>
                 {ex.sets[0] && (
-                  <Text style={styles.miniDetail}>
-                    {formatSetPreview(ex.sets[0])}
-                  </Text>
+                  <Text style={styles.miniDetail}>{formatSetPreview(ex.sets[0])}</Text>
                 )}
               </View>
             </View>
@@ -92,9 +88,7 @@ function SupersetTileImpl({ node, isActive, onLongPress, onUpdate }: Props) {
       ) : (
         <View style={styles.empty}>
           <Feather name="plus-circle" size={14} color={Colors.ink.muted} />
-          <Text style={styles.emptyText}>
-            Mantén pulsado para añadir ejercicios
-          </Text>
+          <Text style={styles.emptyText}>Mantén pulsado para añadir ejercicios</Text>
         </View>
       )}
     </TileFrame>
@@ -110,7 +104,7 @@ function formatRest(seconds: number): string {
 
 function formatSetPreview(set: { values: Record<string, unknown> }): string {
   const w = typeof set.values['weight'] === 'number' ? (set.values['weight'] as number) : null;
-  const r = typeof set.values['reps']   === 'number' ? (set.values['reps']   as number) : null;
+  const r = typeof set.values['reps'] === 'number' ? (set.values['reps'] as number) : null;
   if (w != null && r != null) return `${w} kg × ${r}`;
   if (w != null) return `${w} kg`;
   if (r != null) return `× ${r}`;

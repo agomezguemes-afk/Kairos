@@ -17,10 +17,7 @@ import {
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
 import { Colors } from '../../../theme/tokens';
-import SpineRow, {
-  SPINE_CENTER_X,
-  SPINE_LINE_WIDTH,
-} from './SpineRow';
+import SpineRow, { SPINE_CENTER_X, SPINE_LINE_WIDTH } from './SpineRow';
 import type { SpineRow as SpineRowData } from '../lib/spineLayout';
 
 interface Props {
@@ -50,7 +47,7 @@ function SpineImpl({ rows, renderRow, onRowTap, onRowLongPress, onReorder }: Pro
   const handleDragEnd = useCallback(
     (params: DragEndParams<SpineRowData>) => {
       if (!onReorder) return;
-      onReorder(params.data.map(r => r.id));
+      onReorder(params.data.map((r) => r.id));
     },
     [onReorder],
   );

@@ -8,29 +8,29 @@ import KairosIcon from '../components/KairosIcon';
 
 // Maps [token] markers to KairosIcon names
 const MARKER_MAP: Record<string, string> = {
-  streak:       'streak',
-  strength:     'strength',
-  assistant:    'assistant',
-  stats:        'stats',
-  progress:     'progress',
-  plan:         'plan',
-  first_step:   'first_step',
-  badge:        'badge',
-  target:       'target',
-  star:         'star',
-  trophy:       'trophy',
-  recovery:     'recovery',
-  chat:         'chat',
-  brain:        'brain',
-  help:         'help',
-  checkmark:    'checkmark',
-  close:        'close',
-  add:          'add',
-  trash:        'trash',
-  running:      'running',
-  calendar:     'calendar',
-  bolt:         'bolt',
-  sparkle:      'sparkle',
+  streak: 'streak',
+  strength: 'strength',
+  assistant: 'assistant',
+  stats: 'stats',
+  progress: 'progress',
+  plan: 'plan',
+  first_step: 'first_step',
+  badge: 'badge',
+  target: 'target',
+  star: 'star',
+  trophy: 'trophy',
+  recovery: 'recovery',
+  chat: 'chat',
+  brain: 'brain',
+  help: 'help',
+  checkmark: 'checkmark',
+  close: 'close',
+  add: 'add',
+  trash: 'trash',
+  running: 'running',
+  calendar: 'calendar',
+  bolt: 'bolt',
+  sparkle: 'sparkle',
 };
 
 const TOKEN_REGEX = /\[([a-z_]+)\]/g;
@@ -54,9 +54,7 @@ export function renderWithIcons(
   while ((match = TOKEN_REGEX.exec(text)) !== null) {
     // Push preceding text
     if (match.index > lastIndex) {
-      parts.push(
-        <Text key={`t-${lastIndex}`}>{text.slice(lastIndex, match.index)}</Text>,
-      );
+      parts.push(<Text key={`t-${lastIndex}`}>{text.slice(lastIndex, match.index)}</Text>);
     }
 
     const markerName = match[1];
@@ -64,18 +62,11 @@ export function renderWithIcons(
 
     if (iconName) {
       parts.push(
-        <KairosIcon
-          key={`i-${match.index}`}
-          name={iconName}
-          size={iconSize}
-          color={iconColor}
-        />,
+        <KairosIcon key={`i-${match.index}`} name={iconName} size={iconSize} color={iconColor} />,
       );
     } else {
       // Unknown marker — render as-is
-      parts.push(
-        <Text key={`t-${match.index}`}>{match[0]}</Text>,
-      );
+      parts.push(<Text key={`t-${match.index}`}>{match[0]}</Text>);
     }
 
     lastIndex = match.index + match[0].length;
@@ -83,9 +74,7 @@ export function renderWithIcons(
 
   // Push remaining text
   if (lastIndex < text.length) {
-    parts.push(
-      <Text key={`t-${lastIndex}`}>{text.slice(lastIndex)}</Text>,
-    );
+    parts.push(<Text key={`t-${lastIndex}`}>{text.slice(lastIndex)}</Text>);
   }
 
   return parts;

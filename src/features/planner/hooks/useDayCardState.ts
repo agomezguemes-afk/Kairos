@@ -10,10 +10,14 @@ import { todayISO, isPast, isFuture } from '../lib/dates';
 import { useScheduleForDate } from './useScheduleForDate';
 
 export type DayCardVariant =
-  | 'assigned' | 'in-progress' | 'completed'
+  | 'assigned'
+  | 'in-progress'
+  | 'completed'
   | 'empty'
-  | 'future-assigned' | 'future-empty'
-  | 'past-skipped' | 'past-empty'
+  | 'future-assigned'
+  | 'future-empty'
+  | 'past-skipped'
+  | 'past-empty'
   | 'no-blocks';
 
 export interface DayCardState {
@@ -27,25 +31,32 @@ export interface DayCardState {
 }
 
 export function useDayCardState(date: ISODate): DayCardState {
-  const blocks        = useWorkoutStore((s) => s.blocks);
+  const blocks = useWorkoutStore((s) => s.blocks);
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
-  const resolvedAll   = useScheduleForDate(date);
+  const resolvedAll = useScheduleForDate(date);
 
   return useMemo(() => {
     const today = todayISO();
-    const _isPast   = isPast(date);
+    const _isPast = isPast(date);
     const _isFuture = isFuture(date);
-    const _isToday  = date === today;
+    const _isToday = date === today;
 
     const r = resolvedAll[0] ?? null;
-    const block = r ? blocks.find((b) => b.id === r.blockId) ?? null : null;
+    const block = r ? (blocks.find((b) => b.id === r.blockId) ?? null) : null;
 
-    const baseInfo = { date, resolved: r, block, isToday: _isToday, isPast: _isPast, isFuture: _isFuture };
+    const baseInfo = {
+      date,
+      resolved: r,
+      block,
+      isToday: _isToday,
+      isPast: _isPast,
+      isFuture: _isFuture,
+    };
 
     if (blocks.length === 0) return { ...baseInfo, variant: 'no-blocks' };
 
     if (_isPast) {
-      if (!r)                       return { ...baseInfo, variant: 'past-empty' };
+      if (!r) return { ...baseInfo, variant: 'past-empty' };
       if (r.status === 'completed') return { ...baseInfo, variant: 'completed' };
       return { ...baseInfo, variant: 'past-skipped' };
     }
@@ -56,8 +67,8 @@ export function useDayCardState(date: ISODate): DayCardState {
     }
 
     // today
-    if (!r)                                       return { ...baseInfo, variant: 'empty' };
-    if (r.status === 'completed')                 return { ...baseInfo, variant: 'completed' };
+    if (!r) return { ...baseInfo, variant: 'empty' };
+    if (r.status === 'completed') return { ...baseInfo, variant: 'completed' };
     if (activeWorkout && activeWorkout.blockId === r.blockId) {
       return { ...baseInfo, variant: 'in-progress' };
     }

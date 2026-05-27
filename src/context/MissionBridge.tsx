@@ -24,12 +24,7 @@ export function MissionBridge({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <MissionProvider
-      blocks={blocks}
-      streak={streak}
-      badges={badges}
-      prCards={prCards}
-    >
+    <MissionProvider blocks={blocks} streak={streak} badges={badges} prCards={prCards}>
       {children}
     </MissionProvider>
   );

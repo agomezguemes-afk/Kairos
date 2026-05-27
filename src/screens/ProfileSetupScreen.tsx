@@ -81,9 +81,7 @@ function Chip<T extends string | number>({
         pressed && { opacity: 0.8 },
       ]}
     >
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-        {label}
-      </Text>
+      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
   );
 }
@@ -94,9 +92,7 @@ function Section({ title, description }: { title: string; description?: string }
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      {description ? (
-        <Text style={styles.sectionDesc}>{description}</Text>
-      ) : null}
+      {description ? <Text style={styles.sectionDesc}>{description}</Text> : null}
     </View>
   );
 }
@@ -188,8 +184,8 @@ export default function ProfileSetupScreen({ navigation }: any) {
         <Animated.View entering={FadeInDown.delay(0).duration(350)} style={styles.header}>
           <Text style={styles.headerTitle}>Cuéntame sobre ti</Text>
           <Text style={styles.headerSubtitle}>
-            Kai usará estos datos para personalizar tus entrenamientos.
-            Todo es opcional excepto el nombre.
+            Kai usará estos datos para personalizar tus entrenamientos. Todo es opcional excepto el
+            nombre.
           </Text>
         </Animated.View>
 
@@ -209,7 +205,10 @@ export default function ProfileSetupScreen({ navigation }: any) {
 
         {/* Body stats */}
         <Animated.View entering={FadeInDown.delay(120).duration(350)} style={styles.card}>
-          <Section title="Estadísticas físicas" description="Ayudan a Kai a ajustar la carga de trabajo." />
+          <Section
+            title="Estadísticas físicas"
+            description="Ayudan a Kai a ajustar la carga de trabajo."
+          />
           <View style={styles.statsRow}>
             <View style={styles.statField}>
               <Text style={styles.statLabel}>Edad</Text>

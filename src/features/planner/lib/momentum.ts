@@ -8,10 +8,7 @@ import { todayISO, weekRange } from './dates';
 export function getGreeting(name?: string | null): string {
   const h = new Date().getHours();
   const base =
-    h < 6  ? 'Buenas noches' :
-    h < 13 ? 'Buenos días'   :
-    h < 20 ? 'Buenas tardes' :
-             'Buenas noches';
+    h < 6 ? 'Buenas noches' : h < 13 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
   return name && name.trim() ? `${base}, ${name.trim()}` : base;
 }
 

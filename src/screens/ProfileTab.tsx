@@ -5,7 +5,7 @@ export default function ProfileTab() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Perfil</Text>
-      
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Configuración</Text>
       </View>

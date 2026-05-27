@@ -66,10 +66,7 @@ const PR_MESSAGES = [
   '¡Marca personal superada!',
 ];
 
-export function checkBadges(
-  stats: GamificationStats,
-  existing: Badge[],
-): Badge[] {
+export function checkBadges(stats: GamificationStats, existing: Badge[]): Badge[] {
   const unlockedIds = new Set(existing.map((b) => b.id));
   const newBadges: Badge[] = [];
   const now = new Date().toISOString();
@@ -169,7 +166,7 @@ export function checkForPR(
  * Called after any mutation to re-check badges.
  */
 export function computeStats(
-  blocks: Array<{ content: import('../types/content').ContentNode[] }>,
+  blocks: { content: import('../types/content').ContentNode[] }[],
   userCreatedBlocks: number,
   streak: Streak,
 ): GamificationStats {

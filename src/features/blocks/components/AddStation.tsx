@@ -21,13 +21,7 @@ import { SPINE_RAIL_WIDTH } from './SpineRow';
 
 const STATION_SIZE = 14;
 
-export type InsertableType =
-  | 'exercise'
-  | 'superset'
-  | 'text'
-  | 'divider'
-  | '2col'
-  | 'dashboard';
+export type InsertableType = 'exercise' | 'superset' | 'text' | 'divider' | '2col' | 'dashboard';
 
 interface MenuItem {
   type: InsertableType;
@@ -37,12 +31,12 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
-  { type: 'exercise',  label: 'Ejercicio',  icon: 'activity',  hint: 'Nuevo ejercicio con series' },
-  { type: 'superset',  label: 'Superserie', icon: 'shuffle',   hint: '2-3 ejercicios encadenados' },
-  { type: 'text',      label: 'Nota',       icon: 'edit-3',    hint: 'Texto, lista o checklist' },
-  { type: 'divider',   label: 'Divisor',    icon: 'minus',     hint: 'Separador entre secciones' },
-  { type: '2col',      label: 'Sección',    icon: 'columns',   hint: 'Agrupa contenidos' },
-  { type: 'dashboard', label: 'Dashboard',  icon: 'bar-chart-2', hint: 'Métrica del bloque' },
+  { type: 'exercise', label: 'Ejercicio', icon: 'activity', hint: 'Nuevo ejercicio con series' },
+  { type: 'superset', label: 'Superserie', icon: 'shuffle', hint: '2-3 ejercicios encadenados' },
+  { type: 'text', label: 'Nota', icon: 'edit-3', hint: 'Texto, lista o checklist' },
+  { type: 'divider', label: 'Divisor', icon: 'minus', hint: 'Separador entre secciones' },
+  { type: '2col', label: 'Sección', icon: 'columns', hint: 'Agrupa contenidos' },
+  { type: 'dashboard', label: 'Dashboard', icon: 'bar-chart-2', hint: 'Métrica del bloque' },
 ];
 
 interface Props {
@@ -55,7 +49,7 @@ function AddStationImpl({ onInsert }: Props) {
 
   const toggle = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setOpen(o => !o);
+    setOpen((o) => !o);
   }, []);
 
   const handleSelect = useCallback(
@@ -70,9 +64,7 @@ function AddStationImpl({ onInsert }: Props) {
   return (
     <Animated.View
       layout={
-        reduceMotion
-          ? undefined
-          : LinearTransition.duration(220).easing(Easing.out(Easing.cubic))
+        reduceMotion ? undefined : LinearTransition.duration(220).easing(Easing.out(Easing.cubic))
       }
       style={styles.wrap}
     >

@@ -3,7 +3,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Line as SvgLine } from 'react-native-svg';
 import { Colors, Type } from '../../../../theme/tokens';
 
-interface Point { x: number; y: number; }
+interface Point {
+  x: number;
+  y: number;
+}
 
 interface Props {
   points: Point[];
@@ -16,7 +19,13 @@ interface Props {
 }
 
 export default function Sparkline({
-  points, width, height, stroke, baseline, showLastDot = true, showRange = false,
+  points,
+  width,
+  height,
+  stroke,
+  baseline,
+  showLastDot = true,
+  showRange = false,
 }: Props) {
   if (points.length < 2) {
     return (
@@ -51,9 +60,7 @@ export default function Sparkline({
   const path = buildSmoothPath(projected);
   const last = projected[projected.length - 1];
 
-  const baselineY = baseline != null
-    ? pad + (1 - (baseline - yMin) / yRange) * innerH
-    : null;
+  const baselineY = baseline != null ? pad + (1 - (baseline - yMin) / yRange) * innerH : null;
 
   return (
     <View style={{ width, height }}>
@@ -89,7 +96,7 @@ export default function Sparkline({
   );
 }
 
-function buildSmoothPath(pts: Array<{ x: number; y: number }>): string {
+function buildSmoothPath(pts: { x: number; y: number }[]): string {
   if (pts.length === 0) return '';
   if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
   let d = `M ${pts[0].x} ${pts[0].y}`;
@@ -111,8 +118,12 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center' },
   emptyText: { ...Type.micro, color: Colors.ink.muted },
   rangeRow: {
-    position: 'absolute', bottom: 0, left: 4, right: 4,
-    flexDirection: 'row', justifyContent: 'space-between',
+    position: 'absolute',
+    bottom: 0,
+    left: 4,
+    right: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   rangeText: { ...Type.micro, fontSize: 9, color: Colors.ink.tertiary },
 });

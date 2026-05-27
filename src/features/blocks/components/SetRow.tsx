@@ -30,7 +30,16 @@ interface SetRowProps {
   ghostValues?: Record<string, string>;
 }
 
-function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, onRemove, compact, ghostValues }: SetRowProps) {
+function SetRowInner({
+  set,
+  setIndex,
+  fields,
+  onUpdateValue,
+  onToggleComplete,
+  onRemove,
+  compact,
+  ghostValues,
+}: SetRowProps) {
   const checkScale = useSharedValue(1);
   const setId = set.id;
 
@@ -39,20 +48,20 @@ function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, o
   }));
 
   const handleToggle = useCallback(() => {
-    checkScale.value = withSequence(
-      withSpring(1.3, springs.pop),
-      withSpring(1, springs.bouncy),
-    );
+    checkScale.value = withSequence(withSpring(1.3, springs.pop), withSpring(1, springs.bouncy));
     onToggleComplete(setId);
   }, [setId, onToggleComplete]);
 
-  const handleFieldChange = useCallback((fieldId: string, value: FieldValue) => {
-    onUpdateValue(setId, fieldId, value);
-  }, [setId, onUpdateValue]);
+  const handleFieldChange = useCallback(
+    (fieldId: string, value: FieldValue) => {
+      onUpdateValue(setId, fieldId, value);
+    },
+    [setId, onUpdateValue],
+  );
 
   const maxFields = compact ? 2 : 4;
   const visibleFields = fields
-    .filter(f => f.type !== 'boolean' || f.isPrimary)
+    .filter((f) => f.type !== 'boolean' || f.isPrimary)
     .sort((a, b) => a.order - b.order)
     .slice(0, maxFields);
 
@@ -62,13 +71,19 @@ function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, o
       style={[styles.row, compact && styles.rowCompact, set.completed && styles.rowCompleted]}
     >
       {/* Set number */}
-      <Text style={[styles.setNumber, compact && styles.setNumberCompact, set.completed && styles.setNumberCompleted]}>
+      <Text
+        style={[
+          styles.setNumber,
+          compact && styles.setNumberCompact,
+          set.completed && styles.setNumberCompleted,
+        ]}
+      >
         {setIndex + 1}
       </Text>
 
       {/* Field inputs */}
       <View style={[styles.fieldsRow, compact && styles.fieldsRowCompact]}>
-        {visibleFields.map(field => (
+        {visibleFields.map((field) => (
           <View key={field.id} style={styles.fieldCell}>
             <FieldInput
               field={field}
@@ -82,10 +97,22 @@ function SetRowInner({ set, setIndex, fields, onUpdateValue, onToggleComplete, o
       </View>
 
       {/* Check button */}
-      <Pressable onPress={handleToggle} hitSlop={8} style={[styles.checkBtn, compact && styles.checkBtnCompact]}>
+      <Pressable
+        onPress={handleToggle}
+        hitSlop={8}
+        style={[styles.checkBtn, compact && styles.checkBtnCompact]}
+      >
         <Animated.View style={checkStyle}>
-          <View style={[styles.checkbox, compact && styles.checkboxCompact, set.completed && styles.checkboxDone]}>
-            {set.completed && <Feather name="check" size={compact ? 10 : 14} color={Colors.text.inverse} />}
+          <View
+            style={[
+              styles.checkbox,
+              compact && styles.checkboxCompact,
+              set.completed && styles.checkboxDone,
+            ]}
+          >
+            {set.completed && (
+              <Feather name="check" size={compact ? 10 : 14} color={Colors.text.inverse} />
+            )}
           </View>
         </Animated.View>
       </Pressable>

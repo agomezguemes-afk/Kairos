@@ -8,14 +8,7 @@
 // stops being scheduled.
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -29,9 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Type, Spacing, Radius, Shadows } from '../../../theme/tokens';
 import { useScheduleStore } from '../../../store/scheduleStore';
 import { buildWeeklyRule, summarizeRule } from '../lib/rrule';
-import {
-  todayISO, addDaysISO, fromISODate, formatLongDate,
-} from '../lib/dates';
+import { todayISO, addDaysISO, fromISODate, formatLongDate } from '../lib/dates';
 import type { ISODate } from '../../../types/schedule';
 
 interface Props {
@@ -44,15 +35,13 @@ interface Props {
 type PresetId = 'weekly-anchor' | 'weekdays' | 'biweekly-anchor' | 'weekends';
 
 const PRESET_LABELS: Record<PresetId, string> = {
-  'weekly-anchor':    'Cada semana este día',
-  'weekdays':         'Lun a Vie',
-  'biweekly-anchor':  'Cada 2 semanas este día',
-  'weekends':         'Fines de semana',
+  'weekly-anchor': 'Cada semana este día',
+  weekdays: 'Lun a Vie',
+  'biweekly-anchor': 'Cada 2 semanas este día',
+  weekends: 'Fines de semana',
 };
 
-const PRESET_ORDER: PresetId[] = [
-  'weekly-anchor', 'weekdays', 'biweekly-anchor', 'weekends',
-];
+const PRESET_ORDER: PresetId[] = ['weekly-anchor', 'weekdays', 'biweekly-anchor', 'weekends'];
 
 const WEEKDAY_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
 
@@ -63,15 +52,22 @@ function weekdayIndexFor(d: ISODate): number {
 function buildPreset(p: PresetId, anchor: ISODate): string {
   const wIdx = weekdayIndexFor(anchor);
   switch (p) {
-    case 'weekly-anchor':   return buildWeeklyRule([wIdx]);
-    case 'weekdays':        return buildWeeklyRule([0, 1, 2, 3, 4]);
-    case 'biweekly-anchor': return buildWeeklyRule([wIdx], 2);
-    case 'weekends':        return buildWeeklyRule([5, 6]);
+    case 'weekly-anchor':
+      return buildWeeklyRule([wIdx]);
+    case 'weekdays':
+      return buildWeeklyRule([0, 1, 2, 3, 4]);
+    case 'biweekly-anchor':
+      return buildWeeklyRule([wIdx], 2);
+    case 'weekends':
+      return buildWeeklyRule([5, 6]);
   }
 }
 
 export default function RecurrenceEditorSheet({
-  visible, assignmentId, selectedDate, onClose,
+  visible,
+  assignmentId,
+  selectedDate,
+  onClose,
 }: Props) {
   const insets = useSafeAreaInsets();
 
@@ -81,19 +77,18 @@ export default function RecurrenceEditorSheet({
   const truncateSeries = useScheduleStore((s) => s.truncateSeries);
   const assignRecurring = useScheduleStore((s) => s.assignRecurring);
 
-  const initialRRule =
-    assignment && assignment.kind === 'recurring' ? assignment.rrule : '';
+  const initialRRule = assignment && assignment.kind === 'recurring' ? assignment.rrule : '';
   const [draft, setDraft] = useState<string>(initialRRule);
   const [view, setView] = useState<'presets' | 'advanced'>('presets');
   // Advanced state — initialized from the current series anchor.
   const [days, setDays] = useState<number[]>([weekdayIndexFor(selectedDate)]);
   const [endMode, setEndMode] = useState<'never' | 'until'>(
-    assignment && assignment.kind === 'recurring' && assignment.endDate
-      ? 'until' : 'never'
+    assignment && assignment.kind === 'recurring' && assignment.endDate ? 'until' : 'never',
   );
   const [endDate, setEndDate] = useState<ISODate>(
     assignment && assignment.kind === 'recurring' && assignment.endDate
-      ? assignment.endDate : addDaysISO(selectedDate, 90)
+      ? assignment.endDate
+      : addDaysISO(selectedDate, 90),
   );
 
   // Re-seed when the sheet (re-)opens for a new assignment.
@@ -113,18 +108,21 @@ export default function RecurrenceEditorSheet({
 
   const summary = useMemo(() => summarizeRule(draft || initialRRule), [draft, initialRRule]);
 
-  const apply = useCallback((rrule: string, endDateValue: ISODate | null) => {
-    if (!assignment || assignment.kind !== 'recurring') return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    truncateSeries(assignment.id, addDaysISO(selectedDate, -1));
-    assignRecurring({
-      blockId: assignment.blockId,
-      rrule,
-      startDate: selectedDate,
-      endDate: endDateValue,
-    });
-    onClose();
-  }, [assignment, truncateSeries, assignRecurring, selectedDate, onClose]);
+  const apply = useCallback(
+    (rrule: string, endDateValue: ISODate | null) => {
+      if (!assignment || assignment.kind !== 'recurring') return;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      truncateSeries(assignment.id, addDaysISO(selectedDate, -1));
+      assignRecurring({
+        blockId: assignment.blockId,
+        rrule,
+        startDate: selectedDate,
+        endDate: endDateValue,
+      });
+      onClose();
+    },
+    [assignment, truncateSeries, assignRecurring, selectedDate, onClose],
+  );
 
   const endSeries = useCallback(() => {
     if (!assignment) return;
@@ -133,17 +131,18 @@ export default function RecurrenceEditorSheet({
     onClose();
   }, [assignment, truncateSeries, onClose]);
 
-  const handlePreset = useCallback((p: PresetId) => {
-    Haptics.selectionAsync().catch(() => {});
-    const rrule = buildPreset(p, selectedDate);
-    apply(rrule, null);
-  }, [apply, selectedDate]);
+  const handlePreset = useCallback(
+    (p: PresetId) => {
+      Haptics.selectionAsync().catch(() => {});
+      const rrule = buildPreset(p, selectedDate);
+      apply(rrule, null);
+    },
+    [apply, selectedDate],
+  );
 
   const toggleDay = useCallback((i: number) => {
     Haptics.selectionAsync().catch(() => {});
-    setDays((prev) =>
-      prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort()
-    );
+    setDays((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort()));
   }, []);
 
   const applyAdvanced = useCallback(() => {
@@ -153,11 +152,14 @@ export default function RecurrenceEditorSheet({
     apply(rrule, endMode === 'until' ? endDate : null);
   }, [days, endMode, endDate, apply]);
 
-  const endPresets: { label: string; days: number }[] = useMemo(() => [
-    { label: '1 mes',    days: 30  },
-    { label: '3 meses',  days: 90  },
-    { label: '6 meses',  days: 180 },
-  ], []);
+  const endPresets: { label: string; days: number }[] = useMemo(
+    () => [
+      { label: '1 mes', days: 30 },
+      { label: '3 meses', days: 90 },
+      { label: '6 meses', days: 180 },
+    ],
+    [],
+  );
 
   if (!assignment || assignment.kind !== 'recurring') return null;
 
@@ -209,10 +211,7 @@ export default function RecurrenceEditorSheet({
               </Pressable>
             </View>
           ) : (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Pressable
                 onPress={() => setView('presets')}
                 accessibilityRole="button"
@@ -241,10 +240,9 @@ export default function RecurrenceEditorSheet({
                         pressed && { opacity: 0.7 },
                       ]}
                     >
-                      <Text style={[
-                        styles.weekdayBtnText,
-                        active && styles.weekdayBtnTextActive,
-                      ]}>{l}</Text>
+                      <Text style={[styles.weekdayBtnText, active && styles.weekdayBtnTextActive]}>
+                        {l}
+                      </Text>
                     </Pressable>
                   );
                 })}
@@ -262,10 +260,11 @@ export default function RecurrenceEditorSheet({
                     pressed && { opacity: 0.85 },
                   ]}
                 >
-                  <Text style={[
-                    styles.endChipText,
-                    endMode === 'never' && styles.endChipTextActive,
-                  ]}>Sin fin</Text>
+                  <Text
+                    style={[styles.endChipText, endMode === 'never' && styles.endChipTextActive]}
+                  >
+                    Sin fin
+                  </Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setEndMode('until')}
@@ -277,10 +276,11 @@ export default function RecurrenceEditorSheet({
                     pressed && { opacity: 0.85 },
                   ]}
                 >
-                  <Text style={[
-                    styles.endChipText,
-                    endMode === 'until' && styles.endChipTextActive,
-                  ]}>Hasta una fecha</Text>
+                  <Text
+                    style={[styles.endChipText, endMode === 'until' && styles.endChipTextActive]}
+                  >
+                    Hasta una fecha
+                  </Text>
                 </Pressable>
               </View>
 
@@ -307,10 +307,11 @@ export default function RecurrenceEditorSheet({
                             pressed && { opacity: 0.7 },
                           ]}
                         >
-                          <Text style={[
-                            styles.endPresetText,
-                            active && styles.endPresetTextActive,
-                          ]}>{p.label}</Text>
+                          <Text
+                            style={[styles.endPresetText, active && styles.endPresetTextActive]}
+                          >
+                            {p.label}
+                          </Text>
                         </Pressable>
                       );
                     })}
@@ -450,9 +451,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   weekdayBtn: {
-    width: 40, height: 40,
+    width: 40,
+    height: 40,
     borderRadius: Radius.full,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.bg.elevated,
   },
   weekdayBtnActive: { backgroundColor: Colors.gold.base },

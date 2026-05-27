@@ -58,16 +58,16 @@ const GOAL_OPTIONS: { id: Goal; label: string; icon: KIconName }[] = [
 // Equipment chips — KIcon's set is limited, so we map each option to the
 // closest icon available. Labels stay in Spanish to match the rest of the flow.
 const EQUIPMENT_CHOICES: { id: EquipmentTag; label: string; icon: KIconName }[] = [
-  { id: 'bodyweight',         label: 'Solo peso corporal',  icon: 'mat' },
-  { id: 'dumbbells',          label: 'Mancuernas',           icon: 'barbell' },
-  { id: 'barbell_plates',     label: 'Barra + discos',       icon: 'barbell' },
-  { id: 'kettlebell',         label: 'Kettlebell',           icon: 'barbell' },
-  { id: 'resistance_bands',   label: 'Bandas elásticas',     icon: 'zap' },
-  { id: 'pull_up_bar',        label: 'Barra de dominadas',   icon: 'barbell' },
-  { id: 'machines_full_gym',  label: 'Gimnasio / máquinas',  icon: 'grid' },
-  { id: 'cardio_equipment',   label: 'Cardio (cinta, bici)', icon: 'running' },
-  { id: 'yoga_mat',           label: 'Esterilla / yoga',     icon: 'mat' },
-  { id: 'jump_rope',          label: 'Cuerda de saltar',     icon: 'zap' },
+  { id: 'bodyweight', label: 'Solo peso corporal', icon: 'mat' },
+  { id: 'dumbbells', label: 'Mancuernas', icon: 'barbell' },
+  { id: 'barbell_plates', label: 'Barra + discos', icon: 'barbell' },
+  { id: 'kettlebell', label: 'Kettlebell', icon: 'barbell' },
+  { id: 'resistance_bands', label: 'Bandas elásticas', icon: 'zap' },
+  { id: 'pull_up_bar', label: 'Barra de dominadas', icon: 'barbell' },
+  { id: 'machines_full_gym', label: 'Gimnasio / máquinas', icon: 'grid' },
+  { id: 'cardio_equipment', label: 'Cardio (cinta, bici)', icon: 'running' },
+  { id: 'yoga_mat', label: 'Esterilla / yoga', icon: 'mat' },
+  { id: 'jump_rope', label: 'Cuerda de saltar', icon: 'zap' },
 ];
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList) as unknown as typeof FlatList;
@@ -120,9 +120,7 @@ export default function OnboardingScreen() {
 
   const toggleEquipment = useCallback((id: EquipmentTag) => {
     Haptics.selectionAsync().catch(() => {});
-    setEquipment((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setEquipment((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }, []);
 
   const handleNext = useCallback(() => {
@@ -304,15 +302,9 @@ function Backdrop({ tintColor }: { tintColor: string }) {
       <View style={StyleSheet.absoluteFill}>
         {lines.map((l) =>
           l.x !== undefined ? (
-            <View
-              key={l.key}
-              style={[styles.gridV, { left: l.x, backgroundColor: tintColor }]}
-            />
+            <View key={l.key} style={[styles.gridV, { left: l.x, backgroundColor: tintColor }]} />
           ) : (
-            <View
-              key={l.key}
-              style={[styles.gridH, { top: l.y, backgroundColor: tintColor }]}
-            />
+            <View key={l.key} style={[styles.gridH, { top: l.y, backgroundColor: tintColor }]} />
           ),
         )}
       </View>
@@ -374,8 +366,14 @@ function PageWelcome({ scrollX }: { scrollX: SharedValue<number> }) {
   useEffect(() => {
     fade.value = withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
     ty.value = withTiming(0, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
-    fade2.value = withDelay(120, withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) }));
-    ty2.value = withDelay(120, withTiming(0, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) }));
+    fade2.value = withDelay(
+      120,
+      withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) }),
+    );
+    ty2.value = withDelay(
+      120,
+      withTiming(0, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) }),
+    );
   }, [fade, ty, fade2, ty2]);
 
   const pageStyle = useParallaxStyle(scrollX, idx);
@@ -531,7 +529,11 @@ function PageGoal({
                 <Text
                   style={[
                     styles.goalLabel,
-                    { color: fg, fontSize: Typography.caption.fontSize, fontWeight: Typography.caption.fontWeight },
+                    {
+                      color: fg,
+                      fontSize: Typography.caption.fontSize,
+                      fontWeight: Typography.caption.fontWeight,
+                    },
                   ]}
                 >
                   {opt.label}

@@ -1,6 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
-import Animated, { FadeIn, useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -38,7 +44,10 @@ function TimerNodeInner({ node, onUpdate, onDelete, compact }: TimerNodeProps) {
 
   useEffect(() => {
     if (mode === 'countdown' && duration > 0) {
-      progress.value = withTiming(elapsed / duration, { duration: 300, easing: Easing.out(Easing.cubic) });
+      progress.value = withTiming(elapsed / duration, {
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+      });
     } else if (mode === 'stopwatch') {
       progress.value = withTiming(Math.min(elapsed / 300, 1), { duration: 300 });
     }
@@ -59,7 +68,7 @@ function TimerNodeInner({ node, onUpdate, onDelete, compact }: TimerNodeProps) {
     } else {
       setRunning(true);
       intervalRef.current = setInterval(() => {
-        setElapsed(prev => {
+        setElapsed((prev) => {
           const next = prev + 1;
           if (mode === 'countdown' && next >= duration) {
             if (intervalRef.current) clearInterval(intervalRef.current);
@@ -104,9 +113,8 @@ function TimerNodeInner({ node, onUpdate, onDelete, compact }: TimerNodeProps) {
     }
   }, [node, durationDraft, duration, onUpdate]);
 
-  const displayTime = mode === 'countdown'
-    ? formatTime(Math.max(0, duration - elapsed))
-    : formatTime(elapsed);
+  const displayTime =
+    mode === 'countdown' ? formatTime(Math.max(0, duration - elapsed)) : formatTime(elapsed);
 
   const isFinished = mode === 'countdown' && elapsed >= duration;
   const accentColor = isFinished ? Colors.semantic.success : '#06B6D4';
@@ -130,7 +138,13 @@ function TimerNodeInner({ node, onUpdate, onDelete, compact }: TimerNodeProps) {
             returnKeyType="done"
           />
         ) : (
-          <Pressable onPress={() => { setLabelDraft(label); setEditingLabel(true); }} style={{ flex: 1 }}>
+          <Pressable
+            onPress={() => {
+              setLabelDraft(label);
+              setEditingLabel(true);
+            }}
+            style={{ flex: 1 }}
+          >
             <Text style={[styles.label, compact && styles.labelCompact]} numberOfLines={1}>
               {label || (mode === 'countdown' ? 'Countdown' : 'Stopwatch')}
             </Text>
@@ -161,31 +175,54 @@ function TimerNodeInner({ node, onUpdate, onDelete, compact }: TimerNodeProps) {
           />
         ) : (
           <Pressable
-            onPress={mode === 'countdown' && !running ? () => {
-              setDurationDraft(String(duration));
-              setEditingDuration(true);
-            } : undefined}
+            onPress={
+              mode === 'countdown' && !running
+                ? () => {
+                    setDurationDraft(String(duration));
+                    setEditingDuration(true);
+                  }
+                : undefined
+            }
           >
-            <Text style={[styles.time, compact && styles.timeCompact, isFinished && { color: Colors.semantic.success }]}>
+            <Text
+              style={[
+                styles.time,
+                compact && styles.timeCompact,
+                isFinished && { color: Colors.semantic.success },
+              ]}
+            >
               {displayTime}
             </Text>
           </Pressable>
         )}
 
         <View style={styles.progressTrack}>
-          <Animated.View style={[styles.progressFill, { backgroundColor: accentColor }, progressStyle]} />
+          <Animated.View
+            style={[styles.progressFill, { backgroundColor: accentColor }, progressStyle]}
+          />
         </View>
 
         <View style={[styles.controls, compact && styles.controlsCompact]}>
           <Pressable onPress={resetTimer} style={styles.controlBtn}>
             <Feather name="rotate-ccw" size={compact ? 13 : 16} color={Colors.text.tertiary} />
           </Pressable>
-          <Pressable onPress={toggleTimer} style={[styles.playBtn, compact && styles.playBtnCompact, { backgroundColor: accentColor }]}>
-            <Feather name={running ? 'pause' : 'play'} size={compact ? 14 : 18} color={Colors.text.inverse} />
+          <Pressable
+            onPress={toggleTimer}
+            style={[
+              styles.playBtn,
+              compact && styles.playBtnCompact,
+              { backgroundColor: accentColor },
+            ]}
+          >
+            <Feather
+              name={running ? 'pause' : 'play'}
+              size={compact ? 14 : 18}
+              color={Colors.text.inverse}
+            />
           </Pressable>
           {mode === 'countdown' && !compact && (
             <View style={styles.presets}>
-              {[30, 60, 90, 120].map(s => (
+              {[30, 60, 90, 120].map((s) => (
                 <Pressable
                   key={s}
                   onPress={() => {

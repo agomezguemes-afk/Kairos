@@ -1,0 +1,54 @@
+# Kairos — Continuous Integration
+#
+# Runs on every push to main and every PR targeting main. Quality gate
+# blocks merge until typecheck, lint, and the dev test suite all pass.
+#
+# Native iOS/Android builds and TestFlight distribution come in Fase 3
+# (EAS pipeline). This file focuses on JS/TS quality.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel in-progress runs on the same ref when a new commit lands.
+# Saves minutes on PR force-pushes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck · Lint · Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        # `--ignore-scripts` skips husky's `prepare` step (no git hooks on CI).
+        run: npm ci --ignore-scripts
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint (no warnings cap — baseline burn-down in progress)
+        run: npm run lint
+
+      - name: Tests (Vitest)
+        run: npm test
+
+      - name: Prettier check
+        run: npm run format:check

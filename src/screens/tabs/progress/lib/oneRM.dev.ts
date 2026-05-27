@@ -5,8 +5,10 @@ import type { WorkoutHistoryEntry } from '../../../../store/workoutStore';
 
 let failed = 0;
 function check(name: string, cond: boolean, extra?: unknown) {
-  if (!cond) { console.error('FAIL', name, extra ?? ''); failed++; }
-  else console.log('OK', name);
+  if (!cond) {
+    console.error('FAIL', name, extra ?? '');
+    failed++;
+  } else console.log('OK', name);
 }
 
 // Epley basics
@@ -22,27 +24,64 @@ check('brzycki 1 rep = weight', brzycki1RM(100, 1) === 100);
 
 // sessionBest1RM picks best
 const best = sessionBest1RM([
-  { weight: 60, reps: 8, completed: true },   // ~76
-  { weight: 80, reps: 3, completed: true },   // ~88
-  { weight: 100, reps: 1, completed: true },  // 100
+  { weight: 60, reps: 8, completed: true }, // ~76
+  { weight: 80, reps: 3, completed: true }, // ~88
+  { weight: 100, reps: 1, completed: true }, // 100
   { weight: 120, reps: 15, completed: true }, // 0 (out of range)
 ]);
 check('session best picks heavier estimate', Math.abs(best - 100) < 0.5);
 
-check('session best ignores uncompleted', sessionBest1RM([
-  { weight: 200, reps: 5, completed: false },
-]) === 0);
+check(
+  'session best ignores uncompleted',
+  sessionBest1RM([{ weight: 200, reps: 5, completed: false }]) === 0,
+);
 
 // oneRMSeries
 const NOW = new Date('2026-05-22T12:00:00Z').getTime();
 const DAY = 24 * 3600 * 1000;
 const hist: WorkoutHistoryEntry[] = [
-  { id: 'h1', blockId: 'b', blockName: 'B', startedAt: NOW - DAY, endedAt: NOW - DAY + 1000, exerciseCount: 1, setCount: 0, totalVolume: 0, durationSec: 0,
-    exercises: [{ exerciseId: 'press', name: 'Press', maxWeight: 80, totalVolume: 0, setsCompleted: 1,
-      performedSets: [{ weight: 80, reps: 3, completed: true }] }] },
-  { id: 'h2', blockId: 'b', blockName: 'B', startedAt: NOW - 7 * DAY, endedAt: NOW - 7 * DAY + 1000, exerciseCount: 1, setCount: 0, totalVolume: 0, durationSec: 0,
-    exercises: [{ exerciseId: 'press', name: 'Press', maxWeight: 75, totalVolume: 0, setsCompleted: 1,
-      performedSets: [{ weight: 75, reps: 3, completed: true }] }] },
+  {
+    id: 'h1',
+    blockId: 'b',
+    blockName: 'B',
+    startedAt: NOW - DAY,
+    endedAt: NOW - DAY + 1000,
+    exerciseCount: 1,
+    setCount: 0,
+    totalVolume: 0,
+    durationSec: 0,
+    exercises: [
+      {
+        exerciseId: 'press',
+        name: 'Press',
+        maxWeight: 80,
+        totalVolume: 0,
+        setsCompleted: 1,
+        performedSets: [{ weight: 80, reps: 3, completed: true }],
+      },
+    ],
+  },
+  {
+    id: 'h2',
+    blockId: 'b',
+    blockName: 'B',
+    startedAt: NOW - 7 * DAY,
+    endedAt: NOW - 7 * DAY + 1000,
+    exerciseCount: 1,
+    setCount: 0,
+    totalVolume: 0,
+    durationSec: 0,
+    exercises: [
+      {
+        exerciseId: 'press',
+        name: 'Press',
+        maxWeight: 75,
+        totalVolume: 0,
+        setsCompleted: 1,
+        performedSets: [{ weight: 75, reps: 3, completed: true }],
+      },
+    ],
+  },
 ];
 const series = oneRMSeries(hist, 'press');
 check('series chronological asc', series[0].date < series[1].date);
@@ -56,5 +95,8 @@ check('summary trendPct positive', sum.trendPct !== null && sum.trendPct > 0);
 
 check('summary empty', summarize1RM([]).trendPct === null);
 
-if (failed > 0) { console.error(`${failed} failures`); process.exit(1); }
+if (failed > 0) {
+  console.error(`${failed} failures`);
+  process.exit(1);
+}
 console.log('all oneRM checks pass');

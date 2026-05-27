@@ -34,19 +34,12 @@ import type { AvatarMood } from '../components/AIAvatar';
 import KairosIcon from '../components/KairosIcon';
 import { useGamification } from '../context/GamificationContext';
 import { useMission } from '../context/MissionContext';
-import {
-  getInitialGreeting,
-  type AIChatContext,
-} from '../lib/ai/chat/greeting';
-import {
-  processGlobalChat,
-  AIUnavailableError,
-} from '../lib/ai/chat/globalChat';
+import { getInitialGreeting, type AIChatContext } from '../lib/ai/chat/greeting';
+import { processGlobalChat, AIUnavailableError } from '../lib/ai/chat/globalChat';
 import { getGlobalSuggestions } from '../lib/ai/chat/globalSuggestions';
 import type { AgentProgressEvent } from '../lib/ai/agent';
 import type { RawUserContext } from '../utils/userContext';
-import { generateId } from '../types/core';
-import { getBlockExercises } from '../types/core';
+import { generateId , getBlockExercises } from '../types/core';
 import type { AIMessage } from '../types/ai';
 import { useWorkoutStore } from '../store/workoutStore';
 import { useUserProfile } from '../context/UserProfileContext';
@@ -152,7 +145,10 @@ export default function AIChatScreen({ navigation }: any) {
 
       // 2. Build conversation history (last 6 turns max — handled inside the chat module)
       const history = messages
-        .filter((m): m is AIMessage & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')
+        .filter(
+          (m): m is AIMessage & { role: 'user' | 'assistant' } =>
+            m.role === 'user' || m.role === 'assistant',
+        )
         .map((m) => ({ role: m.role, content: m.content }));
       history.push({ role: 'user', content });
 
@@ -171,9 +167,7 @@ export default function AIChatScreen({ navigation }: any) {
 
       const appendDelta = (delta: string) => {
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === streamingId ? { ...m, content: m.content + delta } : m,
-          ),
+          prev.map((m) => (m.id === streamingId ? { ...m, content: m.content + delta } : m)),
         );
       };
 
@@ -204,8 +198,8 @@ export default function AIChatScreen({ navigation }: any) {
           content: isAborted
             ? 'Generación cancelada.'
             : isUnavailable
-            ? `Kai no está disponible ahora mismo: ${detail}`
-            : `Algo falló procesando tu mensaje (${detail}). Inténtalo de nuevo.`,
+              ? `Kai no está disponible ahora mismo: ${detail}`
+              : `Algo falló procesando tu mensaje (${detail}). Inténtalo de nuevo.`,
           timestamp: Date.now(),
         };
       } finally {
@@ -293,18 +287,11 @@ export default function AIChatScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {messages.length === 0 && !isLoading && (
-          <SuggestedPrompts onSelect={handleSend} />
-        )}
+        {messages.length === 0 && !isLoading && <SuggestedPrompts onSelect={handleSend} />}
 
         {messages.map((msg, i) =>
           msg.role === 'assistant' ? (
-            <AssistantBubble
-              key={msg.id}
-              message={msg}
-              index={i}
-              onViewBlock={handleViewBlock}
-            />
+            <AssistantBubble key={msg.id} message={msg} index={i} onViewBlock={handleViewBlock} />
           ) : (
             <UserBubble key={msg.id} message={msg} index={i} />
           ),
@@ -312,12 +299,13 @@ export default function AIChatScreen({ navigation }: any) {
 
         {/* Show typing dots ONLY while we wait for the first delta. Once
          *  tokens are flowing, the assistant bubble shows live progress. */}
-        {isLoading && (() => {
-          const streamingId = streamingIdRef.current;
-          if (!streamingId) return <TypingIndicator />;
-          const m = messages.find((x) => x.id === streamingId);
-          return m && m.content.length === 0 ? <TypingIndicator /> : null;
-        })()}
+        {isLoading &&
+          (() => {
+            const streamingId = streamingIdRef.current;
+            if (!streamingId) return <TypingIndicator />;
+            const m = messages.find((x) => x.id === streamingId);
+            return m && m.content.length === 0 ? <TypingIndicator /> : null;
+          })()}
       </ScrollView>
 
       {/* Suggested prompts when chat is empty and has greeting */}
@@ -341,11 +329,7 @@ export default function AIChatScreen({ navigation }: any) {
         {isLoading ? (
           <Pressable
             onPress={handleStop}
-            style={({ pressed }) => [
-              styles.sendBtn,
-              styles.stopBtn,
-              pressed && { opacity: 0.7 },
-            ]}
+            style={({ pressed }) => [styles.sendBtn, styles.stopBtn, pressed && { opacity: 0.7 }]}
             accessibilityLabel="Detener generación"
           >
             <Feather name="square" size={16} color={Colors.text.inverse} />
@@ -407,7 +391,11 @@ function InlineMarkdown({ text }: { text: string }) {
             />
           );
         }
-        return <Text key={i} style={styles.assistantText}>{part}</Text>;
+        return (
+          <Text key={i} style={styles.assistantText}>
+            {part}
+          </Text>
+        );
       })}
     </View>
   );
@@ -446,10 +434,7 @@ function ActionCard({
       </View>
       <Pressable
         onPress={() => onViewBlock(blockId)}
-        style={({ pressed }) => [
-          styles.actionCardBtn,
-          pressed && { opacity: 0.8 },
-        ]}
+        style={({ pressed }) => [styles.actionCardBtn, pressed && { opacity: 0.8 }]}
       >
         <Text style={styles.actionCardBtnText}>Ver bloque</Text>
         <Feather name="arrow-right" size={14} color={Colors.text.inverse} />
@@ -484,10 +469,7 @@ function AssistantBubble({
 
 function UserBubble({ message, index }: { message: AIMessage; index: number }) {
   return (
-    <Animated.View
-      entering={FadeInRight.delay(50).duration(220)}
-      style={styles.userRow}
-    >
+    <Animated.View entering={FadeInRight.delay(50).duration(220)} style={styles.userRow}>
       <View style={styles.userBubble}>
         <Text style={styles.userText}>{message.content}</Text>
       </View>
@@ -516,10 +498,7 @@ function BouncingDot({ delay: d }: { delay: number }) {
     translateY.value = withDelay(
       d,
       withRepeat(
-        withSequence(
-          withTiming(-4, { duration: 250 }),
-          withTiming(0, { duration: 250 }),
-        ),
+        withSequence(withTiming(-4, { duration: 250 }), withTiming(0, { duration: 250 })),
         -1,
         false,
       ),

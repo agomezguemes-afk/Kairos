@@ -82,10 +82,14 @@ function prDeltaLabel(pr: PrEntry): string {
   const abs = formatVolume(Math.abs(pr.delta));
   const sign = pr.delta > 0 ? '+' : '−';
   switch (pr.kind) {
-    case 'weight': return `${sign}${abs} kg`;
-    case 'oneRm':  return `${sign}${abs} kg 1RM`;
-    case 'volume': return `${sign}${abs} kg vol.`;
-    default:       return '';
+    case 'weight':
+      return `${sign}${abs} kg`;
+    case 'oneRm':
+      return `${sign}${abs} kg 1RM`;
+    case 'volume':
+      return `${sign}${abs} kg vol.`;
+    default:
+      return '';
   }
 }
 
@@ -121,7 +125,7 @@ export default function WorkoutSummary({ entry, history = [], onClose }: Props) 
     for (const ex of entry.exercises) {
       const performed = ex.performedSets ?? [];
       let topWeight: number | null = null;
-      let topReps:   number | null = null;
+      let topReps: number | null = null;
       let volume = 0;
       for (const s of performed) {
         if (!s.completed) continue;
@@ -130,7 +134,7 @@ export default function WorkoutSummary({ entry, history = [], onClose }: Props) 
         volume += w * r;
         if (s.weight != null && (topWeight == null || s.weight > topWeight)) {
           topWeight = s.weight;
-          topReps   = s.reps;
+          topReps = s.reps;
         }
       }
       if (topWeight == null && volume === 0) continue;
@@ -176,9 +180,7 @@ export default function WorkoutSummary({ entry, history = [], onClose }: Props) 
           <Text style={styles.heroValue}>
             {entry.totalVolume > 0 ? formatVolume(entry.totalVolume) : '—'}
           </Text>
-          {entry.totalVolume > 0 && (
-            <Text style={styles.heroUnit}>kg</Text>
-          )}
+          {entry.totalVolume > 0 && <Text style={styles.heroUnit}>kg</Text>}
         </View>
         <Text style={styles.heroLabel}>volumen total</Text>
       </View>
@@ -187,9 +189,15 @@ export default function WorkoutSummary({ entry, history = [], onClose }: Props) 
       <View style={styles.statsRow}>
         <StatCell value={fmtDuration(entry.durationSec)} label="duración" />
         <CellDivider />
-        <StatCell value={String(entry.setCount)} label={entry.setCount === 1 ? 'serie' : 'series'} />
+        <StatCell
+          value={String(entry.setCount)}
+          label={entry.setCount === 1 ? 'serie' : 'series'}
+        />
         <CellDivider />
-        <StatCell value={String(entry.exerciseCount)} label={entry.exerciseCount === 1 ? 'ejercicio' : 'ejercicios'} />
+        <StatCell
+          value={String(entry.exerciseCount)}
+          label={entry.exerciseCount === 1 ? 'ejercicio' : 'ejercicios'}
+        />
       </View>
 
       {/* PRs */}
@@ -205,13 +213,13 @@ export default function WorkoutSummary({ entry, history = [], onClose }: Props) 
           </View>
           {prs.slice(0, 5).map((pr, i) => (
             <View key={pr.name + i} style={styles.prRow}>
-              <Text style={styles.prName} numberOfLines={1}>{pr.name}</Text>
+              <Text style={styles.prName} numberOfLines={1}>
+                {pr.name}
+              </Text>
               <Text style={styles.prDelta}>{prDeltaLabel(pr)}</Text>
             </View>
           ))}
-          {prs.length > 5 && (
-            <Text style={styles.prMore}>+{prs.length - 5} más</Text>
-          )}
+          {prs.length > 5 && <Text style={styles.prMore}>+{prs.length - 5} más</Text>}
         </View>
       )}
 

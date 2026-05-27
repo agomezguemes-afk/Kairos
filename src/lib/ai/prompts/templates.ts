@@ -152,5 +152,8 @@ export function pickTemplates(query: string): BlockTemplate[] {
 
 export function renderTemplatesForPrompt(templates: BlockTemplate[]): string {
   if (templates.length === 0) return '';
-  return ['PLANTILLAS DE EJEMPLO (estructura recomendada):', ...templates.map((t) => t.description)].join('\n\n');
+  return [
+    'PLANTILLAS DE EJEMPLO (estructura recomendada):',
+    ...templates.map((t) => t.description),
+  ].join('\n\n');
 }

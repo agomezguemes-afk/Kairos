@@ -7,7 +7,13 @@ import { RRule, rrulestr, Weekday } from 'rrule';
 import type { ISODate } from '../../../types/schedule';
 
 const WEEKDAY_BY_INDEX: Weekday[] = [
-  RRule.MO, RRule.TU, RRule.WE, RRule.TH, RRule.FR, RRule.SA, RRule.SU,
+  RRule.MO,
+  RRule.TU,
+  RRule.WE,
+  RRule.TH,
+  RRule.FR,
+  RRule.SA,
+  RRule.SU,
 ];
 
 // rrule stores and emits Date objects whose UTC components are the wall-clock
@@ -111,8 +117,7 @@ export const RRULE_PRESETS: RRulePreset[] = [
   {
     id: 'weekends',
     label: 'Fines de semana',
-    build: () =>
-      new RRule({ freq: RRule.WEEKLY, byweekday: [RRule.SA, RRule.SU] }).toString(),
+    build: () => new RRule({ freq: RRule.WEEKLY, byweekday: [RRule.SA, RRule.SU] }).toString(),
   },
   {
     id: 'biweekly-mwf',

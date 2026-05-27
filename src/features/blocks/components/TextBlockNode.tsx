@@ -101,7 +101,8 @@ function TextBlockNodeInner({
     onInsertAfter(node.id);
   }, [handleEndEdit, onInsertAfter, node.id]);
 
-  const isHeading = node.data.format === 'h1' || node.data.format === 'h2' || node.data.format === 'h3';
+  const isHeading =
+    node.data.format === 'h1' || node.data.format === 'h2' || node.data.format === 'h3';
   const placeholder = PLACEHOLDER[node.data.format];
 
   return (
@@ -136,7 +137,11 @@ function TextBlockNodeInner({
       {editing ? (
         <TextInput
           ref={inputRef}
-          style={[FORMAT_STYLES[node.data.format], styles.input, node.data.checked && styles.checkedText]}
+          style={[
+            FORMAT_STYLES[node.data.format],
+            styles.input,
+            node.data.checked && styles.checkedText,
+          ]}
           value={draft}
           onChangeText={setDraft}
           onBlur={handleEndEdit}
@@ -150,13 +155,13 @@ function TextBlockNodeInner({
       ) : (
         <Pressable onPress={handleStartEdit} style={styles.textPressable}>
           {node.data.content ? (
-            <Text style={[FORMAT_STYLES[node.data.format], node.data.checked && styles.checkedText]}>
+            <Text
+              style={[FORMAT_STYLES[node.data.format], node.data.checked && styles.checkedText]}
+            >
               {node.data.content}
             </Text>
           ) : (
-            <Text style={[FORMAT_STYLES[node.data.format], styles.placeholder]}>
-              {placeholder}
-            </Text>
+            <Text style={[FORMAT_STYLES[node.data.format], styles.placeholder]}>{placeholder}</Text>
           )}
         </Pressable>
       )}

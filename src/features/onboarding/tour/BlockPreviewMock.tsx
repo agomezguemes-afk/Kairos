@@ -17,7 +17,9 @@ export default function BlockPreviewMock() {
       <View style={styles.card}>
         <View style={[styles.stripe, { backgroundColor: Colors.discipline.strength }]} />
         <View style={styles.body}>
-          <Text style={styles.title} numberOfLines={1}>Empuje superior</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            Empuje superior
+          </Text>
           <View style={styles.pills}>
             <View style={styles.pill}>
               <Text style={styles.pillText}>45 min</Text>
@@ -30,7 +32,9 @@ export default function BlockPreviewMock() {
             {EXERCISES.map((name) => (
               <View key={name} style={styles.row}>
                 <KIcon name="barbell" size={14} color={Colors.ink.muted} />
-                <Text style={styles.rowText} numberOfLines={1}>{name}</Text>
+                <Text style={styles.rowText} numberOfLines={1}>
+                  {name}
+                </Text>
               </View>
             ))}
           </View>

@@ -21,7 +21,10 @@ import { COACH_CHAT_SYSTEM } from '../prompts/system';
 export type ChatHistoryItem = { role: 'user' | 'assistant'; content: string };
 
 export class AIUnavailableError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message);
     this.name = 'AIUnavailableError';
   }
@@ -37,15 +40,22 @@ function buildUserPrompt(
     filterExercises({
       equipment: snapshot.profile.equipment as import('../../../types/profile').EquipmentTag[],
       injuries: snapshot.profile.injuries,
-      queryKeywords: query.toLowerCase().split(/\W+/).filter((s) => s.length > 2),
+      queryKeywords: query
+        .toLowerCase()
+        .split(/\W+/)
+        .filter((s) => s.length > 2),
       limit: 18,
     }),
   );
   const templates = renderTemplatesForPrompt(pickTemplates(query));
-  const histText = history.length > 0
-    ? '\n\nHISTORIAL DE CONVERSACIÓN:\n' +
-      history.slice(-6).map((m) => `${m.role === 'user' ? 'Usuario' : 'Kai'}: ${m.content}`).join('\n')
-    : '';
+  const histText =
+    history.length > 0
+      ? '\n\nHISTORIAL DE CONVERSACIÓN:\n' +
+        history
+          .slice(-6)
+          .map((m) => `${m.role === 'user' ? 'Usuario' : 'Kai'}: ${m.content}`)
+          .join('\n')
+      : '';
   const sections = [context, catalog, templates].filter((s) => s && s.length > 0);
   return `${sections.join('\n\n')}${histText}\n\nMENSAJE DEL USUARIO:\n${query}`;
 }
@@ -69,9 +79,7 @@ export async function processGlobalChat(
   options: GlobalChatOptions = {},
 ): Promise<AIMessage> {
   if (!isGroqAvailable()) {
-    throw new AIUnavailableError(
-      'No hay clave de Groq configurada (EXPO_PUBLIC_GROQ_API_KEY).',
-    );
+    throw new AIUnavailableError('No hay clave de Groq configurada (EXPO_PUBLIC_GROQ_API_KEY).');
   }
 
   const snapshot = buildUserContextSnapshot(rawCtx);

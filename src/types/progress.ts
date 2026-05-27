@@ -44,13 +44,13 @@ export function isSameDay(date1: Date, date2: Date): boolean {
 }
 
 /**
-  * Helper para obtener día de la semana (0=Lun, 6=Dom)
-  * Devuelve el índice del día de la semana con lunes como 0 y domingo como 6. 
-  * Sirve para trabajar con fechas usando una convención basada en semanas laborables.
-  * date: Fecha a partir de la cual se obtiene el día de la semana.
-  * Returns:
-  * Un número entre 0 y 6 que representa el día de la semana, donde 0 es lunes y 6 es domingo. 
-  * */
+ * Helper para obtener día de la semana (0=Lun, 6=Dom)
+ * Devuelve el índice del día de la semana con lunes como 0 y domingo como 6.
+ * Sirve para trabajar con fechas usando una convención basada en semanas laborables.
+ * date: Fecha a partir de la cual se obtiene el día de la semana.
+ * Returns:
+ * Un número entre 0 y 6 que representa el día de la semana, donde 0 es lunes y 6 es domingo.
+ * */
 export function getDayOfWeek(date: Date): number {
   const day = date.getDay();
   return day === 0 ? 6 : day - 1; // Convertir Dom=0 a Dom=6

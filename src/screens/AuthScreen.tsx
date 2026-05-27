@@ -51,8 +51,7 @@ export default function AuthScreen({ navigation }: any) {
 
   const validate = (): string | null => {
     if (!email.trim()) return 'Ingresa tu correo electrónico.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
-      return 'Correo electrónico no válido.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Correo electrónico no válido.';
     if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres.';
     return null;
   };
@@ -103,11 +102,7 @@ export default function AuthScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         {/* Back arrow */}
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={styles.back}
-        >
+        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.back}>
           <Feather name="arrow-left" size={22} color={Colors.text.primary} />
         </Pressable>
 
@@ -269,9 +264,7 @@ export default function AuthScreen({ navigation }: any) {
         {/* Toggle mode */}
         <Pressable onPress={toggleMode} style={styles.toggleRow}>
           <Text style={styles.toggleText}>
-            {mode === 'signin'
-              ? '¿Aún no tienes cuenta? '
-              : '¿Ya tienes cuenta? '}
+            {mode === 'signin' ? '¿Aún no tienes cuenta? ' : '¿Ya tienes cuenta? '}
           </Text>
           <Text style={styles.toggleLink}>
             {mode === 'signin' ? 'Regístrate' : 'Inicia sesión'}

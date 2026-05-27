@@ -90,7 +90,10 @@ export function nextActionSuggestion(c: ComparisonResult): Suggestion {
     return { tone: 'regress', message: 'Repite carga la próxima sesión antes de subir.' };
   }
   if (dmw > 0 && dv > 0) {
-    return { tone: 'progress', message: 'Carga superior y volumen superior. Buen margen para progresar.' };
+    return {
+      tone: 'progress',
+      message: 'Carga superior y volumen superior. Buen margen para progresar.',
+    };
   }
   if (dv > 0) {
     return { tone: 'progress', message: 'Volumen superior a la última sesión.' };

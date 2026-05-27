@@ -15,15 +15,7 @@
 // so multiple-exercise PR detection is fast even with long histories.
 
 import React, { useEffect, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Pressable,
-  Dimensions,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, Dimensions, ScrollView } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -64,19 +56,21 @@ interface ExercisePrEntry {
 
 export default function CompletionCelebration({ block, onDismiss }: Props) {
   const confettiRef = useRef<ConfettiRef | null>(null);
-  const cardScale   = useSharedValue(0.86);
+  const cardScale = useSharedValue(0.86);
   const cardOpacity = useSharedValue(0);
 
-  const workoutHistory = useWorkoutStore(s => s.workoutHistory);
-  const historyIndex   = useExerciseHistoryIndex();
+  const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
+  const historyIndex = useExerciseHistoryIndex();
 
-  const summary = useMemo(() => block ? summarize(block, workoutHistory, historyIndex) : null,
-    [block, workoutHistory, historyIndex]);
+  const summary = useMemo(
+    () => (block ? summarize(block, workoutHistory, historyIndex) : null),
+    [block, workoutHistory, historyIndex],
+  );
 
   useEffect(() => {
     if (!block) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    cardScale.value   = withSpring(1, springs.bouncy);
+    cardScale.value = withSpring(1, springs.bouncy);
     cardOpacity.value = withTiming(1, { duration: 280 });
     const t = setTimeout(() => confettiRef.current?.burst(), 180);
     return () => clearTimeout(t);
@@ -84,7 +78,7 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: cardScale.value }],
-    opacity:   cardOpacity.value,
+    opacity: cardOpacity.value,
   }));
 
   if (!block || !summary) return null;
@@ -104,14 +98,14 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
         <Animated.View style={[styles.card, cardStyle]}>
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={styles.eyebrow}>Sesión completada</Text>
-            <Text style={styles.blockName} numberOfLines={2}>{block.name}</Text>
+            <Text style={styles.blockName} numberOfLines={2}>
+              {block.name}
+            </Text>
 
             {/* Hero volume */}
             <Animated.View entering={FadeIn.delay(180).duration(320)} style={styles.heroRow}>
               <View style={styles.heroLeft}>
-                <Text style={styles.heroValue}>
-                  {volume > 0 ? formatVolume(volume) : '—'}
-                </Text>
+                <Text style={styles.heroValue}>{volume > 0 ? formatVolume(volume) : '—'}</Text>
                 {volume > 0 && <Text style={styles.heroUnit}>kg</Text>}
               </View>
               <Text style={styles.heroLabel}>volumen total</Text>
@@ -121,7 +115,10 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
             <Animated.View entering={FadeIn.delay(260).duration(320)} style={styles.statRow}>
               <StatBlock value={String(sets)} label={sets === 1 ? 'serie' : 'series'} />
               <StatDivider />
-              <StatBlock value={String(exercises)} label={exercises === 1 ? 'ejercicio' : 'ejercicios'} />
+              <StatBlock
+                value={String(exercises)}
+                label={exercises === 1 ? 'ejercicio' : 'ejercicios'}
+              />
               <StatDivider />
               <StatBlock value={`${durationMin}`} label="min" />
             </Animated.View>
@@ -134,11 +131,14 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
                   size={13}
                   color={volumeDelta >= 0 ? Colors.semantic.success : Colors.semantic.error}
                 />
-                <Text style={[
-                  styles.deltaText,
-                  { color: volumeDelta >= 0 ? Colors.semantic.success : Colors.semantic.error },
-                ]}>
-                  {volumeDelta >= 0 ? '+' : '−'}{formatVolume(Math.abs(volumeDelta))} kg vs anterior
+                <Text
+                  style={[
+                    styles.deltaText,
+                    { color: volumeDelta >= 0 ? Colors.semantic.success : Colors.semantic.error },
+                  ]}
+                >
+                  {volumeDelta >= 0 ? '+' : '−'}
+                  {formatVolume(Math.abs(volumeDelta))} kg vs anterior
                 </Text>
               </Animated.View>
             )}
@@ -151,18 +151,20 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
                     <Feather name="award" size={11} color={Colors.gold.deep} />
                   </View>
                   <Text style={styles.prTitle}>
-                    {prs.length === 1 ? 'Nuevo récord personal' : `${prs.length} récords personales`}
+                    {prs.length === 1
+                      ? 'Nuevo récord personal'
+                      : `${prs.length} récords personales`}
                   </Text>
                 </View>
                 {prs.slice(0, 4).map((pr, i) => (
                   <View key={pr.name + i} style={styles.prRow}>
-                    <Text style={styles.prName} numberOfLines={1}>{pr.name}</Text>
+                    <Text style={styles.prName} numberOfLines={1}>
+                      {pr.name}
+                    </Text>
                     <Text style={styles.prDelta}>{prDeltaLabel(pr)}</Text>
                   </View>
                 ))}
-                {prs.length > 4 && (
-                  <Text style={styles.prMore}>+{prs.length - 4} más</Text>
-                )}
+                {prs.length > 4 && <Text style={styles.prMore}>+{prs.length - 4} más</Text>}
               </Animated.View>
             )}
 
@@ -202,10 +204,14 @@ function StatDivider() {
 function prDeltaLabel(pr: ExercisePrEntry): string {
   const sign = pr.delta > 0 ? '+' : '';
   switch (pr.kind) {
-    case 'weight': return `${sign}${formatVolume(Math.abs(pr.delta))} kg`;
-    case 'oneRm':  return `${sign}${formatVolume(Math.abs(pr.delta))} kg 1RM`;
-    case 'volume': return `${sign}${formatVolume(Math.abs(pr.delta))} kg vol.`;
-    default:       return '';
+    case 'weight':
+      return `${sign}${formatVolume(Math.abs(pr.delta))} kg`;
+    case 'oneRm':
+      return `${sign}${formatVolume(Math.abs(pr.delta))} kg 1RM`;
+    case 'volume':
+      return `${sign}${formatVolume(Math.abs(pr.delta))} kg vol.`;
+    default:
+      return '';
   }
 }
 
@@ -233,7 +239,7 @@ function summarize(
   for (const ex of exercises) {
     const { exVolume, exTopWeight, exTopReps } = currentSessionFor(ex);
     totalVolume += exVolume;
-    completedSets += ex.sets.filter(s => s.completed).length;
+    completedSets += ex.sets.filter((s) => s.completed).length;
     totalDurationEstimateMin += Math.round(
       (ex.sets.length * 45 + Math.max(0, ex.sets.length - 1) * ex.rest_seconds) / 60,
     );
@@ -245,9 +251,9 @@ function summarize(
       at: Date.now(),
       date: new Date().toISOString().slice(0, 10),
       topWeight: exTopWeight,
-      topReps:   exTopReps,
-      volume:    exVolume,
-      setsCompleted: ex.sets.filter(s => s.completed).length,
+      topReps: exTopReps,
+      volume: exVolume,
+      setsCompleted: ex.sets.filter((s) => s.completed).length,
       estimatedOneRm: estimateOneRepMax(exTopWeight, exTopReps),
       libraryId: ex.libraryId,
     };
@@ -261,27 +267,27 @@ function summarize(
 
   // Δ vs previous session of the same block (from persisted history).
   const blockHistory = workoutHistory
-    .filter(h => h.blockId === block.id)
+    .filter((h) => h.blockId === block.id)
     .sort((a, b) => b.endedAt - a.endedAt);
   const previous = blockHistory[0]; // top item — most recent persisted before this celebration
-  const volumeDelta = previous && totalVolume > 0
-    ? totalVolume - previous.totalVolume
-    : null;
+  const volumeDelta = previous && totalVolume > 0 ? totalVolume - previous.totalVolume : null;
 
   // Closing line — contextual.
   let closing = '¡Un paso más en tu progresión!';
-  if (prs.length >= 2)         closing = '¡Sesión histórica! Múltiples récords batidos.';
-  else if (prs.length === 1)   closing = 'Hoy levantaste por encima de tu marca anterior.';
-  else if (volumeDelta != null && volumeDelta > 0) closing = 'Volumen al alza. La constancia se nota.';
-  else if (volumeDelta != null && volumeDelta < 0) closing = 'Sesión completada. El descanso también es entrenamiento.';
-  else if (!previous)          closing = 'Primera sesión registrada. Esto es solo el principio.';
+  if (prs.length >= 2) closing = '¡Sesión histórica! Múltiples récords batidos.';
+  else if (prs.length === 1) closing = 'Hoy levantaste por encima de tu marca anterior.';
+  else if (volumeDelta != null && volumeDelta > 0)
+    closing = 'Volumen al alza. La constancia se nota.';
+  else if (volumeDelta != null && volumeDelta < 0)
+    closing = 'Sesión completada. El descanso también es entrenamiento.';
+  else if (!previous) closing = 'Primera sesión registrada. Esto es solo el principio.';
 
   return {
-    volume:       Math.round(totalVolume),
-    sets:         completedSets,
-    exercises:    exercises.length,
-    durationMin:  totalDurationEstimateMin || 0,
-    volumeDelta:  volumeDelta != null ? Math.round(volumeDelta) : null,
+    volume: Math.round(totalVolume),
+    sets: completedSets,
+    exercises: exercises.length,
+    durationMin: totalDurationEstimateMin || 0,
+    volumeDelta: volumeDelta != null ? Math.round(volumeDelta) : null,
     prs,
     closing,
   };
@@ -298,11 +304,11 @@ function currentSessionFor(ex: ExerciseCard): {
   for (const set of ex.sets) {
     if (!set.completed) continue;
     const w = typeof set.values['weight'] === 'number' ? (set.values['weight'] as number) : null;
-    const r = typeof set.values['reps']   === 'number' ? (set.values['reps']   as number) : null;
+    const r = typeof set.values['reps'] === 'number' ? (set.values['reps'] as number) : null;
     if (w != null && r != null) exVolume += w * r;
     if (w != null && (exTopWeight == null || w > exTopWeight)) {
       exTopWeight = w;
-      exTopReps   = r;
+      exTopReps = r;
     }
   }
   return { exVolume, exTopWeight, exTopReps };

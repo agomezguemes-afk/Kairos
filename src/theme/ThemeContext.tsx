@@ -35,9 +35,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const value: ThemeContextValue = useMemo(
     () => ({
-      mode:       'light' as ThemeMode,
+      mode: 'light' as ThemeMode,
       preference,
-      colors:     LIGHT_COLORS,
+      colors: LIGHT_COLORS,
       setPreference,
       toggleTheme,
     }),

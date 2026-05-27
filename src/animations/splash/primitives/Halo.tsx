@@ -1,10 +1,7 @@
 // src/animations/splash/primitives/Halo.tsx
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import Animated, {
-  SharedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import Svg from 'react-native-svg';
 
 import SoftGlow from './SoftGlow';
@@ -16,10 +13,10 @@ import SoftGlow from './SoftGlow';
  * sequence's final-state phase.
  */
 export interface HaloProps {
-  cx: number;        // stage X
-  cy: number;        // stage Y
-  size: number;      // base diameter
-  intensity: SharedValue<number>;  // 0..1
+  cx: number; // stage X
+  cy: number; // stage Y
+  size: number; // base diameter
+  intensity: SharedValue<number>; // 0..1
   color?: string;
 }
 
@@ -31,10 +28,7 @@ export default function Halo({ cx, cy, size, intensity, color }: HaloProps) {
   const baseRadius = size / 2;
 
   const animStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: cx - localCenter },
-      { translateY: cy - localCenter },
-    ],
+    transform: [{ translateX: cx - localCenter }, { translateY: cy - localCenter }],
   }));
 
   return (

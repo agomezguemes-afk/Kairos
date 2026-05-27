@@ -34,7 +34,12 @@ interface DraggableNodeProps {
   dragTargetColumn: SharedValue<number>;
   dragSectionIdx: SharedValue<number>;
   dragTargetSectionIdx: SharedValue<number>;
-  onDrop: (fromIndex: number, toIndex: number, targetColumn: number, targetSectionIdx: number) => void;
+  onDrop: (
+    fromIndex: number,
+    toIndex: number,
+    targetColumn: number,
+    targetSectionIdx: number,
+  ) => void;
   onTapHandle: () => void;
   onDragActiveChange: (active: boolean) => void;
 }
@@ -66,9 +71,12 @@ function DraggableNode({
   const isDragging = useSharedValue(false);
   const measuredHeight = useSharedValue(60);
 
-  const onLayout = useCallback((e: any) => {
-    measuredHeight.value = e.nativeEvent.layout.height;
-  }, [measuredHeight]);
+  const onLayout = useCallback(
+    (e: any) => {
+      measuredHeight.value = e.nativeEvent.layout.height;
+    },
+    [measuredHeight],
+  );
 
   const shiftY = useDerivedValue(() => {
     if (activeDragIndex.value === -1 || isDragging.value) return 0;
@@ -102,9 +110,13 @@ function DraggableNode({
   const showDropLine = useDerivedValue(() => {
     if (activeDragIndex.value === -1 || isDragging.value) return false;
     if (dragTargetSectionIdx.value !== sectionIndex) return false;
-    if (dragSourceColumn.value !== dragTargetColumn.value && dragSectionIdx.value === sectionIndex) return false;
+    if (dragSourceColumn.value !== dragTargetColumn.value && dragSectionIdx.value === sectionIndex)
+      return false;
     if (columnIndex !== dragTargetColumn.value) return false;
-    return index === currentDropIndex.value && !(dragSectionIdx.value === sectionIndex && activeDragIndex.value === index);
+    return (
+      index === currentDropIndex.value &&
+      !(dragSectionIdx.value === sectionIndex && activeDragIndex.value === index)
+    );
   });
 
   const mainStyle = useAnimatedStyle(() => {
@@ -168,8 +180,10 @@ function DraggableNode({
       translateX.value = e.translationX;
 
       if (columnCount > 1 && columnWidth > 0) {
-        const tgtCol = Math.max(0, Math.min(columnCount - 1,
-          columnIndex + Math.round(e.translationX / columnWidth)));
+        const tgtCol = Math.max(
+          0,
+          Math.min(columnCount - 1, columnIndex + Math.round(e.translationX / columnWidth)),
+        );
         if (tgtCol !== dragTargetColumn.value) {
           dragTargetColumn.value = tgtCol;
           runOnJS(Haptics.selectionAsync)();
@@ -240,24 +254,19 @@ function DraggableNode({
   return (
     <>
       <Animated.View style={[styles.dropLine, dropLineStyle]} />
-      <Animated.View
-        style={[styles.nodeWrapper, mainStyle]}
-        onLayout={onLayout}
-      >
+      <Animated.View style={[styles.nodeWrapper, mainStyle]} onLayout={onLayout}>
         <Animated.View style={[styles.cardBase, cardStyle]}>
           <View style={styles.nodeRow}>
             <GestureDetector gesture={composedGesture}>
               <Animated.View style={styles.handle}>
                 <View style={styles.gripDots}>
-                  {[0, 1, 2, 3, 4, 5].map(i => (
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
                     <View key={i} style={styles.gripDot} />
                   ))}
                 </View>
               </Animated.View>
             </GestureDetector>
-            <View style={styles.nodeContent}>
-              {children}
-            </View>
+            <View style={styles.nodeContent}>{children}</View>
           </View>
         </Animated.View>
       </Animated.View>

@@ -6,7 +6,7 @@ export default function HomeTab() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.greeting}>Buenos días</Text>
       <Text style={styles.title}>Dashboard</Text>
-      
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Racha: 0 días</Text>
         <Text style={styles.cardSubtitle}>Comienza tu primera sesión</Text>

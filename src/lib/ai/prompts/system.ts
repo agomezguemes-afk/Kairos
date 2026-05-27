@@ -84,10 +84,7 @@ export const PLATEAU_COACH_SYSTEM = `Eres Kairos Coach. Responde en español, en
 // ======================== FREE-CHAT COACH (text-only, with history) ========================
 
 /** Builds a free-form coaching prompt that includes the user data + science. */
-export function buildCoachChatSystem(args: {
-  userDataJson: string;
-  historyText: string;
-}): string {
+export function buildCoachChatSystem(args: { userDataJson: string; historyText: string }): string {
   return `Eres Kairos Coach, un entrenador personal de élite integrado en la app Kairos. Hablas español, en tono cercano, empático y preciso. Usas datos reales del usuario.
 
 ${TRAINING_SCIENCE}

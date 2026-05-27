@@ -20,15 +20,13 @@ interface Props {
   subdued?: boolean;
 }
 
-export default function BlockPreview({
-  block, onSeeFull, maxItems = 4, subdued = false,
-}: Props) {
+export default function BlockPreview({ block, onSeeFull, maxItems = 4, subdued = false }: Props) {
   const exercises = getBlockExercises(block);
   const visible = exercises.slice(0, maxItems);
   const overflow = exercises.length - visible.length;
 
   const labelColor = subdued ? Colors.ink.tertiary : Colors.ink.secondary;
-  const iconColor  = subdued ? Colors.ink.muted    : Colors.ink.tertiary;
+  const iconColor = subdued ? Colors.ink.muted : Colors.ink.tertiary;
 
   return (
     <View style={styles.container}>
@@ -40,9 +38,7 @@ export default function BlockPreview({
           </Text>
         </View>
       ))}
-      {overflow > 0 && (
-        <Text style={styles.overflow}>+ {overflow} más</Text>
-      )}
+      {overflow > 0 && <Text style={styles.overflow}>+ {overflow} más</Text>}
       {onSeeFull && exercises.length > 0 && (
         <Pressable
           onPress={onSeeFull}

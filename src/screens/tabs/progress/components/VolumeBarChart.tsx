@@ -60,8 +60,10 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center' },
   emptyText: { ...Type.micro, color: Colors.ink.muted },
   weekLabelRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingHorizontal: 6, marginTop: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+    marginTop: 2,
   },
   weekLabel: { ...Type.micro, color: Colors.ink.tertiary },
   weekLabelBold: { ...Type.micro, color: Colors.gold.deep, fontWeight: '600' },

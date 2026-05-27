@@ -6,9 +6,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Type, Spacing } from '../../../theme/tokens';
 import DayCell from './DayCell';
-import {
-  monthGridDays, formatMonthYear, addMonthsISO, todayISO, fromISODate,
-} from '../lib/dates';
+import { monthGridDays, formatMonthYear, addMonthsISO, todayISO, fromISODate } from '../lib/dates';
 import { useScheduleForRange } from '../hooks/useScheduleForRange';
 import { useWorkoutStore } from '../../../store/workoutStore';
 import type { ISODate } from '../../../types/schedule';
@@ -42,24 +40,42 @@ export default function MonthGrid({ selectedDate, onSelect }: Props) {
     return map;
   }, [range, blocks]);
 
-  const goPrev = () => { Haptics.selectionAsync().catch(() => {}); setAnchor(addMonthsISO(anchor, -1)); };
-  const goNext = () => { Haptics.selectionAsync().catch(() => {}); setAnchor(addMonthsISO(anchor, 1));  };
+  const goPrev = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setAnchor(addMonthsISO(anchor, -1));
+  };
+  const goNext = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setAnchor(addMonthsISO(anchor, 1));
+  };
 
   return (
     <View>
       <View style={styles.header}>
-        <Pressable onPress={goPrev} accessibilityLabel="Mes anterior" hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+        <Pressable
+          onPress={goPrev}
+          accessibilityLabel="Mes anterior"
+          hitSlop={12}
+          style={({ pressed }) => pressed && { opacity: 0.6 }}
+        >
           <Text style={styles.arrow}>‹</Text>
         </Pressable>
         <Text style={styles.monthLabel}>{formatMonthYear(anchor)}</Text>
-        <Pressable onPress={goNext} accessibilityLabel="Mes siguiente" hitSlop={12} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+        <Pressable
+          onPress={goNext}
+          accessibilityLabel="Mes siguiente"
+          hitSlop={12}
+          style={({ pressed }) => pressed && { opacity: 0.6 }}
+        >
           <Text style={styles.arrow}>›</Text>
         </Pressable>
       </View>
 
       <View style={styles.weekdayHeader}>
         {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((w) => (
-          <Text key={w} style={styles.weekdayHeaderText}>{w}</Text>
+          <Text key={w} style={styles.weekdayHeaderText}>
+            {w}
+          </Text>
         ))}
       </View>
 

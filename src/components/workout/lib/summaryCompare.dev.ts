@@ -3,8 +3,10 @@ import { compareToPrevious, nextActionSuggestion } from './summaryCompare';
 
 let failed = 0;
 function check(name: string, cond: boolean, extra?: unknown) {
-  if (!cond) { console.error('FAIL', name, extra ?? ''); failed++; }
-  else console.log('OK', name);
+  if (!cond) {
+    console.error('FAIL', name, extra ?? '');
+    failed++;
+  } else console.log('OK', name);
 }
 
 function ex(id: string, opts: Partial<ExerciseHistorySummary> = {}): ExerciseHistorySummary {
@@ -33,10 +35,38 @@ function entry(id: string, opts: Partial<WorkoutHistoryEntry> = {}): WorkoutHist
   };
 }
 
-const cur = entry('cur', { setCount: 9, totalVolume: 540, endedAt: 200, exercises: [ex('press', { maxWeight: 60, totalVolume: 540, setsCompleted: 9, plannedSetsCount: 9 })] });
-const prevSame = entry('prev1', { setCount: 9, totalVolume: 540, endedAt: 100, exercises: [ex('press', { maxWeight: 60, totalVolume: 540, setsCompleted: 9, plannedSetsCount: 9 })] });
-const prevLower = entry('prev2', { setCount: 8, totalVolume: 480, endedAt: 100, exercises: [ex('press', { maxWeight: 55, totalVolume: 480, setsCompleted: 8, plannedSetsCount: 9 })] });
-const prevHigher = entry('prev3', { setCount: 10, totalVolume: 600, endedAt: 100, exercises: [ex('press', { maxWeight: 62.5, totalVolume: 600, setsCompleted: 10, plannedSetsCount: 9 })] });
+const cur = entry('cur', {
+  setCount: 9,
+  totalVolume: 540,
+  endedAt: 200,
+  exercises: [
+    ex('press', { maxWeight: 60, totalVolume: 540, setsCompleted: 9, plannedSetsCount: 9 }),
+  ],
+});
+const prevSame = entry('prev1', {
+  setCount: 9,
+  totalVolume: 540,
+  endedAt: 100,
+  exercises: [
+    ex('press', { maxWeight: 60, totalVolume: 540, setsCompleted: 9, plannedSetsCount: 9 }),
+  ],
+});
+const prevLower = entry('prev2', {
+  setCount: 8,
+  totalVolume: 480,
+  endedAt: 100,
+  exercises: [
+    ex('press', { maxWeight: 55, totalVolume: 480, setsCompleted: 8, plannedSetsCount: 9 }),
+  ],
+});
+const prevHigher = entry('prev3', {
+  setCount: 10,
+  totalVolume: 600,
+  endedAt: 100,
+  exercises: [
+    ex('press', { maxWeight: 62.5, totalVolume: 600, setsCompleted: 10, plannedSetsCount: 9 }),
+  ],
+});
 
 // 1. No previous → first
 const c1 = compareToPrevious(cur, []);
@@ -58,7 +88,14 @@ const c4 = compareToPrevious(cur, [prevHigher]);
 check('higher prev → maintain copy', nextActionSuggestion(c4).tone === 'maintain');
 
 // 5. Low adherence → regress
-const lowAdherence = entry('low', { setCount: 5, totalVolume: 300, endedAt: 200, exercises: [ex('press', { maxWeight: 60, totalVolume: 300, setsCompleted: 5, plannedSetsCount: 9 })] });
+const lowAdherence = entry('low', {
+  setCount: 5,
+  totalVolume: 300,
+  endedAt: 200,
+  exercises: [
+    ex('press', { maxWeight: 60, totalVolume: 300, setsCompleted: 5, plannedSetsCount: 9 }),
+  ],
+});
 const c5 = compareToPrevious(lowAdherence, [prevSame]);
 check('low adherence → regress', nextActionSuggestion(c5).tone === 'regress');
 
@@ -66,5 +103,8 @@ check('low adherence → regress', nextActionSuggestion(c5).tone === 'regress');
 const c6 = compareToPrevious(cur, [cur, prevSame]);
 check('skip self in history', c6.previous?.id === 'prev1');
 
-if (failed > 0) { console.error(failed, 'failures'); process.exit(1); }
+if (failed > 0) {
+  console.error(failed, 'failures');
+  process.exit(1);
+}
 console.log('all summaryCompare checks pass');

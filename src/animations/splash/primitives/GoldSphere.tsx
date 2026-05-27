@@ -1,16 +1,13 @@
 // src/animations/splash/primitives/GoldSphere.tsx
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import Animated, {
-  SharedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';
 import SoftGlow from './SoftGlow';
 
-const LOCAL_PAD = 80;  // extra room for glow halo
+const LOCAL_PAD = 80; // extra room for glow halo
 
 export interface GoldSphereProps {
   /** Logical X in stage coordinates (px). */

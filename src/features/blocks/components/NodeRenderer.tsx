@@ -20,7 +20,12 @@ interface NodeRendererProps {
   onSubBlockNavigate?: (subBlockId: string) => void;
 }
 
-export default function NodeRenderer({ blockId, nodeId, compact = false, onSubBlockNavigate }: NodeRendererProps) {
+export default function NodeRenderer({
+  blockId,
+  nodeId,
+  compact = false,
+  onSubBlockNavigate,
+}: NodeRendererProps) {
   const node = useWorkoutStore(
     useCallback(
       (s) => s.blocks.find((b) => b.id === blockId)?.content.find((n) => n.id === nodeId) ?? null,
@@ -126,14 +131,28 @@ export default function NodeRenderer({ blockId, nodeId, compact = false, onSubBl
       return <View style={styles.divider} />;
     case 'image':
       return (
-        <ImageNode node={node} onUpdate={handleNodeDataUpdate} onDelete={handleDeleteNode} compact={compact} />
+        <ImageNode
+          node={node}
+          onUpdate={handleNodeDataUpdate}
+          onDelete={handleDeleteNode}
+          compact={compact}
+        />
       );
     case 'timer':
       return (
-        <TimerNode node={node} onUpdate={handleNodeDataUpdate} onDelete={handleDeleteNode} compact={compact} />
+        <TimerNode
+          node={node}
+          onUpdate={handleNodeDataUpdate}
+          onDelete={handleDeleteNode}
+          compact={compact}
+        />
       );
     case 'spacer':
-      return <View style={{ height: compact ? Math.max(node.data.height * 0.6, 12) : node.data.height }} />;
+      return (
+        <View
+          style={{ height: compact ? Math.max(node.data.height * 0.6, 12) : node.data.height }}
+        />
+      );
     case 'dashboard':
       if (!block) return null;
       return (

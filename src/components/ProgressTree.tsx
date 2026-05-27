@@ -65,7 +65,7 @@ function OakTree({ level }: { level: number }) {
   }
 
   const trunkH = 30 + level * 16; // grows taller
-  const trunkW = 4 + level * 2;   // grows thicker
+  const trunkW = 4 + level * 2; // grows thicker
   const trunkTop = 170 - trunkH;
 
   return (
@@ -83,8 +83,24 @@ function OakTree({ level }: { level: number }) {
       {/* Branches (level 2+) */}
       {level >= 2 && (
         <G>
-          <Line x1="100" y1={trunkTop + 20} x2="72" y2={trunkTop + 5} stroke="#8B6914" strokeWidth="3" strokeLinecap="round" />
-          <Line x1="100" y1={trunkTop + 20} x2="128" y2={trunkTop + 8} stroke="#8B6914" strokeWidth="3" strokeLinecap="round" />
+          <Line
+            x1="100"
+            y1={trunkTop + 20}
+            x2="72"
+            y2={trunkTop + 5}
+            stroke="#8B6914"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          <Line
+            x1="100"
+            y1={trunkTop + 20}
+            x2="128"
+            y2={trunkTop + 8}
+            stroke="#8B6914"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
         </G>
       )}
 
@@ -171,21 +187,56 @@ function PalmTree({ level }: { level: number }) {
       {/* Fronds */}
       {level >= 1 && (
         <G>
-          <Path d={`M${98 + level} ${trunkTop} Q80 ${trunkTop - 15} 60 ${trunkTop + 5}`} stroke="#4CAF50" strokeWidth="2.5" fill="none" />
-          <Path d={`M${98 + level} ${trunkTop} Q120 ${trunkTop - 15} 140 ${trunkTop + 5}`} stroke="#4CAF50" strokeWidth="2.5" fill="none" />
+          <Path
+            d={`M${98 + level} ${trunkTop} Q80 ${trunkTop - 15} 60 ${trunkTop + 5}`}
+            stroke="#4CAF50"
+            strokeWidth="2.5"
+            fill="none"
+          />
+          <Path
+            d={`M${98 + level} ${trunkTop} Q120 ${trunkTop - 15} 140 ${trunkTop + 5}`}
+            stroke="#4CAF50"
+            strokeWidth="2.5"
+            fill="none"
+          />
         </G>
       )}
       {level >= 2 && (
         <G>
-          <Path d={`M${98 + level} ${trunkTop} Q75 ${trunkTop - 25} 55 ${trunkTop - 10}`} stroke="#66BB6A" strokeWidth="2" fill="none" />
-          <Path d={`M${98 + level} ${trunkTop} Q125 ${trunkTop - 25} 145 ${trunkTop - 10}`} stroke="#66BB6A" strokeWidth="2" fill="none" />
+          <Path
+            d={`M${98 + level} ${trunkTop} Q75 ${trunkTop - 25} 55 ${trunkTop - 10}`}
+            stroke="#66BB6A"
+            strokeWidth="2"
+            fill="none"
+          />
+          <Path
+            d={`M${98 + level} ${trunkTop} Q125 ${trunkTop - 25} 145 ${trunkTop - 10}`}
+            stroke="#66BB6A"
+            strokeWidth="2"
+            fill="none"
+          />
         </G>
       )}
       {level >= 3 && (
         <G>
-          <Path d={`M${98 + level} ${trunkTop} Q90 ${trunkTop - 35} 70 ${trunkTop - 25}`} stroke="#81C784" strokeWidth="2" fill="none" />
-          <Path d={`M${98 + level} ${trunkTop} Q110 ${trunkTop - 35} 130 ${trunkTop - 25}`} stroke="#81C784" strokeWidth="2" fill="none" />
-          <Path d={`M${98 + level} ${trunkTop} Q100 ${trunkTop - 40} 100 ${trunkTop - 30}`} stroke="#66BB6A" strokeWidth="2" fill="none" />
+          <Path
+            d={`M${98 + level} ${trunkTop} Q90 ${trunkTop - 35} 70 ${trunkTop - 25}`}
+            stroke="#81C784"
+            strokeWidth="2"
+            fill="none"
+          />
+          <Path
+            d={`M${98 + level} ${trunkTop} Q110 ${trunkTop - 35} 130 ${trunkTop - 25}`}
+            stroke="#81C784"
+            strokeWidth="2"
+            fill="none"
+          />
+          <Path
+            d={`M${98 + level} ${trunkTop} Q100 ${trunkTop - 40} 100 ${trunkTop - 30}`}
+            stroke="#66BB6A"
+            strokeWidth="2"
+            fill="none"
+          />
         </G>
       )}
 
@@ -229,7 +280,14 @@ function BambooTree({ level }: { level: number }) {
         return (
           <G key={`seg-${i}`}>
             <Rect x="97" y={y} width="6" height={segH - 2} rx="3" fill="#7CB342" />
-            <Line x1="95" y1={y + segH - 2} x2="105" y2={y + segH - 2} stroke="#558B2F" strokeWidth="1.5" />
+            <Line
+              x1="95"
+              y1={y + segH - 2}
+              x2="105"
+              y2={y + segH - 2}
+              stroke="#558B2F"
+              strokeWidth="1.5"
+            />
           </G>
         );
       })}
@@ -237,15 +295,36 @@ function BambooTree({ level }: { level: number }) {
       {/* Side shoots (level 2+) */}
       {level >= 2 && (
         <G>
-          <Line x1="97" y1={baseY - 2 * segH} x2="80" y2={baseY - 2.5 * segH} stroke="#8BC34A" strokeWidth="2" />
+          <Line
+            x1="97"
+            y1={baseY - 2 * segH}
+            x2="80"
+            y2={baseY - 2.5 * segH}
+            stroke="#8BC34A"
+            strokeWidth="2"
+          />
           <Ellipse cx="76" cy={baseY - 2.6 * segH} rx="8" ry="4" fill="#8BC34A" opacity={0.7} />
         </G>
       )}
       {level >= 3 && (
         <G>
-          <Line x1="103" y1={baseY - 3 * segH} x2="120" y2={baseY - 3.5 * segH} stroke="#8BC34A" strokeWidth="2" />
+          <Line
+            x1="103"
+            y1={baseY - 3 * segH}
+            x2="120"
+            y2={baseY - 3.5 * segH}
+            stroke="#8BC34A"
+            strokeWidth="2"
+          />
           <Ellipse cx="124" cy={baseY - 3.6 * segH} rx="8" ry="4" fill="#8BC34A" opacity={0.7} />
-          <Line x1="97" y1={baseY - 4 * segH} x2="78" y2={baseY - 4.5 * segH} stroke="#9CCC65" strokeWidth="1.5" />
+          <Line
+            x1="97"
+            y1={baseY - 4 * segH}
+            x2="78"
+            y2={baseY - 4.5 * segH}
+            stroke="#9CCC65"
+            strokeWidth="1.5"
+          />
           <Ellipse cx="74" cy={baseY - 4.6 * segH} rx="7" ry="3" fill="#9CCC65" opacity={0.6} />
         </G>
       )}
@@ -257,7 +336,15 @@ function BambooTree({ level }: { level: number }) {
             const y = baseY - (i + 1) * segH + 4;
             return (
               <G key={`seg2-${i}`}>
-                <Rect x="109" y={y} width="5" height={segH - 2} rx="2.5" fill="#9CCC65" opacity={0.8} />
+                <Rect
+                  x="109"
+                  y={y}
+                  width="5"
+                  height={segH - 2}
+                  rx="2.5"
+                  fill="#9CCC65"
+                  opacity={0.8}
+                />
               </G>
             );
           })}
@@ -310,23 +397,59 @@ function CactusTree({ level }: { level: number }) {
         fill="#4CAF50"
       />
       {/* Ridge lines */}
-      <Line x1="100" y1={bodyTop + 5} x2="100" y2={bodyTop + bodyH - 5} stroke="#388E3C" strokeWidth="1" opacity={0.4} />
-      <Line x1={100 - bodyW / 4} y1={bodyTop + 5} x2={100 - bodyW / 4} y2={bodyTop + bodyH - 5} stroke="#388E3C" strokeWidth="0.5" opacity={0.3} />
-      <Line x1={100 + bodyW / 4} y1={bodyTop + 5} x2={100 + bodyW / 4} y2={bodyTop + bodyH - 5} stroke="#388E3C" strokeWidth="0.5" opacity={0.3} />
+      <Line
+        x1="100"
+        y1={bodyTop + 5}
+        x2="100"
+        y2={bodyTop + bodyH - 5}
+        stroke="#388E3C"
+        strokeWidth="1"
+        opacity={0.4}
+      />
+      <Line
+        x1={100 - bodyW / 4}
+        y1={bodyTop + 5}
+        x2={100 - bodyW / 4}
+        y2={bodyTop + bodyH - 5}
+        stroke="#388E3C"
+        strokeWidth="0.5"
+        opacity={0.3}
+      />
+      <Line
+        x1={100 + bodyW / 4}
+        y1={bodyTop + 5}
+        x2={100 + bodyW / 4}
+        y2={bodyTop + bodyH - 5}
+        stroke="#388E3C"
+        strokeWidth="0.5"
+        opacity={0.3}
+      />
 
       {/* Arms (level 2+) */}
       {level >= 2 && (
         <G>
           {/* Left arm */}
-          <Path d={`M${100 - bodyW / 2} ${bodyTop + bodyH * 0.4} H${100 - bodyW / 2 - 15} V${bodyTop + bodyH * 0.15}`}
-            stroke="#4CAF50" strokeWidth={bodyW * 0.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Path
+            d={`M${100 - bodyW / 2} ${bodyTop + bodyH * 0.4} H${100 - bodyW / 2 - 15} V${bodyTop + bodyH * 0.15}`}
+            stroke="#4CAF50"
+            strokeWidth={bodyW * 0.6}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </G>
       )}
       {level >= 3 && (
         <G>
           {/* Right arm */}
-          <Path d={`M${100 + bodyW / 2} ${bodyTop + bodyH * 0.5} H${100 + bodyW / 2 + 15} V${bodyTop + bodyH * 0.25}`}
-            stroke="#66BB6A" strokeWidth={bodyW * 0.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Path
+            d={`M${100 + bodyW / 2} ${bodyTop + bodyH * 0.5} H${100 + bodyW / 2 + 15} V${bodyTop + bodyH * 0.25}`}
+            stroke="#66BB6A"
+            strokeWidth={bodyW * 0.5}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </G>
       )}
 

@@ -19,9 +19,9 @@ interface Props {
 }
 
 const TONE_COLOR: Record<KaiTone, string> = {
-  focus:     Colors.gold.deep,
-  progress:  Colors.semantic.success,
-  momentum:  Colors.gold.base,
+  focus: Colors.gold.deep,
+  progress: Colors.semantic.success,
+  momentum: Colors.gold.base,
   celebrate: Colors.gold.base,
 };
 

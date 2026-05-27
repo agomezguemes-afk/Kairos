@@ -31,7 +31,7 @@ interface Props {
 
 function isExerciseComplete(ex: ExerciseCard): boolean {
   if (ex.sets.length === 0) return false;
-  return ex.sets.every(s => s.completed);
+  return ex.sets.every((s) => s.completed);
 }
 
 function exerciseState(ex: ExerciseCard, idx: number, currentIndex: number): StationState {

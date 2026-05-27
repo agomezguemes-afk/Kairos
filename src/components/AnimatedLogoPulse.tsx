@@ -42,7 +42,10 @@ export default function AnimatedLogoPulse({
     if (initialFade) {
       ringOp.value = withTiming(1, { duration: 480, easing: Easing.out(Easing.cubic) });
       ringScale.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.exp) });
-      iconOp.value = withDelay(140, withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) }));
+      iconOp.value = withDelay(
+        140,
+        withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) }),
+      );
     }
   }, [initialFade, ringOp, ringScale, iconOp]);
 

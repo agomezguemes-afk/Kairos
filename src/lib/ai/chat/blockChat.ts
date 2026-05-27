@@ -25,7 +25,9 @@ function buildBlockContext(block: WorkoutBlock): string {
 
   lines.push(`BLOQUE ACTUAL: [${block.id}] "${block.name}" (${block.discipline})`);
   if (block.description) lines.push(`Descripción: ${block.description}`);
-  lines.push(`Progreso: ${stats.completion_percentage}% (${stats.completed_sets}/${stats.total_sets} series)`);
+  lines.push(
+    `Progreso: ${stats.completion_percentage}% (${stats.completed_sets}/${stats.total_sets} series)`,
+  );
   lines.push(`Volumen total: ${stats.total_volume}kg`);
   lines.push('');
 
@@ -35,7 +37,9 @@ function buildBlockContext(block: WorkoutBlock): string {
     lines.push(`EJERCICIOS (${exercises.length}):`);
     exercises.forEach((ex, i) => {
       const completed = ex.sets.filter((s) => s.completed).length;
-      lines.push(`${i + 1}. [${ex.id}] ${ex.name} — ${ex.sets.length} series (${completed} completadas)`);
+      lines.push(
+        `${i + 1}. [${ex.id}] ${ex.name} — ${ex.sets.length} series (${completed} completadas)`,
+      );
       ex.sets.forEach((set, si) => {
         const vals: string[] = [];
         for (const field of ex.fields) {
@@ -66,9 +70,7 @@ export async function processBlockChat(
   options: BlockChatOptions = {},
 ): Promise<AIMessage> {
   if (!isGroqAvailable()) {
-    throw new AIUnavailableError(
-      'No hay clave de Groq configurada (EXPO_PUBLIC_GROQ_API_KEY).',
-    );
+    throw new AIUnavailableError('No hay clave de Groq configurada (EXPO_PUBLIC_GROQ_API_KEY).');
   }
 
   const snapshot = buildUserContextSnapshot(rawContext);
@@ -79,16 +81,25 @@ export async function processBlockChat(
       equipment: snapshot.profile.equipment as import('../../../types/profile').EquipmentTag[],
       injuries: snapshot.profile.injuries,
       discipline: block.discipline,
-      queryKeywords: userText.toLowerCase().split(/\W+/).filter((s) => s.length > 2),
+      queryKeywords: userText
+        .toLowerCase()
+        .split(/\W+/)
+        .filter((s) => s.length > 2),
       limit: 18,
     }),
   );
   const templates = renderTemplatesForPrompt(pickTemplates(userText));
-  const histText = history.length > 0
-    ? '\n\nCONVERSACIÓN PREVIA:\n' +
-      history.slice(-8).map((m) => `${m.role === 'user' ? 'Usuario' : 'Kai'}: ${m.content}`).join('\n')
-    : '';
-  const sections = [profileContext, blockContext, catalog, templates].filter((s) => s && s.length > 0);
+  const histText =
+    history.length > 0
+      ? '\n\nCONVERSACIÓN PREVIA:\n' +
+        history
+          .slice(-8)
+          .map((m) => `${m.role === 'user' ? 'Usuario' : 'Kai'}: ${m.content}`)
+          .join('\n')
+      : '';
+  const sections = [profileContext, blockContext, catalog, templates].filter(
+    (s) => s && s.length > 0,
+  );
   const userPrompt = `${sections.join('\n\n')}${histText}\n\nMENSAJE DEL USUARIO:\n${userText}`;
 
   const messages: GroqMessage[] = [

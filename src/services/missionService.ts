@@ -5,12 +5,7 @@
 import { generateId, getBlockExercises } from '../types/core';
 import type { WorkoutBlock } from '../types/core';
 import type { Streak, Badge } from '../types/gamification';
-import type {
-  Mission,
-  MissionTemplate,
-  MissionCategory,
-  CompletedMission,
-} from '../types/mission';
+import type { Mission, MissionTemplate, MissionCategory, CompletedMission } from '../types/mission';
 
 // ======================== HELPERS ========================
 
@@ -18,9 +13,7 @@ import type {
 export function getCurrentWeekId(): string {
   const now = new Date();
   const jan1 = new Date(now.getFullYear(), 0, 1);
-  const dayOfYear = Math.floor(
-    (now.getTime() - jan1.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const dayOfYear = Math.floor((now.getTime() - jan1.getTime()) / (1000 * 60 * 60 * 24));
   const weekNum = Math.ceil((dayOfYear + jan1.getDay() + 1) / 7);
   return `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
@@ -56,8 +49,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
     category: 'volume',
     icon: 'numbers',
     titleFn: (t) => `Completa ${t} series en total`,
-    descriptionFn: (t) =>
-      `Marca al menos ${t} series como completadas esta semana.`,
+    descriptionFn: (t) => `Marca al menos ${t} series como completadas esta semana.`,
     targetRange: [10, 30],
     checkKey: 'total_completed_sets',
   },
@@ -65,8 +57,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
     category: 'pr',
     icon: 'trophy',
     titleFn: () => 'Consigue un nuevo récord personal',
-    descriptionFn: () =>
-      'Supera tu mejor marca en cualquier ejercicio. ¡Supera tus límites!',
+    descriptionFn: () => 'Supera tu mejor marca en cualquier ejercicio. ¡Supera tus límites!',
     targetRange: [1, 1],
     checkKey: 'new_prs',
   },
@@ -74,8 +65,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
     category: 'streak',
     icon: 'streak',
     titleFn: (t) => `Mantén tu racha ${t} días`,
-    descriptionFn: (t) =>
-      `Entrena al menos ${t} días seguidos. ¡La constancia es la clave!`,
+    descriptionFn: (t) => `Entrena al menos ${t} días seguidos. ¡La constancia es la clave!`,
     targetRange: [3, 7],
     checkKey: 'streak_days',
   },
@@ -83,8 +73,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
     category: 'exploration',
     icon: 'experiment',
     titleFn: () => 'Prueba un ejercicio nuevo',
-    descriptionFn: () =>
-      'Crea un ejercicio que nunca hayas hecho y completa al menos 1 serie.',
+    descriptionFn: () => 'Crea un ejercicio que nunca hayas hecho y completa al menos 1 serie.',
     targetRange: [1, 1],
     checkKey: 'new_exercises',
   },
@@ -92,8 +81,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
     category: 'exploration',
     icon: 'rainbow',
     titleFn: (t) => `Entrena ${t} disciplinas diferentes`,
-    descriptionFn: (t) =>
-      `Realiza series en bloques de ${t} disciplinas distintas esta semana.`,
+    descriptionFn: (t) => `Realiza series en bloques de ${t} disciplinas distintas esta semana.`,
     targetRange: [2, 3],
     checkKey: 'unique_disciplines',
   },
@@ -101,8 +89,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
     category: 'consistency',
     icon: 'calendar',
     titleFn: (t) => `Entrena ${t} días esta semana`,
-    descriptionFn: (t) =>
-      `Registra actividad en al menos ${t} días diferentes.`,
+    descriptionFn: (t) => `Registra actividad en al menos ${t} días diferentes.`,
     targetRange: [3, 5],
     checkKey: 'active_days',
   },
@@ -110,8 +97,7 @@ const MISSION_TEMPLATES: MissionTemplate[] = [
     category: 'volume',
     icon: 'strength',
     titleFn: (t) => `Acumula ${t}kg de volumen total`,
-    descriptionFn: (t) =>
-      `La suma de peso × reps de todas tus series debe llegar a ${t}kg.`,
+    descriptionFn: (t) => `La suma de peso × reps de todas tus series debe llegar a ${t}kg.`,
     targetRange: [500, 3000],
     checkKey: 'total_volume_kg',
   },
@@ -131,10 +117,7 @@ export interface UserContext {
  * Generate a weekly mission based on user context.
  * Uses heuristics to pick a relevant template.
  */
-export function generateWeeklyMission(
-  ctx: UserContext,
-  excludeIds: string[] = [],
-): Mission {
+export function generateWeeklyMission(ctx: UserContext, excludeIds: string[] = []): Mission {
   // Weight templates by relevance
   const weighted = MISSION_TEMPLATES.map((tmpl) => {
     let weight = 1;
@@ -152,9 +135,7 @@ export function generateWeeklyMission(
     if (tmpl.category === 'pr' && ctx.prCount > 0) weight += 1;
 
     // Lower weight for recently completed categories
-    const recentCategories = new Set(
-      ctx.completedMissions.slice(0, 3).map((m) => m.category),
-    );
+    const recentCategories = new Set(ctx.completedMissions.slice(0, 3).map((m) => m.category));
     if (recentCategories.has(tmpl.category)) weight -= 1;
 
     return { tmpl, weight: Math.max(weight, 0.5) };
@@ -209,9 +190,7 @@ export function evaluateMissionProgress(
   newPRsThisWeek: number,
   previousExerciseIds: Set<string>,
 ): number {
-  const template = MISSION_TEMPLATES.find(
-    (t) => t.titleFn(mission.targetValue) === mission.title,
-  );
+  const template = MISSION_TEMPLATES.find((t) => t.titleFn(mission.targetValue) === mission.title);
   if (!template) return mission.currentValue;
 
   switch (template.checkKey) {
@@ -289,7 +268,8 @@ export function evaluateMissionProgress(
           if (hasWeight && hasReps) {
             for (const s of ex.sets) {
               if (s.completed) {
-                const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : 0;
+                const w =
+                  typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : 0;
                 const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : 0;
                 vol += w * r;
               }

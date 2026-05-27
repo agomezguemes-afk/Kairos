@@ -29,20 +29,20 @@ import type { ISODate, ResolvedAssignment } from '../../../types/schedule';
 
 interface Props {
   date: ISODate;
-  onAssign:        (date: ISODate) => void;
+  onAssign: (date: ISODate) => void;
   /** `resolved` is the schedule context for the day; null when no assignment exists. */
-  onStart:         (block: WorkoutBlock, resolved: ResolvedAssignment | null) => void;
-  onResume:        (block: WorkoutBlock, resolved: ResolvedAssignment | null) => void;
-  onChangeBlock:   (assignmentId: string, date: ISODate) => void;
-  onMove:          (assignmentId: string, fromDate: ISODate) => void;
-  onEditSeries:    (assignmentId: string) => void;
-  onCreateBlock:   () => void;
+  onStart: (block: WorkoutBlock, resolved: ResolvedAssignment | null) => void;
+  onResume: (block: WorkoutBlock, resolved: ResolvedAssignment | null) => void;
+  onChangeBlock: (assignmentId: string, date: ISODate) => void;
+  onMove: (assignmentId: string, fromDate: ISODate) => void;
+  onEditSeries: (assignmentId: string) => void;
+  onCreateBlock: () => void;
   /** When provided, no-blocks variant offers a primary "Empezar con plantilla"
    *  CTA that opens the template picker. Falls back to single-CTA when absent. */
   onChooseTemplate?: () => void;
-  onSeeBlockFull:  (block: WorkoutBlock) => void;
-  onPlanWeek:      () => void;
-  onSeeSummary?:   (date: ISODate) => void;
+  onSeeBlockFull: (block: WorkoutBlock) => void;
+  onPlanWeek: () => void;
+  onSeeSummary?: (date: ISODate) => void;
 }
 
 export default function DayCard(props: Props) {
@@ -58,18 +58,29 @@ export default function DayCard(props: Props) {
 function Variant(props: Props & { state: DayCardState }) {
   const { state, ...handlers } = props;
   switch (state.variant) {
-    case 'no-blocks':       return <VariantNoBlocks
-                              onCreateBlock={handlers.onCreateBlock}
-                              onChooseTemplate={handlers.onChooseTemplate}
-                            />;
-    case 'empty':           return <VariantEmptyToday {...handlers} state={state} />;
-    case 'assigned':        return <VariantAssigned   state={state} {...handlers} />;
-    case 'in-progress':     return <VariantInProgress state={state} {...handlers} />;
-    case 'completed':       return <VariantCompleted  state={state} {...handlers} />;
-    case 'future-assigned': return <VariantFuture     state={state} {...handlers} />;
-    case 'future-empty':    return <VariantFutureEmpty {...handlers} state={state} />;
-    case 'past-skipped':    return <VariantPastSkipped state={state} {...handlers} />;
-    case 'past-empty':      return <VariantPastEmpty   state={state} />;
+    case 'no-blocks':
+      return (
+        <VariantNoBlocks
+          onCreateBlock={handlers.onCreateBlock}
+          onChooseTemplate={handlers.onChooseTemplate}
+        />
+      );
+    case 'empty':
+      return <VariantEmptyToday {...handlers} state={state} />;
+    case 'assigned':
+      return <VariantAssigned state={state} {...handlers} />;
+    case 'in-progress':
+      return <VariantInProgress state={state} {...handlers} />;
+    case 'completed':
+      return <VariantCompleted state={state} {...handlers} />;
+    case 'future-assigned':
+      return <VariantFuture state={state} {...handlers} />;
+    case 'future-empty':
+      return <VariantFutureEmpty {...handlers} state={state} />;
+    case 'past-skipped':
+      return <VariantPastSkipped state={state} {...handlers} />;
+    case 'past-empty':
+      return <VariantPastEmpty state={state} />;
   }
 }
 
@@ -80,7 +91,11 @@ function disciplineColor(d: Discipline): string {
 }
 
 function HeroSerif({ children, color }: { children: React.ReactNode; color?: string }) {
-  return <Text style={[styles.hero, color && { color }]} numberOfLines={2}>{children}</Text>;
+  return (
+    <Text style={[styles.hero, color && { color }]} numberOfLines={2}>
+      {children}
+    </Text>
+  );
 }
 
 /**
@@ -106,8 +121,16 @@ function StatPills({ block }: { block: WorkoutBlock }) {
   );
 }
 
-function PrimaryCTA({ label, onPress, ghost = false, accessibilityLabel }: {
-  label: string; onPress: () => void; ghost?: boolean; accessibilityLabel?: string;
+function PrimaryCTA({
+  label,
+  onPress,
+  ghost = false,
+  accessibilityLabel,
+}: {
+  label: string;
+  onPress: () => void;
+  ghost?: boolean;
+  accessibilityLabel?: string;
 }) {
   const handle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -118,10 +141,7 @@ function PrimaryCTA({ label, onPress, ghost = false, accessibilityLabel }: {
       onPress={handle}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      style={({ pressed }) => [
-        ghost ? styles.ctaGhost : styles.cta,
-        pressed && { opacity: 0.85 },
-      ]}
+      style={({ pressed }) => [ghost ? styles.ctaGhost : styles.cta, pressed && { opacity: 0.85 }]}
     >
       <Text style={ghost ? styles.ctaGhostText : styles.ctaText}>{label}</Text>
     </Pressable>
@@ -146,9 +166,7 @@ function GhostLink({ label, onPress }: { label: string; onPress: () => void }) {
  * Replaces the dot-separated "Mover · Saltar · Cambiar" with a quieter
  * row separated by hairline divider above and a bit of breathing room.
  */
-function SecondaryActions({
-  items,
-}: { items: Array<{ label: string; onPress: () => void }> }) {
+function SecondaryActions({ items }: { items: { label: string; onPress: () => void }[] }) {
   return (
     <View style={styles.secondaryWrap}>
       <View style={styles.divider} />
@@ -214,9 +232,7 @@ function VariantNoBlocks({
 function VariantEmptyToday(props: Props & { state: DayCardState }) {
   // We're in the "has at least one block, but today is unassigned" lane.
   // Show the count as quiet meta so the user remembers they have inventory.
-  const blocksCount = useWorkoutStore(
-    (s) => s.blocks.filter((b) => !b.is_archived).length,
-  );
+  const blocksCount = useWorkoutStore((s) => s.blocks.filter((b) => !b.is_archived).length);
   const meta = `${blocksCount} ${blocksCount === 1 ? 'bloque' : 'bloques'} disponible${blocksCount === 1 ? '' : 's'}`;
   return (
     <CardShell>
@@ -252,11 +268,13 @@ function VariantAssigned({ state, ...h }: Props & { state: DayCardState }) {
       <View style={styles.ctaWrap}>
         <PrimaryCTA label="Empezar" onPress={() => h.onStart(block, resolved)} />
       </View>
-      <SecondaryActions items={[
-        { label: 'Mover',   onPress: () => h.onMove(resolved.assignmentId, state.date) },
-        { label: 'Saltar',  onPress: () => skip(resolved.assignmentId, state.date) },
-        { label: 'Cambiar', onPress: () => h.onChangeBlock(resolved.assignmentId, state.date) },
-      ]}/>
+      <SecondaryActions
+        items={[
+          { label: 'Mover', onPress: () => h.onMove(resolved.assignmentId, state.date) },
+          { label: 'Saltar', onPress: () => skip(resolved.assignmentId, state.date) },
+          { label: 'Cambiar', onPress: () => h.onChangeBlock(resolved.assignmentId, state.date) },
+        ]}
+      />
     </CardShell>
   );
 }
@@ -267,11 +285,10 @@ function VariantInProgress({ state, ...h }: Props & { state: DayCardState }) {
   const block = state.block;
   const resolved = state.resolved;
   // WorkoutBlock has no flat .exercises field — walk ContentNode[] via helper.
-  const totalSets = getBlockExercises(block).reduce(
-    (acc, e) => acc + e.sets.length, 0,
-  );
+  const totalSets = getBlockExercises(block).reduce((acc, e) => acc + e.sets.length, 0);
   const doneSets = active.exercises.reduce(
-    (acc, e) => acc + e.sets.filter((s) => s.completed).length, 0,
+    (acc, e) => acc + e.sets.filter((s) => s.completed).length,
+    0,
   );
   return (
     <CardShell stripeColor={disciplineColor(block.discipline)}>
@@ -324,11 +341,13 @@ function VariantFuture({ state, ...h }: Props & { state: DayCardState }) {
       <View style={styles.ctaWrap}>
         <Text style={styles.programmedLabel}>Programado</Text>
       </View>
-      <SecondaryActions items={[
-        { label: 'Mover',   onPress: () => h.onMove(resolved.assignmentId, state.date) },
-        { label: 'Saltar',  onPress: () => skip(resolved.assignmentId, state.date) },
-        { label: 'Cambiar', onPress: () => h.onChangeBlock(resolved.assignmentId, state.date) },
-      ]}/>
+      <SecondaryActions
+        items={[
+          { label: 'Mover', onPress: () => h.onMove(resolved.assignmentId, state.date) },
+          { label: 'Saltar', onPress: () => skip(resolved.assignmentId, state.date) },
+          { label: 'Cambiar', onPress: () => h.onChangeBlock(resolved.assignmentId, state.date) },
+        ]}
+      />
     </CardShell>
   );
 }
@@ -370,11 +389,13 @@ function VariantPastEmpty({ state }: { state: DayCardState }) {
 // Local helper that pulls rrule from the store for the chip. Kept inside this
 // file because it's only used by Assigned/Future variants.
 function RecurrenceChipForAssignment({
-  assignmentId, onPress,
-}: { assignmentId: string; onPress: () => void }) {
-  const assignment = useScheduleStore(
-    (s) => s.assignments.find((a) => a.id === assignmentId),
-  );
+  assignmentId,
+  onPress,
+}: {
+  assignmentId: string;
+  onPress: () => void;
+}) {
+  const assignment = useScheduleStore((s) => s.assignments.find((a) => a.id === assignmentId));
   if (!assignment || assignment.kind !== 'recurring') return null;
   return <RecurrenceChip rrule={assignment.rrule} onPress={onPress} />;
 }

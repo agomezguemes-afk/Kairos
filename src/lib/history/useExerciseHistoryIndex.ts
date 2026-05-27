@@ -14,10 +14,7 @@
 
 import { useWorkoutStore } from '../../store/workoutStore';
 import type { WorkoutHistoryEntry } from '../../store/workoutStore';
-import {
-  buildExerciseHistoryIndex,
-  type ExerciseHistoryIndex,
-} from './exerciseHistory';
+import { buildExerciseHistoryIndex, type ExerciseHistoryIndex } from './exerciseHistory';
 
 interface Cached {
   source: WorkoutHistoryEntry[];
@@ -35,7 +32,7 @@ function indexFor(history: WorkoutHistoryEntry[]): ExerciseHistoryIndex {
 
 /** Hook returning the shared index for the current workoutHistory. */
 export function useExerciseHistoryIndex(): ExerciseHistoryIndex {
-  const history = useWorkoutStore(s => s.workoutHistory);
+  const history = useWorkoutStore((s) => s.workoutHistory);
   return indexFor(history);
 }
 

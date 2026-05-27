@@ -57,7 +57,10 @@ export function detectGap(history: WorkoutHistoryEntry[], nowMs = Date.now()): I
 }
 
 /** Sessions per week ≥ 3 across 4+ weeks → consistent. */
-export function detectConsistent(history: WorkoutHistoryEntry[], nowMs = Date.now()): Insight | null {
+export function detectConsistent(
+  history: WorkoutHistoryEntry[],
+  nowMs = Date.now(),
+): Insight | null {
   if (history.length < 12) return null;
   const fourWeeksAgo = nowMs - 28 * DAY;
   const recent = history.filter((h) => h.startedAt >= fourWeeksAgo);

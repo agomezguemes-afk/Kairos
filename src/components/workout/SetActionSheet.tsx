@@ -3,15 +3,7 @@
 // Same Modal + Reanimated pattern as PlateCalculator; token-only.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  ScrollView,
-} from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet, TextInput, ScrollView } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -66,10 +58,11 @@ export default function SetActionSheet({ visible, exerciseId, setId, onClose }: 
 
   // Subscribe to the specific set so kind/rpe toggles are reflected immediately.
   // .find() is fine here — same reference unless the underlying set mutated.
-  const set = useWorkoutStore((s) =>
-    s.activeWorkout?.exercises
-      .find((e) => e.id === exerciseId)
-      ?.sets.find((x) => x.id === setId) ?? null,
+  const set = useWorkoutStore(
+    (s) =>
+      s.activeWorkout?.exercises
+        .find((e) => e.id === exerciseId)
+        ?.sets.find((x) => x.id === setId) ?? null,
   );
 
   const updateSetMetadata = useWorkoutStore((s) => s.updateSetMetadata);

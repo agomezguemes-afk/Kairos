@@ -1,16 +1,28 @@
 // Run: npx tsx src/components/workout/lib/previousReference.dev.ts
 
 import { findPreviousReference, formatReference } from './previousReference';
-import type { WorkoutHistoryEntry, ActiveWorkout, ExerciseHistorySummary } from '../../../store/workoutStore';
+import type {
+  WorkoutHistoryEntry,
+  ActiveWorkout,
+  ExerciseHistorySummary,
+} from '../../../store/workoutStore';
 import type { ExerciseCard, ExerciseSet } from '../../../types/core';
 
 let failed = 0;
 function check(name: string, cond: boolean, extra?: unknown) {
-  if (!cond) { console.error('FAIL', name, extra ?? ''); failed++; }
-  else console.log('OK', name);
+  if (!cond) {
+    console.error('FAIL', name, extra ?? '');
+    failed++;
+  } else console.log('OK', name);
 }
 
-function set(opts: Partial<ExerciseSet> & { weight?: number | null; reps?: number | null; completed?: boolean }): ExerciseSet {
+function set(
+  opts: Partial<ExerciseSet> & {
+    weight?: number | null;
+    reps?: number | null;
+    completed?: boolean;
+  },
+): ExerciseSet {
   const values: ExerciseSet['values'] = {};
   if (opts.weight !== undefined) values['weight'] = opts.weight;
   if (opts.reps !== undefined) values['reps'] = opts.reps;
@@ -86,37 +98,86 @@ const active: ActiveWorkout = {
     } as ExerciseCard,
   ],
 };
-const oldHistory = [entry({ id: 'h1', endedAt: 1000, exercises: [exHistory({ exerciseId: 'press', performedSets: [{ weight: 50, reps: 8, completed: true }] })] })];
+const oldHistory = [
+  entry({
+    id: 'h1',
+    endedAt: 1000,
+    exercises: [
+      exHistory({ exerciseId: 'press', performedSets: [{ weight: 50, reps: 8, completed: true }] }),
+    ],
+  }),
+];
 const refSession = findPreviousReference({ exerciseId: 'press', active, history: oldHistory });
-check('session > history', refSession?.source === 'current-session' && refSession?.weight === 60 && refSession?.reps === 8);
+check(
+  'session > history',
+  refSession?.source === 'current-session' && refSession?.weight === 60 && refSession?.reps === 8,
+);
 
 // 3. Skip uncompleted current session sets, fall back to history
 const activeNoComplete: ActiveWorkout = {
   ...active,
-  exercises: [{ ...active.exercises[0], sets: [set({ id: 's1', weight: 99, reps: 1, completed: false })] }],
+  exercises: [
+    { ...active.exercises[0], sets: [set({ id: 's1', weight: 99, reps: 1, completed: false })] },
+  ],
 };
-const ref2 = findPreviousReference({ exerciseId: 'press', active: activeNoComplete, history: oldHistory });
+const ref2 = findPreviousReference({
+  exerciseId: 'press',
+  active: activeNoComplete,
+  history: oldHistory,
+});
 check('skip uncompleted → history', ref2?.source === 'history' && ref2?.weight === 50);
 
 // 4. Find most recent history when multiple entries
 const histMulti = [
-  entry({ id: 'h-new', endedAt: 2000, exercises: [exHistory({ exerciseId: 'press', performedSets: [{ weight: 70, reps: 5, completed: true }] })] }),
-  entry({ id: 'h-old', endedAt: 1000, exercises: [exHistory({ exerciseId: 'press', performedSets: [{ weight: 50, reps: 8, completed: true }] })] }),
+  entry({
+    id: 'h-new',
+    endedAt: 2000,
+    exercises: [
+      exHistory({ exerciseId: 'press', performedSets: [{ weight: 70, reps: 5, completed: true }] }),
+    ],
+  }),
+  entry({
+    id: 'h-old',
+    endedAt: 1000,
+    exercises: [
+      exHistory({ exerciseId: 'press', performedSets: [{ weight: 50, reps: 8, completed: true }] }),
+    ],
+  }),
 ];
 const ref3 = findPreviousReference({ exerciseId: 'press', active: null, history: histMulti });
 check('most recent history wins', ref3?.weight === 70);
 
 // 5. excludeEntryId skips the just-finished entry
-const ref4 = findPreviousReference({ exerciseId: 'press', active: null, history: histMulti, excludeEntryId: 'h-new' });
+const ref4 = findPreviousReference({
+  exerciseId: 'press',
+  active: null,
+  history: histMulti,
+  excludeEntryId: 'h-new',
+});
 check('excludeEntryId skips it', ref4?.weight === 50);
 
 // 6. format
-check('format weight + reps', formatReference({ source: 'history', weight: 60, reps: 8 }) === '60 kg × 8');
-check('format weight only', formatReference({ source: 'history', weight: 60, reps: null }) === '60 kg');
-check('format reps only', formatReference({ source: 'history', weight: null, reps: 12 }) === '× 12');
-check('format strips trailing zero', formatReference({ source: 'history', weight: 62.5, reps: 8 }) === '62.5 kg × 8');
+check(
+  'format weight + reps',
+  formatReference({ source: 'history', weight: 60, reps: 8 }) === '60 kg × 8',
+);
+check(
+  'format weight only',
+  formatReference({ source: 'history', weight: 60, reps: null }) === '60 kg',
+);
+check(
+  'format reps only',
+  formatReference({ source: 'history', weight: null, reps: 12 }) === '× 12',
+);
+check(
+  'format strips trailing zero',
+  formatReference({ source: 'history', weight: 62.5, reps: 8 }) === '62.5 kg × 8',
+);
 check('format null', formatReference(null) === null);
 check('format empty', formatReference({ source: 'history', weight: null, reps: null }) === null);
 
-if (failed > 0) { console.error(`${failed} failures`); process.exit(1); }
+if (failed > 0) {
+  console.error(`${failed} failures`);
+  process.exit(1);
+}
 console.log('all previousReference checks pass');

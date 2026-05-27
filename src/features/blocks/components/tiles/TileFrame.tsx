@@ -37,13 +37,7 @@ interface Props {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function TileFrameImpl({
-  variant = 'standard',
-  isActive,
-  onPress,
-  onLongPress,
-  children,
-}: Props) {
+function TileFrameImpl({ variant = 'standard', isActive, onPress, onLongPress, children }: Props) {
   const reduceMotion = useReducedMotion();
   const press = useSharedValue(0);
 

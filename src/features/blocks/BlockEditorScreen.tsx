@@ -119,12 +119,9 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   // Floating AI assistant
   const [showAI, setShowAI] = useState(false);
 
-  const stats = useMemo(() => block ? calculateBlockStats(block) : null, [block]);
+  const stats = useMemo(() => (block ? calculateBlockStats(block) : null), [block]);
 
-  const spineRows = useMemo(
-    () => block ? buildSpineRows(block.content) : [],
-    [block],
-  );
+  const spineRows = useMemo(() => (block ? buildSpineRows(block.content) : []), [block]);
 
   // ── Sticky header — header chrome rises with a blur backdrop when the
   // user scrolls past the block title. Empty-state-friendly: the block
@@ -141,9 +138,11 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   }));
   const headerTitleStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollY.value, [60, 110], [0, 1], Extrapolation.CLAMP),
-    transform: [{
-      translateY: interpolate(scrollY.value, [60, 110], [6, 0], Extrapolation.CLAMP),
-    }],
+    transform: [
+      {
+        translateY: interpolate(scrollY.value, [60, 110], [6, 0], Extrapolation.CLAMP),
+      },
+    ],
   }));
 
   // ======================== NAME EDITING ========================
@@ -162,7 +161,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   // ======================== HELPERS ========================
 
   const normalizeOrders = useCallback(() => {
-    const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
+    const fresh = useWorkoutStore.getState().blocks.find((b) => b.id === blockId);
     if (!fresh) return;
     const sorted = [...fresh.content].sort((a, b) => a.order - b.order);
     const renumbered = sorted.map((n, i) => ({ ...n, order: i }));
@@ -171,133 +170,226 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
 
   // ======================== NODE INSERTION ========================
 
-  const insertNode = useCallback((type: string, sectionId: string | null, colIdx: number, afterNodeId?: string) => {
-    if (!block) return;
+  const insertNode = useCallback(
+    (type: string, sectionId: string | null, colIdx: number, afterNodeId?: string) => {
+      if (!block) return;
 
-    let order: number;
-    if (afterNodeId) {
-      const afterNode = block.content.find(n => n.id === afterNodeId);
-      order = afterNode ? afterNode.order + 0.5 : getNextOrder(block.content);
-    } else {
-      const relevant = sectionId
-        ? block.content.filter(n => n.section === sectionId && (n.column ?? 0) === colIdx)
-        : block.content.filter(n => !n.section);
-      order = getNextOrder(relevant.length > 0 ? relevant : block.content);
-    }
-
-    const base = { column: colIdx, section: sectionId ?? undefined };
-
-    const createAndAdd = (node: ContentNode) => {
-      addContentNode(blockId, { ...node, ...base } as ContentNode);
-      setTimeout(normalizeOrders, 50);
-    };
-
-    switch (type) {
-      case 'text': createAndAdd(createTextNode(order)); break;
-      case 'text_h1': createAndAdd(createTextNode(order, 'h1')); break;
-      case 'text_h2': createAndAdd(createTextNode(order, 'h2')); break;
-      case 'text_h3': createAndAdd(createTextNode(order, 'h3')); break;
-      case 'text_bullet': createAndAdd(createTextNode(order, 'bullet')); break;
-      case 'text_numbered': createAndAdd(createTextNode(order, 'numbered')); break;
-      case 'text_checklist': createAndAdd(createTextNode(order, 'checklist')); break;
-      case 'callout': createAndAdd(createTextNode(order, 'paragraph', '')); break;
-      case 'exercise': {
-        setAddExerciseSection(sectionId);
-        setAddExerciseColumn(colIdx);
-        setShowAddExercise(true);
-        return;
+      let order: number;
+      if (afterNodeId) {
+        const afterNode = block.content.find((n) => n.id === afterNodeId);
+        order = afterNode ? afterNode.order + 0.5 : getNextOrder(block.content);
+      } else {
+        const relevant = sectionId
+          ? block.content.filter((n) => n.section === sectionId && (n.column ?? 0) === colIdx)
+          : block.content.filter((n) => !n.section);
+        order = getNextOrder(relevant.length > 0 ? relevant : block.content);
       }
-      case 'subBlock': {
-        const subId = addBlock(block.discipline, { name: 'Nuevo sub-bloque' });
-        createAndAdd(createSubBlockNode(order, subId));
-        break;
-      }
-      case 'timer': createAndAdd(createTimerNode(order)); break;
-      case 'timer_stopwatch': createAndAdd(createTimerNode(order, 'stopwatch')); break;
-      case 'rest': createAndAdd(createTimerNode(order, 'countdown', 60, 'Descanso')); break;
-      case 'spacer': createAndAdd(createSpacerNode(order)); break;
-      case 'superset': createAndAdd(createSupersetNode(order)); break;
-      case 'divider': createAndAdd(createDividerNode(order)); break;
-      case 'image': createAndAdd(createImageNode(order)); break;
-      case 'link': createAndAdd(createTextNode(order, 'paragraph', '')); break;
-      case 'customField': createAndAdd(createTextNode(order, 'paragraph', '')); break;
-      case 'dashboard': createAndAdd(createDashboardNode(order, 'total_volume', 'counter', undefined, block.color || Colors.accent.primary)); break;
-      case 'dashboard_progress': createAndAdd(createDashboardNode(order, 'completion_pct', 'progress', undefined, block.color || Colors.accent.primary)); break;
-      case 'dashboard_list': createAndAdd(createDashboardNode(order, 'total_exercises', 'list', undefined, block.color || Colors.accent.primary)); break;
-      case '2col': {
-        const secNode = createColumnSectionNode(order, 2);
-        addContentNode(blockId, secNode);
+
+      const base = { column: colIdx, section: sectionId ?? undefined };
+
+      const createAndAdd = (node: ContentNode) => {
+        addContentNode(blockId, { ...node, ...base } as ContentNode);
         setTimeout(normalizeOrders, 50);
-        break;
+      };
+
+      switch (type) {
+        case 'text':
+          createAndAdd(createTextNode(order));
+          break;
+        case 'text_h1':
+          createAndAdd(createTextNode(order, 'h1'));
+          break;
+        case 'text_h2':
+          createAndAdd(createTextNode(order, 'h2'));
+          break;
+        case 'text_h3':
+          createAndAdd(createTextNode(order, 'h3'));
+          break;
+        case 'text_bullet':
+          createAndAdd(createTextNode(order, 'bullet'));
+          break;
+        case 'text_numbered':
+          createAndAdd(createTextNode(order, 'numbered'));
+          break;
+        case 'text_checklist':
+          createAndAdd(createTextNode(order, 'checklist'));
+          break;
+        case 'callout':
+          createAndAdd(createTextNode(order, 'paragraph', ''));
+          break;
+        case 'exercise': {
+          setAddExerciseSection(sectionId);
+          setAddExerciseColumn(colIdx);
+          setShowAddExercise(true);
+          return;
+        }
+        case 'subBlock': {
+          const subId = addBlock(block.discipline, { name: 'Nuevo sub-bloque' });
+          createAndAdd(createSubBlockNode(order, subId));
+          break;
+        }
+        case 'timer':
+          createAndAdd(createTimerNode(order));
+          break;
+        case 'timer_stopwatch':
+          createAndAdd(createTimerNode(order, 'stopwatch'));
+          break;
+        case 'rest':
+          createAndAdd(createTimerNode(order, 'countdown', 60, 'Descanso'));
+          break;
+        case 'spacer':
+          createAndAdd(createSpacerNode(order));
+          break;
+        case 'superset':
+          createAndAdd(createSupersetNode(order));
+          break;
+        case 'divider':
+          createAndAdd(createDividerNode(order));
+          break;
+        case 'image':
+          createAndAdd(createImageNode(order));
+          break;
+        case 'link':
+          createAndAdd(createTextNode(order, 'paragraph', ''));
+          break;
+        case 'customField':
+          createAndAdd(createTextNode(order, 'paragraph', ''));
+          break;
+        case 'dashboard':
+          createAndAdd(
+            createDashboardNode(
+              order,
+              'total_volume',
+              'counter',
+              undefined,
+              block.color || Colors.accent.primary,
+            ),
+          );
+          break;
+        case 'dashboard_progress':
+          createAndAdd(
+            createDashboardNode(
+              order,
+              'completion_pct',
+              'progress',
+              undefined,
+              block.color || Colors.accent.primary,
+            ),
+          );
+          break;
+        case 'dashboard_list':
+          createAndAdd(
+            createDashboardNode(
+              order,
+              'total_exercises',
+              'list',
+              undefined,
+              block.color || Colors.accent.primary,
+            ),
+          );
+          break;
+        case '2col': {
+          const secNode = createColumnSectionNode(order, 2);
+          addContentNode(blockId, secNode);
+          setTimeout(normalizeOrders, 50);
+          break;
+        }
+        case '3col': {
+          const secNode = createColumnSectionNode(order, 3);
+          addContentNode(blockId, secNode);
+          setTimeout(normalizeOrders, 50);
+          break;
+        }
       }
-      case '3col': {
-        const secNode = createColumnSectionNode(order, 3);
-        addContentNode(blockId, secNode);
-        setTimeout(normalizeOrders, 50);
-        break;
-      }
-    }
-  }, [block, blockId, addContentNode, addBlock, normalizeOrders]);
+    },
+    [block, blockId, addContentNode, addBlock, normalizeOrders],
+  );
 
   // ======================== NODE HANDLERS ========================
 
-  const handleTextUpdate = useCallback((nodeId: string, content: string) => {
-    if (!block) return;
-    const node = block.content.find(n => n.id === nodeId);
-    const format = node?.type === 'text' ? node.data.format : 'paragraph';
-    updateContentNode(blockId, nodeId, { data: { content, format } } as any);
-  }, [block, blockId, updateContentNode]);
+  const handleTextUpdate = useCallback(
+    (nodeId: string, content: string) => {
+      if (!block) return;
+      const node = block.content.find((n) => n.id === nodeId);
+      const format = node?.type === 'text' ? node.data.format : 'paragraph';
+      updateContentNode(blockId, nodeId, { data: { content, format } } as any);
+    },
+    [block, blockId, updateContentNode],
+  );
 
-  const handleTextFormatChange = useCallback((nodeId: string, format: TextFormat) => {
-    if (!block) return;
-    const node = block.content.find(n => n.id === nodeId);
-    if (!node || node.type !== 'text') return;
-    updateContentNode(blockId, nodeId, { data: { ...node.data, format } } as any);
-  }, [block, blockId, updateContentNode]);
+  const handleTextFormatChange = useCallback(
+    (nodeId: string, format: TextFormat) => {
+      if (!block) return;
+      const node = block.content.find((n) => n.id === nodeId);
+      if (!node || node.type !== 'text') return;
+      updateContentNode(blockId, nodeId, { data: { ...node.data, format } } as any);
+    },
+    [block, blockId, updateContentNode],
+  );
 
-  const handleCheckToggle = useCallback((nodeId: string) => {
-    if (!block) return;
-    const node = block.content.find(n => n.id === nodeId);
-    if (!node || node.type !== 'text') return;
-    updateContentNode(blockId, nodeId, { data: { ...node.data, checked: !node.data.checked } } as any);
-  }, [block, blockId, updateContentNode]);
+  const handleCheckToggle = useCallback(
+    (nodeId: string) => {
+      if (!block) return;
+      const node = block.content.find((n) => n.id === nodeId);
+      if (!node || node.type !== 'text') return;
+      updateContentNode(blockId, nodeId, {
+        data: { ...node.data, checked: !node.data.checked },
+      } as any);
+    },
+    [block, blockId, updateContentNode],
+  );
 
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    if (!block) return;
-    const node = block.content.find(n => n.id === nodeId);
-    if (node?.type === 'columnSection') {
-      const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
-      if (fresh) {
-        const children = fresh.content.filter(n => n.section === nodeId);
-        for (const child of children) {
-          updateContentNode(blockId, child.id, { section: undefined, column: 0 } as any);
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      if (!block) return;
+      const node = block.content.find((n) => n.id === nodeId);
+      if (node?.type === 'columnSection') {
+        const fresh = useWorkoutStore.getState().blocks.find((b) => b.id === blockId);
+        if (fresh) {
+          const children = fresh.content.filter((n) => n.section === nodeId);
+          for (const child of children) {
+            updateContentNode(blockId, child.id, { section: undefined, column: 0 } as any);
+          }
         }
       }
-    }
-    deleteContentNode(blockId, nodeId);
-    setTimeout(normalizeOrders, 50);
-  }, [block, blockId, deleteContentNode, updateContentNode, normalizeOrders]);
+      deleteContentNode(blockId, nodeId);
+      setTimeout(normalizeOrders, 50);
+    },
+    [block, blockId, deleteContentNode, updateContentNode, normalizeOrders],
+  );
 
-  const handleDashboardUpdate = useCallback((nodeId: string, data: any) => {
-    updateContentNode(blockId, nodeId, { data } as any);
-  }, [blockId, updateContentNode]);
+  const handleDashboardUpdate = useCallback(
+    (nodeId: string, data: any) => {
+      updateContentNode(blockId, nodeId, { data } as any);
+    },
+    [blockId, updateContentNode],
+  );
 
-  const handleTimerUpdate = useCallback((nodeId: string, data: any) => {
-    updateContentNode(blockId, nodeId, { data } as any);
-  }, [blockId, updateContentNode]);
+  const handleTimerUpdate = useCallback(
+    (nodeId: string, data: any) => {
+      updateContentNode(blockId, nodeId, { data } as any);
+    },
+    [blockId, updateContentNode],
+  );
 
-  const handleImageUpdate = useCallback((nodeId: string, data: any) => {
-    updateContentNode(blockId, nodeId, { data } as any);
-  }, [blockId, updateContentNode]);
+  const handleImageUpdate = useCallback(
+    (nodeId: string, data: any) => {
+      updateContentNode(blockId, nodeId, { data } as any);
+    },
+    [blockId, updateContentNode],
+  );
 
-  const handleInsertAfter = useCallback((nodeId: string) => {
-    if (!block) return;
-    const node = block.content.find(n => n.id === nodeId);
-    setInsertAfterNodeId(nodeId);
-    setPaletteSection(node?.section ?? null);
-    setPaletteColumn(node?.column ?? 0);
-    setShowPalette(true);
-  }, [block]);
+  const handleInsertAfter = useCallback(
+    (nodeId: string) => {
+      if (!block) return;
+      const node = block.content.find((n) => n.id === nodeId);
+      setInsertAfterNodeId(nodeId);
+      setPaletteSection(node?.section ?? null);
+      setPaletteColumn(node?.column ?? 0);
+      setShowPalette(true);
+    },
+    [block],
+  );
 
   // ======================== COMPONENT PALETTE ========================
 
@@ -309,18 +401,21 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     setShowPalette(true);
   }, []);
 
-  const handlePaletteSelect = useCallback((type: string) => {
-    if (!block) return;
-    if (insertAfterNodeId) {
-      const afterNode = block.content.find(n => n.id === insertAfterNodeId);
-      insertNode(type, afterNode?.section ?? null, afterNode?.column ?? 0, insertAfterNodeId);
-    } else {
-      insertNode(type, paletteSection, paletteColumn);
-    }
-    setInsertAfterNodeId(null);
-    setPaletteSection(null);
-    setPaletteColumn(0);
-  }, [block, insertAfterNodeId, insertNode, paletteSection, paletteColumn]);
+  const handlePaletteSelect = useCallback(
+    (type: string) => {
+      if (!block) return;
+      if (insertAfterNodeId) {
+        const afterNode = block.content.find((n) => n.id === insertAfterNodeId);
+        insertNode(type, afterNode?.section ?? null, afterNode?.column ?? 0, insertAfterNodeId);
+      } else {
+        insertNode(type, paletteSection, paletteColumn);
+      }
+      setInsertAfterNodeId(null);
+      setPaletteSection(null);
+      setPaletteColumn(0);
+    },
+    [block, insertAfterNodeId, insertNode, paletteSection, paletteColumn],
+  );
 
   // ======================== BLOCK ACTIONS ========================
 
@@ -330,25 +425,37 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     setShowActions(true);
   }, []);
 
-  const handleDuplicate = useCallback((nodeId: string) => {
-    duplicateContentNode(blockId, nodeId);
-  }, [blockId, duplicateContentNode]);
+  const handleDuplicate = useCallback(
+    (nodeId: string) => {
+      duplicateContentNode(blockId, nodeId);
+    },
+    [blockId, duplicateContentNode],
+  );
 
-  const handleMoveUp = useCallback((nodeId: string) => {
-    moveContentNode(blockId, nodeId, 'up');
-  }, [blockId, moveContentNode]);
+  const handleMoveUp = useCallback(
+    (nodeId: string) => {
+      moveContentNode(blockId, nodeId, 'up');
+    },
+    [blockId, moveContentNode],
+  );
 
-  const handleMoveDown = useCallback((nodeId: string) => {
-    moveContentNode(blockId, nodeId, 'down');
-  }, [blockId, moveContentNode]);
+  const handleMoveDown = useCallback(
+    (nodeId: string) => {
+      moveContentNode(blockId, nodeId, 'down');
+    },
+    [blockId, moveContentNode],
+  );
 
-  const handleTurnInto = useCallback((nodeId: string, format: TextFormat) => {
-    const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
-    if (!fresh) return;
-    const node = fresh.content.find(n => n.id === nodeId);
-    if (!node || node.type !== 'text') return;
-    updateContentNode(blockId, nodeId, { data: { ...node.data, format } } as any);
-  }, [blockId, updateContentNode]);
+  const handleTurnInto = useCallback(
+    (nodeId: string, format: TextFormat) => {
+      const fresh = useWorkoutStore.getState().blocks.find((b) => b.id === blockId);
+      if (!fresh) return;
+      const node = fresh.content.find((n) => n.id === nodeId);
+      if (!node || node.type !== 'text') return;
+      updateContentNode(blockId, nodeId, { data: { ...node.data, format } } as any);
+    },
+    [blockId, updateContentNode],
+  );
 
   // NOTE: drag reorder via DraggableNode was removed in Batch M2. M4 will
   // re-introduce reordering on the spine using react-native-draggable-flatlist.
@@ -357,60 +464,86 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
 
   // ======================== EXERCISE ========================
 
-  const handleExerciseAdd = useCallback((opts: { name: string; discipline: Discipline; fields?: import('../../types/core').FieldDefinition[] }) => {
-    if (!block) return;
-    handleAddExercise({
-      ...opts,
-      section: addExerciseSection ?? undefined,
-      column: addExerciseColumn,
-    });
-    setAddExerciseSection(null);
-    setAddExerciseColumn(0);
-    setTimeout(normalizeOrders, 50);
-  }, [block, handleAddExercise, addExerciseSection, addExerciseColumn, normalizeOrders]);
+  const handleExerciseAdd = useCallback(
+    (opts: {
+      name: string;
+      discipline: Discipline;
+      fields?: import('../../types/core').FieldDefinition[];
+    }) => {
+      if (!block) return;
+      handleAddExercise({
+        ...opts,
+        section: addExerciseSection ?? undefined,
+        column: addExerciseColumn,
+      });
+      setAddExerciseSection(null);
+      setAddExerciseColumn(0);
+      setTimeout(normalizeOrders, 50);
+    },
+    [block, handleAddExercise, addExerciseSection, addExerciseColumn, normalizeOrders],
+  );
 
-  const handleDeleteExerciseConfirm = useCallback((exerciseId: string) => {
-    Alert.alert('Eliminar ejercicio', '¿Eliminar este ejercicio y sus series?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => handleDeleteExercise(exerciseId) },
-    ]);
-  }, [handleDeleteExercise]);
+  const handleDeleteExerciseConfirm = useCallback(
+    (exerciseId: string) => {
+      Alert.alert('Eliminar ejercicio', '¿Eliminar este ejercicio y sus series?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => handleDeleteExercise(exerciseId) },
+      ]);
+    },
+    [handleDeleteExercise],
+  );
 
-  const handleSetComplete = useCallback((exerciseId: string, setId: string) => {
-    const completedBlock = handleToggleSetComplete(exerciseId, setId);
-    if (completedBlock) {
-      setTimeout(() => {
-        setCelebrationBlock(completedBlock);
-        confettiRef.current?.burst();
-      }, 600);
-    }
-  }, [handleToggleSetComplete]);
+  const handleSetComplete = useCallback(
+    (exerciseId: string, setId: string) => {
+      const completedBlock = handleToggleSetComplete(exerciseId, setId);
+      if (completedBlock) {
+        setTimeout(() => {
+          setCelebrationBlock(completedBlock);
+          confettiRef.current?.burst();
+        }, 600);
+      }
+    },
+    [handleToggleSetComplete],
+  );
 
   // ======================== SUB-BLOCK ========================
 
-  const handleNavigateSubBlock = useCallback((subBlockId: string) => {
-    navigation.push('BlockDetail', { blockId: subBlockId });
-  }, [navigation]);
+  const handleNavigateSubBlock = useCallback(
+    (subBlockId: string) => {
+      navigation.push('BlockDetail', { blockId: subBlockId });
+    },
+    [navigation],
+  );
 
   // ======================== SECTION CONFIG ========================
 
-  const handleSectionWidthChange = useCallback((sectionId: string, widths?: number[]) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
-    if (!fresh) return;
-    const node = fresh.content.find(n => n.id === sectionId);
-    if (!node || node.type !== 'columnSection') return;
-    updateContentNode(blockId, sectionId, {
-      data: { ...(node as ColumnSectionContentNode).data, widths },
-    } as any);
-  }, [blockId, updateContentNode]);
+  const handleSectionWidthChange = useCallback(
+    (sectionId: string, widths?: number[]) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const fresh = useWorkoutStore.getState().blocks.find((b) => b.id === blockId);
+      if (!fresh) return;
+      const node = fresh.content.find((n) => n.id === sectionId);
+      if (!node || node.type !== 'columnSection') return;
+      updateContentNode(blockId, sectionId, {
+        data: { ...(node as ColumnSectionContentNode).data, widths },
+      } as any);
+    },
+    [blockId, updateContentNode],
+  );
 
   // ======================== DELETE BLOCK ========================
 
   const handleDeleteBlock = useCallback(() => {
     Alert.alert('Eliminar bloque', '¿Seguro?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => { handleDelete(); nav.goBack(); } },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: () => {
+          handleDelete();
+          nav.goBack();
+        },
+      },
     ]);
   }, [handleDelete, nav]);
 
@@ -422,7 +555,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   // First exercise on the spine renders as CompoundTile (hero); subsequent
   // exercises render as AccessoryTile (compact).
   const firstExerciseRowId = useMemo(() => {
-    const r = spineRows.find(row => row.kind === 'exercise');
+    const r = spineRows.find((row) => row.kind === 'exercise');
     return r?.id ?? null;
   }, [spineRows]);
 
@@ -430,91 +563,103 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
   // the spine. The closure captures `block`, which may be null on first
   // mount; the renderer is only invoked once Spine itself has rows, which
   // requires a non-null block.
-  const renderRowTile = useCallback((row: SpineRowData): React.ReactNode => {
-    const node = row.tiles[0]?.node;
-    if (!node) return null;
-    if (row.kind === 'divider') return null;
-    if (row.kind === 'section' && node.type === 'columnSection') {
-      return (
-        <SectionHeaderTile
-          sectionNode={node}
-          onChangeWidth={handleSectionWidthChange}
-          onDelete={handleDeleteNode}
-        />
-      );
-    }
-    if (row.kind === 'exercise' && node.type === 'exercise') {
-      const Tile = row.id === firstExerciseRowId ? CompoundTile : AccessoryTile;
-      return (
-        <Tile
-          exercise={node.data.exercise}
-          blockId={blockId}
-          index={node.order}
-          onLongPress={() => handleOpenActions(node)}
-          onUpdateName={handleUpdateExerciseName}
-          onUpdateSetValue={handleUpdateSetValue}
-          onToggleSetComplete={handleSetComplete}
-          onAddSet={handleAddSet}
-          onRemoveSet={handleRemoveSet}
-          onDeleteExercise={handleDeleteExerciseConfirm}
-        />
-      );
-    }
-    if (row.kind === 'note' && node.type === 'text') {
-      return (
-        <NoteTile
-          node={node}
-          onUpdate={handleTextUpdate}
-          onChangeFormat={handleTextFormatChange}
-          onToggleCheck={handleCheckToggle}
-          onDelete={handleDeleteNode}
-          onInsertAfter={handleInsertAfter}
-        />
-      );
-    }
-    if (node.type === 'dashboard' && block) {
-      return (
-        <InlineDashboardTile
-          node={node}
-          block={block}
-          onLongPress={() => handleOpenActions(node)}
-          onUpdate={handleDashboardUpdate}
-          onDelete={handleDeleteNode}
-        />
-      );
-    }
-    if (node.type === 'superset') {
-      return (
-        <SupersetTile
-          node={node}
-          onLongPress={() => handleOpenActions(node)}
-          onUpdate={(nodeId, partial) => {
-            const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
-            const n = fresh?.content.find(c => c.id === nodeId);
-            if (n?.type === 'superset') {
-              updateContentNode(blockId, nodeId, { data: { ...n.data, ...partial } } as any);
-            }
-          }}
-        />
-      );
-    }
-    return renderNodeDeferred(node, false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [block, blockId, firstExerciseRowId]);
+  const renderRowTile = useCallback(
+    (row: SpineRowData): React.ReactNode => {
+      const node = row.tiles[0]?.node;
+      if (!node) return null;
+      if (row.kind === 'divider') return null;
+      if (row.kind === 'section' && node.type === 'columnSection') {
+        return (
+          <SectionHeaderTile
+            sectionNode={node}
+            onChangeWidth={handleSectionWidthChange}
+            onDelete={handleDeleteNode}
+          />
+        );
+      }
+      if (row.kind === 'exercise' && node.type === 'exercise') {
+        const Tile = row.id === firstExerciseRowId ? CompoundTile : AccessoryTile;
+        return (
+          <Tile
+            exercise={node.data.exercise}
+            blockId={blockId}
+            index={node.order}
+            onLongPress={() => handleOpenActions(node)}
+            onUpdateName={handleUpdateExerciseName}
+            onUpdateSetValue={handleUpdateSetValue}
+            onToggleSetComplete={handleSetComplete}
+            onAddSet={handleAddSet}
+            onRemoveSet={handleRemoveSet}
+            onDeleteExercise={handleDeleteExerciseConfirm}
+          />
+        );
+      }
+      if (row.kind === 'note' && node.type === 'text') {
+        return (
+          <NoteTile
+            node={node}
+            onUpdate={handleTextUpdate}
+            onChangeFormat={handleTextFormatChange}
+            onToggleCheck={handleCheckToggle}
+            onDelete={handleDeleteNode}
+            onInsertAfter={handleInsertAfter}
+          />
+        );
+      }
+      if (node.type === 'dashboard' && block) {
+        return (
+          <InlineDashboardTile
+            node={node}
+            block={block}
+            onLongPress={() => handleOpenActions(node)}
+            onUpdate={handleDashboardUpdate}
+            onDelete={handleDeleteNode}
+          />
+        );
+      }
+      if (node.type === 'superset') {
+        return (
+          <SupersetTile
+            node={node}
+            onLongPress={() => handleOpenActions(node)}
+            onUpdate={(nodeId, partial) => {
+              const fresh = useWorkoutStore.getState().blocks.find((b) => b.id === blockId);
+              const n = fresh?.content.find((c) => c.id === nodeId);
+              if (n?.type === 'superset') {
+                updateContentNode(blockId, nodeId, { data: { ...n.data, ...partial } } as any);
+              }
+            }}
+          />
+        );
+      }
+      return renderNodeDeferred(node, false);
+       
+    },
+    [block, blockId, firstExerciseRowId],
+  );
 
-  const handleRowTap = useCallback((row: SpineRowData) => {
-    const node = row.tiles[0]?.node;
-    if (node) handleOpenActions(node);
-  }, [handleOpenActions]);
+  const handleRowTap = useCallback(
+    (row: SpineRowData) => {
+      const node = row.tiles[0]?.node;
+      if (node) handleOpenActions(node);
+    },
+    [handleOpenActions],
+  );
 
-  const handleReorder = useCallback((orderedIds: string[]) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    reorderContentNodes(blockId, orderedIds);
-  }, [blockId, reorderContentNodes]);
+  const handleReorder = useCallback(
+    (orderedIds: string[]) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      reorderContentNodes(blockId, orderedIds);
+    },
+    [blockId, reorderContentNodes],
+  );
 
-  const handleAddInsert = useCallback((type: InsertableType) => {
-    insertNode(type, null, 0);
-  }, [insertNode]);
+  const handleAddInsert = useCallback(
+    (type: InsertableType) => {
+      insertNode(type, null, 0);
+    },
+    [insertNode],
+  );
 
   // ======================== RENDER HELPERS ========================
 
@@ -652,10 +797,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
               of the sticky header, tying the chrome to the block identity
               once the user has scrolled past the inline strip below. */}
           <View
-            style={[
-              styles.stickyHeaderDisciplineStrip,
-              { backgroundColor: disciplineColor },
-            ]}
+            style={[styles.stickyHeaderDisciplineStrip, { backgroundColor: disciplineColor }]}
           />
           <View style={styles.stickyHeaderHairline} />
         </Animated.View>
@@ -758,10 +900,15 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
                 </Text>
               </View>
               <View style={styles.progressTrack}>
-                <View style={[
-                  styles.progressFill,
-                  { width: `${pct}%` as `${number}%`, backgroundColor: pct === 100 ? Colors.semantic.success : disciplineColor },
-                ]} />
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${pct}%` as `${number}%`,
+                      backgroundColor: pct === 100 ? Colors.semantic.success : disciplineColor,
+                    },
+                  ]}
+                />
               </View>
             </View>
           )}
@@ -778,7 +925,11 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
       <ComponentPalette
         visible={showPalette}
         onSelect={handlePaletteSelect}
-        onClose={() => { setShowPalette(false); setPaletteSection(null); setPaletteColumn(0); }}
+        onClose={() => {
+          setShowPalette(false);
+          setPaletteSection(null);
+          setPaletteColumn(0);
+        }}
         insideSection={paletteSection != null}
       />
 
@@ -812,10 +963,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
       />
 
       {/* Celebration */}
-      <CompletionCelebration
-        block={celebrationBlock}
-        onDismiss={() => setCelebrationBlock(null)}
-      />
+      <CompletionCelebration block={celebrationBlock} onDismiss={() => setCelebrationBlock(null)} />
 
       {/* Floating AI button */}
       {!showAI && (
@@ -831,11 +979,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
       )}
 
       {/* AI assistant sheet */}
-      <BlockAISheet
-        visible={showAI}
-        block={block}
-        onClose={() => setShowAI(false)}
-      />
+      <BlockAISheet visible={showAI} block={block} onClose={() => setShowAI(false)} />
     </View>
   );
 }

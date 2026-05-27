@@ -5,15 +5,20 @@
 
 import type { ResolvedAssignment, ISODate } from '../../../../types/schedule';
 import type { WorkoutHistoryEntry } from '../../../../store/workoutStore';
-import { toISODate, fromISODate, monthGridDays, todayISO } from '../../../../features/planner/lib/dates';
+import {
+  toISODate,
+  fromISODate,
+  monthGridDays,
+  todayISO,
+} from '../../../../features/planner/lib/dates';
 
 export type DayAdherence =
-  | 'rest'              // no plan, no session
-  | 'planned'           // planned, day in future
-  | 'planned-done'      // planned and trained
-  | 'planned-missed'    // planned but day in past with no session
-  | 'unplanned-done'    // no plan but trained anyway
-  | 'planned-skipped';  // explicit skip via scheduleStore
+  | 'rest' // no plan, no session
+  | 'planned' // planned, day in future
+  | 'planned-done' // planned and trained
+  | 'planned-missed' // planned but day in past with no session
+  | 'unplanned-done' // no plan but trained anyway
+  | 'planned-skipped'; // explicit skip via scheduleStore
 
 export interface DayCell {
   date: ISODate;
@@ -87,22 +92,30 @@ export function buildMonthAdherence(input: {
     }
 
     if (!isOtherMonth) {
-      if (status === 'planned-done')    { plannedCount++; doneCount++; }
-      else if (status === 'planned-missed') { plannedCount++; }
-      else if (status === 'planned-skipped') { plannedCount++; skippedCount++; }
-      else if (status === 'planned')         { plannedCount++; }
-      else if (status === 'unplanned-done')  { unplannedCount++; }
+      if (status === 'planned-done') {
+        plannedCount++;
+        doneCount++;
+      } else if (status === 'planned-missed') {
+        plannedCount++;
+      } else if (status === 'planned-skipped') {
+        plannedCount++;
+        skippedCount++;
+      } else if (status === 'planned') {
+        plannedCount++;
+      } else if (status === 'unplanned-done') {
+        unplannedCount++;
+      }
     }
 
     return { date: d, status, isToday, isOtherMonth };
   });
 
-  const adherenceDenominator = doneCount + skippedCount + cells.filter(
-    (c) => !c.isOtherMonth && c.status === 'planned-missed',
-  ).length;
-  const adherencePct = adherenceDenominator > 0
-    ? Math.round((doneCount / adherenceDenominator) * 100)
-    : null;
+  const adherenceDenominator =
+    doneCount +
+    skippedCount +
+    cells.filter((c) => !c.isOtherMonth && c.status === 'planned-missed').length;
+  const adherencePct =
+    adherenceDenominator > 0 ? Math.round((doneCount / adherenceDenominator) * 100) : null;
 
   return {
     anchor,

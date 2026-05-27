@@ -38,17 +38,17 @@ interface Props {
 function ariaLabel(kind: StationKind, state: StationState): string {
   if (kind === 'divider') return 'Divisor';
   if (kind === 'section') return 'Sección';
-  if (kind === 'note')    return 'Nota';
-  const head = kind === 'exercise'
-    ? 'Ejercicio'
-    : kind === 'superset'
-      ? 'Superserie'
-      : 'Elemento';
+  if (kind === 'note') return 'Nota';
+  const head = kind === 'exercise' ? 'Ejercicio' : kind === 'superset' ? 'Superserie' : 'Elemento';
   switch (state) {
-    case 'completed':  return `${head}, completado`;
-    case 'inProgress': return `${head}, en progreso`;
-    case 'skipped':    return `${head}, omitido`;
-    default:           return `${head}, pendiente`;
+    case 'completed':
+      return `${head}, completado`;
+    case 'inProgress':
+      return `${head}, en progreso`;
+    case 'skipped':
+      return `${head}, omitido`;
+    default:
+      return `${head}, pendiente`;
   }
 }
 
@@ -102,9 +102,7 @@ function StationNodeImpl({ kind, state }: Props) {
   }
 
   if (state === 'inProgress') {
-    return (
-      <InProgressNode label={ariaLabel(kind, state)} />
-    );
+    return <InProgressNode label={ariaLabel(kind, state)} />;
   }
 
   return (

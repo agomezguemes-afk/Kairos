@@ -67,7 +67,11 @@ export const addTextTool: ToolDefinition<AddTextArgs, { nodeId: string }> = {
         type: 'string',
         enum: ['paragraph', 'h1', 'h2', 'h3', 'bullet', 'numbered', 'checklist'],
       },
-      position: { type: 'integer', minimum: 0, description: 'Optional. Index in the block content; omit to append.' },
+      position: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Optional. Index in the block content; omit to append.',
+      },
     },
     required: ['blockId', 'content'],
     additionalProperties: false,
@@ -177,7 +181,12 @@ export const addTimerTool: ToolDefinition<AddTimerArgs, { nodeId: string }> = {
   handler: (args) => {
     const store = useWorkoutStore.getState();
     getBlockOrThrow(args.blockId);
-    const node = createTimerNode(0, args.mode ?? 'countdown', args.duration_sec ?? 60, args.label ?? '');
+    const node = createTimerNode(
+      0,
+      args.mode ?? 'countdown',
+      args.duration_sec ?? 60,
+      args.label ?? '',
+    );
     store.insertContentNode(args.blockId, node, args.position);
     return { nodeId: node.id };
   },
@@ -253,7 +262,13 @@ export const addDashboardTool: ToolDefinition<AddDashboardArgs, { nodeId: string
       blockId: { type: 'string' },
       metric: {
         type: 'string',
-        enum: ['total_volume', 'completed_sets', 'total_exercises', 'completion_pct', 'estimated_duration'],
+        enum: [
+          'total_volume',
+          'completed_sets',
+          'total_exercises',
+          'completion_pct',
+          'estimated_duration',
+        ],
       },
       viz: { type: 'string', enum: ['counter', 'progress', 'list'] },
       label: { type: 'string' },
@@ -301,12 +316,7 @@ export const addCustomFieldTool: ToolDefinition<AddCustomFieldArgs, { nodeId: st
       blockId: { type: 'string' },
       label: { type: 'string' },
       value: {
-        oneOf: [
-          { type: 'number' },
-          { type: 'string' },
-          { type: 'boolean' },
-          { type: 'null' },
-        ],
+        oneOf: [{ type: 'number' }, { type: 'string' }, { type: 'boolean' }, { type: 'null' }],
       },
       unit: { type: 'string' },
       position: { type: 'integer', minimum: 0 },
@@ -352,10 +362,7 @@ const WrapInColumnsArgs = v.object({
 
 type WrapInColumnsArgs = v.InferOutput<typeof WrapInColumnsArgs>;
 
-export const wrapInColumnsTool: ToolDefinition<
-  WrapInColumnsArgs,
-  { sectionId: string }
-> = {
+export const wrapInColumnsTool: ToolDefinition<WrapInColumnsArgs, { sectionId: string }> = {
   name: 'wrap_in_columns',
   description:
     'Group existing nodes inside a 2- or 3-column section. Use it when items should sit side-by-side (e.g. warmup pairs, complementary mobility cues, push/pull supersets).',

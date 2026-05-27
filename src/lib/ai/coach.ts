@@ -13,8 +13,14 @@ import { callGroq, type GroqMessage } from './client';
 import { ROUTINE_GENERATOR_SYSTEM, buildCoachChatSystem } from './prompts/system';
 
 const VALID_DISCIPLINES: readonly Discipline[] = [
-  'strength', 'running', 'calisthenics', 'mobility',
-  'team_sport', 'cycling', 'swimming', 'general',
+  'strength',
+  'running',
+  'calisthenics',
+  'mobility',
+  'team_sport',
+  'cycling',
+  'swimming',
+  'general',
 ];
 
 interface UserSnapshot {
@@ -29,7 +35,10 @@ function buildUserSnapshot(): UserSnapshot {
   const s = useWorkoutStore.getState();
   return {
     blocksCount: s.blocks.length,
-    favoriteBlocks: s.blocks.filter((b) => b.is_favorite).map((b) => b.name).slice(0, 3),
+    favoriteBlocks: s.blocks
+      .filter((b) => b.is_favorite)
+      .map((b) => b.name)
+      .slice(0, 3),
     recentSessions: s.workoutHistory.slice(0, 5).map((h) => ({
       block: h.blockName,
       date: new Date(h.startedAt).toISOString().slice(0, 10),
@@ -41,13 +50,18 @@ function buildUserSnapshot(): UserSnapshot {
 
 export function buildSystemPrompt(history?: GroqMessage[]): string {
   const userData = buildUserSnapshot();
-  const histText = history && history.length > 0
-    ? '\n\nHISTORIAL RECIENTE:\n' + history.slice(-6).map((m) => {
-        const role = 'role' in m ? m.role : 'user';
-        const content = 'content' in m ? (m.content ?? '') : '';
-        return `${role}: ${content}`;
-      }).join('\n')
-    : '';
+  const histText =
+    history && history.length > 0
+      ? '\n\nHISTORIAL RECIENTE:\n' +
+        history
+          .slice(-6)
+          .map((m) => {
+            const role = 'role' in m ? m.role : 'user';
+            const content = 'content' in m ? (m.content ?? '') : '';
+            return `${role}: ${content}`;
+          })
+          .join('\n')
+      : '';
   return buildCoachChatSystem({
     userDataJson: JSON.stringify(userData, null, 2),
     historyText: histText,
@@ -151,8 +165,9 @@ Lesiones: ${prefs.lesiones && prefs.lesiones.length > 0 ? prefs.lesiones.join(',
         store.addSet(blockId, card.id);
       }
     } else if (setsCount < card.sets.length) {
-      const after = useWorkoutStore.getState().blocks
-        .find((b) => b.id === blockId)
+      const after = useWorkoutStore
+        .getState()
+        .blocks.find((b) => b.id === blockId)
         ?.content.find((n) => n.type === 'exercise' && n.data.exercise.id === card.id);
       if (after && after.type === 'exercise') {
         const drop = after.data.exercise.sets.slice(setsCount);
@@ -160,8 +175,9 @@ Lesiones: ${prefs.lesiones && prefs.lesiones.length > 0 ? prefs.lesiones.join(',
       }
     }
     // Pre-fill reps in every set.
-    const after = useWorkoutStore.getState().blocks
-      .find((b) => b.id === blockId)
+    const after = useWorkoutStore
+      .getState()
+      .blocks.find((b) => b.id === blockId)
       ?.content.find((n) => n.type === 'exercise' && n.data.exercise.id === card.id);
     if (after && after.type === 'exercise') {
       for (const s of after.data.exercise.sets) {

@@ -5,17 +5,8 @@
 // bodies stay focused on the actual mutation.
 
 import { useWorkoutStore } from '../../../store/workoutStore';
-import type {
-  ContentNode,
-  ExerciseContentNode,
-  SubBlockContentNode,
-} from '../../../types/content';
-import type {
-  Discipline,
-  ExerciseCard,
-  FieldDefinition,
-  WorkoutBlock,
-} from '../../../types/core';
+import type { ContentNode, ExerciseContentNode, SubBlockContentNode } from '../../../types/content';
+import type { Discipline, ExerciseCard, FieldDefinition, WorkoutBlock } from '../../../types/core';
 import { DISCIPLINE_CONFIGS } from '../../../types/core';
 
 import type { FieldDefinitionInput } from '../validation/schemas';
@@ -35,10 +26,7 @@ export function getBlockOrThrow(blockId: string): WorkoutBlock {
   return block;
 }
 
-export function findNodeOrThrow(
-  block: WorkoutBlock,
-  nodeId: string,
-): ContentNode {
+export function findNodeOrThrow(block: WorkoutBlock, nodeId: string): ContentNode {
   const node = block.content.find((n) => n.id === nodeId);
   if (!node) throw new ToolError(`node "${nodeId}" not found in block "${block.id}"`);
   return node;
@@ -93,10 +81,7 @@ export function isSubBlockNode(node: ContentNode): node is SubBlockContentNode {
  * Convert the loose FieldDefinitionInput from a tool call into a concrete
  * FieldDefinition the store accepts. Picks sensible defaults for the model.
  */
-export function materializeFieldDef(
-  input: FieldDefinitionInput,
-  order = 0,
-): FieldDefinition {
+export function materializeFieldDef(input: FieldDefinitionInput, order = 0): FieldDefinition {
   const id = input.id?.trim() ?? slugify(input.name);
   return {
     id,
@@ -122,11 +107,13 @@ export function defaultFieldsFor(discipline: Discipline): FieldDefinition[] {
 }
 
 function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 32) || `field_${Date.now().toString(36)}`;
+  return (
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 32) || `field_${Date.now().toString(36)}`
+  );
 }

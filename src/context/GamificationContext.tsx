@@ -2,14 +2,7 @@
 // Manages streak, badges, PR cards, and exercise bests.
 // All persisted to AsyncStorage under @kairos_* keys.
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Streak,
@@ -88,14 +81,16 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     (async () => {
       try {
-        const [rawStreak, rawBadges, rawPR, rawBest, rawCount, rawMissionCount] = await Promise.all([
-          AsyncStorage.getItem(KEYS.streak),
-          AsyncStorage.getItem(KEYS.badges),
-          AsyncStorage.getItem(KEYS.prCards),
-          AsyncStorage.getItem(KEYS.exerciseBest),
-          AsyncStorage.getItem(KEYS.blockCount),
-          AsyncStorage.getItem(KEYS.missionCount),
-        ]);
+        const [rawStreak, rawBadges, rawPR, rawBest, rawCount, rawMissionCount] = await Promise.all(
+          [
+            AsyncStorage.getItem(KEYS.streak),
+            AsyncStorage.getItem(KEYS.badges),
+            AsyncStorage.getItem(KEYS.prCards),
+            AsyncStorage.getItem(KEYS.exerciseBest),
+            AsyncStorage.getItem(KEYS.blockCount),
+            AsyncStorage.getItem(KEYS.missionCount),
+          ],
+        );
         if (rawStreak) setStreak(JSON.parse(rawStreak));
         if (rawBadges) setBadges(JSON.parse(rawBadges));
         if (rawPR) setPRCards(JSON.parse(rawPR));
@@ -112,22 +107,34 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
   // ---- Persist helpers ----
   const persistStreak = useCallback(async (s: Streak) => {
-    try { await AsyncStorage.setItem(KEYS.streak, JSON.stringify(s)); } catch {}
+    try {
+      await AsyncStorage.setItem(KEYS.streak, JSON.stringify(s));
+    } catch {}
   }, []);
   const persistBadges = useCallback(async (b: Badge[]) => {
-    try { await AsyncStorage.setItem(KEYS.badges, JSON.stringify(b)); } catch {}
+    try {
+      await AsyncStorage.setItem(KEYS.badges, JSON.stringify(b));
+    } catch {}
   }, []);
   const persistPRCards = useCallback(async (cards: PRCard[]) => {
-    try { await AsyncStorage.setItem(KEYS.prCards, JSON.stringify(cards)); } catch {}
+    try {
+      await AsyncStorage.setItem(KEYS.prCards, JSON.stringify(cards));
+    } catch {}
   }, []);
   const persistBestMap = useCallback(async (m: ExerciseBestMap) => {
-    try { await AsyncStorage.setItem(KEYS.exerciseBest, JSON.stringify(m)); } catch {}
+    try {
+      await AsyncStorage.setItem(KEYS.exerciseBest, JSON.stringify(m));
+    } catch {}
   }, []);
   const persistBlockCount = useCallback(async (c: number) => {
-    try { await AsyncStorage.setItem(KEYS.blockCount, JSON.stringify(c)); } catch {}
+    try {
+      await AsyncStorage.setItem(KEYS.blockCount, JSON.stringify(c));
+    } catch {}
   }, []);
   const persistMissionCount = useCallback(async (c: number) => {
-    try { await AsyncStorage.setItem(KEYS.missionCount, JSON.stringify(c)); } catch {}
+    try {
+      await AsyncStorage.setItem(KEYS.missionCount, JSON.stringify(c));
+    } catch {}
   }, []);
 
   // ======================== SET COMPLETED ========================
@@ -166,7 +173,17 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
       return { newBadges, prCard };
     },
-    [streak, bestMap, prCards, badges, blockCount, persistStreak, persistBestMap, persistPRCards, persistBadges],
+    [
+      streak,
+      bestMap,
+      prCards,
+      badges,
+      blockCount,
+      persistStreak,
+      persistBestMap,
+      persistPRCards,
+      persistBadges,
+    ],
   );
 
   // ======================== BLOCK CREATED ========================
@@ -220,9 +237,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     setBestMap({});
     setBlockCount(0);
     setMissionCount(0);
-    await Promise.all(
-      Object.values(KEYS).map((k) => AsyncStorage.removeItem(k)),
-    );
+    await Promise.all(Object.values(KEYS).map((k) => AsyncStorage.removeItem(k)));
   }, []);
 
   // ======================== VALUE ========================
@@ -238,14 +253,19 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       onMissionCompleted,
       resetGamification,
     }),
-    [streak, badges, prCards, isLoading, onSetCompleted, onBlockCreated, onMissionCompleted, resetGamification],
+    [
+      streak,
+      badges,
+      prCards,
+      isLoading,
+      onSetCompleted,
+      onBlockCreated,
+      onMissionCompleted,
+      resetGamification,
+    ],
   );
 
-  return (
-    <GamificationContext.Provider value={value}>
-      {children}
-    </GamificationContext.Provider>
-  );
+  return <GamificationContext.Provider value={value}>{children}</GamificationContext.Provider>;
 }
 
 export function useGamification(): GamificationContextType {

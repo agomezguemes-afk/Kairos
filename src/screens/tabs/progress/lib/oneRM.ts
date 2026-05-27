@@ -23,7 +23,9 @@ export function brzycki1RM(weight: number, reps: number): number {
 
 /** Best estimated 1RM (Epley) across all completed sets in this exercise summary. */
 export function sessionBest1RM(
-  performedSets: Array<{ weight: number | null; reps: number | null; completed: boolean }> | undefined,
+  performedSets:
+    | { weight: number | null; reps: number | null; completed: boolean }[]
+    | undefined,
 ): number {
   if (!performedSets) return 0;
   let best = 0;
@@ -73,10 +75,11 @@ export function summarize1RM(series: OneRMPoint[]): OneRMSummary {
   const peak = series.reduce((m, p) => Math.max(m, p.oneRM), 0);
   const current = series[series.length - 1].oneRM;
   const first = series[0].oneRM;
-  const trendPct = series.length >= 2 && first > 0
-    ? Math.round(((current - first) / first) * 1000) / 10
-    : null;
+  const trendPct =
+    series.length >= 2 && first > 0 ? Math.round(((current - first) / first) * 1000) / 10 : null;
   return { current: round1(current), peak: round1(peak), trendPct };
 }
 
-function round1(n: number): number { return Math.round(n * 10) / 10; }
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}

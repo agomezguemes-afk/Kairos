@@ -10,11 +10,15 @@ import type { WorkoutHistoryEntry } from '../../../../store/workoutStore';
 
 let failed = 0;
 function check(name: string, cond: boolean, extra?: unknown) {
-  if (!cond) { console.error('FAIL', name, extra ?? ''); failed++; }
-  else console.log('OK', name);
+  if (!cond) {
+    console.error('FAIL', name, extra ?? '');
+    failed++;
+  } else console.log('OK', name);
 }
 
-function makeEntry(opts: Partial<WorkoutHistoryEntry> & { exercises: WorkoutHistoryEntry['exercises'] }): WorkoutHistoryEntry {
+function makeEntry(
+  opts: Partial<WorkoutHistoryEntry> & { exercises: WorkoutHistoryEntry['exercises'] },
+): WorkoutHistoryEntry {
   return {
     id: opts.id ?? 'e',
     blockId: opts.blockId ?? 'b',
@@ -37,21 +41,61 @@ const NOW = new Date('2026-05-22T12:00:00Z').getTime();
 const DAY = 24 * 3600 * 1000;
 
 const hist: WorkoutHistoryEntry[] = [
-  makeEntry({ id: 'h1', startedAt: NOW - DAY, endedAt: NOW - DAY + 3600000, totalVolume: 1200,
+  makeEntry({
+    id: 'h1',
+    startedAt: NOW - DAY,
+    endedAt: NOW - DAY + 3600000,
+    totalVolume: 1200,
     exercises: [
-      { exerciseId: 'press', name: 'Press', maxWeight: 70, totalVolume: 600, setsCompleted: 3, performedSets: [{ weight: 60, reps: 8, completed: true }, { weight: 65, reps: 5, completed: true }, { weight: 70, reps: 3, completed: true }] },
+      {
+        exerciseId: 'press',
+        name: 'Press',
+        maxWeight: 70,
+        totalVolume: 600,
+        setsCompleted: 3,
+        performedSets: [
+          { weight: 60, reps: 8, completed: true },
+          { weight: 65, reps: 5, completed: true },
+          { weight: 70, reps: 3, completed: true },
+        ],
+      },
       { exerciseId: 'squat', name: 'Squat', maxWeight: 100, totalVolume: 600, setsCompleted: 3 },
     ],
   }),
-  makeEntry({ id: 'h2', startedAt: NOW - 3 * DAY, endedAt: NOW - 3 * DAY + 3600000, totalVolume: 900,
+  makeEntry({
+    id: 'h2',
+    startedAt: NOW - 3 * DAY,
+    endedAt: NOW - 3 * DAY + 3600000,
+    totalVolume: 900,
     exercises: [
-      { exerciseId: 'press', name: 'Press', maxWeight: 65, totalVolume: 500, setsCompleted: 3, performedSets: [{ weight: 60, reps: 8, completed: true }, { weight: 65, reps: 5, completed: true }] },
+      {
+        exerciseId: 'press',
+        name: 'Press',
+        maxWeight: 65,
+        totalVolume: 500,
+        setsCompleted: 3,
+        performedSets: [
+          { weight: 60, reps: 8, completed: true },
+          { weight: 65, reps: 5, completed: true },
+        ],
+      },
       { exerciseId: 'row', name: 'Row', maxWeight: 60, totalVolume: 400, setsCompleted: 3 },
     ],
   }),
-  makeEntry({ id: 'h3', startedAt: NOW - 10 * DAY, endedAt: NOW - 10 * DAY + 3600000, totalVolume: 700,
+  makeEntry({
+    id: 'h3',
+    startedAt: NOW - 10 * DAY,
+    endedAt: NOW - 10 * DAY + 3600000,
+    totalVolume: 700,
     exercises: [
-      { exerciseId: 'press', name: 'Press', maxWeight: 62.5, totalVolume: 400, setsCompleted: 3, performedSets: [{ weight: 62.5, reps: 6, completed: true }] },
+      {
+        exerciseId: 'press',
+        name: 'Press',
+        maxWeight: 62.5,
+        totalVolume: 400,
+        setsCompleted: 3,
+        performedSets: [{ weight: 62.5, reps: 6, completed: true }],
+      },
     ],
   }),
 ];
@@ -62,7 +106,10 @@ check('squat appears once', top.find((e) => e.exerciseId === 'squat')?.sessionCo
 
 const series = maxWeightSeries(hist, 'press');
 check('series chronological asc', series[0].date < series[series.length - 1].date);
-check('series weights ordered', series[0].weight === 62.5 && series[1].weight === 65 && series[2].weight === 70);
+check(
+  'series weights ordered',
+  series[0].weight === 62.5 && series[1].weight === 65 && series[2].weight === 70,
+);
 
 const weeks = weeklyVolumeSeries(hist, 12, NOW);
 check('12 weeks returned', weeks.length === 12);
@@ -76,5 +123,8 @@ check('total sessions 3', summary.totalSessions === 3);
 check('total volume 2800', summary.totalVolume === 2800);
 check('this week 2', summary.thisWeekSessions === 2);
 
-if (failed > 0) { console.error(`${failed} failures`); process.exit(1); }
+if (failed > 0) {
+  console.error(`${failed} failures`);
+  process.exit(1);
+}
 console.log('all aggregations checks pass');

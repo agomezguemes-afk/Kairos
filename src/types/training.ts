@@ -1,17 +1,8 @@
 // ========== TIPOS DE ENTRENAMIENTO ==========
 
-export type MuscleGroup = 
-  | 'pierna'
-  | 'biceps'
-  | 'triceps'
-  | 'pecho'
-  | 'espalda'
-  | 'hombro';
+export type MuscleGroup = 'pierna' | 'biceps' | 'triceps' | 'pecho' | 'espalda' | 'hombro';
 
-export type TrainingType = 
-  | 'tren_superior'
-  | 'tren_inferior'
-  | 'full_body';
+export type TrainingType = 'tren_superior' | 'tren_inferior' | 'full_body';
 
 export interface MuscleGroupOption {
   id: MuscleGroup;

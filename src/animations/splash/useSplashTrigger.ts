@@ -17,7 +17,7 @@ export interface SplashTriggerResult {
   replayBoot: () => void;
 }
 
-let pendingReplay = false;  // module-scoped — survives re-mount within session
+let pendingReplay = false; // module-scoped — survives re-mount within session
 
 export function useSplashTrigger(): SplashTriggerResult {
   const [mode, setMode] = useState<SplashMode>('loading');

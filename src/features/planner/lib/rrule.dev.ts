@@ -5,12 +5,14 @@ import { expandRule, RRULE_PRESETS, buildWeeklyRule, summarizeRule, parseRRule }
 
 let failed = 0;
 function check(name: string, cond: boolean, extra?: unknown) {
-  if (!cond) { console.error('FAIL', name, extra ?? ''); failed++; }
-  else console.log('OK', name);
+  if (!cond) {
+    console.error('FAIL', name, extra ?? '');
+    failed++;
+  } else console.log('OK', name);
 }
 
 // MWF for May 2026 — Mon=4,11,18,25; Wed=6,13,20,27; Fri=1,8,15,22,29
-const mwf = buildWeeklyRule([0, 2, 4]);  // Mon, Wed, Fri
+const mwf = buildWeeklyRule([0, 2, 4]); // Mon, Wed, Fri
 const occ = expandRule({
   rrule: mwf,
   startDate: '2026-05-01',
@@ -31,7 +33,11 @@ const occCapped = expandRule({
   rangeStart: '2026-05-01',
   rangeEnd: '2026-05-31',
 });
-check('endDate cap works', occCapped.every((d) => d <= '2026-05-15'), occCapped);
+check(
+  'endDate cap works',
+  occCapped.every((d) => d <= '2026-05-15'),
+  occCapped,
+);
 
 // First Monday of month
 const firstMon = RRULE_PRESETS.find((p) => p.id === 'first-monday')!.build('2026-05-01');
@@ -53,5 +59,8 @@ check('invalid rrule returns error', bad.ok === false);
 const sum = summarizeRule(buildWeeklyRule([0, 2, 4]));
 check('summary contains Lun', sum.toLowerCase().includes('lun'));
 
-if (failed > 0) { console.error(`${failed} failures`); process.exit(1); }
+if (failed > 0) {
+  console.error(`${failed} failures`);
+  process.exit(1);
+}
 console.log('all rrule checks pass');

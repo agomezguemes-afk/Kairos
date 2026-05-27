@@ -36,7 +36,7 @@ export function findPreviousReference(input: {
         const s = ex.sets[i];
         if (!s.completed) continue;
         const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
-        const r = typeof s.values['reps']   === 'number' ? (s.values['reps']   as number) : null;
+        const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : null;
         if (w == null && r == null) continue;
         return { source: 'current-session', weight: w, reps: r };
       }

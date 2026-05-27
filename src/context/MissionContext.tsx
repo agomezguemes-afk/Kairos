@@ -2,14 +2,7 @@
 // Manages active mission, completed missions, and skip count.
 // Persisted to AsyncStorage under @kairos_mission_* keys.
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Mission, CompletedMission } from '../types/mission';
 import type { WorkoutBlock } from '../types/core';
@@ -52,10 +45,7 @@ interface MissionContextType {
    * Update mission progress. Call after sets are completed / blocks change.
    * Returns true if the mission was just completed.
    */
-  updateMissionProgress: (
-    blocks: WorkoutBlock[],
-    streak: Streak,
-  ) => Promise<boolean>;
+  updateMissionProgress: (blocks: WorkoutBlock[], streak: Streak) => Promise<boolean>;
 
   /** Record a new PR for mission tracking. */
   recordPRForMission: () => Promise<void>;
@@ -331,11 +321,7 @@ export function MissionProvider({
     ],
   );
 
-  return (
-    <MissionContext.Provider value={value}>
-      {children}
-    </MissionContext.Provider>
-  );
+  return <MissionContext.Provider value={value}>{children}</MissionContext.Provider>;
 }
 
 export function useMission(): MissionContextType {

@@ -4,12 +4,7 @@
 // Gold CTA preserved — this is a "moment" screen.
 
 import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -37,12 +32,12 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
   const reduceMotion = useReducedMotion();
 
   // ── Shared values ─────────────────────────────────────────────────────────
-  const logoOp    = useSharedValue(0);
-  const logoY     = useSharedValue(-20);
-  const textOp    = useSharedValue(0);
-  const textY     = useSharedValue(14);
-  const btnsOp    = useSharedValue(0);
-  const btnsY     = useSharedValue(16);
+  const logoOp = useSharedValue(0);
+  const logoY = useSharedValue(-20);
+  const textOp = useSharedValue(0);
+  const textY = useSharedValue(14);
+  const btnsOp = useSharedValue(0);
+  const btnsY = useSharedValue(16);
   const idleScale = useSharedValue(1);
 
   // ── Entrance + idle pulse ─────────────────────────────────────────────────
@@ -50,25 +45,31 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
     if (reduceMotion) {
       // Snap everything in without animation — respect accessibility.
       logoOp.value = 1;
-      logoY.value  = 0;
+      logoY.value = 0;
       textOp.value = 1;
-      textY.value  = 0;
+      textY.value = 0;
       btnsOp.value = 1;
-      btnsY.value  = 0;
+      btnsY.value = 0;
       return;
     }
 
     // Logo entrance
     logoOp.value = withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) });
-    logoY.value  = withSpring(0, springs.gentle);
+    logoY.value = withSpring(0, springs.gentle);
 
     // Wordmark + tagline
-    textOp.value = withDelay(160, withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) }));
-    textY.value  = withDelay(160, withSpring(0, springs.gentle));
+    textOp.value = withDelay(
+      160,
+      withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) }),
+    );
+    textY.value = withDelay(160, withSpring(0, springs.gentle));
 
     // Buttons
-    btnsOp.value = withDelay(300, withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) }));
-    btnsY.value  = withDelay(300, withSpring(0, springs.gentle));
+    btnsOp.value = withDelay(
+      300,
+      withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) }),
+    );
+    btnsY.value = withDelay(300, withSpring(0, springs.gentle));
 
     // Idle pulse after entrance
     idleScale.value = withDelay(
@@ -76,7 +77,7 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
       withRepeat(
         withSequence(
           withTiming(1.035, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1.0,   { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.0, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
         false,
@@ -89,10 +90,10 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Button press scale ────────────────────────────────────────────────────
-  const ctaScale   = useSharedValue(1);
+  const ctaScale = useSharedValue(1);
   const loginScale = useSharedValue(1);
 
-  const pressIn  = (sv: SharedValue<number>) => {
+  const pressIn = (sv: SharedValue<number>) => {
     sv.value = withSpring(0.96, springs.tap);
   };
   const pressOut = (sv: SharedValue<number>) => {
@@ -100,19 +101,19 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
   };
 
   // ── Animated styles ───────────────────────────────────────────────────────
-  const logoStyle  = useAnimatedStyle(() => ({
+  const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOp.value,
     transform: [{ translateY: logoY.value }, { scale: idleScale.value }],
   }));
-  const textStyle  = useAnimatedStyle(() => ({
+  const textStyle = useAnimatedStyle(() => ({
     opacity: textOp.value,
     transform: [{ translateY: textY.value }],
   }));
-  const btnsStyle  = useAnimatedStyle(() => ({
+  const btnsStyle = useAnimatedStyle(() => ({
     opacity: btnsOp.value,
     transform: [{ translateY: btnsY.value }],
   }));
-  const ctaStyle   = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
+  const ctaStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
   const loginStyle = useAnimatedStyle(() => ({ transform: [{ scale: loginScale.value }] }));
 
   return (

@@ -5,14 +5,14 @@
 import type { Discipline } from '../../types/core';
 
 const MET_TABLE: Record<Discipline, number> = {
-  strength:      6.0,   // vigorous weightlifting
-  calisthenics:  5.0,   // moderate
-  running:       8.0,   // ~8 km/h baseline
-  cycling:       6.5,   // moderate
-  swimming:      7.0,
-  mobility:      3.0,   // yoga
-  team_sport:    7.0,
-  general:       5.0,
+  strength: 6.0, // vigorous weightlifting
+  calisthenics: 5.0, // moderate
+  running: 8.0, // ~8 km/h baseline
+  cycling: 6.5, // moderate
+  swimming: 7.0,
+  mobility: 3.0, // yoga
+  team_sport: 7.0,
+  general: 5.0,
 };
 
 export function estimateKcal(input: {

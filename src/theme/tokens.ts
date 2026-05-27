@@ -10,49 +10,49 @@ import type { FontVariant } from 'react-native/Libraries/StyleSheet/StyleSheetTy
 
 export const Colors = {
   bg: {
-    void:     '#F7F7F5',  // primary screen background (warm off-white)
-    surface:  '#FFFFFF',  // cards, sheets, modals
-    elevated: '#F2F0EC',  // raised surfaces, pressed states
-    warm:     '#FAF6EE',  // "premium" zones — hero cards, PR badges
-    warm2:    '#F5EFE2',  // deeper warm — PR celebration, editorial blocks
+    void: '#F7F7F5', // primary screen background (warm off-white)
+    surface: '#FFFFFF', // cards, sheets, modals
+    elevated: '#F2F0EC', // raised surfaces, pressed states
+    warm: '#FAF6EE', // "premium" zones — hero cards, PR badges
+    warm2: '#F5EFE2', // deeper warm — PR celebration, editorial blocks
   },
   ink: {
-    primary:   '#1C1C1E',  // headlines, body (Apple HIG deep charcoal)
-    secondary: '#3A3A3C',  // emphasized secondary
-    tertiary:  '#636366',  // metadata
-    muted:     '#9B9B9E',  // labels, placeholders
-    inverse:   '#FFFFFF',  // text on dark/gold surfaces
+    primary: '#1C1C1E', // headlines, body (Apple HIG deep charcoal)
+    secondary: '#3A3A3C', // emphasized secondary
+    tertiary: '#636366', // metadata
+    muted: '#9B9B9E', // labels, placeholders
+    inverse: '#FFFFFF', // text on dark/gold surfaces
   },
   gold: {
-    base:  '#C9A96E',                    // signature accent — primary CTAs, indicators
-    deep:  '#8C6E2A',                    // gold-on-warm text (eyebrows, chapter labels)
-    light: '#E8D5B7',                    // gold tint, subtle accents
-    glow:  'rgba(201,169,110,0.18)',     // halos, ripples, pill backgrounds
+    base: '#C9A96E', // signature accent — primary CTAs, indicators
+    deep: '#8C6E2A', // gold-on-warm text (eyebrows, chapter labels)
+    light: '#E8D5B7', // gold tint, subtle accents
+    glow: 'rgba(201,169,110,0.18)', // halos, ripples, pill backgrounds
   },
   hair: {
-    subtle: 'rgba(28,28,30,0.06)',   // section dividers
-    base:   'rgba(28,28,30,0.08)',   // card borders (default)
-    strong: 'rgba(28,28,30,0.14)',   // pressed borders, dividers in white
+    subtle: 'rgba(28,28,30,0.06)', // section dividers
+    base: 'rgba(28,28,30,0.08)', // card borders (default)
+    strong: 'rgba(28,28,30,0.14)', // pressed borders, dividers in white
   },
   discipline: {
-    strength:    '#E84545',
-    running:     '#5B8DEF',
-    calisthenics:'#1DB88E',
-    mobility:    '#8B5CF6',
-    team_sport:  '#F0A030',
-    cycling:     '#06B6D4',
-    swimming:    '#3B82F6',
-    general:     '#C9A96E',
+    strength: '#E84545',
+    running: '#5B8DEF',
+    calisthenics: '#1DB88E',
+    mobility: '#8B5CF6',
+    team_sport: '#F0A030',
+    cycling: '#06B6D4',
+    swimming: '#3B82F6',
+    general: '#C9A96E',
   },
   semantic: {
-    success:       '#1AA870',
-    error:         '#D94040',
-    warning:       '#E08C20',
-    info:          '#4A7DE8',
-    successMuted:  'rgba(26,168,112,0.10)',
-    errorMuted:    'rgba(217,64,64,0.10)',
-    warningMuted:  'rgba(224,140,32,0.10)',
-    infoMuted:     'rgba(74,125,232,0.10)',
+    success: '#1AA870',
+    error: '#D94040',
+    warning: '#E08C20',
+    info: '#4A7DE8',
+    successMuted: 'rgba(26,168,112,0.10)',
+    errorMuted: 'rgba(217,64,64,0.10)',
+    warningMuted: 'rgba(224,140,32,0.10)',
+    infoMuted: 'rgba(74,125,232,0.10)',
   },
 
   // ── Backwards-compat shims (removed after full migration) ─────────────────
@@ -60,44 +60,44 @@ export const Colors = {
   /** @deprecated Use Colors.bg.void */
   get background() {
     return {
-      void:          this.bg.void,
-      surface:       this.bg.surface,
-      elevated:      this.bg.elevated,
-      overlay:       this.bg.elevated,
-      scrim:         'rgba(0, 0, 0, 0.38)',
+      void: this.bg.void,
+      surface: this.bg.surface,
+      elevated: this.bg.elevated,
+      overlay: this.bg.elevated,
+      scrim: 'rgba(0, 0, 0, 0.38)',
       gradientStart: '#FFFFFF',
-      gradientEnd:   '#FFF8F0',
+      gradientEnd: '#FFF8F0',
     };
   },
   /** @deprecated Use Colors.ink.* */
   get text() {
     return {
-      primary:   this.ink.primary,
+      primary: this.ink.primary,
       secondary: this.ink.tertiary,
-      tertiary:  this.ink.tertiary,
-      disabled:  '#C7C7CC',
-      inverse:   this.ink.inverse,
-      onAccent:  this.ink.inverse,
+      tertiary: this.ink.tertiary,
+      disabled: '#C7C7CC',
+      inverse: this.ink.inverse,
+      onAccent: this.ink.inverse,
     };
   },
   /** @deprecated Use Colors.hair.* */
   get border() {
     return {
       subtle: 'rgba(0,0,0,0.04)',
-      light:  'rgba(0,0,0,0.07)',
+      light: 'rgba(0,0,0,0.07)',
       medium: 'rgba(0,0,0,0.11)',
       strong: 'rgba(0,0,0,0.18)',
-      warm:   '#EFECE8',
+      warm: '#EFECE8',
     };
   },
   /** @deprecated Use Colors.gold.* */
   get accent() {
     return {
       primary: this.gold.base,
-      light:   this.gold.light,
-      muted:   this.gold.glow,
-      dim:     'rgba(201,169,110,0.08)',
-      glow:    'rgba(201,169,110,0.35)',
+      light: this.gold.light,
+      muted: this.gold.glow,
+      dim: 'rgba(201,169,110,0.08)',
+      glow: 'rgba(201,169,110,0.35)',
     };
   },
 } as const;
@@ -124,19 +124,19 @@ export interface ThemeColors {
 /** Always returns the light palette. Dark mode deferred per spec §8. */
 export function buildThemeColors(_mode?: ThemeMode): ThemeColors {
   return {
-    surface:         Colors.bg.surface,
-    surfaceWarm:     Colors.bg.warm,
+    surface: Colors.bg.surface,
+    surfaceWarm: Colors.bg.warm,
     surfaceElevated: Colors.bg.elevated,
     text: {
-      primary:   Colors.ink.primary,
+      primary: Colors.ink.primary,
       secondary: Colors.ink.tertiary,
-      muted:     Colors.ink.muted,
+      muted: Colors.ink.muted,
     },
-    border:        Colors.hair.base,
-    gold:          { 300: Colors.gold.light, 500: Colors.gold.base, 700: Colors.gold.deep },
-    success:       Colors.semantic.success,
-    warning:       Colors.semantic.warning,
-    danger:        Colors.semantic.error,
+    border: Colors.hair.base,
+    gold: { 300: Colors.gold.light, 500: Colors.gold.base, 700: Colors.gold.deep },
+    success: Colors.semantic.success,
+    warning: Colors.semantic.warning,
+    danger: Colors.semantic.error,
     shadowOpacity: 0.08,
   };
 }
@@ -144,9 +144,9 @@ export function buildThemeColors(_mode?: ThemeMode): ThemeColors {
 // ── Typography ───────────────────────────────────────────────────────────────
 
 export const FontFamily = {
-  sans:  'System',
+  sans: 'System',
   serif: Platform.select({ ios: 'New York', android: 'serif', default: 'Georgia' }),
-  mono:  Platform.select({ ios: 'Menlo', default: 'monospace' }),
+  mono: Platform.select({ ios: 'Menlo', default: 'monospace' }),
 } as const;
 
 /**
@@ -156,102 +156,168 @@ export const FontFamily = {
  */
 export const Type = {
   // Editorial serif — reserved per spec §3.2
-  title:      { fontFamily: FontFamily.serif, fontSize: 32, lineHeight: 36, fontWeight: '600' as const, letterSpacing: -0.6 },
-  titleSmall: { fontFamily: FontFamily.serif, fontSize: 22, lineHeight: 28, fontWeight: '600' as const, letterSpacing: -0.3 },
+  title: {
+    fontFamily: FontFamily.serif,
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: '600' as const,
+    letterSpacing: -0.6,
+  },
+  titleSmall: {
+    fontFamily: FontFamily.serif,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '600' as const,
+    letterSpacing: -0.3,
+  },
 
   // System sans — workhorse
-  heading:    { fontFamily: FontFamily.sans, fontSize: 22, lineHeight: 28, fontWeight: '700' as const, letterSpacing: -0.2 },
-  subheading: { fontFamily: FontFamily.sans, fontSize: 17, lineHeight: 24, fontWeight: '600' as const },
-  body:       { fontFamily: FontFamily.sans, fontSize: 15, lineHeight: 22, fontWeight: '400' as const },
-  bodyEmph:   { fontFamily: FontFamily.sans, fontSize: 15, lineHeight: 22, fontWeight: '600' as const },
-  caption:    { fontFamily: FontFamily.sans, fontSize: 13, lineHeight: 18, fontWeight: '500' as const },
-  micro:      { fontFamily: FontFamily.sans, fontSize: 11, lineHeight: 14, fontWeight: '500' as const },
+  heading: {
+    fontFamily: FontFamily.sans,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700' as const,
+    letterSpacing: -0.2,
+  },
+  subheading: {
+    fontFamily: FontFamily.sans,
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '600' as const,
+  },
+  body: { fontFamily: FontFamily.sans, fontSize: 15, lineHeight: 22, fontWeight: '400' as const },
+  bodyEmph: {
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600' as const,
+  },
+  caption: {
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500' as const,
+  },
+  micro: { fontFamily: FontFamily.sans, fontSize: 11, lineHeight: 14, fontWeight: '500' as const },
 
   // Editorial label — uppercase, tracked. The "CHAPTER 03" voice.
-  eyebrow:    { fontFamily: FontFamily.sans, fontSize: 11, lineHeight: 14, fontWeight: '600' as const, letterSpacing: 1.6, textTransform: 'uppercase' as const },
+  eyebrow: {
+    fontFamily: FontFamily.sans,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600' as const,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase' as const,
+  },
 
   // Numerical — tabular for any UI showing weight/reps/time/distance
   // WHY: fontVariant cast to FontVariant[] (RN's mutable type) so StyleSheet.create accepts it.
-  numHero:   { fontFamily: FontFamily.serif, fontSize: 56, lineHeight: 60, fontWeight: '500' as const, letterSpacing: -2, fontVariant: ['tabular-nums'] as FontVariant[] },
-  numLarge:  { fontFamily: FontFamily.sans,  fontSize: 28, lineHeight: 32, fontWeight: '700' as const, letterSpacing: -0.5, fontVariant: ['tabular-nums'] as FontVariant[] },
-  numMedium: { fontFamily: FontFamily.sans,  fontSize: 18, lineHeight: 22, fontWeight: '700' as const, fontVariant: ['tabular-nums'] as FontVariant[] },
-  numSmall:  { fontFamily: FontFamily.sans,  fontSize: 13, lineHeight: 16, fontWeight: '600' as const, fontVariant: ['tabular-nums'] as FontVariant[] },
+  numHero: {
+    fontFamily: FontFamily.serif,
+    fontSize: 56,
+    lineHeight: 60,
+    fontWeight: '500' as const,
+    letterSpacing: -2,
+    fontVariant: ['tabular-nums'] as FontVariant[],
+  },
+  numLarge: {
+    fontFamily: FontFamily.sans,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '700' as const,
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'] as FontVariant[],
+  },
+  numMedium: {
+    fontFamily: FontFamily.sans,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '700' as const,
+    fontVariant: ['tabular-nums'] as FontVariant[],
+  },
+  numSmall: {
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '600' as const,
+    fontVariant: ['tabular-nums'] as FontVariant[],
+  },
 } as const;
 
 // ── Typography (v1 — backwards-compat shim) ─────────────────────────────────
 // WHY: many screens import Typography.size.*, Typography.weight.*, etc.
 export const Typography = {
   size: {
-    hero:       34,
-    title:      28,
-    heading:    22,
+    hero: 34,
+    title: 28,
+    heading: 22,
     subheading: 17,
-    body:       15,
-    caption:    13,
-    micro:      11,
+    body: 15,
+    caption: 13,
+    micro: 11,
   },
   weight: {
-    regular:  '400' as const,
-    medium:   '500' as const,
+    regular: '400' as const,
+    medium: '500' as const,
     semibold: '600' as const,
-    bold:     '700' as const,
-    heavy:    '800' as const,
+    bold: '700' as const,
+    heavy: '800' as const,
   },
   lineHeight: {
-    tight:   1.2,
-    normal:  1.45,
+    tight: 1.2,
+    normal: 1.45,
     relaxed: 1.65,
   },
   tracking: {
-    tight:    -0.5,
-    normal:    0,
-    wide:      0.5,
+    tight: -0.5,
+    normal: 0,
+    wide: 0.5,
     extraWide: 1.5,
-    caps:      2,
+    caps: 2,
   },
   // v2 presets — kept for backward compat
-  display:   { fontSize: 32, fontWeight: '700' as const, lineHeight: 40 },
-  heading:   { fontSize: 22, fontWeight: '600' as const, lineHeight: 28 },
-  body:      { fontSize: 16, fontWeight: '400' as const, lineHeight: 24 },
-  caption:   { fontSize: 12, fontWeight: '500' as const, lineHeight: 16 },
-  mono:      { fontSize: 16, fontWeight: '400' as const, fontFamily: 'monospace', lineHeight: 24 },
+  display: { fontSize: 32, fontWeight: '700' as const, lineHeight: 40 },
+  heading: { fontSize: 22, fontWeight: '600' as const, lineHeight: 28 },
+  body: { fontSize: 16, fontWeight: '400' as const, lineHeight: 24 },
+  caption: { fontSize: 12, fontWeight: '500' as const, lineHeight: 16 },
+  mono: { fontSize: 16, fontWeight: '400' as const, fontFamily: 'monospace', lineHeight: 24 },
 } as const;
 
 // ── Spacing ──────────────────────────────────────────────────────────────────
 
 export const Spacing = {
-  xs:  4,
-  sm:  8,
-  md:  12,
-  lg:  16,
-  xl:  20,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
   '2xl': 24,
   '3xl': 32,
   screen: {
     horizontal: 20,
-    top:        60,
-    bottom:     100,
+    top: 60,
+    bottom: 100,
   },
   gap: {
-    cards:    10,
+    cards: 10,
     sections: 24,
-    inline:    8,
-    sets:      4,
+    inline: 8,
+    sets: 4,
   },
 } as const;
 
 // ── Radii ────────────────────────────────────────────────────────────────────
 
 export const Radius = {
-  xs:    6,
-  sm:    8,
-  md:    12,
-  lg:    16,
-  xl:    20,
-  '2xl': 22,  // WHY: matches iOS sheet corner radius (spec §3.4)
-  '3xl': 28,  // WHY: tab-bar capsule (spec §4.1)
-  pill:  99,
-  full:  9999,
+  xs: 6,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 22, // WHY: matches iOS sheet corner radius (spec §3.4)
+  '3xl': 28, // WHY: tab-bar capsule (spec §4.1)
+  pill: 99,
+  full: 9999,
 } as const;
 
 // ── Shadows ──────────────────────────────────────────────────────────────────
@@ -288,7 +354,7 @@ export const Shadows = {
   elevated: {
     shadowColor: '#1C1C1E',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.1,
     shadowRadius: 18,
     elevation: 8,
   },
@@ -311,7 +377,7 @@ export const Shadows = {
   pressed: {
     shadowColor: '#1C1C1E',
     shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.1,
     shadowRadius: 28,
     elevation: 8,
   },
@@ -322,17 +388,17 @@ export const Shadows = {
 
 export const Animation = {
   spring: {
-    gentle:  { damping: 22,  stiffness: 160, mass: 1    },
-    snappy:  { damping: 15,  stiffness: 260, mass: 0.8  },
-    bouncy:  { damping: 11,  stiffness: 220, mass: 0.7  },
-    ios:     { damping: 18,  stiffness: 300, mass: 0.7  },
-    tabIcon: { damping: 12,  stiffness: 400, mass: 0.5  },
-    drag:    { damping: 14,  stiffness: 220, mass: 0.65 },
+    gentle: { damping: 22, stiffness: 160, mass: 1 },
+    snappy: { damping: 15, stiffness: 260, mass: 0.8 },
+    bouncy: { damping: 11, stiffness: 220, mass: 0.7 },
+    ios: { damping: 18, stiffness: 300, mass: 0.7 },
+    tabIcon: { damping: 12, stiffness: 400, mass: 0.5 },
+    drag: { damping: 14, stiffness: 220, mass: 0.65 },
   },
   duration: {
     instant: 100,
-    fast:    180,
-    normal:  280,
-    slow:    480,
+    fast: 180,
+    normal: 280,
+    slow: 480,
   },
 } as const;

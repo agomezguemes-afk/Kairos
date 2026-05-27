@@ -48,12 +48,12 @@ export interface BuildInput {
   gapHours?: number;
 }
 
-const ONE_DAY_MS  = 24 * 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 /** Convert an ISODate (YYYY-MM-DD) + hour to epoch ms in local time. */
 export function isoDateAtHour(date: ISODate, hour: number): number {
-  const [y, m, d] = date.split('-').map(n => parseInt(n, 10));
+  const [y, m, d] = date.split('-').map((n) => parseInt(n, 10));
   return new Date(y, m - 1, d, hour, 0, 0, 0).getTime();
 }
 
@@ -79,8 +79,8 @@ export function buildNotifications(input: BuildInput): ScheduledNotification[] {
     lastCompletedAt,
     nowMs,
     reminderHour = 8,
-    horizonDays  = 7,
-    gapHours     = 36,
+    horizonDays = 7,
+    gapHours = 36,
   } = input;
 
   const out: ScheduledNotification[] = [];
@@ -90,8 +90,8 @@ export function buildNotifications(input: BuildInput): ScheduledNotification[] {
   for (const a of assignments) {
     if (a.status !== 'planned') continue;
     const triggerAt = isoDateAtHour(a.date, reminderHour);
-    if (triggerAt < nowMs) continue;           // skip past hours of today
-    if (triggerAt > horizon) continue;          // beyond planning horizon
+    if (triggerAt < nowMs) continue; // skip past hours of today
+    if (triggerAt > horizon) continue; // beyond planning horizon
 
     const blockName = blockNames.get(a.blockId) ?? 'Tu bloque';
     out.push({
@@ -117,9 +117,7 @@ export function buildNotifications(input: BuildInput): ScheduledNotification[] {
   // we wait until ~19:00 local for a gentle evening prompt.
   if (lastCompletedAt != null) {
     const today = dayBucket(nowMs);
-    const todayPlanned = assignments.some(
-      a => a.status === 'planned' && a.date === today,
-    );
+    const todayPlanned = assignments.some((a) => a.status === 'planned' && a.date === today);
     const sinceLast = nowMs - lastCompletedAt;
     if (!todayPlanned && sinceLast >= gapHours * ONE_HOUR_MS) {
       // Schedule for 19:00 today if still in the future; otherwise tomorrow 8:00.
@@ -155,8 +153,8 @@ export function diffNotifications(
   prev: ScheduledNotification[],
   next: ScheduledNotification[],
 ): { toCancel: string[]; toSchedule: ScheduledNotification[] } {
-  const prevIds = new Set(prev.map(n => n.id));
-  const nextIds = new Set(next.map(n => n.id));
-  const toCancel = [...prevIds].filter(id => !nextIds.has(id));
+  const prevIds = new Set(prev.map((n) => n.id));
+  const nextIds = new Set(next.map((n) => n.id));
+  const toCancel = [...prevIds].filter((id) => !nextIds.has(id));
   return { toCancel, toSchedule: next };
 }

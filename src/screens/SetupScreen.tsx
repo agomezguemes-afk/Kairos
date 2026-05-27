@@ -141,10 +141,7 @@ export default function SetupScreen({ navigation }: any) {
           {[1, 2, 3, 4].map((step) => (
             <View
               key={step}
-              style={[
-                styles.progressDot,
-                step <= currentStep && styles.progressDotActive,
-              ]}
+              style={[styles.progressDot, step <= currentStep && styles.progressDotActive]}
             />
           ))}
         </View>
@@ -201,9 +198,7 @@ function Step1({ data, setData }: any) {
   return (
     <View>
       <Text style={styles.title}>Configura tu plan</Text>
-      <Text style={styles.subtitle}>
-        Dinos sobre tu nivel y objetivos
-      </Text>
+      <Text style={styles.subtitle}>Dinos sobre tu nivel y objetivos</Text>
 
       {/* Nivel */}
       <View style={styles.section}>
@@ -309,9 +304,7 @@ function Step2({ data, setData }: any) {
   return (
     <View>
       <Text style={styles.title}>Datos personales</Text>
-      <Text style={styles.subtitle}>
-        Esto nos ayuda a personalizar tu rutina
-      </Text>
+      <Text style={styles.subtitle}>Esto nos ayuda a personalizar tu rutina</Text>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Edad</Text>
@@ -360,9 +353,7 @@ function Step3({ data, setData }: any) {
   return (
     <View>
       <Text style={styles.title}>Experiencia</Text>
-      <Text style={styles.subtitle}>
-        Últimos detalles para personalizar tu plan
-      </Text>
+      <Text style={styles.subtitle}>Últimos detalles para personalizar tu plan</Text>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>¿Cuánto tiempo llevas entrenando?</Text>
@@ -404,9 +395,7 @@ function Step4({ data }: any) {
   return (
     <View>
       <Text style={styles.title}>¡Todo listo!</Text>
-      <Text style={styles.subtitle}>
-        Confirma tu información antes de empezar
-      </Text>
+      <Text style={styles.subtitle}>Confirma tu información antes de empezar</Text>
 
       <View style={styles.summaryCard}>
         <SummaryRow label="Nivel" value={data.nivel} />

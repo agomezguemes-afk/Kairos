@@ -10,8 +10,10 @@ import type { ResolvedAssignment } from '../../types/schedule';
 
 let failed = 0;
 function check(name: string, cond: boolean) {
-  if (!cond) { console.error('FAIL', name); failed++; }
-  else console.log('OK', name);
+  if (!cond) {
+    console.error('FAIL', name);
+    failed++;
+  } else console.log('OK', name);
 }
 
 const may12 = '2026-05-12';
@@ -34,10 +36,10 @@ const out1 = buildNotifications({
   nowMs: noonMay12,
 });
 check('reminder for tomorrow produced', out1.length === 1);
-check('reminder kind=reminder',         out1[0].kind === 'reminder');
+check('reminder kind=reminder', out1[0].kind === 'reminder');
 check('reminder title uses block name', out1[0].title === 'Empuje fuerza');
-check('reminder fires at 8:00',         new Date(out1[0].triggerAt).getHours() === 8);
-check('reminder targets may13',         out1[0].payload?.scheduledDate === may13);
+check('reminder fires at 8:00', new Date(out1[0].triggerAt).getHours() === 8);
+check('reminder targets may13', out1[0].payload?.scheduledDate === may13);
 
 // ── past hour skipped ───────────────────────────────────────────────────
 const out2 = buildNotifications({
@@ -68,7 +70,7 @@ check('reminder beyond horizon skipped', out3.length === 0);
 const out4 = buildNotifications({
   assignments: [
     { assignmentId: 'a4', blockId: 'blk_a', date: may13, status: 'completed', isRecurring: false },
-    { assignmentId: 'a5', blockId: 'blk_a', date: may14, status: 'skipped',   isRecurring: false },
+    { assignmentId: 'a5', blockId: 'blk_a', date: may14, status: 'skipped', isRecurring: false },
   ],
   blockNames,
   lastCompletedAt: null,
@@ -79,14 +81,14 @@ check('only planned status produces reminders', out4.length === 0);
 // ── gap nudge fires when stale ──────────────────────────────────────────
 const fortyHoursAgo = noonMay12 - 40 * 60 * 60 * 1000;
 const out5 = buildNotifications({
-  assignments: [],            // nothing planned today
+  assignments: [], // nothing planned today
   blockNames,
   lastCompletedAt: fortyHoursAgo,
   nowMs: noonMay12,
 });
-const gap = out5.find(n => n.kind === 'gap-nudge');
+const gap = out5.find((n) => n.kind === 'gap-nudge');
 check('gap nudge fires when > 36h since last workout', !!gap);
-check('gap nudge title set',  gap?.title === 'Echo de menos verte');
+check('gap nudge title set', gap?.title === 'Echo de menos verte');
 check('gap body mentions hours since', !!gap?.body.includes('h'));
 
 // ── gap nudge suppressed when something planned today ───────────────────
@@ -98,8 +100,10 @@ const out6 = buildNotifications({
   lastCompletedAt: fortyHoursAgo,
   nowMs: noonMay12,
 });
-check('gap nudge suppressed when today has a planned session',
-  !out6.find(n => n.kind === 'gap-nudge'));
+check(
+  'gap nudge suppressed when today has a planned session',
+  !out6.find((n) => n.kind === 'gap-nudge'),
+);
 
 // ── gap nudge suppressed when no history ───────────────────────────────
 const out7 = buildNotifications({
@@ -145,8 +149,11 @@ check('diff returns full next as toSchedule', d.toSchedule.length === 1);
 // ── isoDateAtHour sanity ────────────────────────────────────────────────
 const t = isoDateAtHour(may13, 9);
 const back = new Date(t);
-check('isoDateAtHour day',  back.getDate()  === 13);
+check('isoDateAtHour day', back.getDate() === 13);
 check('isoDateAtHour hour', back.getHours() === 9);
 
-if (failed > 0) { console.error(`${failed} failures`); process.exit(1); }
+if (failed > 0) {
+  console.error(`${failed} failures`);
+  process.exit(1);
+}
 console.log('all scheduler checks pass');

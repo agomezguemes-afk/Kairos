@@ -31,12 +31,8 @@ export function CardShell({ children, style, stripeColor, tint, dim }: Props) {
         style,
       ]}
     >
-      {stripeColor && (
-        <View style={[styles.stripe, { backgroundColor: stripeColor }]} />
-      )}
-      <View style={stripeColor ? styles.contentWithStripe : null}>
-        {children}
-      </View>
+      {stripeColor && <View style={[styles.stripe, { backgroundColor: stripeColor }]} />}
+      <View style={stripeColor ? styles.contentWithStripe : null}>{children}</View>
     </View>
   );
 }
@@ -55,7 +51,9 @@ const styles = StyleSheet.create({
   // a 3pt accent stripe for VIP threads — 4pt reads better with our radius.
   stripe: {
     position: 'absolute',
-    top: 0, bottom: 0, left: 0,
+    top: 0,
+    bottom: 0,
+    left: 0,
     width: 4,
   },
   // WHY: when the stripe is present we need a small inset on the left so

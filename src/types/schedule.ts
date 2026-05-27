@@ -2,8 +2,8 @@
 // Schedule data model — discriminated union of one-time and recurring
 // assignments, plus the resolved snapshot the DayCard renders.
 
-export type ISODate = string;        // YYYY-MM-DD (no time, no tz)
-export type ISOTimestamp = string;   // ISO 8601 with timezone
+export type ISODate = string; // YYYY-MM-DD (no time, no tz)
+export type ISOTimestamp = string; // ISO 8601 with timezone
 
 interface AssignmentBase {
   id: string;
@@ -48,7 +48,7 @@ export interface ResolvedAssignment {
   movedFrom?: ISODate;
 }
 
-export type RecentlyDeleted = Array<{
+export type RecentlyDeleted = {
   assignment: ScheduleAssignment;
   deletedAt: number;
-}>;
+}[];

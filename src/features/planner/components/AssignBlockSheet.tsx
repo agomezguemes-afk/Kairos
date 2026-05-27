@@ -32,11 +32,7 @@ import { useScheduleStore } from '../../../store/scheduleStore';
 import { todayISO, formatLongDate } from '../lib/dates';
 import RecurrenceOverlay from './RecurrenceOverlay';
 import KIcon from '../../../components/icons/KIcon';
-import {
-  DISCIPLINE_CONFIGS,
-  type Discipline,
-  type WorkoutBlock,
-} from '../../../types/core';
+import { DISCIPLINE_CONFIGS, type Discipline, type WorkoutBlock } from '../../../types/core';
 import type { ISODate } from '../../../types/schedule';
 
 interface Props {
@@ -50,9 +46,7 @@ const COLUMNS = 3;
 const H_PAD = Spacing.screen.horizontal;
 const TILE_GAP = Spacing.sm;
 // Width of one tile: screen minus side padding minus inter-tile gaps.
-const TILE_SIZE = Math.floor(
-  (SCREEN_W - H_PAD * 2 - TILE_GAP * (COLUMNS - 1)) / COLUMNS,
-);
+const TILE_SIZE = Math.floor((SCREEN_W - H_PAD * 2 - TILE_GAP * (COLUMNS - 1)) / COLUMNS);
 
 function disciplineColor(d: Discipline): string {
   return Colors.discipline[d] ?? Colors.gold.base;
@@ -76,26 +70,32 @@ export default function AssignBlockSheet({ visible, initialDate, onClose }: Prop
     onClose();
   }, [onClose]);
 
-  const handleTap = useCallback((block: WorkoutBlock) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    assignOnce(date, block.id);
-    close();
-  }, [assignOnce, date, close]);
+  const handleTap = useCallback(
+    (block: WorkoutBlock) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      assignOnce(date, block.id);
+      close();
+    },
+    [assignOnce, date, close],
+  );
 
   const handleLongPress = useCallback((block: WorkoutBlock) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setRecurrenceFor(block);
   }, []);
 
-  const renderTile = useCallback(({ item, index }: ListRenderItemInfo<WorkoutBlock>) => (
-    <BlockTile
-      block={item}
-      // Rightmost column doesn't get right margin — keeps the row flush.
-      isLastInRow={(index + 1) % COLUMNS === 0}
-      onTap={() => handleTap(item)}
-      onLongPress={() => handleLongPress(item)}
-    />
-  ), [handleTap, handleLongPress]);
+  const renderTile = useCallback(
+    ({ item, index }: ListRenderItemInfo<WorkoutBlock>) => (
+      <BlockTile
+        block={item}
+        // Rightmost column doesn't get right margin — keeps the row flush.
+        isLastInRow={(index + 1) % COLUMNS === 0}
+        onTap={() => handleTap(item)}
+        onLongPress={() => handleLongPress(item)}
+      />
+    ),
+    [handleTap, handleLongPress],
+  );
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={close}>
@@ -157,7 +157,10 @@ interface TileProps {
 }
 
 const BlockTile = React.memo(function BlockTile({
-  block, isLastInRow, onTap, onLongPress,
+  block,
+  isLastInRow,
+  onTap,
+  onLongPress,
 }: TileProps) {
   const color = disciplineColor(block.discipline);
   return (
@@ -177,7 +180,9 @@ const BlockTile = React.memo(function BlockTile({
       <View style={[styles.tileStripe, { backgroundColor: color }]} />
       <View style={styles.tileContent}>
         <View style={[styles.tileSwatch, { backgroundColor: color }]} />
-        <Text style={styles.tileName} numberOfLines={2}>{block.name}</Text>
+        <Text style={styles.tileName} numberOfLines={2}>
+          {block.name}
+        </Text>
         <Text style={styles.tileMeta} numberOfLines={1}>
           {DISCIPLINE_CONFIGS[block.discipline]?.name ?? block.discipline}
         </Text>
@@ -254,14 +259,16 @@ const styles = StyleSheet.create({
   },
   tileStripe: {
     position: 'absolute',
-    top: 0, bottom: 0, left: 0,
+    top: 0,
+    bottom: 0,
+    left: 0,
     width: 3,
   },
   tileContent: {
     flex: 1,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
-    paddingLeft: Spacing.md + 2,  // +2 to clear the 3pt stripe
+    paddingLeft: Spacing.md + 2, // +2 to clear the 3pt stripe
     paddingRight: Spacing.sm,
     justifyContent: 'space-between',
   },

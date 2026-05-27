@@ -14,8 +14,8 @@ import { createEmptyProfile } from '../types/profile';
 
 interface SupabaseProfileRow {
   id: string;
-  name: string | null;           // your existing column (kept as-is)
-  display_name: string | null;   // added via ALTER TABLE
+  name: string | null; // your existing column (kept as-is)
+  display_name: string | null; // added via ALTER TABLE
   fitness_level: string | null;
   primary_goal: string | null;
   disciplines: string[] | null;
@@ -33,7 +33,7 @@ interface SupabaseProfileRow {
 function rowToProfile(row: SupabaseProfileRow): UserProfile {
   return {
     id: row.id,
-    displayName: row.display_name ?? row.name,  // prefer new column, fall back to old
+    displayName: row.display_name ?? row.name, // prefer new column, fall back to old
     fitnessLevel: (row.fitness_level as FitnessLevel | null) ?? null,
     primaryGoal: (row.primary_goal as FitnessGoal | null) ?? null,
     disciplines: (row.disciplines ?? []) as Discipline[],
@@ -55,7 +55,7 @@ function rowToProfile(row: SupabaseProfileRow): UserProfile {
 function profileToRow(profile: UserProfile): Omit<SupabaseProfileRow, 'created_at'> {
   return {
     id: profile.id,
-    name: profile.displayName,           // keep old column in sync
+    name: profile.displayName, // keep old column in sync
     display_name: profile.displayName,
     fitness_level: profile.fitnessLevel,
     primary_goal: profile.primaryGoal,
@@ -159,11 +159,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loadProfile: async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
     if (error || !data) {
       // Row doesn't exist yet — create a blank one
@@ -195,9 +191,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       updatedAt: new Date().toISOString(),
     };
 
-    const { error } = await supabase
-      .from('profiles')
-      .upsert(profileToRow(merged));
+    const { error } = await supabase.from('profiles').upsert(profileToRow(merged));
 
     if (error) {
       console.warn('[Kairos/Auth] upsertProfile error:', error.message);

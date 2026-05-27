@@ -11,12 +11,7 @@
 //   - Haptic on tab change: selectionAsync.
 
 import React, { useEffect, useRef, useCallback } from 'react';
-import {
-  View,
-  Pressable,
-  StyleSheet,
-  LayoutChangeEvent,
-} from 'react-native';
+import { View, Pressable, StyleSheet, LayoutChangeEvent } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -35,20 +30,20 @@ import { Colors, Radius, Shadows, Spacing } from '../theme/tokens';
 import { springs, timings } from '../theme/animations';
 
 const BAR_HEIGHT = 56;
-const PILL_SIZE  = 36;
+const PILL_SIZE = 36;
 
 const TAB_ICONS: Record<string, KIconName> = {
-  HomeTab:     'note',
-  WorkoutTab:  'zap',
+  HomeTab: 'note',
+  WorkoutTab: 'zap',
   ProgressTab: 'chart',
-  ProfileTab:  'settings',
+  ProfileTab: 'settings',
 };
 
 const TAB_LABELS: Record<string, string> = {
-  HomeTab:     'Hoy',
-  WorkoutTab:  'Bloques',
+  HomeTab: 'Hoy',
+  WorkoutTab: 'Bloques',
   ProgressTab: 'Progreso',
-  ProfileTab:  'Perfil',
+  ProfileTab: 'Perfil',
 };
 
 interface TabIconProps {
@@ -71,7 +66,7 @@ const TabIcon = React.memo(function TabIcon({ name, focused }: TabIconProps) {
     // Pop only when becoming focused. Inactive→inactive shouldn't fire.
     scale.value = withSequence(
       withSpring(1.12, { ...springs.tap, mass: 0.4 }),
-      withSpring(1.0,  springs.tap),
+      withSpring(1.0, springs.tap),
     );
   }, [focused, reduceMotion, scale]);
 
@@ -105,30 +100,36 @@ export default function KairosTabBar({ state, navigation }: BottomTabBarProps) {
 
   // Layout of the bar — needed to position the pill.
   const tabWidthsRef = useRef<number[]>([]);
-  const tabXsRef    = useRef<number[]>([]);
-  const pillX       = useSharedValue(0);
+  const tabXsRef = useRef<number[]>([]);
+  const pillX = useSharedValue(0);
   const pillVisible = useSharedValue(0);
 
-  const updatePill = useCallback((index: number) => {
-    const x = tabXsRef.current[index];
-    const w = tabWidthsRef.current[index];
-    if (x === undefined || w === undefined) return;
-    // Center the pill within the tab.
-    pillX.value = withSpring(x + (w - PILL_SIZE) / 2, springs.indicator);
-  }, [pillX]);
+  const updatePill = useCallback(
+    (index: number) => {
+      const x = tabXsRef.current[index];
+      const w = tabWidthsRef.current[index];
+      if (x === undefined || w === undefined) return;
+      // Center the pill within the tab.
+      pillX.value = withSpring(x + (w - PILL_SIZE) / 2, springs.indicator);
+    },
+    [pillX],
+  );
 
   // When tabs are laid out, record positions and snap pill to initial active tab.
-  const handleTabLayout = useCallback((event: LayoutChangeEvent, index: number) => {
-    const { x, width } = event.nativeEvent.layout;
-    tabXsRef.current[index]  = x;
-    tabWidthsRef.current[index] = width;
+  const handleTabLayout = useCallback(
+    (event: LayoutChangeEvent, index: number) => {
+      const { x, width } = event.nativeEvent.layout;
+      tabXsRef.current[index] = x;
+      tabWidthsRef.current[index] = width;
 
-    // Once we have all tab positions, position the pill.
-    if (tabXsRef.current.filter(Boolean).length === state.routes.length) {
-      pillVisible.value = withTiming(1, timings.fast);
-      updatePill(state.index);
-    }
-  }, [state.routes.length, state.index, pillVisible, updatePill]);
+      // Once we have all tab positions, position the pill.
+      if (tabXsRef.current.filter(Boolean).length === state.routes.length) {
+        pillVisible.value = withTiming(1, timings.fast);
+        updatePill(state.index);
+      }
+    },
+    [state.routes.length, state.index, pillVisible, updatePill],
+  );
 
   // Animate pill when active index changes.
   useEffect(() => {
@@ -153,25 +154,18 @@ export default function KairosTabBar({ state, navigation }: BottomTabBarProps) {
       {/* Floating capsule */}
       <View style={styles.capsule}>
         {/* Blur layer */}
-        <BlurView
-          intensity={28}
-          tint="light"
-          style={StyleSheet.absoluteFill}
-        />
+        <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
         {/* Warm overlay on top of blur */}
         <View style={[StyleSheet.absoluteFill, styles.warmOverlay]} />
 
         {/* Animated gold pill — sits below icons */}
-        <Animated.View
-          style={[styles.pill, pillStyle]}
-          pointerEvents="none"
-        />
+        <Animated.View style={[styles.pill, pillStyle]} pointerEvents="none" />
 
         {/* Tabs */}
         {state.routes.map((route, idx) => {
           const focused = state.index === idx;
-          const icon    = TAB_ICONS[route.name] ?? 'note';
-          const label   = TAB_LABELS[route.name] ?? route.name;
+          const icon = TAB_ICONS[route.name] ?? 'note';
+          const label = TAB_LABELS[route.name] ?? route.name;
 
           return (
             <Pressable
@@ -206,7 +200,7 @@ export default function KairosTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left:  Spacing.lg,
+    left: Spacing.lg,
     right: Spacing.lg,
     // bottom set inline using insets
   },
@@ -228,7 +222,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: (BAR_HEIGHT - PILL_SIZE) / 2,
     left: 0,
-    width:  PILL_SIZE,
+    width: PILL_SIZE,
     height: PILL_SIZE,
     borderRadius: PILL_SIZE / 2,
     backgroundColor: Colors.gold.glow,

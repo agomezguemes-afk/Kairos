@@ -44,11 +44,9 @@ function AccessoryTileImpl(props: Props) {
   const lastTop = stats.last?.topWeight ?? null;
   const lastReps = stats.last?.topReps ?? null;
   const atOrNearMax =
-    stats.allTimeMaxWeight != null &&
-    lastTop != null &&
-    lastTop >= stats.allTimeMaxWeight - 0.01;
+    stats.allTimeMaxWeight != null && lastTop != null && lastTop >= stats.allTimeMaxWeight - 0.01;
   const relativeLast = useMemo(
-    () => stats.last ? formatRelativeShort(Date.now() - stats.last.at) : null,
+    () => (stats.last ? formatRelativeShort(Date.now() - stats.last.at) : null),
     [stats.last],
   );
   const showSparkline = stats.sparkline.length >= 3;
@@ -61,13 +59,9 @@ function AccessoryTileImpl(props: Props) {
             <Text style={styles.lastValue}>
               {trimZero(lastTop)}
               <Text style={styles.lastUnit}> kg</Text>
-              {lastReps != null && (
-                <Text style={styles.lastReps}>  × {lastReps}</Text>
-              )}
+              {lastReps != null && <Text style={styles.lastReps}> × {lastReps}</Text>}
             </Text>
-            {relativeLast && (
-              <Text style={styles.relativeLabel}>{relativeLast}</Text>
-            )}
+            {relativeLast && <Text style={styles.relativeLabel}>{relativeLast}</Text>}
           </View>
           {showSparkline && (
             <Sparkline
@@ -107,7 +101,7 @@ function formatRelativeShort(ms: number): string {
   const days = Math.floor(ms / 86400_000);
   if (days <= 0) return 'hoy';
   if (days === 1) return 'ayer';
-  if (days < 7)   return `hace ${days}d`;
+  if (days < 7) return `hace ${days}d`;
   const weeks = Math.floor(days / 7);
   if (weeks < 8) return `hace ${weeks}sem`;
   const months = Math.floor(days / 30);

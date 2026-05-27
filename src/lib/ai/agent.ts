@@ -60,7 +60,10 @@ export interface AgentRunResult {
 }
 
 export class AgentError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message);
     this.name = 'AgentError';
   }
@@ -152,9 +155,9 @@ export async function runAgent(
         role: 'tool',
         tool_call_id: tc.id,
         name: tc.function.name,
-        content: JSON.stringify(result.ok
-          ? { ok: true, data: result.data }
-          : { ok: false, error: result.error }),
+        content: JSON.stringify(
+          result.ok ? { ok: true, data: result.data } : { ok: false, error: result.error },
+        ),
       });
     }
     // Loop continues — model gets the tool outputs in the next turn.
@@ -168,12 +171,7 @@ export async function runAgent(
   });
   let final;
   try {
-    final = await streamTurn(
-      messages,
-      { ...groqOpts, toolChoice: 'none' },
-      signal,
-      onProgress,
-    );
+    final = await streamTurn(messages, { ...groqOpts, toolChoice: 'none' }, signal, onProgress);
   } catch (e) {
     if (e instanceof GroqError && e.message === 'aborted') {
       throw new AgentError('aborted', e);

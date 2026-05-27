@@ -2,14 +2,7 @@
 // Manages tree type selection, metrics accumulation, and progress.
 // Persisted to AsyncStorage under @kairos_tree_* keys.
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { TreeType, TreeProgress, TreeMetrics } from '../types/tree';
 import { createEmptyMetrics } from '../types/tree';
@@ -81,18 +74,25 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
 
   // ---- Persist ----
   const persistType = useCallback(async (t: TreeType) => {
-    try { await AsyncStorage.setItem(KEYS.treeType, JSON.stringify(t)); } catch {}
+    try {
+      await AsyncStorage.setItem(KEYS.treeType, JSON.stringify(t));
+    } catch {}
   }, []);
   const persistMetrics = useCallback(async (m: TreeMetrics) => {
-    try { await AsyncStorage.setItem(KEYS.metrics, JSON.stringify(m)); } catch {}
+    try {
+      await AsyncStorage.setItem(KEYS.metrics, JSON.stringify(m));
+    } catch {}
   }, []);
 
   // ---- Actions ----
 
-  const selectTreeType = useCallback(async (type: TreeType) => {
-    setTreeType(type);
-    await persistType(type);
-  }, [persistType]);
+  const selectTreeType = useCallback(
+    async (type: TreeType) => {
+      setTreeType(type);
+      await persistType(type);
+    },
+    [persistType],
+  );
 
   const onTreeSetCompleted = useCallback(
     (exercise: ExerciseCard, set: ExerciseSet) => {
@@ -146,14 +146,20 @@ export function TreeProvider({ children }: { children: React.ReactNode }) {
       recomputeFromBlocks,
       resetTree,
     }),
-    [treeType, metrics, progress, isLoading, selectTreeType, onTreeSetCompleted, onTreePRCreated, recomputeFromBlocks, resetTree],
+    [
+      treeType,
+      metrics,
+      progress,
+      isLoading,
+      selectTreeType,
+      onTreeSetCompleted,
+      onTreePRCreated,
+      recomputeFromBlocks,
+      resetTree,
+    ],
   );
 
-  return (
-    <TreeContext.Provider value={value}>
-      {children}
-    </TreeContext.Provider>
-  );
+  return <TreeContext.Provider value={value}>{children}</TreeContext.Provider>;
 }
 
 export function useTree(): TreeContextType {

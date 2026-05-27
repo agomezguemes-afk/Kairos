@@ -33,8 +33,14 @@ interface AddExerciseSheetProps {
 }
 
 const DISCIPLINE_LIST: Discipline[] = [
-  'strength', 'running', 'calisthenics', 'mobility',
-  'cycling', 'swimming', 'team_sport', 'general',
+  'strength',
+  'running',
+  'calisthenics',
+  'mobility',
+  'cycling',
+  'swimming',
+  'team_sport',
+  'general',
 ];
 
 const FIELD_TYPE_LIST: FieldType[] = ['number', 'text', 'time'];
@@ -51,10 +57,17 @@ function cloneDefaultFields(discipline: Discipline): FieldDefinition[] {
   return DISCIPLINE_CONFIGS[discipline].defaultFields.map((f, i) => ({ ...f, order: i }));
 }
 
-export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onClose }: AddExerciseSheetProps) {
+export default function AddExerciseSheet({
+  visible,
+  blockDiscipline,
+  onAdd,
+  onClose,
+}: AddExerciseSheetProps) {
   const [name, setName] = useState('');
   const [discipline, setDiscipline] = useState<Discipline>(blockDiscipline);
-  const [customFields, setCustomFields] = useState<FieldDefinition[]>(() => cloneDefaultFields(blockDiscipline));
+  const [customFields, setCustomFields] = useState<FieldDefinition[]>(() =>
+    cloneDefaultFields(blockDiscipline),
+  );
   const [customizing, setCustomizing] = useState(false);
 
   const translateY = useSharedValue(400);
@@ -77,7 +90,13 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
     if (defaults.length !== customFields.length) return true;
     return customFields.some((f, i) => {
       const d = defaults[i];
-      return !d || d.id !== f.id || d.name !== f.name || d.type !== f.type || (d.unit ?? null) !== (f.unit ?? null);
+      return (
+        !d ||
+        d.id !== f.id ||
+        d.name !== f.name ||
+        d.type !== f.type ||
+        (d.unit ?? null) !== (f.unit ?? null)
+      );
     });
   }, [customFields, discipline]);
 
@@ -105,7 +124,10 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
       fields: isDirty ? normalized : undefined,
     };
     resetState();
-    dismissAndCall(() => { onAdd(opts); onClose(); });
+    dismissAndCall(() => {
+      onAdd(opts);
+      onClose();
+    });
   };
 
   const handleClose = () => {
@@ -144,7 +166,9 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
   };
 
   const handleSetUnit = (id: string, unit: string) => {
-    setCustomFields((prev) => prev.map((f) => (f.id === id ? { ...f, unit: unit.trim() || null } : f)));
+    setCustomFields((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, unit: unit.trim() || null } : f)),
+    );
   };
 
   const handleSetType = (id: string, type: FieldType) => {
@@ -162,7 +186,9 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
         style: 'destructive',
         onPress: () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setCustomFields((prev) => prev.filter((f) => f.id !== id).map((f, i) => ({ ...f, order: i })));
+          setCustomFields((prev) =>
+            prev.filter((f) => f.id !== id).map((f, i) => ({ ...f, order: i })),
+          );
         },
       },
     ]);
@@ -188,7 +214,10 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
       <View style={styles.backdrop}>
         <Animated.View style={[styles.backdropOverlay, backdropAnimStyle]} pointerEvents="none" />
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kav}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.kav}
+        >
           <Animated.View style={[styles.sheet, sheetAnimStyle]}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
@@ -213,7 +242,11 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
 
               {/* Discipline picker */}
               <Text style={styles.sectionLabel}>Tipo</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.disciplineScroll}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.disciplineScroll}
+              >
                 <View style={styles.disciplineRow}>
                   {DISCIPLINE_LIST.map((d) => {
                     const config = DISCIPLINE_CONFIGS[d];
@@ -227,13 +260,19 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
                         }}
                         style={[
                           styles.disciplineChip,
-                          selected && { backgroundColor: config.color + '18', borderColor: config.color },
+                          selected && {
+                            backgroundColor: config.color + '18',
+                            borderColor: config.color,
+                          },
                         ]}
                       >
                         <Text
                           style={[
                             styles.disciplineText,
-                            selected && { color: config.color, fontWeight: Typography.weight.semibold },
+                            selected && {
+                              color: config.color,
+                              fontWeight: Typography.weight.semibold,
+                            },
                           ]}
                         >
                           {config.name}
@@ -293,7 +332,10 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
                             onPress={() => moveField(f.id, 'down')}
                             disabled={i === customFields.length - 1}
                             hitSlop={6}
-                            style={[styles.orderBtn, i === customFields.length - 1 && styles.orderBtnDisabled]}
+                            style={[
+                              styles.orderBtn,
+                              i === customFields.length - 1 && styles.orderBtnDisabled,
+                            ]}
                           >
                             <Feather name="chevron-down" size={14} color={Colors.text.secondary} />
                           </Pressable>
@@ -314,7 +356,11 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
                           onChangeText={(t) => handleSetUnit(f.id, t)}
                           returnKeyType="done"
                         />
-                        <Pressable onPress={() => confirmRemoveField(f.id)} hitSlop={8} style={styles.removeBtn}>
+                        <Pressable
+                          onPress={() => confirmRemoveField(f.id)}
+                          hitSlop={8}
+                          style={styles.removeBtn}
+                        >
                           <Feather name="trash-2" size={14} color={Colors.semantic.error} />
                         </Pressable>
                       </View>
@@ -328,7 +374,12 @@ export default function AddExerciseSheet({ visible, blockDiscipline, onAdd, onCl
                               onPress={() => handleSetType(f.id, t)}
                               style={[styles.typeChip, selected && styles.typeChipSelected]}
                             >
-                              <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
+                              <Text
+                                style={[
+                                  styles.typeChipText,
+                                  selected && styles.typeChipTextSelected,
+                                ]}
+                              >
                                 {t}
                               </Text>
                             </Pressable>

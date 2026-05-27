@@ -12,7 +12,10 @@ interface StarterExercise {
   rest_seconds: number;
 }
 
-const ROUTINES: Record<Goal, { name: string; discipline: Discipline; exercises: StarterExercise[] }> = {
+const ROUTINES: Record<
+  Goal,
+  { name: string; discipline: Discipline; exercises: StarterExercise[] }
+> = {
   strength: {
     name: 'Fuerza · Bienvenida',
     discipline: 'strength',

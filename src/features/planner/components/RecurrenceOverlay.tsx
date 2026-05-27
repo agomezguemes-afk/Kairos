@@ -41,53 +41,52 @@ type Preset =
   | { id: 'biweekly-anchor' };
 
 const PRESET_LABELS: Record<Preset['id'], string> = {
-  'today':            'Solo hoy',
-  'weekly-anchor':    'Cada semana este día',
-  'weekdays':         'Lun a Vie',
-  'biweekly-anchor':  'Cada 2 semanas este día',
+  today: 'Solo hoy',
+  'weekly-anchor': 'Cada semana este día',
+  weekdays: 'Lun a Vie',
+  'biweekly-anchor': 'Cada 2 semanas este día',
 };
 
-const PRESET_ORDER: Preset['id'][] = [
-  'today', 'weekly-anchor', 'weekdays', 'biweekly-anchor',
-];
+const PRESET_ORDER: Preset['id'][] = ['today', 'weekly-anchor', 'weekdays', 'biweekly-anchor'];
 
 // Mon=0..Sun=6 (Spanish convention, mirrors lib/rrule.ts buildWeeklyRule)
 function weekdayIndexFor(d: ISODate): number {
   return (fromISODate(d).getDay() + 6) % 7;
 }
 
-export default function RecurrenceOverlay({
-  block, startDate, onDone, onCancel,
-}: Props) {
+export default function RecurrenceOverlay({ block, startDate, onDone, onCancel }: Props) {
   const assignOnce = useScheduleStore((s) => s.assignOnce);
   const assignRecurring = useScheduleStore((s) => s.assignRecurring);
 
   const [view, setView] = useState<'presets' | 'advanced'>('presets');
 
-  const handlePreset = useCallback((p: Preset['id']) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    if (p === 'today') {
-      assignOnce(startDate, block.id);
-    } else {
-      const wIdx = weekdayIndexFor(startDate);
-      let rrule: string;
-      if (p === 'weekly-anchor') {
-        rrule = buildWeeklyRule([wIdx]);
-      } else if (p === 'weekdays') {
-        rrule = buildWeeklyRule([0, 1, 2, 3, 4]);
+  const handlePreset = useCallback(
+    (p: Preset['id']) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (p === 'today') {
+        assignOnce(startDate, block.id);
       } else {
-        // biweekly-anchor — interval=2 weekly on the anchor weekday
-        rrule = buildWeeklyRule([wIdx], 2);
+        const wIdx = weekdayIndexFor(startDate);
+        let rrule: string;
+        if (p === 'weekly-anchor') {
+          rrule = buildWeeklyRule([wIdx]);
+        } else if (p === 'weekdays') {
+          rrule = buildWeeklyRule([0, 1, 2, 3, 4]);
+        } else {
+          // biweekly-anchor — interval=2 weekly on the anchor weekday
+          rrule = buildWeeklyRule([wIdx], 2);
+        }
+        assignRecurring({
+          blockId: block.id,
+          rrule,
+          startDate,
+          endDate: null,
+        });
       }
-      assignRecurring({
-        blockId: block.id,
-        rrule,
-        startDate,
-        endDate: null,
-      });
-    }
-    onDone();
-  }, [assignOnce, assignRecurring, block.id, startDate, onDone]);
+      onDone();
+    },
+    [assignOnce, assignRecurring, block.id, startDate, onDone],
+  );
 
   return (
     <Animated.View
@@ -103,19 +102,13 @@ export default function RecurrenceOverlay({
         style={styles.panel}
       >
         {view === 'presets' ? (
-          <PresetsView
-            block={block}
-            onPick={handlePreset}
-            onAdvanced={() => setView('advanced')}
-          />
+          <PresetsView block={block} onPick={handlePreset} onAdvanced={() => setView('advanced')} />
         ) : (
           <AdvancedView
             block={block}
             startDate={startDate}
             onApply={(rrule, endDate) => {
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success
-              ).catch(() => {});
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
               assignRecurring({
                 blockId: block.id,
                 rrule,
@@ -135,7 +128,9 @@ export default function RecurrenceOverlay({
 // ── Presets view ────────────────────────────────────────────────────────
 
 function PresetsView({
-  block, onPick, onAdvanced,
+  block,
+  onPick,
+  onAdvanced,
 }: {
   block: WorkoutBlock;
   onPick: (p: Preset['id']) => void;
@@ -174,7 +169,10 @@ function PresetsView({
 const WEEKDAY_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
 
 function AdvancedView({
-  block, startDate, onApply, onBack,
+  block,
+  startDate,
+  onApply,
+  onBack,
 }: {
   block: WorkoutBlock;
   startDate: ISODate;
@@ -187,17 +185,18 @@ function AdvancedView({
   // 90 days out is a sensible default that doesn't feel arbitrary.
   const [endDate, setEndDate] = useState<ISODate>(addDaysISO(startDate, 90));
   // Quick presets for the end date — full date pickers belong in v2.
-  const endPresets: { label: string; days: number }[] = useMemo(() => [
-    { label: '1 mes',    days: 30  },
-    { label: '3 meses',  days: 90  },
-    { label: '6 meses',  days: 180 },
-  ], []);
+  const endPresets: { label: string; days: number }[] = useMemo(
+    () => [
+      { label: '1 mes', days: 30 },
+      { label: '3 meses', days: 90 },
+      { label: '6 meses', days: 180 },
+    ],
+    [],
+  );
 
   const toggle = useCallback((i: number) => {
     Haptics.selectionAsync().catch(() => {});
-    setDays((prev) =>
-      prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort()
-    );
+    setDays((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort()));
   }, []);
 
   const canApply = days.length > 0;
@@ -221,10 +220,7 @@ function AdvancedView({
       </Pressable>
       <Text style={styles.title}>{`Repetir ${block.name}`}</Text>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Text style={styles.sectionLabel}>Días</Text>
         <View style={styles.weekdayRow}>
           {WEEKDAY_LABELS.map((l, i) => {
@@ -262,10 +258,9 @@ function AdvancedView({
               pressed && { opacity: 0.85 },
             ]}
           >
-            <Text style={[
-              styles.endChipText,
-              endMode === 'never' && styles.endChipTextActive,
-            ]}>Sin fin</Text>
+            <Text style={[styles.endChipText, endMode === 'never' && styles.endChipTextActive]}>
+              Sin fin
+            </Text>
           </Pressable>
           <Pressable
             onPress={() => setEndMode('until')}
@@ -277,10 +272,9 @@ function AdvancedView({
               pressed && { opacity: 0.85 },
             ]}
           >
-            <Text style={[
-              styles.endChipText,
-              endMode === 'until' && styles.endChipTextActive,
-            ]}>Hasta una fecha</Text>
+            <Text style={[styles.endChipText, endMode === 'until' && styles.endChipTextActive]}>
+              Hasta una fecha
+            </Text>
           </Pressable>
         </View>
 
@@ -307,10 +301,9 @@ function AdvancedView({
                       pressed && { opacity: 0.7 },
                     ]}
                   >
-                    <Text style={[
-                      styles.endPresetText,
-                      active && styles.endPresetTextActive,
-                    ]}>{p.label}</Text>
+                    <Text style={[styles.endPresetText, active && styles.endPresetTextActive]}>
+                      {p.label}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -346,7 +339,9 @@ const styles = StyleSheet.create({
   // the same surface, just deepened. Same paddings as the parent.
   panel: {
     position: 'absolute',
-    left: 0, right: 0, bottom: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: Colors.bg.surface,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,

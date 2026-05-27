@@ -16,14 +16,14 @@ export enum HKWorkoutActivityType {
 }
 
 export const DISCIPLINE_TO_HK: Record<Discipline, HKWorkoutActivityType> = {
-  strength:      HKWorkoutActivityType.TraditionalStrengthTraining,
-  calisthenics:  HKWorkoutActivityType.FunctionalStrengthTraining,
-  running:       HKWorkoutActivityType.Running,
-  cycling:       HKWorkoutActivityType.Cycling,
-  swimming:      HKWorkoutActivityType.Swimming,
-  mobility:      HKWorkoutActivityType.Yoga,
-  team_sport:    HKWorkoutActivityType.SoccerLike,
-  general:       HKWorkoutActivityType.Other,
+  strength: HKWorkoutActivityType.TraditionalStrengthTraining,
+  calisthenics: HKWorkoutActivityType.FunctionalStrengthTraining,
+  running: HKWorkoutActivityType.Running,
+  cycling: HKWorkoutActivityType.Cycling,
+  swimming: HKWorkoutActivityType.Swimming,
+  mobility: HKWorkoutActivityType.Yoga,
+  team_sport: HKWorkoutActivityType.SoccerLike,
+  general: HKWorkoutActivityType.Other,
 };
 
 export interface WriteWorkoutInput {

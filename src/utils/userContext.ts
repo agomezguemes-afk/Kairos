@@ -44,7 +44,7 @@ export interface WeeklyAggregates {
   /** Set count by movement-pattern bucket inferred from exercise names. */
   setsByBucket: Record<string, number>;
   /** Top exercises by frequency (name → completed-set count). */
-  topExercises: Array<{ name: string; sets: number }>;
+  topExercises: { name: string; sets: number }[];
   /** Crude compound vs isolation split based on a name keyword list. */
   compoundIsolationRatio: { compound: number; isolation: number };
 }
@@ -72,13 +72,13 @@ export interface UserContextSnapshot {
   } | null;
   blocks: BlockSummary[];
   recentExercises: RecentExerciseSummary[];
-  recentPRs: Array<{
+  recentPRs: {
     exerciseName: string;
     field: string;
     value: number;
     unit: string | null;
     date: string;
-  }>;
+  }[];
   weeklyAggregates: WeeklyAggregates;
   badgeCount: number;
   /** Optional id of the block the user is currently editing. Surfaces in the prompt. */
@@ -102,9 +102,7 @@ export interface RawUserContext {
  * Build a compact, prompt-ready snapshot from the raw Zustand + context state.
  * The caller is responsible for passing fresh values — see AIChatScreen.buildCtx.
  */
-export function buildUserContextSnapshot(
-  raw: RawUserContext,
-): UserContextSnapshot {
+export function buildUserContextSnapshot(raw: RawUserContext): UserContextSnapshot {
   const cutoff = Date.now() - MAX_DAYS * 24 * 60 * 60 * 1000;
 
   const blocks: BlockSummary[] = raw.blocks.map((b) => ({
@@ -115,10 +113,7 @@ export function buildUserContextSnapshot(
     exerciseNames: getBlockExercises(b).map((ex) => ex.name),
   }));
 
-  const recentExercises = collectRecentExercises(raw.blocks, cutoff).slice(
-    0,
-    MAX_RECENT_EXERCISES,
-  );
+  const recentExercises = collectRecentExercises(raw.blocks, cutoff).slice(0, MAX_RECENT_EXERCISES);
 
   const recentPRs = [...raw.prCards]
     .sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -195,10 +190,43 @@ const COMPOUND_KEYWORDS = [
   'hip thrust',
 ];
 
-const PUSH_KEYWORDS = ['press', 'banca', 'bench', 'fondos', 'dip', 'push', 'flexion', 'flexión', 'overhead'];
+const PUSH_KEYWORDS = [
+  'press',
+  'banca',
+  'bench',
+  'fondos',
+  'dip',
+  'push',
+  'flexion',
+  'flexión',
+  'overhead',
+];
 const PULL_KEYWORDS = ['remo', 'row', 'dominada', 'pull-up', 'pullup', 'pull', 'curl', 'face pull'];
-const LEG_KEYWORDS = ['sentadilla', 'squat', 'lunge', 'zancada', 'peso muerto', 'deadlift', 'leg', 'calf', 'gemelo', 'hip thrust', 'glute', 'glúteo'];
-const CORE_KEYWORDS = ['plancha', 'plank', 'crunch', 'abs', 'abdominal', 'leg raise', 'hollow', 'sit-up', 'situp'];
+const LEG_KEYWORDS = [
+  'sentadilla',
+  'squat',
+  'lunge',
+  'zancada',
+  'peso muerto',
+  'deadlift',
+  'leg',
+  'calf',
+  'gemelo',
+  'hip thrust',
+  'glute',
+  'glúteo',
+];
+const CORE_KEYWORDS = [
+  'plancha',
+  'plank',
+  'crunch',
+  'abs',
+  'abdominal',
+  'leg raise',
+  'hollow',
+  'sit-up',
+  'situp',
+];
 
 function bucketForName(name: string): string {
   const n = name.toLowerCase();
@@ -299,7 +327,9 @@ export function renderContextForPrompt(snap: UserContextSnapshot): string {
   if (snap.activeMission) {
     lines.push('');
     lines.push('MISIÓN ACTIVA:');
-    lines.push(`- ${snap.activeMission.title}: ${snap.activeMission.progress}/${snap.activeMission.target}`);
+    lines.push(
+      `- ${snap.activeMission.title}: ${snap.activeMission.progress}/${snap.activeMission.target}`,
+    );
   }
 
   if (snap.blocks.length > 0) {
@@ -320,7 +350,9 @@ export function renderContextForPrompt(snap: UserContextSnapshot): string {
   if (wa.totalSets > 0) {
     lines.push('');
     lines.push('ÚLTIMOS 7 DÍAS:');
-    lines.push(`- Sesiones: ${wa.sessions} · Series completadas: ${wa.totalSets} · Volumen: ${wa.totalVolume}kg`);
+    lines.push(
+      `- Sesiones: ${wa.sessions} · Series completadas: ${wa.totalSets} · Volumen: ${wa.totalVolume}kg`,
+    );
     const buckets = Object.entries(wa.setsByBucket)
       .sort((a, b) => b[1] - a[1])
       .map(([k, v]) => `${k}:${v}`);
@@ -364,10 +396,7 @@ export function renderContextForPrompt(snap: UserContextSnapshot): string {
 
 // ======================== INTERNALS ========================
 
-function collectRecentExercises(
-  blocks: WorkoutBlock[],
-  cutoffMs: number,
-): RecentExerciseSummary[] {
+function collectRecentExercises(blocks: WorkoutBlock[], cutoffMs: number): RecentExerciseSummary[] {
   const out: RecentExerciseSummary[] = [];
 
   for (const block of blocks) {
@@ -392,11 +421,12 @@ function summarizeExercise(
   const completed = ex.sets.filter((s) => s.completed);
   if (completed.length === 0) return null;
 
-  const lastCompletedAt = completed
-    .map((s) => s.completed_at)
-    .filter((t): t is string => !!t)
-    .sort()
-    .pop() ?? null;
+  const lastCompletedAt =
+    completed
+      .map((s) => s.completed_at)
+      .filter((t): t is string => !!t)
+      .sort()
+      .pop() ?? null;
 
   if (lastCompletedAt && Date.parse(lastCompletedAt) < cutoffMs) {
     return null;

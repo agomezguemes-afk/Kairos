@@ -57,23 +57,27 @@ function resolveOne(
 ): ResolvedAssignment[] {
   if (a.kind === 'one-time') {
     if (a.date < rangeStart || a.date > rangeEnd) return [];
-    const status: ResolvedAssignment['status'] =
-      a.completed.includes(a.date) ? 'completed' :
-      a.skipped                    ? 'skipped'   : 'planned';
-    return [{
-      assignmentId: a.id,
-      blockId:      a.blockId,
-      date:         a.date,
-      status,
-      isRecurring:  false,
-    }];
+    const status: ResolvedAssignment['status'] = a.completed.includes(a.date)
+      ? 'completed'
+      : a.skipped
+        ? 'skipped'
+        : 'planned';
+    return [
+      {
+        assignmentId: a.id,
+        blockId: a.blockId,
+        date: a.date,
+        status,
+        isRecurring: false,
+      },
+    ];
   }
 
   // recurring
   const occurrences = expandRule({
-    rrule:       a.rrule,
-    startDate:   a.startDate,
-    endDate:     a.endDate,
+    rrule: a.rrule,
+    startDate: a.startDate,
+    endDate: a.endDate,
     rangeStart,
     rangeEnd,
   });
@@ -92,11 +96,11 @@ function resolveOne(
 
     out.push({
       assignmentId: a.id,
-      blockId:      a.blockId,
+      blockId: a.blockId,
       date,
       status,
-      isRecurring:  true,
-      movedFrom:    movedTo ? original : undefined,
+      isRecurring: true,
+      movedFrom: movedTo ? original : undefined,
     });
   }
 
@@ -112,11 +116,11 @@ function resolveOne(
 
     out.push({
       assignmentId: a.id,
-      blockId:      a.blockId,
-      date:         movedTo,
+      blockId: a.blockId,
+      date: movedTo,
       status,
-      isRecurring:  true,
-      movedFrom:    original,
+      isRecurring: true,
+      movedFrom: original,
     });
   }
 
@@ -189,9 +193,14 @@ export const useScheduleStore = create<ScheduleState>()(
       assignOnce: (date, blockId) => {
         const id = generateId();
         const a: OneTimeAssignment = {
-          id, kind: 'one-time', blockId, date,
-          completed: [], skipped: false,
-          createdAt: nowISO(), updatedAt: nowISO(),
+          id,
+          kind: 'one-time',
+          blockId,
+          date,
+          completed: [],
+          skipped: false,
+          createdAt: nowISO(),
+          updatedAt: nowISO(),
         };
         set((s) => ({ assignments: [...s.assignments, a] }));
         purgeCache();
@@ -201,9 +210,17 @@ export const useScheduleStore = create<ScheduleState>()(
       assignRecurring: ({ blockId, rrule, startDate, endDate = null }) => {
         const id = generateId();
         const a: RecurringAssignment = {
-          id, kind: 'recurring', blockId, rrule, startDate, endDate,
-          completed: [], skipped: [], moved: {},
-          createdAt: nowISO(), updatedAt: nowISO(),
+          id,
+          kind: 'recurring',
+          blockId,
+          rrule,
+          startDate,
+          endDate,
+          completed: [],
+          skipped: [],
+          moved: {},
+          createdAt: nowISO(),
+          updatedAt: nowISO(),
         };
         set((s) => ({ assignments: [...s.assignments, a] }));
         purgeCache();
@@ -305,7 +322,9 @@ export const useScheduleStore = create<ScheduleState>()(
       uncompleteOccurrence: (assignmentId, date) => {
         set((s) => ({
           assignments: s.assignments.map((a) =>
-            a.id !== assignmentId ? a : { ...a, completed: a.completed.filter((d) => d !== date), updatedAt: nowISO() }
+            a.id !== assignmentId
+              ? a
+              : { ...a, completed: a.completed.filter((d) => d !== date), updatedAt: nowISO() },
           ),
         }));
         purgeCache();

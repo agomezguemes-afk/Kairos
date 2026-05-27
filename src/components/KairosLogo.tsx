@@ -25,24 +25,13 @@ const VIEWBOX = 100;
  *   – Lower diagonal  : (36,50) → (66,78)        stroke 2
  *   – Apex dot        : (66,22) r=3.5            filled
  */
-export default function KairosLogo({
-  size = 80,
-  color,
-  strokeWidth = 2,
-}: KairosLogoProps) {
+export default function KairosLogo({ size = 80, color, strokeWidth = 2 }: KairosLogoProps) {
   const stroke = color ?? Colors.gold.base;
 
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}>
       <G>
-        <Circle
-          cx={50}
-          cy={50}
-          r={42}
-          stroke={stroke}
-          strokeWidth={1.5}
-          fill="none"
-        />
+        <Circle cx={50} cy={50} r={42} stroke={stroke} strokeWidth={1.5} fill="none" />
         <Path
           d="M36 22 L36 78"
           stroke={stroke}

@@ -23,7 +23,14 @@ import { TREE_CONFIGS } from '../types/tree';
 import { getMetricValue } from '../services/treeService';
 import { Colors, Typography, Spacing, Radius, Shadows, Animation } from '../theme/index';
 
-const LEVEL_LABELS = ['Semilla', 'Brote', 'Arbusto', 'Árbol joven', 'Árbol maduro', 'Árbol legendario'];
+const LEVEL_LABELS = [
+  'Semilla',
+  'Brote',
+  'Arbusto',
+  'Árbol joven',
+  'Árbol maduro',
+  'Árbol legendario',
+];
 
 export default function ProgressTreeScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -32,9 +39,9 @@ export default function ProgressTreeScreen({ navigation }: any) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Ripple animation on tree tap
-  const rippleScale   = useSharedValue(0);
+  const rippleScale = useSharedValue(0);
   const rippleOpacity = useSharedValue(0);
-  const treeScale     = useSharedValue(1);
+  const treeScale = useSharedValue(1);
 
   const rippleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: rippleScale.value }],
@@ -50,12 +57,12 @@ export default function ProgressTreeScreen({ navigation }: any) {
     // Ripple
     rippleScale.value = 0;
     rippleOpacity.value = 0.5;
-    rippleScale.value   = withTiming(2.2, { duration: 700 });
-    rippleOpacity.value = withTiming(0,   { duration: 700 });
+    rippleScale.value = withTiming(2.2, { duration: 700 });
+    rippleOpacity.value = withTiming(0, { duration: 700 });
     // Tree bounce
     treeScale.value = withSequence(
       withSpring(1.07, { damping: 8, stiffness: 260 }),
-      withSpring(1,    { damping: 12, stiffness: 180 }),
+      withSpring(1, { damping: 12, stiffness: 180 }),
     );
     // Tooltip
     setShowTooltip(true);
@@ -85,7 +92,10 @@ export default function ProgressTreeScreen({ navigation }: any) {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
@@ -113,11 +123,7 @@ export default function ProgressTreeScreen({ navigation }: any) {
         <Pressable onPress={handleTreeTap} style={styles.treeTouchTarget}>
           {/* Ripple ring */}
           <Animated.View
-            style={[
-              styles.ripple,
-              rippleStyle,
-              { backgroundColor: Colors.accent.glow },
-            ]}
+            style={[styles.ripple, rippleStyle, { backgroundColor: Colors.accent.glow }]}
           />
 
           {/* Tooltip */}
@@ -185,7 +191,9 @@ function TreeTypePicker({
   const types: TreeType[] = ['oak', 'palm', 'bamboo', 'cactus'];
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+    <View
+      style={[styles.screen, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}
+    >
       <View style={styles.pickerContent}>
         <Text style={styles.pickerTitle}>Elige tu árbol</Text>
         <Text style={styles.pickerSub}>

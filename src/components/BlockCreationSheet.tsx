@@ -35,8 +35,14 @@ const SHEET_HEIGHT = SCREEN_H * 0.88;
 // Icon options now come from ICON_PICKER_OPTIONS in KairosIcon.tsx
 
 const BLOCK_COLORS = [
-  '#E84545', '#F0A030', '#C9A96E', '#1DB88E',
-  '#5B8DEF', '#8B5CF6', '#06B6D4', '#EC4899',
+  '#E84545',
+  '#F0A030',
+  '#C9A96E',
+  '#1DB88E',
+  '#5B8DEF',
+  '#8B5CF6',
+  '#06B6D4',
+  '#EC4899',
 ];
 
 // ======================== PROPS ========================
@@ -124,10 +130,7 @@ const CoverOption: React.FC<{
 }> = React.memo(({ label, selected, color, preview, onPress }) => (
   <Pressable
     onPress={onPress}
-    style={[
-      styles.coverOption,
-      selected && { borderColor: color, backgroundColor: `${color}12` },
-    ]}
+    style={[styles.coverOption, selected && { borderColor: color, backgroundColor: `${color}12` }]}
   >
     <View style={styles.coverPreview}>{preview}</View>
     <Text style={[styles.coverLabel, selected && { color }]}>{label}</Text>
@@ -165,7 +168,7 @@ export default function BlockCreationSheet({
         if (cb) runOnJS(cb)();
       });
     },
-    [backdropOpacity, translateY]
+    [backdropOpacity, translateY],
   );
 
   useEffect(() => {
@@ -290,10 +293,7 @@ export default function BlockCreationSheet({
                 style={[
                   styles.previewCard,
                   {
-                    backgroundColor:
-                      cover?.type === 'color'
-                        ? `${cover.value}30`
-                        : `${color}12`,
+                    backgroundColor: cover?.type === 'color' ? `${cover.value}30` : `${color}12`,
                     borderColor: `${color}35`,
                   },
                 ]}
@@ -361,7 +361,12 @@ export default function BlockCreationSheet({
                   color={color}
                   onPress={() => setCover(null)}
                   preview={
-                    <View style={[styles.coverPreviewBox, { backgroundColor: Colors.background.elevated }]}>
+                    <View
+                      style={[
+                        styles.coverPreviewBox,
+                        { backgroundColor: Colors.background.elevated },
+                      ]}
+                    >
                       <View style={[styles.coverPreviewStripe, { backgroundColor: color }]} />
                     </View>
                   }
@@ -371,19 +376,27 @@ export default function BlockCreationSheet({
                   selected={cover?.type === 'color'}
                   color={color}
                   onPress={() => setCover({ type: 'color', value: color })}
-                  preview={
-                    <View style={[styles.coverPreviewBox, { backgroundColor: color }]} />
-                  }
+                  preview={<View style={[styles.coverPreviewBox, { backgroundColor: color }]} />}
                 />
                 <CoverOption
                   label="Gradiente"
                   selected={cover?.type === 'gradient'}
                   color={color}
-                  onPress={() => setCover({ type: 'gradient', from: color, to: Colors.background.void })}
+                  onPress={() =>
+                    setCover({ type: 'gradient', from: color, to: Colors.background.void })
+                  }
                   preview={
-                    <View style={[styles.coverPreviewBox, styles.coverGradientPreview, { borderColor: `${color}40` }]}>
+                    <View
+                      style={[
+                        styles.coverPreviewBox,
+                        styles.coverGradientPreview,
+                        { borderColor: `${color}40` },
+                      ]}
+                    >
                       <View style={[styles.coverHalf, { backgroundColor: color }]} />
-                      <View style={[styles.coverHalf, { backgroundColor: Colors.background.void }]} />
+                      <View
+                        style={[styles.coverHalf, { backgroundColor: Colors.background.void }]}
+                      />
                     </View>
                   }
                 />

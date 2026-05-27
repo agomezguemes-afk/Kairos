@@ -52,7 +52,7 @@ export function weekRange(d: ISODate): { start: ISODate; end: ISODate } {
   const dt = fromISODate(d);
   return {
     start: toISODate(startOfWeek(dt, { weekStartsOn: 1 })),
-    end:   toISODate(endOfWeek(dt,   { weekStartsOn: 1 })),
+    end: toISODate(endOfWeek(dt, { weekStartsOn: 1 })),
   };
 }
 
@@ -70,9 +70,9 @@ export function weekDays(d: ISODate): ISODate[] {
 export function monthGridDays(d: ISODate): ISODate[] {
   const dt = fromISODate(d);
   const monthStart = startOfMonth(dt);
-  const monthEnd   = endOfMonth(dt);
-  const gridStart  = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const gridEnd    = endOfWeek(monthEnd,     { weekStartsOn: 1 });
+  const monthEnd = endOfMonth(dt);
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd }).map(toISODate);
   // Pad to 42 in case the month fits in 5 rows (rare but possible).
   while (days.length < 42) {

@@ -7,8 +7,8 @@ import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index'
 
 export default function ProfileTab() {
   const { profile, resetProfile } = useUserProfile();
-  const notificationsEnabled = useWorkoutStore(s => s.notificationsEnabled);
-  const setNotificationsEnabled = useWorkoutStore(s => s.setNotificationsEnabled);
+  const notificationsEnabled = useWorkoutStore((s) => s.notificationsEnabled);
+  const setNotificationsEnabled = useWorkoutStore((s) => s.setNotificationsEnabled);
 
   const handleReset = () => {
     Alert.alert(
@@ -49,7 +49,12 @@ export default function ProfileTab() {
       <View style={styles.card}>
         <Feather name="settings" size={20} color={Colors.text.secondary} />
         <Text style={styles.cardTitle}>Configuración</Text>
-        <Feather name="chevron-right" size={18} color={Colors.text.tertiary} style={styles.chevron} />
+        <Feather
+          name="chevron-right"
+          size={18}
+          color={Colors.text.tertiary}
+          style={styles.chevron}
+        />
       </View>
 
       {/* Notifications opt-in toggle */}
@@ -73,7 +78,12 @@ export default function ProfileTab() {
       <View style={styles.card}>
         <Feather name="link" size={20} color={Colors.text.secondary} />
         <Text style={styles.cardTitle}>Integraciones</Text>
-        <Feather name="chevron-right" size={18} color={Colors.text.tertiary} style={styles.chevron} />
+        <Feather
+          name="chevron-right"
+          size={18}
+          color={Colors.text.tertiary}
+          style={styles.chevron}
+        />
       </View>
 
       {/* Dev: reset onboarding */}

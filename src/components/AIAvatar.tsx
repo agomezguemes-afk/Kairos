@@ -35,10 +35,7 @@ function TypingDot({ delay }: { delay: number }) {
     y.value = withRepeat(
       withDelay(
         delay,
-        withSequence(
-          withTiming(-5, { duration: 280 }),
-          withTiming(0,  { duration: 280 }),
-        ),
+        withSequence(withTiming(-5, { duration: 280 }), withTiming(0, { duration: 280 })),
       ),
       -1,
       false,
@@ -53,16 +50,12 @@ function TypingDot({ delay }: { delay: number }) {
 
 // ======================== MAIN AVATAR ========================
 
-export default function AIAvatar({
-  size = 48,
-  mood = 'idle',
-  nodTrigger = 0,
-}: AIAvatarProps) {
-  const eyeScaleY   = useSharedValue(1);
-  const headRotate  = useSharedValue(0);
-  const headScale   = useSharedValue(1);
-  const headY       = useSharedValue(0); // idle float offset
-  const mouthWidth  = useSharedValue(10);
+export default function AIAvatar({ size = 48, mood = 'idle', nodTrigger = 0 }: AIAvatarProps) {
+  const eyeScaleY = useSharedValue(1);
+  const headRotate = useSharedValue(0);
+  const headScale = useSharedValue(1);
+  const headY = useSharedValue(0); // idle float offset
+  const mouthWidth = useSharedValue(10);
   const glowOpacity = useSharedValue(0);
 
   // ── Blink every ~4 s ──────────────────────────────────────────
@@ -70,7 +63,7 @@ export default function AIAvatar({
     const blink = () => {
       eyeScaleY.value = withSequence(
         withTiming(0.08, { duration: 70 }),
-        withTiming(1,    { duration: 110 }),
+        withTiming(1, { duration: 110 }),
       );
     };
     const id = setInterval(blink, 4000 + Math.random() * 2000);
@@ -81,9 +74,9 @@ export default function AIAvatar({
   useEffect(() => {
     if (nodTrigger > 0) {
       headRotate.value = withSequence(
-        withSpring(-4, { damping: 8,  stiffness: 200 }),
-        withSpring( 2, { damping: 10, stiffness: 180 }),
-        withSpring( 0, { damping: 12, stiffness: 160 }),
+        withSpring(-4, { damping: 8, stiffness: 200 }),
+        withSpring(2, { damping: 10, stiffness: 180 }),
+        withSpring(0, { damping: 12, stiffness: 160 }),
       );
     }
   }, [nodTrigger]);
@@ -98,22 +91,16 @@ export default function AIAvatar({
       case 'idle':
         // Gentle floating bob
         headY.value = withRepeat(
-          withSequence(
-            withTiming(-4, { duration: 1400 }),
-            withTiming( 0, { duration: 1400 }),
-          ),
+          withSequence(withTiming(-4, { duration: 1400 }), withTiming(0, { duration: 1400 })),
           -1,
           true,
         );
-        mouthWidth.value  = withTiming(10, { duration: 200 });
-        headScale.value   = withTiming(1,  { duration: 300 });
-        glowOpacity.value = withTiming(0,  { duration: 300 });
+        mouthWidth.value = withTiming(10, { duration: 200 });
+        headScale.value = withTiming(1, { duration: 300 });
+        glowOpacity.value = withTiming(0, { duration: 300 });
         // Subtle pulsing glow while idle
         glowOpacity.value = withRepeat(
-          withSequence(
-            withTiming(0.12, { duration: 1800 }),
-            withTiming(0.04, { duration: 1800 }),
-          ),
+          withSequence(withTiming(0.12, { duration: 1800 }), withTiming(0.04, { duration: 1800 })),
           -1,
           true,
         );
@@ -123,44 +110,35 @@ export default function AIAvatar({
         // Stop floating, pulse scale
         headY.value = withTiming(0, { duration: 200 });
         headScale.value = withRepeat(
-          withSequence(
-            withTiming(1.04, { duration: 550 }),
-            withTiming(0.96, { duration: 550 }),
-          ),
+          withSequence(withTiming(1.04, { duration: 550 }), withTiming(0.96, { duration: 550 })),
           -1,
           true,
         );
         glowOpacity.value = withRepeat(
-          withSequence(
-            withTiming(0.45, { duration: 500 }),
-            withTiming(0.10, { duration: 500 }),
-          ),
+          withSequence(withTiming(0.45, { duration: 500 }), withTiming(0.1, { duration: 500 })),
           -1,
           true,
         );
         break;
 
       case 'celebrating':
-        headY.value   = withTiming(0,  { duration: 150 });
-        mouthWidth.value  = withSpring(15, { damping: 8 });
+        headY.value = withTiming(0, { duration: 150 });
+        mouthWidth.value = withSpring(15, { damping: 8 });
         glowOpacity.value = withRepeat(
-          withSequence(
-            withTiming(0.65, { duration: 350 }),
-            withTiming(0.20, { duration: 350 }),
-          ),
+          withSequence(withTiming(0.65, { duration: 350 }), withTiming(0.2, { duration: 350 })),
           4,
           true,
         );
         headScale.value = withSequence(
           withSpring(1.18, { damping: 6, stiffness: 220 }),
-          withSpring(1,    { damping: 10, stiffness: 160 }),
+          withSpring(1, { damping: 10, stiffness: 160 }),
         );
         break;
 
       case 'listening':
-        headY.value       = withTiming(0,  { duration: 200 });
-        mouthWidth.value  = withTiming(8,  { duration: 200 });
-        headScale.value   = withTiming(1,  { duration: 200 });
+        headY.value = withTiming(0, { duration: 200 });
+        mouthWidth.value = withTiming(8, { duration: 200 });
+        headScale.value = withTiming(1, { duration: 200 });
         glowOpacity.value = withTiming(0.08, { duration: 200 });
         break;
     }
@@ -171,21 +149,21 @@ export default function AIAvatar({
   const headStyle = useAnimatedStyle(() => ({
     transform: [
       { rotate: `${headRotate.value}deg` },
-      { scale:   headScale.value },
+      { scale: headScale.value },
       { translateY: headY.value },
     ],
   }));
 
-  const leftEyeStyle  = useAnimatedStyle(() => ({ transform: [{ scaleY: eyeScaleY.value }] }));
+  const leftEyeStyle = useAnimatedStyle(() => ({ transform: [{ scaleY: eyeScaleY.value }] }));
   const rightEyeStyle = useAnimatedStyle(() => ({ transform: [{ scaleY: eyeScaleY.value }] }));
-  const mouthStyle    = useAnimatedStyle(() => ({ width: mouthWidth.value }));
-  const glowStyle     = useAnimatedStyle(() => ({ opacity: glowOpacity.value }));
+  const mouthStyle = useAnimatedStyle(() => ({ width: mouthWidth.value }));
+  const glowStyle = useAnimatedStyle(() => ({ opacity: glowOpacity.value }));
 
   // ── Sizing ────────────────────────────────────────────────────
-  const eyeSize  = Math.max(4, size * 0.11);
-  const eyeGap   = size * 0.18;
-  const mouthH   = Math.max(3, size * 0.065);
-  const borderR  = size / 2;
+  const eyeSize = Math.max(4, size * 0.11);
+  const eyeGap = size * 0.18;
+  const mouthH = Math.max(3, size * 0.065);
+  const borderR = size / 2;
 
   const isThinking = mood === 'thinking';
 
@@ -197,10 +175,10 @@ export default function AIAvatar({
           styles.glow,
           glowStyle,
           {
-            width:  size + 10,
+            width: size + 10,
             height: size + 10,
             borderRadius: (size + 10) / 2,
-            top:  -5,
+            top: -5,
             left: -5,
           },
         ]}
@@ -208,11 +186,7 @@ export default function AIAvatar({
 
       {/* Head */}
       <Animated.View
-        style={[
-          styles.head,
-          headStyle,
-          { width: size, height: size, borderRadius: borderR },
-        ]}
+        style={[styles.head, headStyle, { width: size, height: size, borderRadius: borderR }]}
       >
         {isThinking ? (
           // Typing indicator — three bouncing gold dots
@@ -247,10 +221,10 @@ export default function AIAvatar({
                 styles.mouth,
                 mouthStyle,
                 {
-                  height:                   mouthH,
-                  borderRadius:             mouthH / 2,
-                  borderBottomLeftRadius:   mouthH,
-                  borderBottomRightRadius:  mouthH,
+                  height: mouthH,
+                  borderRadius: mouthH / 2,
+                  borderBottomLeftRadius: mouthH,
+                  borderBottomRightRadius: mouthH,
                 },
               ]}
             />

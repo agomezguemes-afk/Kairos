@@ -6,8 +6,10 @@ import type { WorkoutHistoryEntry } from '../../../../store/workoutStore';
 
 let failed = 0;
 function check(name: string, cond: boolean, extra?: unknown) {
-  if (!cond) { console.error('FAIL', name, extra ?? ''); failed++; }
-  else console.log('OK', name);
+  if (!cond) {
+    console.error('FAIL', name, extra ?? '');
+    failed++;
+  } else console.log('OK', name);
 }
 
 const TODAY = '2026-05-15';
@@ -16,7 +18,9 @@ function ra(date: ISODate, status: ResolvedAssignment['status'], id = 'a'): Reso
   return { assignmentId: id, blockId: 'b', date, status, isRecurring: false };
 }
 
-function fakeResolve(plans: Record<string, ResolvedAssignment[]>): (s: ISODate, e: ISODate) => Map<ISODate, ResolvedAssignment[]> {
+function fakeResolve(
+  plans: Record<string, ResolvedAssignment[]>,
+): (s: ISODate, e: ISODate) => Map<ISODate, ResolvedAssignment[]> {
   return (start, end) => {
     const m = new Map<ISODate, ResolvedAssignment[]>();
     for (const [d, list] of Object.entries(plans)) {
@@ -30,9 +34,14 @@ function entry(startedAtIso: string): WorkoutHistoryEntry {
   const start = new Date(`${startedAtIso}T10:00:00Z`).getTime();
   return {
     id: 'e' + startedAtIso,
-    blockId: 'b', blockName: 'B',
-    startedAt: start, endedAt: start + 3600000,
-    exerciseCount: 0, setCount: 0, totalVolume: 0, durationSec: 0,
+    blockId: 'b',
+    blockName: 'B',
+    startedAt: start,
+    endedAt: start + 3600000,
+    exerciseCount: 0,
+    setCount: 0,
+    totalVolume: 0,
+    durationSec: 0,
     exercises: [],
   };
 }
@@ -74,5 +83,8 @@ check('unplanned = 1', ma.unplanned === 1);
 // Denominator = done(1) + skipped(1) + missed(1) = 3. Pct = 1/3 = 33.
 check('adherence ≈ 33', ma.adherencePct === 33);
 
-if (failed > 0) { console.error(`${failed} failures`); process.exit(1); }
+if (failed > 0) {
+  console.error(`${failed} failures`);
+  process.exit(1);
+}
 console.log('all adherence checks pass');

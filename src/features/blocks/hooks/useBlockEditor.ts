@@ -48,7 +48,13 @@ export function useBlockEditor(blockId: string) {
   }, [blockId, deleteBlock]);
 
   const handleAddExercise = useCallback(
-    (opts: { name: string; discipline: Discipline; section?: string; column?: number; fields?: import('../../../types/core').FieldDefinition[] }) => {
+    (opts: {
+      name: string;
+      discipline: Discipline;
+      section?: string;
+      column?: number;
+      fields?: import('../../../types/core').FieldDefinition[];
+    }) => {
       addExercise(blockId, {
         name: opts.name,
         discipline: opts.discipline,
@@ -110,7 +116,16 @@ export function useBlockEditor(blockId: string) {
       }
       return null;
     },
-    [blockId, toggleSetComplete, onSetCompleted, onTreeSetCompleted, onTreePRCreated, recordPRForMission, updateMissionProgress, streak],
+    [
+      blockId,
+      toggleSetComplete,
+      onSetCompleted,
+      onTreeSetCompleted,
+      onTreePRCreated,
+      recordPRForMission,
+      updateMissionProgress,
+      streak,
+    ],
   );
 
   const handleAddSet = useCallback(

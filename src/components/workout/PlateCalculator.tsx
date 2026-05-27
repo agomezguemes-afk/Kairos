@@ -5,7 +5,13 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
-import Animated, { Easing, FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+} from 'react-native-reanimated';
 import Svg, { Rect, G, Line } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -28,7 +34,7 @@ const BAR_OPTIONS = [
   { label: '20 kg', value: 20 },
   { label: '15 kg', value: 15 },
   { label: '10 kg', value: 10 },
-  { label: '7 kg',  value: 7  }, // training bar
+  { label: '7 kg', value: 7 }, // training bar
 ];
 
 const STEPPER_DELTAS = [2.5, 5, 10];
@@ -40,18 +46,22 @@ const SVG_HEIGHT = 140;
 // component because these represent real-world barbell color codes, not
 // the brand's visual identity — they don't belong in tokens.ts.
 const PLATE_COLOR: Record<number, string> = {
-  25:   '#C9302C',   // red
-  20:   '#1F6FB5',   // blue
-  15:   '#EBA833',   // yellow
-  10:   '#3A9B47',   // green
-  5:    '#F5F5F5',
-  2.5:  '#D4D4D4',
+  25: '#C9302C', // red
+  20: '#1F6FB5', // blue
+  15: '#EBA833', // yellow
+  10: '#3A9B47', // green
+  5: '#F5F5F5',
+  2.5: '#D4D4D4',
   1.25: '#9B9B9B',
-  0.5:  '#636363',
+  0.5: '#636363',
 };
 
 export default function PlateCalculator({
-  visible, initialTarget, initialBar = 20, onConfirm, onClose,
+  visible,
+  initialTarget,
+  initialBar = 20,
+  onConfirm,
+  onClose,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [target, setTarget] = useState<number>(roundTo(initialTarget, 0.5));
@@ -113,7 +123,8 @@ export default function PlateCalculator({
           {/* Warning */}
           {solution.warning === 'odd-target' && (
             <Text style={styles.warning}>
-              Falta {stripZero(solution.shortBy)} kg para llegar al objetivo con los discos disponibles.
+              Falta {stripZero(solution.shortBy)} kg para llegar al objetivo con los discos
+              disponibles.
             </Text>
           )}
           {solution.warning === 'below-bar' && (
@@ -143,7 +154,10 @@ export default function PlateCalculator({
             {BAR_OPTIONS.map((opt) => (
               <Pressable
                 key={opt.value}
-                onPress={() => { Haptics.selectionAsync().catch(() => {}); setBar(opt.value); }}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setBar(opt.value);
+                }}
                 style={({ pressed }) => [
                   styles.barPill,
                   bar === opt.value && styles.barPillActive,
@@ -194,7 +208,7 @@ function BarbellSvg({ solution, bar: _bar }: { solution: PlateSolution; bar: num
 
   let runningX = sleeveLen;
   const rightPlates = plateOrder.map((p, idx) => {
-    const heightRatio = plateMinH + ((p.size / maxSize) * (plateMaxH - plateMinH));
+    const heightRatio = plateMinH + (p.size / maxSize) * (plateMaxH - plateMinH);
     const xOffset = runningX;
     runningX += PLATE_WIDTH + PLATE_GAP;
     return { p, idx, xOffset, heightRatio };
@@ -203,23 +217,9 @@ function BarbellSvg({ solution, bar: _bar }: { solution: PlateSolution; bar: num
   return (
     <Svg width={w} height={h}>
       {/* Bar shaft — runs full width */}
-      <Rect
-        x={0}
-        y={h / 2 - 4}
-        width={w}
-        height={8}
-        rx={2}
-        fill={Colors.ink.tertiary}
-      />
+      <Rect x={0} y={h / 2 - 4} width={w} height={8} rx={2} fill={Colors.ink.tertiary} />
       {/* Center collar (visual anchor) */}
-      <Rect
-        x={cx - 14}
-        y={h / 2 - 14}
-        width={28}
-        height={28}
-        rx={3}
-        fill={Colors.ink.secondary}
-      />
+      <Rect x={cx - 14} y={h / 2 - 14} width={28} height={28} rx={3} fill={Colors.ink.secondary} />
 
       {/* Right-side plates */}
       <G>
@@ -322,8 +322,12 @@ const styles = StyleSheet.create({
     ...Shadows.card,
   },
   handle: {
-    alignSelf: 'center', width: 36, height: 4, borderRadius: 2,
-    backgroundColor: Colors.hair.strong, marginBottom: Spacing.md,
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.hair.strong,
+    marginBottom: Spacing.md,
   },
   title: { ...Type.titleSmall, color: Colors.ink.primary },
   subtitle: { ...Type.caption, color: Colors.ink.tertiary, marginTop: 2, marginBottom: Spacing.lg },

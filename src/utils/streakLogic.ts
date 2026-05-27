@@ -2,7 +2,7 @@ import { DayEntry, StreakData, normalizeDate, isSameDay } from '../types/progres
 
 /**
  * Calcula la racha actual basándose en continuidad diaria
- * 
+ *
  * REGLAS:
  * - Racha aumenta si hay actividad (training o rest) el día anterior
  * - Racha se reinicia si hay un día sin registro
@@ -19,7 +19,7 @@ export function calculateStreak(entries: DayEntry[]): StreakData {
 
   // Ordenar por fecha descendente (más reciente primero)
   const sortedEntries = [...entries]
-    .filter(e => e.type !== 'empty') // Ignorar días vacíos
+    .filter((e) => e.type !== 'empty') // Ignorar días vacíos
     .sort((a, b) => b.timestamp - a.timestamp);
 
   if (sortedEntries.length === 0) {
@@ -52,7 +52,7 @@ export function calculateStreak(entries: DayEntry[]): StreakData {
 
     for (const entry of sortedEntries) {
       const entryDate = normalizeDate(entry.date);
-      
+
       if (isSameDay(entryDate, expectedDate)) {
         currentStreak++;
         tempStreak++;
@@ -70,7 +70,7 @@ export function calculateStreak(entries: DayEntry[]): StreakData {
 
   for (const entry of sortedEntries) {
     const entryDate = normalizeDate(entry.date);
-    
+
     if (!prevDate) {
       tempStreak = 1;
     } else {
@@ -82,10 +82,10 @@ export function calculateStreak(entries: DayEntry[]): StreakData {
         tempStreak = 1;
       }
     }
-    
+
     prevDate = entryDate;
   }
-  
+
   longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
 
   return {
@@ -112,14 +112,14 @@ export function getCurrentWeek(): { startDate: Date; endDate: Date } {
   const today = normalizeDate(new Date());
   const dayOfWeek = today.getDay();
   const monday = new Date(today);
-  
+
   // Ajustar al lunes de esta semana
   const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   monday.setDate(today.getDate() - daysToMonday);
-  
+
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  
+
   return { startDate: monday, endDate: sunday };
 }
 
@@ -131,5 +131,5 @@ export function getWeekNumber(date: Date): number {
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }

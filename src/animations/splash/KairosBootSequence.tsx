@@ -24,7 +24,7 @@ const SPHERE_SIZE = 38;
 const CUBE_SIZE = 56;
 const SATELLITE_SIZE = 16;
 const DIVISION_BLOCK_SIZE = 28;
-const LETTER_SPACING = 36;        // px between letter centers
+const LETTER_SPACING = 36; // px between letter centers
 const WORDMARK_TOTAL = (LETTERS.length - 1) * LETTER_SPACING;
 const SPHERE_RX = SPHERE_SIZE / 2;
 const CUBE_RX = 4;
@@ -42,7 +42,7 @@ const T_EMISSION = 520;
 const EMISSION_FADE_MS = 180;
 const EMISSION_TRAVEL_MS = 640;
 const EMISSION_DISTANCE = 70;
-const EMISSION_ANGLES = [-115, -25, 70];   // degrees, asymmetric like the reference
+const EMISSION_ANGLES = [-115, -25, 70]; // degrees, asymmetric like the reference
 const EMISSION_STAGGER = 70;
 
 const T_RETURN = 1280;
@@ -54,7 +54,7 @@ const CUBE_MORPH_MS = 540;
 const T_DIVISION = 2380;
 const DIVISION_FADE_OUT_MS = 280;
 const DIVISION_EMERGE_MS = 520;
-const DIVISION_STAGGER = 70;     // left-to-right ripple
+const DIVISION_STAGGER = 70; // left-to-right ripple
 
 const T_MUTATION = 3060;
 const MUTATION_MS = 720;
@@ -179,8 +179,14 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
 
       // Emission satellites fade as they merge back into the core.
       emissionBlocks.forEach((block) => {
-        block.opacity.value = withTiming(0, { duration: CUBE_MORPH_MS * 0.6, easing: EASE_GENTLE_OUT });
-        block.scale.value = withTiming(0.4, { duration: CUBE_MORPH_MS * 0.6, easing: EASE_GENTLE_OUT });
+        block.opacity.value = withTiming(0, {
+          duration: CUBE_MORPH_MS * 0.6,
+          easing: EASE_GENTLE_OUT,
+        });
+        block.scale.value = withTiming(0.4, {
+          duration: CUBE_MORPH_MS * 0.6,
+          easing: EASE_GENTLE_OUT,
+        });
       });
 
       // The core shape grows and squares off — single continuous morph.
@@ -197,7 +203,10 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
     // ═════════════════════ PHASE 5: LEFT-TO-RIGHT DIVISION ═════════════
     t(T_DIVISION, () => {
       // Core fades while 6 blocks ripple out from left to right.
-      coreOpacity.value = withTiming(0, { duration: DIVISION_FADE_OUT_MS, easing: EASE_GENTLE_OUT });
+      coreOpacity.value = withTiming(0, {
+        duration: DIVISION_FADE_OUT_MS,
+        easing: EASE_GENTLE_OUT,
+      });
 
       divisionBlocks.forEach((block, i) => {
         const targetX = startX + i * LETTER_SPACING;
@@ -221,7 +230,10 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
 
       letterReveals.forEach((reveal, i) => {
         t(i * MUTATION_STAGGER, () => {
-          reveal.value = withTiming(1, { duration: MUTATION_MS - i * MUTATION_STAGGER, easing: EASE_FLUID });
+          reveal.value = withTiming(1, {
+            duration: MUTATION_MS - i * MUTATION_STAGGER,
+            easing: EASE_FLUID,
+          });
         });
       });
 
@@ -247,7 +259,10 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
       // triangular formation around the stage center — the resting glyph.
       t(REVERSE_GATHER_DELAY, () => {
         [3, 4, 5].forEach((i) => {
-          divisionBlocks[i].opacity.value = withTiming(0, { duration: REVERSE_GATHER_MS * 0.6, easing: EASE_GENTLE_OUT });
+          divisionBlocks[i].opacity.value = withTiming(0, {
+            duration: REVERSE_GATHER_MS * 0.6,
+            easing: EASE_GENTLE_OUT,
+          });
         });
 
         const isoOffset = 16;
@@ -255,8 +270,14 @@ export default function KairosBootSequence({ onDone }: KairosBootSequenceProps) 
           const angle = (i * 120 - 90) * (Math.PI / 180);
           const tx = CENTER + Math.cos(angle) * isoOffset;
           const ty = CENTER + Math.sin(angle) * isoOffset;
-          divisionBlocks[i].x.value = withTiming(tx, { duration: REVERSE_GATHER_MS, easing: EASE_FLUID });
-          divisionBlocks[i].y.value = withTiming(ty, { duration: REVERSE_GATHER_MS, easing: EASE_FLUID });
+          divisionBlocks[i].x.value = withTiming(tx, {
+            duration: REVERSE_GATHER_MS,
+            easing: EASE_FLUID,
+          });
+          divisionBlocks[i].y.value = withTiming(ty, {
+            duration: REVERSE_GATHER_MS,
+            easing: EASE_FLUID,
+          });
         });
       });
     });

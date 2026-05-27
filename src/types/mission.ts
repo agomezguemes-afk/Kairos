@@ -10,10 +10,10 @@ export type MissionStatus = 'active' | 'completed' | 'skipped' | 'expired';
 // ======================== MISSION CATEGORY ========================
 
 export type MissionCategory =
-  | 'volume'       // complete X blocks/sets
-  | 'pr'           // beat a personal record
-  | 'streak'       // maintain streak
-  | 'exploration'  // try new exercises/disciplines
+  | 'volume' // complete X blocks/sets
+  | 'pr' // beat a personal record
+  | 'streak' // maintain streak
+  | 'exploration' // try new exercises/disciplines
   | 'consistency'; // train X days
 
 // ======================== MISSION ========================

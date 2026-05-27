@@ -16,7 +16,7 @@ interface SubBlockNodeProps {
 
 function SubBlockNodeInner({ node, onNavigate, onDelete }: SubBlockNodeProps) {
   const subBlock = useWorkoutStore(
-    React.useCallback((s) => s.blocks.find(b => b.id === node.data.blockId), [node.data.blockId]),
+    React.useCallback((s) => s.blocks.find((b) => b.id === node.data.blockId), [node.data.blockId]),
   );
 
   if (!subBlock) {
@@ -46,7 +46,9 @@ function SubBlockNodeInner({ node, onNavigate, onDelete }: SubBlockNodeProps) {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <Feather name="layers" size={16} color={color} />
-          <Text style={styles.name} numberOfLines={1}>{subBlock.name}</Text>
+          <Text style={styles.name} numberOfLines={1}>
+            {subBlock.name}
+          </Text>
           <Feather name="chevron-right" size={16} color={Colors.text.tertiary} />
         </View>
         {stats.total_exercises > 0 && (

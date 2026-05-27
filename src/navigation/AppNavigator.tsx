@@ -40,7 +40,7 @@ import { Colors } from '../theme/index';
 import { SKIP_AUTH } from '../config/constants';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab   = createBottomTabNavigator<DashboardTabParamList>();
+const Tab = createBottomTabNavigator<DashboardTabParamList>();
 
 // ======================== DASHBOARD TABS ========================
 
@@ -55,10 +55,10 @@ function DashboardTabs() {
         tabBarStyle: { position: 'absolute' },
       }}
     >
-      <Tab.Screen name="HomeTab"     component={HomeTab} />
-      <Tab.Screen name="WorkoutTab"  component={BlocksScreen} />
+      <Tab.Screen name="HomeTab" component={HomeTab} />
+      <Tab.Screen name="WorkoutTab" component={BlocksScreen} />
       <Tab.Screen name="ProgressTab" component={ProgressTab} />
-      <Tab.Screen name="ProfileTab"  component={ProfileTab} />
+      <Tab.Screen name="ProfileTab" component={ProfileTab} />
     </Tab.Navigator>
   );
 }
@@ -81,8 +81,12 @@ export default function AppNavigator() {
         <NavigationContainer>
           {onboarded ? (
             <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Dashboard"    component={DashboardTabs} />
-              <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
+              <Stack.Screen name="Dashboard" component={DashboardTabs} />
+              <Stack.Screen
+                name="BlockDetail"
+                component={BlockEditorScreen}
+                options={{ animation: 'slide_from_right' }}
+              />
               <Stack.Screen
                 name="ActiveWorkout"
                 component={ActiveWorkoutScreen}
@@ -99,17 +103,25 @@ export default function AppNavigator() {
                   gestureEnabled: false,
                 }}
               />
-              <Stack.Screen name="Badges"        component={BadgesScreen} />
-              <Stack.Screen name="PRCards"       component={PRCardsScreen} />
-              <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
-              <Stack.Screen name="AIChat"        component={AIChatScreen} />
-              <Stack.Screen name="AILabScreen"   component={AILabScreen} options={{ presentation: 'modal' }} />
+              <Stack.Screen name="Badges" component={BadgesScreen} />
+              <Stack.Screen name="PRCards" component={PRCardsScreen} />
+              <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
+              <Stack.Screen name="AIChat" component={AIChatScreen} />
+              <Stack.Screen
+                name="AILabScreen"
+                component={AILabScreen}
+                options={{ presentation: 'modal' }}
+              />
             </Stack.Navigator>
           ) : (
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-              <Stack.Screen name="Dashboard"  component={DashboardTabs} />
-              <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
+              <Stack.Screen name="Dashboard" component={DashboardTabs} />
+              <Stack.Screen
+                name="BlockDetail"
+                component={BlockEditorScreen}
+                options={{ animation: 'slide_from_right' }}
+              />
               <Stack.Screen
                 name="ActiveWorkout"
                 component={ActiveWorkoutScreen}
@@ -126,11 +138,15 @@ export default function AppNavigator() {
                   gestureEnabled: false,
                 }}
               />
-              <Stack.Screen name="Badges"        component={BadgesScreen} />
-              <Stack.Screen name="PRCards"       component={PRCardsScreen} />
-              <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
-              <Stack.Screen name="AIChat"        component={AIChatScreen} />
-              <Stack.Screen name="AILabScreen"   component={AILabScreen} options={{ presentation: 'modal' }} />
+              <Stack.Screen name="Badges" component={BadgesScreen} />
+              <Stack.Screen name="PRCards" component={PRCardsScreen} />
+              <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
+              <Stack.Screen name="AIChat" component={AIChatScreen} />
+              <Stack.Screen
+                name="AILabScreen"
+                component={AILabScreen}
+                options={{ presentation: 'modal' }}
+              />
             </Stack.Navigator>
           )}
         </NavigationContainer>
@@ -159,31 +175,51 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!session ? (
           <>
-            <Stack.Screen name="Welcome"      component={WelcomeScreen} />
-            <Stack.Screen name="Auth"          component={AuthScreen} />
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Auth" component={AuthScreen} />
           </>
         ) : !isOnboardingComplete ? (
           <>
             <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-            <Stack.Screen name="Onboarding"   component={OnboardingChatScreen} />
+            <Stack.Screen name="Onboarding" component={OnboardingChatScreen} />
           </>
         ) : !onboarded ? (
           <>
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-            <Stack.Screen name="Dashboard"  component={DashboardTabs} />
-            <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+            <Stack.Screen name="Dashboard" component={DashboardTabs} />
+            <Stack.Screen
+              name="BlockDetail"
+              component={BlockEditorScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="ActiveWorkout"
+              component={ActiveWorkoutScreen}
+              options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+            />
           </>
         ) : (
           <>
-            <Stack.Screen name="Dashboard"    component={DashboardTabs} />
-            <Stack.Screen name="BlockDetail"   component={BlockEditorScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="ActiveWorkout" component={ActiveWorkoutScreen} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-            <Stack.Screen name="Badges"        component={BadgesScreen} />
-            <Stack.Screen name="PRCards"       component={PRCardsScreen} />
-            <Stack.Screen name="ProgressTree"  component={ProgressTreeScreen} />
-            <Stack.Screen name="AIChat"        component={AIChatScreen} />
-            <Stack.Screen name="AILabScreen"   component={AILabScreen} options={{ presentation: 'modal' }} />
+            <Stack.Screen name="Dashboard" component={DashboardTabs} />
+            <Stack.Screen
+              name="BlockDetail"
+              component={BlockEditorScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="ActiveWorkout"
+              component={ActiveWorkoutScreen}
+              options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+            />
+            <Stack.Screen name="Badges" component={BadgesScreen} />
+            <Stack.Screen name="PRCards" component={PRCardsScreen} />
+            <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
+            <Stack.Screen name="AIChat" component={AIChatScreen} />
+            <Stack.Screen
+              name="AILabScreen"
+              component={AILabScreen}
+              options={{ presentation: 'modal' }}
+            />
           </>
         )}
       </Stack.Navigator>

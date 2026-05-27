@@ -34,7 +34,13 @@ import { useWorkoutStore, type WorkoutHistoryEntry } from '../store/workoutStore
 import { useScheduleStore } from '../store/scheduleStore';
 import { todayISO } from '../features/planner/lib/dates';
 import type { RootStackParamList } from '../types/navigation';
-import type { ExerciseCard, ExerciseSet, FieldValue, FieldDefinition, Discipline } from '../types/core';
+import type {
+  ExerciseCard,
+  ExerciseSet,
+  FieldValue,
+  FieldDefinition,
+  Discipline,
+} from '../types/core';
 import { createExerciseCard } from '../types/core';
 import { Colors, Type, Spacing, Radius, Shadows, Animation } from '../theme/tokens';
 import {
@@ -42,7 +48,12 @@ import {
   formatReference,
   type PreviousReference,
 } from '../components/workout/lib/previousReference';
-import { detectPR, formatPRDelta, PR_LABEL, type PRResult } from '../components/workout/lib/prDetection';
+import {
+  detectPR,
+  formatPRDelta,
+  PR_LABEL,
+  type PRResult,
+} from '../components/workout/lib/prDetection';
 
 type Route = RouteProp<RootStackParamList, 'ActiveWorkout'>;
 
@@ -136,7 +147,10 @@ function PreviousRefPill({ reference }: { reference: PreviousReference }) {
       ? formatRelativeAgo(reference.performedAt)
       : null;
   return (
-    <View style={styles.refPill} accessibilityLabel={`Última vez: ${formatted}${date ? `, ${date}` : ''}`}>
+    <View
+      style={styles.refPill}
+      accessibilityLabel={`Última vez: ${formatted}${date ? `, ${date}` : ''}`}
+    >
       <Text style={styles.refPillLabel}>Última</Text>
       <Text style={styles.refPillDot}>·</Text>
       <Text style={styles.refPillValue}>{formatted}</Text>
@@ -151,23 +165,23 @@ function PreviousRefPill({ reference }: { reference: PreviousReference }) {
 }
 
 export default function ActiveWorkoutScreen() {
-  const route   = useRoute<Route>();
-  const nav     = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const insets  = useSafeAreaInsets();
+  const route = useRoute<Route>();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const { blockId, assignmentId, scheduledDate, source } = route.params;
 
-  const aw                   = useWorkoutStore((s) => s.activeWorkout);
-  const workoutHistory       = useWorkoutStore((s) => s.workoutHistory);
-  const startWorkout         = useWorkoutStore((s) => s.startWorkout);
-  const completeSet          = useWorkoutStore((s) => s.completeSet);
-  const skipRest             = useWorkoutStore((s) => s.skipRest);
-  const extendRest           = useWorkoutStore((s) => s.extendRest);
+  const aw = useWorkoutStore((s) => s.activeWorkout);
+  const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
+  const startWorkout = useWorkoutStore((s) => s.startWorkout);
+  const completeSet = useWorkoutStore((s) => s.completeSet);
+  const skipRest = useWorkoutStore((s) => s.skipRest);
+  const extendRest = useWorkoutStore((s) => s.extendRest);
   const setExerciseRestForCurrent = useWorkoutStore((s) => s.setExerciseRestForCurrent);
-  const nextExercise         = useWorkoutStore((s) => s.nextExercise);
-  const previousExercise     = useWorkoutStore((s) => s.previousExercise);
-  const goToSet              = useWorkoutStore((s) => s.goToSet);
-  const finishWorkout        = useWorkoutStore((s) => s.finishWorkout);
-  const cancelWorkout        = useWorkoutStore((s) => s.cancelWorkout);
+  const nextExercise = useWorkoutStore((s) => s.nextExercise);
+  const previousExercise = useWorkoutStore((s) => s.previousExercise);
+  const goToSet = useWorkoutStore((s) => s.goToSet);
+  const finishWorkout = useWorkoutStore((s) => s.finishWorkout);
+  const cancelWorkout = useWorkoutStore((s) => s.cancelWorkout);
   const appendActiveExercise = useWorkoutStore((s) => s.appendActiveExercise);
   const block = useWorkoutStore(
     useCallback((s) => s.blocks.find((b) => b.id === blockId) ?? null, [blockId]),
@@ -203,7 +217,9 @@ export default function ActiveWorkoutScreen() {
 
   // ===== per-set action sheet (kind/RPE/notes) =====
   // Opened by long-press on any set row. Targets a specific (exerciseId, setId).
-  const [actionTarget, setActionTarget] = useState<{ exerciseId: string; setId: string } | null>(null);
+  const [actionTarget, setActionTarget] = useState<{ exerciseId: string; setId: string } | null>(
+    null,
+  );
 
   // ===== current state =====
   const exercise: ExerciseCard | null = useMemo(() => {
@@ -273,7 +289,7 @@ export default function ActiveWorkoutScreen() {
   }, [currentSet?.id]);
 
   // ===== fade transition between exercises =====
-  const fade    = useSharedValue(1);
+  const fade = useSharedValue(1);
   const fadedKey = useRef<string | null>(null);
   useEffect(() => {
     const key = `${aw?.currentExerciseIndex ?? -1}`;
@@ -291,21 +307,17 @@ export default function ActiveWorkoutScreen() {
 
   // ===== handlers =====
   const handleExit = useCallback(() => {
-    Alert.alert(
-      'Salir de la sesión',
-      'El progreso no se guardará.',
-      [
-        { text: 'Continuar', style: 'cancel' },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: () => {
-            cancelWorkout();
-            nav.goBack();
-          },
+    Alert.alert('Salir de la sesión', 'El progreso no se guardará.', [
+      { text: 'Continuar', style: 'cancel' },
+      {
+        text: 'Salir',
+        style: 'destructive',
+        onPress: () => {
+          cancelWorkout();
+          nav.goBack();
         },
-      ],
-    );
+      },
+    ]);
   }, [cancelWorkout, nav]);
 
   const handleFieldChange = useCallback((fieldId: string, value: FieldValue) => {
@@ -315,15 +327,12 @@ export default function ActiveWorkoutScreen() {
   // Long-press on a numeric chip — open plate calculator if the field is
   // a kg-based weight field. Gated upstream of the modal so non-weight
   // fields silently ignore the gesture rather than opening an irrelevant UI.
-  const handleLongPressField = useCallback(
-    (field: FieldDefinition, currentValue: number) => {
-      const isWeightLike = field.id === 'weight' || field.unit === 'kg';
-      if (!isWeightLike) return;
-      setCalcTarget(currentValue > 0 ? currentValue : 60);
-      setCalcOpen(true);
-    },
-    [],
-  );
+  const handleLongPressField = useCallback((field: FieldDefinition, currentValue: number) => {
+    const isWeightLike = field.id === 'weight' || field.unit === 'kg';
+    if (!isWeightLike) return;
+    setCalcTarget(currentValue > 0 ? currentValue : 60);
+    setCalcOpen(true);
+  }, []);
 
   const handleCalcConfirm = useCallback(
     (newTarget: number) => {
@@ -384,29 +393,32 @@ export default function ActiveWorkoutScreen() {
   // finishWorkout() runs because that call clears activeWorkout.
   // Prefer the assignment context the session was started with (precise);
   // only fall back to the today/blockId search when started "free".
-  const markScheduleComplete = useCallback((ctx: {
-    blockId: string | undefined;
-    assignmentId: string | undefined;
-    scheduledDate: string | undefined;
-  }) => {
-    if (!ctx.blockId) return;
-    if (ctx.assignmentId && ctx.scheduledDate) {
-      useScheduleStore.getState().completeOccurrence(ctx.assignmentId, ctx.scheduledDate);
-      return;
-    }
-    const today = todayISO();
-    const resolved = useScheduleStore.getState().resolveDate(today);
-    const match = resolved.find((r) => r.blockId === ctx.blockId);
-    if (match) {
-      useScheduleStore.getState().completeOccurrence(match.assignmentId, today);
-    }
-  }, []);
+  const markScheduleComplete = useCallback(
+    (ctx: {
+      blockId: string | undefined;
+      assignmentId: string | undefined;
+      scheduledDate: string | undefined;
+    }) => {
+      if (!ctx.blockId) return;
+      if (ctx.assignmentId && ctx.scheduledDate) {
+        useScheduleStore.getState().completeOccurrence(ctx.assignmentId, ctx.scheduledDate);
+        return;
+      }
+      const today = todayISO();
+      const resolved = useScheduleStore.getState().resolveDate(today);
+      const match = resolved.find((r) => r.blockId === ctx.blockId);
+      if (match) {
+        useScheduleStore.getState().completeOccurrence(match.assignmentId, today);
+      }
+    },
+    [],
+  );
 
   const handleFinish = useCallback(() => {
     const ctx = {
-      blockId:        aw?.blockId,
-      assignmentId:   aw?.assignmentId,
-      scheduledDate:  aw?.scheduledDate,
+      blockId: aw?.blockId,
+      assignmentId: aw?.assignmentId,
+      scheduledDate: aw?.scheduledDate,
     };
     const s = finishWorkout();
     if (s) {
@@ -433,8 +445,8 @@ export default function ActiveWorkoutScreen() {
   useEffect(() => {
     if (allCompleted && aw && !summary) {
       const ctx = {
-        blockId:       aw.blockId,
-        assignmentId:  aw.assignmentId,
+        blockId: aw.blockId,
+        assignmentId: aw.assignmentId,
         scheduledDate: aw.scheduledDate,
       };
       const s = finishWorkout();
@@ -534,10 +546,7 @@ export default function ActiveWorkoutScreen() {
           spine. Completed exercises fill solid gold, current pulses, future
           stay hollow. Replaces the prior 1px hairline progress bar. */}
       <View style={styles.spineWrap}>
-        <WorkoutSpineProgress
-          exercises={aw.exercises}
-          currentIndex={aw.currentExerciseIndex}
-        />
+        <WorkoutSpineProgress exercises={aw.exercises} currentIndex={aw.currentExerciseIndex} />
       </View>
 
       {/* Main */}
@@ -582,9 +591,7 @@ export default function ActiveWorkoutScreen() {
               <View style={styles.setList}>
                 {exercise.sets.map((s, i) => {
                   const isCurrent = i === aw.currentSetIndex;
-                  const summary = s.completed
-                    ? formatSetSummary(s, exercise.fields)
-                    : '';
+                  const summary = s.completed ? formatSetSummary(s, exercise.fields) : '';
                   const kind = s.kind ?? 'working';
                   const a11yMeta =
                     (kind !== 'working' ? `, tipo ${kind}` : '') +
@@ -592,8 +599,11 @@ export default function ActiveWorkoutScreen() {
                     (s.notes ? ', con nota' : '');
                   const a11y =
                     `Set ${i + 1}` +
-                    (s.completed ? `, completado${summary ? `, ${summary}` : ''}` :
-                     isCurrent  ? ', activo' : '') +
+                    (s.completed
+                      ? `, completado${summary ? `, ${summary}` : ''}`
+                      : isCurrent
+                        ? ', activo'
+                        : '') +
                     a11yMeta;
                   const handleSetLongPress = () => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -614,15 +624,16 @@ export default function ActiveWorkoutScreen() {
                           pressed && { opacity: 0.85 },
                         ]}
                       >
-                        <View style={[
-                          styles.setDot,
-                          s.completed && styles.setDotDone,
-                          !s.completed && isCurrent && styles.setDotActive,
-                        ]} />
-                        <Text style={[
-                          styles.setIndex,
-                          (s.completed || isCurrent) && styles.setIndexOn,
-                        ]}>
+                        <View
+                          style={[
+                            styles.setDot,
+                            s.completed && styles.setDotDone,
+                            !s.completed && isCurrent && styles.setDotActive,
+                          ]}
+                        />
+                        <Text
+                          style={[styles.setIndex, (s.completed || isCurrent) && styles.setIndexOn]}
+                        >
                           {i + 1}
                         </Text>
                         {s.completed && summary ? (

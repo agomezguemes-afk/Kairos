@@ -11,14 +11,7 @@
 
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, {
-  Defs,
-  LinearGradient,
-  Stop,
-  Polyline,
-  Polygon,
-  Circle,
-} from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Polyline, Polygon, Circle } from 'react-native-svg';
 import { Colors } from '../../../../theme/tokens';
 
 interface Props {
@@ -42,14 +35,15 @@ function SparklineImpl({
   hideDot = false,
 }: Props) {
   const { points, fillPoints, lastX, lastY, line } = useMemo(() => {
-    if (data.length < 2) return { points: '', fillPoints: '', lastX: 0, lastY: 0, line: Colors.ink.muted };
+    if (data.length < 2)
+      return { points: '', fillPoints: '', lastX: 0, lastY: 0, line: Colors.ink.muted };
     const min = Math.min(...data);
     const max = Math.max(...data);
     const range = max - min;
     const stepX = width / (data.length - 1);
     // 1.5px inset so the stroke doesn't clip at top/bottom edges.
     const innerH = height - 3;
-    const ys = data.map(v => {
+    const ys = data.map((v) => {
       if (range === 0) return height / 2;
       return 1.5 + (1 - (v - min) / range) * innerH;
     });
@@ -86,9 +80,7 @@ function SparklineImpl({
         strokeLinejoin="round"
         strokeLinecap="round"
       />
-      {!hideDot && (
-        <Circle cx={lastX} cy={lastY} r={2} fill={line} />
-      )}
+      {!hideDot && <Circle cx={lastX} cy={lastY} r={2} fill={line} />}
     </Svg>
   );
 }

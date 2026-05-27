@@ -32,11 +32,7 @@ import {
   libraryByMuscleGroup,
   type ExerciseLibraryEntry,
 } from '../../../data/exerciseLibrary';
-import {
-  MUSCLE_GROUP_CONFIGS,
-  type Discipline,
-  type MuscleGroup,
-} from '../../../types/core';
+import { MUSCLE_GROUP_CONFIGS, type Discipline, type MuscleGroup } from '../../../types/core';
 
 type FilterId = 'todos' | 'piernas' | MuscleGroup;
 interface FilterDef {
@@ -46,14 +42,14 @@ interface FilterDef {
 
 // Filter rail. "Piernas" is a virtual aggregate of the lower-region muscles.
 const FILTERS: FilterDef[] = [
-  { id: 'todos',     label: 'Todos' },
-  { id: 'chest',     label: 'Pecho' },
-  { id: 'back',      label: 'Espalda' },
+  { id: 'todos', label: 'Todos' },
+  { id: 'chest', label: 'Pecho' },
+  { id: 'back', label: 'Espalda' },
   { id: 'shoulders', label: 'Hombros' },
-  { id: 'piernas',   label: 'Piernas' },
-  { id: 'core',      label: 'Core' },
+  { id: 'piernas', label: 'Piernas' },
+  { id: 'core', label: 'Core' },
   { id: 'cardio_engine', label: 'Cardio' },
-  { id: 'mobility',  label: 'Movilidad' },
+  { id: 'mobility', label: 'Movilidad' },
 ];
 
 const LEG_GROUPS: MuscleGroup[] = ['quads', 'hamstrings', 'glutes', 'calves'];
@@ -63,9 +59,7 @@ function disciplineColor(d: Discipline): string {
 }
 
 function muscleLabels(groups: MuscleGroup[]): string {
-  return groups
-    .map((g) => MUSCLE_GROUP_CONFIGS[g]?.label ?? g)
-    .join(' · ');
+  return groups.map((g) => MUSCLE_GROUP_CONFIGS[g]?.label ?? g).join(' · ');
 }
 
 interface Props {
@@ -110,9 +104,12 @@ export default function ExerciseLibrarySheet({ visible, blockId, onClose }: Prop
     onClose();
   }, [onClose]);
 
-  const renderRow = useCallback(({ item }: ListRenderItemInfo<ExerciseLibraryEntry>) => (
-    <ExerciseRow entry={item} onPress={() => handleSelect(item)} />
-  ), [handleSelect]);
+  const renderRow = useCallback(
+    ({ item }: ListRenderItemInfo<ExerciseLibraryEntry>) => (
+      <ExerciseRow entry={item} onPress={() => handleSelect(item)} />
+    ),
+    [handleSelect],
+  );
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
@@ -208,8 +205,12 @@ const ExerciseRow = React.memo(function ExerciseRow({ entry, onPress }: RowProps
     >
       <View style={[styles.dot, { backgroundColor: color }]} />
       <View style={styles.rowBody}>
-        <Text style={styles.rowName} numberOfLines={1}>{entry.name}</Text>
-        <Text style={styles.rowMeta} numberOfLines={1}>{muscleLabels(entry.muscleGroups)}</Text>
+        <Text style={styles.rowName} numberOfLines={1}>
+          {entry.name}
+        </Text>
+        <Text style={styles.rowMeta} numberOfLines={1}>
+          {muscleLabels(entry.muscleGroups)}
+        </Text>
       </View>
     </Pressable>
   );

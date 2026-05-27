@@ -24,9 +24,9 @@ interface Props {
 type StreakTier = 'none' | 'start' | 'steady' | 'veteran';
 
 function streakTier(days: number): StreakTier {
-  if (days <= 0)  return 'none';
-  if (days < 7)   return 'start';
-  if (days < 30)  return 'steady';
+  if (days <= 0) return 'none';
+  if (days < 7) return 'start';
+  if (days < 30) return 'steady';
   return 'veteran';
 }
 
@@ -49,9 +49,9 @@ export default function PlannerHeader({ onStreakPress }: Props) {
           accessibilityLabel={`Constancia ${streak.current} días`}
           style={({ pressed }) => [
             styles.streakPill,
-            tier === 'none'    && styles.streakPillNone,
-            tier === 'start'   && styles.streakPillStart,
-            tier === 'steady'  && styles.streakPillSteady,
+            tier === 'none' && styles.streakPillNone,
+            tier === 'start' && styles.streakPillStart,
+            tier === 'steady' && styles.streakPillSteady,
             tier === 'veteran' && styles.streakPillVeteran,
             pressed && styles.streakPillPressed,
           ]}
@@ -59,8 +59,8 @@ export default function PlannerHeader({ onStreakPress }: Props) {
           <Text
             style={[
               styles.streakLabel,
-              tier === 'none'    && styles.streakLabelNone,
-              tier === 'start'   && styles.streakLabelStart,
+              tier === 'none' && styles.streakLabelNone,
+              tier === 'start' && styles.streakLabelStart,
               (tier === 'steady' || tier === 'veteran') && styles.streakLabelStrong,
             ]}
           >
@@ -69,8 +69,8 @@ export default function PlannerHeader({ onStreakPress }: Props) {
           <Text
             style={[
               styles.streakDot,
-              tier === 'none'    && styles.streakLabelNone,
-              tier === 'start'   && styles.streakLabelStart,
+              tier === 'none' && styles.streakLabelNone,
+              tier === 'start' && styles.streakLabelStart,
               (tier === 'steady' || tier === 'veteran') && styles.streakLabelStrong,
             ]}
           >
@@ -79,8 +79,8 @@ export default function PlannerHeader({ onStreakPress }: Props) {
           <Text
             style={[
               styles.streakText,
-              tier === 'none'    && styles.streakLabelNone,
-              tier === 'start'   && styles.streakLabelStart,
+              tier === 'none' && styles.streakLabelNone,
+              tier === 'start' && styles.streakLabelStart,
               (tier === 'steady' || tier === 'veteran') && styles.streakLabelStrong,
             ]}
           >
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     ...Type.micro,
     fontWeight: '700',
   },
-  streakLabelNone:   { color: Colors.ink.tertiary },
-  streakLabelStart:  { color: Colors.gold.deep },
+  streakLabelNone: { color: Colors.ink.tertiary },
+  streakLabelStart: { color: Colors.gold.deep },
   streakLabelStrong: { color: Colors.ink.inverse },
 });

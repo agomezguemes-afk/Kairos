@@ -69,6 +69,6 @@ export function computeWeekStats(
 /** Compact formatter: 12340 → "12.3k", 940 → "940". */
 export function formatVolume(kg: number): string {
   if (kg >= 10_000) return `${(kg / 1000).toFixed(1).replace(/\.0$/, '')}k`;
-  if (kg >= 1000)   return `${(kg / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  if (kg >= 1000) return `${(kg / 1000).toFixed(1).replace(/\.0$/, '')}k`;
   return Math.round(kg).toString();
 }

@@ -28,10 +28,10 @@ export async function syncNotifications(input: SyncInput): Promise<void> {
   // When disabled, the desired set is empty → effectively cancels all.
   const next = input.enabled
     ? buildNotifications({
-        assignments:     input.assignments,
-        blockNames:      input.blockNames,
+        assignments: input.assignments,
+        blockNames: input.blockNames,
         lastCompletedAt: input.lastCompletedAt,
-        nowMs:           Date.now(),
+        nowMs: Date.now(),
       })
     : [];
 

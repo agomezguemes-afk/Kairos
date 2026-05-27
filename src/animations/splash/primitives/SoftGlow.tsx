@@ -1,9 +1,6 @@
 // src/animations/splash/primitives/SoftGlow.tsx
 import React, { useRef } from 'react';
-import Animated, {
-  SharedValue,
-  useAnimatedProps,
-} from 'react-native-reanimated';
+import Animated, { SharedValue, useAnimatedProps } from 'react-native-reanimated';
 import { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -12,7 +9,7 @@ export interface SoftGlowProps {
   cx: number;
   cy: number;
   baseRadius: number;
-  intensity: SharedValue<number>;  // 0..1
+  intensity: SharedValue<number>; // 0..1
   color?: string;
 }
 
@@ -51,12 +48,7 @@ export default function SoftGlow({
           <Stop offset="100%" stopColor={color} stopOpacity="0" />
         </RadialGradient>
       </Defs>
-      <AnimatedCircle
-        cx={cx}
-        cy={cy}
-        fill={`url(#${id})`}
-        animatedProps={animatedProps}
-      />
+      <AnimatedCircle cx={cx} cy={cy} fill={`url(#${id})`} animatedProps={animatedProps} />
     </>
   );
 }

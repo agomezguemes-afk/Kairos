@@ -22,7 +22,9 @@ export default function MonthGridMock() {
     <View style={styles.outer}>
       <View style={styles.headerRow}>
         {WEEKDAYS.map((d) => (
-          <Text key={d} style={styles.headerText}>{d}</Text>
+          <Text key={d} style={styles.headerText}>
+            {d}
+          </Text>
         ))}
       </View>
       <View style={styles.grid}>
@@ -32,20 +34,8 @@ export default function MonthGridMock() {
           const isAssigned = ASSIGNED.has(i);
           return (
             <View key={i} style={styles.cell}>
-              <View
-                style={[
-                  styles.dayCircle,
-                  isToday && styles.dayCircleToday,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.dayText,
-                    isToday && styles.dayTextToday,
-                  ]}
-                >
-                  {dayNumber}
-                </Text>
+              <View style={[styles.dayCircle, isToday && styles.dayCircleToday]}>
+                <Text style={[styles.dayText, isToday && styles.dayTextToday]}>{dayNumber}</Text>
               </View>
               {isAssigned && <View style={styles.dot} />}
             </View>

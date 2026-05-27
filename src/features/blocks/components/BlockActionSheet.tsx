@@ -10,8 +10,7 @@ import Animated, {
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-import type { ContentNode } from '../../../types/content';
-import type { TextFormat } from '../../../types/content';
+import type { ContentNode , TextFormat } from '../../../types/content';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../../theme/index';
 
 const TIMING_IN = { duration: 250, easing: Easing.out(Easing.cubic) };
@@ -121,7 +120,7 @@ function BlockActionSheet({
                 <Text style={styles.backText}>Convertir en</Text>
               </Pressable>
 
-              {TEXT_FORMATS.map(opt => {
+              {TEXT_FORMATS.map((opt) => {
                 const active = currentFormat === opt.format;
                 return (
                   <Pressable
@@ -162,20 +161,29 @@ function BlockActionSheet({
                 </Pressable>
               )}
 
-              <Pressable onPress={() => doAction(() => onDuplicate(node.id))} style={styles.actionRow}>
+              <Pressable
+                onPress={() => doAction(() => onDuplicate(node.id))}
+                style={styles.actionRow}
+              >
                 <Feather name="copy" size={18} color={Colors.text.secondary} />
                 <Text style={styles.actionLabel}>Duplicar</Text>
               </Pressable>
 
               {!isFirst && (
-                <Pressable onPress={() => doAction(() => onMoveUp(node.id))} style={styles.actionRow}>
+                <Pressable
+                  onPress={() => doAction(() => onMoveUp(node.id))}
+                  style={styles.actionRow}
+                >
                   <Feather name="arrow-up" size={18} color={Colors.text.secondary} />
                   <Text style={styles.actionLabel}>Mover arriba</Text>
                 </Pressable>
               )}
 
               {!isLast && (
-                <Pressable onPress={() => doAction(() => onMoveDown(node.id))} style={styles.actionRow}>
+                <Pressable
+                  onPress={() => doAction(() => onMoveDown(node.id))}
+                  style={styles.actionRow}
+                >
                   <Feather name="arrow-down" size={18} color={Colors.text.secondary} />
                   <Text style={styles.actionLabel}>Mover abajo</Text>
                 </Pressable>

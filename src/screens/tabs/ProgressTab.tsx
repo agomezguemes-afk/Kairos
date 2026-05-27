@@ -14,7 +14,12 @@ import {
 } from './progress/lib/aggregations';
 import { oneRMSeries, summarize1RM } from './progress/lib/oneRM';
 import { buildMonthAdherence } from './progress/lib/adherence';
-import { detectPlateau, detectPRStreak, detectGap, detectConsistent } from './progress/lib/insights';
+import {
+  detectPlateau,
+  detectPRStreak,
+  detectGap,
+  detectConsistent,
+} from './progress/lib/insights';
 import { todayISO } from '../../features/planner/lib/dates';
 import Sparkline from './progress/components/Sparkline';
 import VolumeBarChart from './progress/components/VolumeBarChart';
@@ -36,19 +41,17 @@ export default function ProgressTab() {
   // Resolve current-month adherence. resolveRange is a non-reactive selector,
   // so we depend on assignments (reactive) + history to retrigger.
   const monthAdherence = useMemo(
-    () => buildMonthAdherence({
-      anchor: todayISO(),
-      resolveRange: (s, e) => useScheduleStore.getState().resolveRange(s, e),
-      history,
-    }),
+    () =>
+      buildMonthAdherence({
+        anchor: todayISO(),
+        resolveRange: (s, e) => useScheduleStore.getState().resolveRange(s, e),
+        history,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [assignments, history],
   );
 
-  const headerInsight = useMemo(
-    () => detectGap(history) ?? detectConsistent(history),
-    [history],
-  );
+  const headerInsight = useMemo(() => detectGap(history) ?? detectConsistent(history), [history]);
 
   const chartW = SCREEN_W - Spacing.screen.horizontal * 2;
   const unlockedIds = new Set(badges.map((b) => b.id));
@@ -57,14 +60,15 @@ export default function ProgressTab() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.title}>Progreso</Text>
 
-      {headerInsight && (
-        <Text style={styles.headerInsight}>{headerInsight.label}</Text>
-      )}
+      {headerInsight && <Text style={styles.headerInsight}>{headerInsight.label}</Text>}
 
       {/* Summary stats */}
       <View style={styles.statRow}>
@@ -75,7 +79,9 @@ export default function ProgressTab() {
 
       {isEmpty && (
         <View style={styles.emptyHint}>
-          <Text style={styles.emptyHintText}>Aquí verás tu progreso cuando termines una sesión</Text>
+          <Text style={styles.emptyHintText}>
+            Aquí verás tu progreso cuando termines una sesión
+          </Text>
         </View>
       )}
 
@@ -104,7 +110,9 @@ export default function ProgressTab() {
             return (
               <View key={ex.exerciseId} style={styles.exerciseBlock}>
                 <View style={styles.exerciseRow}>
-                  <Text style={styles.exerciseName} numberOfLines={1}>{ex.name}</Text>
+                  <Text style={styles.exerciseName} numberOfLines={1}>
+                    {ex.name}
+                  </Text>
                   <View style={styles.oneRMValues}>
                     <Text style={styles.exerciseLatest}>
                       {sum.current > 0 ? `${stripZero(sum.current)} kg` : '—'}
@@ -121,9 +129,7 @@ export default function ProgressTab() {
                   stroke={Colors.gold.deep}
                   showLastDot
                 />
-                {exInsight && (
-                  <Text style={styles.exerciseInsight}>{exInsight.label}</Text>
-                )}
+                {exInsight && <Text style={styles.exerciseInsight}>{exInsight.label}</Text>}
               </View>
             );
           })
@@ -141,7 +147,9 @@ export default function ProgressTab() {
             return (
               <View key={ex.exerciseId} style={styles.exerciseBlock}>
                 <View style={styles.exerciseRow}>
-                  <Text style={styles.exerciseName} numberOfLines={1}>{ex.name}</Text>
+                  <Text style={styles.exerciseName} numberOfLines={1}>
+                    {ex.name}
+                  </Text>
                   <Text style={styles.exerciseLatest}>
                     {latest != null ? `${stripZero(latest)} kg` : '—'}
                   </Text>
@@ -170,10 +178,7 @@ export default function ProgressTab() {
             label="Adherencia"
             value={monthAdherence.adherencePct != null ? `${monthAdherence.adherencePct}%` : '—'}
           />
-          <Stat
-            label="Planeadas"
-            value={`${monthAdherence.done}/${monthAdherence.planned}`}
-          />
+          <Stat label="Planeadas" value={`${monthAdherence.done}/${monthAdherence.planned}`} />
           <Stat label="Extra" value={String(monthAdherence.unplanned)} />
         </View>
         <MonthAdherenceGrid data={monthAdherence} />
@@ -181,7 +186,11 @@ export default function ProgressTab() {
 
       {/* Logros */}
       <Section eyebrow="LOGROS">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: Spacing.sm }}
+        >
           {BADGE_DEFINITIONS.map((b) => {
             const unlocked = unlockedIds.has(b.id);
             return (
@@ -189,16 +198,17 @@ export default function ProgressTab() {
                 key={b.id}
                 style={[styles.badgeChip, unlocked ? styles.badgeUnlocked : styles.badgeLocked]}
               >
-                <Text style={[styles.badgeName, unlocked && { color: Colors.gold.deep }]} numberOfLines={1}>
+                <Text
+                  style={[styles.badgeName, unlocked && { color: Colors.gold.deep }]}
+                  numberOfLines={1}
+                >
                   {b.name}
                 </Text>
               </View>
             );
           })}
         </ScrollView>
-        {badges.length === 0 && (
-          <Text style={styles.empty}>Tus logros aparecerán aquí</Text>
-        )}
+        {badges.length === 0 && <Text style={styles.empty}>Tus logros aparecerán aquí</Text>}
       </Section>
     </ScrollView>
   );
@@ -252,12 +262,21 @@ function trendStyle(pct: number | null) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.bg.void },
   content: { paddingHorizontal: Spacing.screen.horizontal },
-  title: { ...Type.title, fontSize: 28, lineHeight: 32, color: Colors.ink.primary, marginBottom: Spacing.lg },
+  title: {
+    ...Type.title,
+    fontSize: 28,
+    lineHeight: 32,
+    color: Colors.ink.primary,
+    marginBottom: Spacing.lg,
+  },
 
   statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
   statBox: {
-    flex: 1, backgroundColor: Colors.bg.elevated, borderRadius: Radius.md,
-    paddingVertical: Spacing.md, alignItems: 'center',
+    flex: 1,
+    backgroundColor: Colors.bg.elevated,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
   },
   statValue: { ...Type.bodyEmph, color: Colors.ink.primary, fontSize: 18 },
   statLabel: { ...Type.micro, color: Colors.ink.tertiary, marginTop: 2 },
@@ -274,12 +293,16 @@ const styles = StyleSheet.create({
 
   section: { marginBottom: Spacing.lg },
   eyebrow: {
-    ...Type.micro, color: Colors.ink.tertiary,
-    letterSpacing: 1.2, marginBottom: Spacing.sm,
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+    letterSpacing: 1.2,
+    marginBottom: Spacing.sm,
   },
 
   kvRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
     paddingVertical: 6,
   },
   kvLabel: { ...Type.body, color: Colors.ink.secondary },
@@ -287,7 +310,9 @@ const styles = StyleSheet.create({
 
   exerciseBlock: { marginBottom: Spacing.md },
   exerciseRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
     marginBottom: 4,
   },
   exerciseName: { ...Type.bodyEmph, color: Colors.ink.primary, flex: 1 },
@@ -297,14 +322,16 @@ const styles = StyleSheet.create({
   exerciseInsight: { ...Type.micro, color: Colors.ink.tertiary, marginTop: 4 },
 
   headerInsight: {
-    ...Type.bodyEmph, color: Colors.ink.secondary,
+    ...Type.bodyEmph,
+    color: Colors.ink.secondary,
     marginBottom: Spacing.md,
   },
 
   empty: { ...Type.caption, color: Colors.ink.muted, paddingVertical: Spacing.sm },
 
   badgeChip: {
-    paddingHorizontal: Spacing.md, paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
     borderRadius: Radius.full,
   },
   badgeUnlocked: { backgroundColor: Colors.gold.glow },

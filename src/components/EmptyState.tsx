@@ -14,8 +14,8 @@ interface Props {
 
 const COPY: Record<EmptyStateType, { text: string; icon: KIconName }> = {
   exercises: { text: 'Aquí no hay ejercicios todavía', icon: 'barbell' },
-  canvas:    { text: 'Tu lienzo está vacío. Arrastra algo aquí.', icon: 'grid' },
-  blocks:    { text: 'Crea tu primer bloque', icon: 'note' },
+  canvas: { text: 'Tu lienzo está vacío. Arrastra algo aquí.', icon: 'grid' },
+  blocks: { text: 'Crea tu primer bloque', icon: 'note' },
 };
 
 export default function EmptyState({ type, style }: Props) {

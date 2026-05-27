@@ -2,11 +2,7 @@
 import React from 'react';
 import { View } from 'react-native';
 
-import {
-  KairosBootSequence,
-  SplashCondensed,
-  useSplashTrigger,
-} from '../animations/splash';
+import { KairosBootSequence, SplashCondensed, useSplashTrigger } from '../animations/splash';
 
 interface SplashScreenProps {
   onDone: () => void;

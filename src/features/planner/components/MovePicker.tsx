@@ -90,7 +90,9 @@ export default function MovePicker({ visible, assignmentId, fromDate, onClose }:
 
           <View style={styles.weekdayHeader}>
             {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((w) => (
-              <Text key={w} style={styles.weekdayHeaderText}>{w}</Text>
+              <Text key={w} style={styles.weekdayHeaderText}>
+                {w}
+              </Text>
             ))}
           </View>
 

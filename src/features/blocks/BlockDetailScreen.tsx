@@ -64,10 +64,7 @@ export default function BlockDetailScreen({ route, navigation }: any) {
     transform: [{ scale: fabScale.value }],
   }));
 
-  const stats = React.useMemo(
-    () => (block ? calculateBlockStats(block) : null),
-    [block],
-  );
+  const stats = React.useMemo(() => (block ? calculateBlockStats(block) : null), [block]);
 
   const handleNameEdit = useCallback(() => {
     if (!block) return;
@@ -228,16 +225,17 @@ export default function BlockDetailScreen({ route, navigation }: any) {
 
           {/* Progress summary */}
           {stats && stats.total_sets > 0 && (
-            <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.progressCard}>
+            <Animated.View
+              entering={FadeInDown.delay(100).duration(300)}
+              style={styles.progressCard}
+            >
               <View style={styles.progressRow}>
                 <Text style={styles.progressPct}>{pct}%</Text>
                 <Text style={styles.progressLabel}>
                   {stats.completed_sets}/{stats.total_sets} series
                 </Text>
                 {stats.total_volume > 0 && (
-                  <Text style={styles.progressVolume}>
-                    {Math.round(stats.total_volume)} kg vol
-                  </Text>
+                  <Text style={styles.progressVolume}>{Math.round(stats.total_volume)} kg vol</Text>
                 )}
               </View>
               <View style={styles.progressTrack}>
@@ -263,17 +261,13 @@ export default function BlockDetailScreen({ route, navigation }: any) {
               </Text>
             </View>
             {block.times_performed > 0 && (
-              <Text style={styles.metaDetail}>
-                Realizado {block.times_performed}x
-              </Text>
+              <Text style={styles.metaDetail}>Realizado {block.times_performed}x</Text>
             )}
           </View>
 
           {/* Exercises */}
           <View style={styles.exercisesSection}>
-            <Text style={styles.sectionTitle}>
-              Ejercicios ({getBlockExercises(block).length})
-            </Text>
+            <Text style={styles.sectionTitle}>Ejercicios ({getBlockExercises(block).length})</Text>
 
             {getBlockExercises(block).length === 0 ? (
               <Animated.View entering={FadeIn.duration(300)}>
@@ -315,8 +309,12 @@ export default function BlockDetailScreen({ route, navigation }: any) {
       {/* FAB — add exercise */}
       <Animated.View style={[styles.fab, fabStyle, { bottom: insets.bottom + 20 }]}>
         <Pressable
-          onPressIn={() => { fabScale.value = withSpring(0.88, springs.tap); }}
-          onPressOut={() => { fabScale.value = withSpring(1, springs.bouncy); }}
+          onPressIn={() => {
+            fabScale.value = withSpring(0.88, springs.tap);
+          }}
+          onPressOut={() => {
+            fabScale.value = withSpring(1, springs.bouncy);
+          }}
           onPress={() => setShowAddExercise(true)}
           style={styles.fabInner}
         >
@@ -333,10 +331,7 @@ export default function BlockDetailScreen({ route, navigation }: any) {
       />
 
       {/* Celebration */}
-      <CompletionCelebration
-        block={celebrationBlock}
-        onDismiss={() => setCelebrationBlock(null)}
-      />
+      <CompletionCelebration block={celebrationBlock} onDismiss={() => setCelebrationBlock(null)} />
     </View>
   );
 }

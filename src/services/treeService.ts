@@ -68,10 +68,7 @@ function toDateKey(d: Date): string {
  * Compute full metrics from all blocks (scan all completed sets).
  * Called on load to rebuild from source of truth.
  */
-export function computeMetricsFromBlocks(
-  blocks: WorkoutBlock[],
-  prCount: number,
-): TreeMetrics {
+export function computeMetricsFromBlocks(blocks: WorkoutBlock[], prCount: number): TreeMetrics {
   let totalVolume = 0;
   let totalDistance = 0;
   const activeDays = new Set<string>();
@@ -99,7 +96,8 @@ export function computeMetricsFromBlocks(
 
         // Distance (km)
         if (hasDistance) {
-          const d = typeof set.values['distance'] === 'number' ? (set.values['distance'] as number) : 0;
+          const d =
+            typeof set.values['distance'] === 'number' ? (set.values['distance'] as number) : 0;
           totalDistance += d;
         }
       }

@@ -162,11 +162,7 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
     ],
   );
 
-  return (
-    <UserProfileContext.Provider value={value}>
-      {children}
-    </UserProfileContext.Provider>
-  );
+  return <UserProfileContext.Provider value={value}>{children}</UserProfileContext.Provider>;
 }
 
 export function useUserProfile(): UserProfileContextType {

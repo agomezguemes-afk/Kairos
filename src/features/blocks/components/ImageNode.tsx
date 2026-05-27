@@ -20,29 +20,33 @@ function ImageNodeInner({ node, onUpdate, onDelete, compact }: ImageNodeProps) {
   const [editingCaption, setEditingCaption] = useState(false);
   const [captionDraft, setCaptionDraft] = useState(caption);
 
-  const pickImage = useCallback(async (source: 'library' | 'camera') => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const pickImage = useCallback(
+    async (source: 'library' | 'camera') => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const opts: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-    };
+      const opts: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      };
 
-    const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync(opts)
-      : await ImagePicker.launchImageLibraryAsync(opts);
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync(opts)
+          : await ImagePicker.launchImageLibraryAsync(opts);
 
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      onUpdate(node.id, {
-        ...node.data,
-        uri: asset.uri,
-        width: asset.width,
-        height: asset.height,
-      });
-    }
-  }, [node, onUpdate]);
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        onUpdate(node.id, {
+          ...node.data,
+          uri: asset.uri,
+          width: asset.width,
+          height: asset.height,
+        });
+      }
+    },
+    [node, onUpdate],
+  );
 
   const handlePickSource = useCallback(() => {
     Alert.alert('Insertar imagen', 'Elige una fuente', [
@@ -60,11 +64,16 @@ function ImageNodeInner({ node, onUpdate, onDelete, compact }: ImageNodeProps) {
   if (!uri) {
     return (
       <Animated.View entering={FadeIn.duration(200)} style={styles.emptyContainer}>
-        <Pressable onPress={handlePickSource} style={[styles.emptyContent, compact && styles.emptyContentCompact]}>
+        <Pressable
+          onPress={handlePickSource}
+          style={[styles.emptyContent, compact && styles.emptyContentCompact]}
+        >
           <View style={[styles.iconCircle, compact && styles.iconCircleCompact]}>
             <Feather name="image" size={compact ? 16 : 24} color={Colors.accent.primary} />
           </View>
-          <Text style={[styles.emptyTitle, compact && styles.emptyTitleCompact]}>Añadir imagen</Text>
+          <Text style={[styles.emptyTitle, compact && styles.emptyTitleCompact]}>
+            Añadir imagen
+          </Text>
           {!compact && <Text style={styles.emptyDesc}>Toca para elegir de cámara o galería</Text>}
         </Pressable>
         <Pressable onPress={() => onDelete(node.id)} style={styles.emptyDelete} hitSlop={8}>
@@ -74,18 +83,13 @@ function ImageNodeInner({ node, onUpdate, onDelete, compact }: ImageNodeProps) {
     );
   }
 
-  const aspectRatio = (node.data.width && node.data.height)
-    ? node.data.width / node.data.height
-    : 16 / 9;
+  const aspectRatio =
+    node.data.width && node.data.height ? node.data.width / node.data.height : 16 / 9;
 
   return (
     <Animated.View entering={FadeIn.duration(200)} style={styles.container}>
       <Pressable onPress={handlePickSource} onLongPress={() => onDelete(node.id)}>
-        <Image
-          source={{ uri }}
-          style={[styles.image, { aspectRatio }]}
-          resizeMode="cover"
-        />
+        <Image source={{ uri }} style={[styles.image, { aspectRatio }]} resizeMode="cover" />
       </Pressable>
 
       <View style={[styles.footer, compact && styles.footerCompact]}>
@@ -103,10 +107,20 @@ function ImageNodeInner({ node, onUpdate, onDelete, compact }: ImageNodeProps) {
           />
         ) : (
           <Pressable
-            onPress={() => { setCaptionDraft(caption); setEditingCaption(true); }}
+            onPress={() => {
+              setCaptionDraft(caption);
+              setEditingCaption(true);
+            }}
             style={styles.captionArea}
           >
-            <Text style={[styles.captionText, compact && styles.captionTextCompact, !caption && styles.captionPlaceholder]} numberOfLines={compact ? 1 : 2}>
+            <Text
+              style={[
+                styles.captionText,
+                compact && styles.captionTextCompact,
+                !caption && styles.captionPlaceholder,
+              ]}
+              numberOfLines={compact ? 1 : 2}
+            >
               {caption || (compact ? '...' : 'Añadir descripción...')}
             </Text>
           </Pressable>

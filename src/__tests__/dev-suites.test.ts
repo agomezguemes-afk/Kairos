@@ -19,25 +19,25 @@ import { describe, it, expect } from 'vitest';
 
 const ROOT = resolve(__dirname, '..', '..');
 
-const DEV_SUITES: Array<{ name: string; path: string }> = [
-  { name: 'libraryHelpers',    path: 'src/data/libraryHelpers.dev.ts' },
-  { name: 'scheduleStore',     path: 'src/store/scheduleStore.dev.ts' },
-  { name: 'met',               path: 'src/lib/health/met.dev.ts' },
-  { name: 'dashboardValue',    path: 'src/lib/history/dashboardValue.dev.ts' },
-  { name: 'exerciseHistory',   path: 'src/lib/history/exerciseHistory.dev.ts' },
-  { name: 'scheduler',         path: 'src/lib/notifications/scheduler.dev.ts' },
-  { name: 'weekStats',         path: 'src/lib/stats/weekStats.dev.ts' },
-  { name: 'summaryCompare',    path: 'src/components/workout/lib/summaryCompare.dev.ts' },
+const DEV_SUITES: { name: string; path: string }[] = [
+  { name: 'libraryHelpers', path: 'src/data/libraryHelpers.dev.ts' },
+  { name: 'scheduleStore', path: 'src/store/scheduleStore.dev.ts' },
+  { name: 'met', path: 'src/lib/health/met.dev.ts' },
+  { name: 'dashboardValue', path: 'src/lib/history/dashboardValue.dev.ts' },
+  { name: 'exerciseHistory', path: 'src/lib/history/exerciseHistory.dev.ts' },
+  { name: 'scheduler', path: 'src/lib/notifications/scheduler.dev.ts' },
+  { name: 'weekStats', path: 'src/lib/stats/weekStats.dev.ts' },
+  { name: 'summaryCompare', path: 'src/components/workout/lib/summaryCompare.dev.ts' },
   { name: 'previousReference', path: 'src/components/workout/lib/previousReference.dev.ts' },
-  { name: 'plates',            path: 'src/components/workout/lib/plates.dev.ts' },
-  { name: 'prDetection',       path: 'src/components/workout/lib/prDetection.dev.ts' },
-  { name: 'adherence',         path: 'src/screens/tabs/progress/lib/adherence.dev.ts' },
-  { name: 'oneRM',             path: 'src/screens/tabs/progress/lib/oneRM.dev.ts' },
-  { name: 'aggregations',      path: 'src/screens/tabs/progress/lib/aggregations.dev.ts' },
-  { name: 'spineLayout',       path: 'src/features/blocks/lib/spineLayout.dev.ts' },
-  { name: 'rrule',             path: 'src/features/planner/lib/rrule.dev.ts' },
-  { name: 'kaiSignal',         path: 'src/features/planner/lib/kaiSignal.dev.ts' },
-  { name: 'dates',             path: 'src/features/planner/lib/dates.dev.ts' },
+  { name: 'plates', path: 'src/components/workout/lib/plates.dev.ts' },
+  { name: 'prDetection', path: 'src/components/workout/lib/prDetection.dev.ts' },
+  { name: 'adherence', path: 'src/screens/tabs/progress/lib/adherence.dev.ts' },
+  { name: 'oneRM', path: 'src/screens/tabs/progress/lib/oneRM.dev.ts' },
+  { name: 'aggregations', path: 'src/screens/tabs/progress/lib/aggregations.dev.ts' },
+  { name: 'spineLayout', path: 'src/features/blocks/lib/spineLayout.dev.ts' },
+  { name: 'rrule', path: 'src/features/planner/lib/rrule.dev.ts' },
+  { name: 'kaiSignal', path: 'src/features/planner/lib/kaiSignal.dev.ts' },
+  { name: 'dates', path: 'src/features/planner/lib/dates.dev.ts' },
 ];
 
 describe('dev-suites — legacy .dev.ts smoke runner', () => {
@@ -56,8 +56,8 @@ describe('dev-suites — legacy .dev.ts smoke runner', () => {
         const e = err as { stdout?: string; stderr?: string; status?: number };
         throw new Error(
           `dev suite '${suite.name}' failed (exit ${e.status ?? '?'})\n` +
-          `--- stdout ---\n${e.stdout ?? ''}\n` +
-          `--- stderr ---\n${e.stderr ?? ''}`
+            `--- stdout ---\n${e.stdout ?? ''}\n` +
+            `--- stderr ---\n${e.stderr ?? ''}`,
         );
       }
     });

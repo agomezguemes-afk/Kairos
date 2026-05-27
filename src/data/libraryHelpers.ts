@@ -1,5 +1,10 @@
 import type { ExerciseCard, WorkoutBlock, FieldDefinition } from '../types/core';
-import { createWorkoutBlock, createExerciseCard, createEmptySet, DISCIPLINE_CONFIGS } from '../types/core';
+import {
+  createWorkoutBlock,
+  createExerciseCard,
+  createEmptySet,
+  DISCIPLINE_CONFIGS,
+} from '../types/core';
 import { type ExerciseLibraryEntry, getLibraryEntry } from './exerciseLibrary';
 import { type BlockTemplate } from './blockTemplates';
 
@@ -9,9 +14,10 @@ export function cloneLibraryEntry(
   order: number,
   overrides?: { setsCount?: number; goalWeight?: number; goalReps?: number },
 ): ExerciseCard {
-  const fields: FieldDefinition[] = entry.fields && entry.fields.length > 0
-    ? entry.fields
-    : DISCIPLINE_CONFIGS[entry.discipline].defaultFields;
+  const fields: FieldDefinition[] =
+    entry.fields && entry.fields.length > 0
+      ? entry.fields
+      : DISCIPLINE_CONFIGS[entry.discipline].defaultFields;
 
   const card = createExerciseCard(blockId, order, entry.discipline, {
     name: entry.name,

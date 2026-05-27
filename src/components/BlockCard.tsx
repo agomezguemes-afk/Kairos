@@ -72,7 +72,7 @@ const BlockCardComponent: React.FC<BlockCardProps> = ({ block, onPress, onDelete
           style: 'destructive',
           onPress: () => onDelete(block.id),
         },
-      ]
+      ],
     );
   }, [block.id, block.name, onDelete]);
 
@@ -89,10 +89,8 @@ const BlockCardComponent: React.FC<BlockCardProps> = ({ block, onPress, onDelete
   }, [scale]);
 
   const renderRightActions = useCallback(
-    (progress: SharedValue<number>) => (
-      <DeleteAction progress={progress} onDelete={handleDelete} />
-    ),
-    [handleDelete]
+    (progress: SharedValue<number>) => <DeleteAction progress={progress} onDelete={handleDelete} />,
+    [handleDelete],
   );
 
   return (
@@ -136,11 +134,8 @@ const BlockCardComponent: React.FC<BlockCardProps> = ({ block, onPress, onDelete
                 <Text style={styles.meta}>
                   {config.icon} {config.name}
                   {'  ·  '}
-                  {stats.total_exercises}{' '}
-                  {stats.total_exercises === 1 ? 'ejercicio' : 'ejercicios'}
-                  {stats.estimated_duration > 0
-                    ? `  ·  ~${stats.estimated_duration}m`
-                    : ''}
+                  {stats.total_exercises} {stats.total_exercises === 1 ? 'ejercicio' : 'ejercicios'}
+                  {stats.estimated_duration > 0 ? `  ·  ~${stats.estimated_duration}m` : ''}
                 </Text>
 
                 {stats.total_sets > 0 && (
@@ -151,8 +146,7 @@ const BlockCardComponent: React.FC<BlockCardProps> = ({ block, onPress, onDelete
                           styles.progressFill,
                           {
                             width: `${pct}%`,
-                            backgroundColor:
-                              pct >= 100 ? Colors.semantic.success : block.color,
+                            backgroundColor: pct >= 100 ? Colors.semantic.success : block.color,
                           },
                         ]}
                       />

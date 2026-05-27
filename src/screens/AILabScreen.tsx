@@ -67,7 +67,10 @@ export default function AILabScreen({ navigation }: any) {
       <Animated.View entering={FadeInUp.delay(100).duration(350)}>
         <Pressable
           onPress={handleOpenChat}
-          style={({ pressed }) => [styles.chatCta, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+          style={({ pressed }) => [
+            styles.chatCta,
+            pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+          ]}
         >
           <Feather name="message-circle" size={20} color={Colors.accent.primary} />
           <View style={styles.chatCtaText}>
@@ -136,12 +139,13 @@ export default function AILabScreen({ navigation }: any) {
                     skipsRemaining <= 0 && styles.skipBtnDisabled,
                   ]}
                 >
-                  <Feather name="refresh-cw" size={14} color={skipsRemaining > 0 ? Colors.text.secondary : Colors.text.disabled} />
+                  <Feather
+                    name="refresh-cw"
+                    size={14}
+                    color={skipsRemaining > 0 ? Colors.text.secondary : Colors.text.disabled}
+                  />
                   <Text
-                    style={[
-                      styles.skipBtnText,
-                      skipsRemaining <= 0 && styles.skipBtnTextDisabled,
-                    ]}
+                    style={[styles.skipBtnText, skipsRemaining <= 0 && styles.skipBtnTextDisabled]}
                   >
                     Cambiar ({skipsRemaining} restantes)
                   </Text>
@@ -151,9 +155,7 @@ export default function AILabScreen({ navigation }: any) {
           </View>
         ) : (
           <View style={styles.missionCard}>
-            <Text style={styles.missionDesc}>
-              Cargando misión...
-            </Text>
+            <Text style={styles.missionDesc}>Cargando misión...</Text>
           </View>
         )}
       </Animated.View>
@@ -176,9 +178,7 @@ export default function AILabScreen({ navigation }: any) {
       {/* Completed missions list */}
       {completedMissions.length > 0 && (
         <Animated.View entering={FadeInUp.delay(350).duration(350)}>
-          <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>
-            Misiones completadas
-          </Text>
+          <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>Misiones completadas</Text>
           {completedMissions.slice(0, 5).map((m) => (
             <View key={m.id} style={styles.completedItem}>
               <KairosIcon name={m.icon} size={20} color={Colors.accent.primary} />

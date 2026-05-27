@@ -8,8 +8,8 @@ export function determineTrainingType(muscleGroups: MuscleGroup[]): TrainingType
   const upperBodyGroups: MuscleGroup[] = ['biceps', 'triceps', 'pecho', 'espalda', 'hombro'];
   const lowerBodyGroups: MuscleGroup[] = ['pierna'];
 
-  const hasUpper = muscleGroups.some(group => upperBodyGroups.includes(group));
-  const hasLower = muscleGroups.some(group => lowerBodyGroups.includes(group));
+  const hasUpper = muscleGroups.some((group) => upperBodyGroups.includes(group));
+  const hasLower = muscleGroups.some((group) => lowerBodyGroups.includes(group));
 
   if (hasUpper && hasLower) {
     return 'full_body';
@@ -37,7 +37,7 @@ export function getTrainingName(type: TrainingType, muscleGroups: MuscleGroup[])
   };
 
   if (muscleGroups.length <= 2) {
-    return muscleGroups.map(g => groupNames[g]).join(' + ');
+    return muscleGroups.map((g) => groupNames[g]).join(' + ');
   }
 
   return typeNames[type];

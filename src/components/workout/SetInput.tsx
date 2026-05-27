@@ -46,7 +46,13 @@ const HELPER_KEYS: { label: string; delta: number }[] = [
 
 const PRIMARY_NUMERIC_TYPES = new Set(['number', 'time']);
 
-export default function SetInput({ fields, values, onChange, previousValues, onLongPressField }: Props) {
+export default function SetInput({
+  fields,
+  values,
+  onChange,
+  previousValues,
+  onLongPressField,
+}: Props) {
   const numericFields = useMemo(
     () => fields.filter((f) => PRIMARY_NUMERIC_TYPES.has(f.type)).sort((a, b) => a.order - b.order),
     [fields],
@@ -121,13 +127,14 @@ export default function SetInput({ fields, values, onChange, previousValues, onL
           const isNumeric = PRIMARY_NUMERIC_TYPES.has(f.type);
           // Forward long-press only for numeric fields — parent decides
           // whether to act (e.g., open plate calc when the chip is `weight`).
-          const longPress = isNumeric && onLongPressField
-            ? () => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                const n = typeof v === 'number' ? v : 0;
-                onLongPressField(f, n);
-              }
-            : undefined;
+          const longPress =
+            isNumeric && onLongPressField
+              ? () => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  const n = typeof v === 'number' ? v : 0;
+                  onLongPressField(f, n);
+                }
+              : undefined;
           return (
             <Pressable
               key={f.id}
@@ -140,7 +147,8 @@ export default function SetInput({ fields, values, onChange, previousValues, onL
               style={[styles.fieldChip, isActive && styles.fieldChipActive]}
             >
               <Text style={styles.fieldLabel}>
-                {f.name}{f.unit ? ` (${f.unit})` : ''}
+                {f.name}
+                {f.unit ? ` (${f.unit})` : ''}
               </Text>
               <Text style={[styles.fieldValue, isActive && styles.fieldValueActive]}>
                 {display}

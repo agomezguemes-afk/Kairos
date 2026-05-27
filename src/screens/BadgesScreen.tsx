@@ -19,16 +19,21 @@ export default function BadgesScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       {/* Streak banner */}
       <Animated.View entering={FadeInUp.delay(60).duration(350)} style={styles.streakBanner}>
         <View style={styles.streakIconRow}>
           {streak.current >= 1 ? (
-            Array.from({ length: streak.current >= 30 ? 3 : streak.current >= 7 ? 2 : 1 }).map((_, i) => (
-              <KairosIcon key={i} name="streak" size={28} color={Colors.accent.primary} />
-            ))
+            Array.from({ length: streak.current >= 30 ? 3 : streak.current >= 7 ? 2 : 1 }).map(
+              (_, i) => (
+                <KairosIcon key={i} name="streak" size={28} color={Colors.accent.primary} />
+              ),
+            )
           ) : (
             <KairosIcon name="sleep" size={28} color={Colors.text.tertiary} />
           )}

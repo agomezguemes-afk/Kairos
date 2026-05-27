@@ -62,10 +62,10 @@ export interface TreeProgress {
 }
 
 export interface TreeMetrics {
-  totalVolume: number;      // kg * reps
-  totalDistance: number;     // km
-  totalActiveDays: number;  // unique days with activity
-  totalPRs: number;         // PR cards count
+  totalVolume: number; // kg * reps
+  totalDistance: number; // km
+  totalActiveDays: number; // unique days with activity
+  totalPRs: number; // PR cards count
   /** Set of YYYY-MM-DD strings for active days. */
   activeDaySet: string[];
 }

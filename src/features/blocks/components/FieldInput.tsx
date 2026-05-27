@@ -88,7 +88,13 @@ function FieldInputInner({ field, value, onChange, isCompleted, ghost }: FieldIn
         onChangeText={setDraft}
         onBlur={handleEndEdit}
         onSubmitEditing={handleEndEdit}
-        keyboardType={field.type === 'number' ? 'decimal-pad' : field.type === 'time' ? 'numbers-and-punctuation' : 'default'}
+        keyboardType={
+          field.type === 'number'
+            ? 'decimal-pad'
+            : field.type === 'time'
+              ? 'numbers-and-punctuation'
+              : 'default'
+        }
         autoFocus
         selectTextOnFocus
         returnKeyType="done"
@@ -100,7 +106,10 @@ function FieldInputInner({ field, value, onChange, isCompleted, ghost }: FieldIn
 
   const showGhost = !displayValue && ghost != null && ghost.length > 0;
   return (
-    <Pressable onPress={handleStartEdit} style={[styles.valueContainer, isCompleted && styles.valueCompleted]}>
+    <Pressable
+      onPress={handleStartEdit}
+      style={[styles.valueContainer, isCompleted && styles.valueCompleted]}
+    >
       <Text
         style={[
           styles.valueText,

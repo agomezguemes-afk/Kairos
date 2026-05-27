@@ -11,12 +11,7 @@ import type {
   BlockCover,
   SetKind,
 } from '../types/core';
-import {
-  createWorkoutBlock,
-  createExerciseCard,
-  createEmptySet,
-  generateId,
-} from '../types/core';
+import { createWorkoutBlock, createExerciseCard, createEmptySet, generateId } from '../types/core';
 import type { ContentNode } from '../types/content';
 import {
   createExerciseNode,
@@ -72,7 +67,7 @@ export interface ExerciseHistorySummary {
   plannedWeight?: number;
   plannedReps?: number;
   plannedSetsCount?: number;
-  performedSets?: Array<{
+  performedSets?: {
     weight: number | null;
     reps: number | null;
     completed: boolean;
@@ -82,7 +77,7 @@ export interface ExerciseHistorySummary {
     rpe?: number;
     /** Per-set freeform note (may be empty). */
     notes?: string | null;
-  }>;
+  }[];
 }
 
 export interface WorkoutHistoryEntry {
@@ -137,11 +132,7 @@ interface WorkoutState {
       source?: 'today' | 'calendar' | 'free' | 'history';
     },
   ) => void;
-  completeSet: (
-    exerciseId: string,
-    setId: string,
-    values: Record<string, FieldValue>,
-  ) => void;
+  completeSet: (exerciseId: string, setId: string, values: Record<string, FieldValue>) => void;
   skipRest: () => void;
   extendRest: (additionalSec: number) => void;
   setExerciseRestForCurrent: (newRestSeconds: number) => void;
@@ -191,21 +182,21 @@ interface WorkoutState {
   reorderContentNodes: (blockId: string, nodeIds: string[]) => void;
   duplicateContentNode: (blockId: string, nodeId: string) => void;
   moveContentNode: (blockId: string, nodeId: string, direction: 'up' | 'down') => void;
-  wrapNodesInColumns: (
-    blockId: string,
-    nodeIds: string[],
-    columns: 2 | 3,
-  ) => string | null;
+  wrapNodesInColumns: (blockId: string, nodeIds: string[], columns: 2 | 3) => string | null;
 
   addExercise: (
     blockId: string,
-    opts?: { name?: string; icon?: string; color?: string; discipline?: Discipline; section?: string; column?: number; fields?: import('../types/core').FieldDefinition[] },
+    opts?: {
+      name?: string;
+      icon?: string;
+      color?: string;
+      discipline?: Discipline;
+      section?: string;
+      column?: number;
+      fields?: import('../types/core').FieldDefinition[];
+    },
   ) => void;
-  updateExercise: (
-    blockId: string,
-    exerciseId: string,
-    updates: Partial<ExerciseCard>,
-  ) => void;
+  updateExercise: (blockId: string, exerciseId: string, updates: Partial<ExerciseCard>) => void;
   deleteExercise: (blockId: string, exerciseId: string) => void;
   deleteExerciseByName: (blockId: string, name: string) => void;
 
@@ -245,7 +236,7 @@ function updateExerciseInContent(
 function getExercisesFromBlock(block: WorkoutBlock): ExerciseCard[] {
   return block.content
     .filter((n): n is Extract<ContentNode, { type: 'exercise' }> => n.type === 'exercise')
-    .map(n => n.data.exercise);
+    .map((n) => n.data.exercise);
 }
 
 /**
@@ -527,7 +518,8 @@ export const useWorkoutStore = create<WorkoutState>()(
           for (const ex of state.activeWorkout.exercises) {
             if (!orderedIds.includes(ex.id)) reordered.push(ex);
           }
-          const activeId = state.activeWorkout.exercises[state.activeWorkout.currentExerciseIndex]?.id;
+          const activeId =
+            state.activeWorkout.exercises[state.activeWorkout.currentExerciseIndex]?.id;
           const newIdx = activeId ? reordered.findIndex((e) => e.id === activeId) : 0;
           return {
             activeWorkout: {
@@ -547,7 +539,9 @@ export const useWorkoutStore = create<WorkoutState>()(
           if (idx === -1) return state;
           const exercises = aw.exercises.filter((e) => e.id !== exerciseId);
           if (exercises.length === 0) {
-            return { activeWorkout: { ...aw, exercises, currentExerciseIndex: 0, currentSetIndex: 0 } };
+            return {
+              activeWorkout: { ...aw, exercises, currentExerciseIndex: 0, currentSetIndex: 0 },
+            };
           }
           let nextIdx = aw.currentExerciseIndex;
           if (idx < aw.currentExerciseIndex) nextIdx = aw.currentExerciseIndex - 1;
@@ -620,7 +614,8 @@ export const useWorkoutStore = create<WorkoutState>()(
             let setsDone = 0;
             const performedSets: ExerciseHistorySummary['performedSets'] = [];
             for (const s of ex.sets) {
-              const w = typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
+              const w =
+                typeof s.values['weight'] === 'number' ? (s.values['weight'] as number) : null;
               const r = typeof s.values['reps'] === 'number' ? (s.values['reps'] as number) : null;
               performedSets.push({
                 weight: w,
@@ -677,9 +672,7 @@ export const useWorkoutStore = create<WorkoutState>()(
         // Fire-and-forget insight detection (non-blocking, dynamic import to avoid cycles).
         if (summary) {
           setTimeout(() => {
-            import('../lib/ai/insights')
-              .then((m) => m.runPostWorkoutInsights())
-              .catch(() => {});
+            import('../lib/ai/insights').then((m) => m.runPostWorkoutInsights()).catch(() => {});
           }, 0);
         }
 
@@ -703,7 +696,9 @@ export const useWorkoutStore = create<WorkoutState>()(
               startMs: finalized.startedAt,
               endMs: finalized.endedAt,
               totalEnergyKcal: kcal,
-            }).catch(() => { /* noop, already logged in module */ });
+            }).catch(() => {
+              /* noop, already logged in module */
+            });
           }
         }
 
@@ -760,9 +755,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       updateBlock: (blockId, updates) => {
         set((state) => ({
           blocks: state.blocks.map((b) =>
-            b.id === blockId
-              ? { ...b, ...updates, updated_at: new Date().toISOString() }
-              : b,
+            b.id === blockId ? { ...b, ...updates, updated_at: new Date().toISOString() } : b,
           ),
         }));
       },
@@ -774,8 +767,12 @@ export const useWorkoutStore = create<WorkoutState>()(
         }));
       },
 
-      reorderBlocks: (blocks) => { set({ blocks }); },
-      replaceAllBlocks: (blocks) => { set({ blocks }); },
+      reorderBlocks: (blocks) => {
+        set({ blocks });
+      },
+      replaceAllBlocks: (blocks) => {
+        set({ blocks });
+      },
 
       // ======================== CONTENT NODE ACTIONS ========================
 
@@ -822,7 +819,7 @@ export const useWorkoutStore = create<WorkoutState>()(
             return {
               ...block,
               content: block.content.map((n) =>
-                n.id === nodeId ? { ...n, ...updates } as ContentNode : n,
+                n.id === nodeId ? ({ ...n, ...updates } as ContentNode) : n,
               ),
               updated_at: new Date().toISOString(),
             };
@@ -847,16 +844,20 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
-            const nodeMap = new Map(block.content.map(n => [n.id, n]));
+            const nodeMap = new Map(block.content.map((n) => [n.id, n]));
             const reorderedIds = new Set(nodeIds);
             const reordered = nodeIds
               .map((id, i) => {
                 const node = nodeMap.get(id);
-                return node ? { ...node, order: i } as ContentNode : null;
+                return node ? ({ ...node, order: i } as ContentNode) : null;
               })
               .filter((n): n is ContentNode => n !== null);
-            const rest = block.content.filter(n => !reorderedIds.has(n.id));
-            return { ...block, content: [...reordered, ...rest], updated_at: new Date().toISOString() };
+            const rest = block.content.filter((n) => !reorderedIds.has(n.id));
+            return {
+              ...block,
+              content: [...reordered, ...rest],
+              updated_at: new Date().toISOString(),
+            };
           }),
         }));
       },
@@ -865,10 +866,14 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
-            const idx = block.content.findIndex(n => n.id === nodeId);
+            const idx = block.content.findIndex((n) => n.id === nodeId);
             if (idx === -1) return block;
             const original = block.content[idx];
-            const clone = { ...JSON.parse(JSON.stringify(original)), id: generateId(), order: original.order + 0.5 };
+            const clone = {
+              ...JSON.parse(JSON.stringify(original)),
+              id: generateId(),
+              order: original.order + 0.5,
+            };
             const updated = reorderNodes([...block.content, clone]);
             return { ...block, content: updated, updated_at: new Date().toISOString() };
           }),
@@ -880,14 +885,18 @@ export const useWorkoutStore = create<WorkoutState>()(
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
             const sorted = [...block.content].sort((a, b) => a.order - b.order);
-            const idx = sorted.findIndex(n => n.id === nodeId);
+            const idx = sorted.findIndex((n) => n.id === nodeId);
             if (idx === -1) return block;
             const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
             if (swapIdx < 0 || swapIdx >= sorted.length) return block;
             const tmpOrder = sorted[idx].order;
             sorted[idx] = { ...sorted[idx], order: sorted[swapIdx].order } as ContentNode;
             sorted[swapIdx] = { ...sorted[swapIdx], order: tmpOrder } as ContentNode;
-            return { ...block, content: reorderNodes(sorted), updated_at: new Date().toISOString() };
+            return {
+              ...block,
+              content: reorderNodes(sorted),
+              updated_at: new Date().toISOString(),
+            };
           }),
         }));
       },
@@ -924,25 +933,26 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
-            const { content } = updateExerciseInContent(
-              block.content,
-              exerciseId,
-              (ex) => ({ ...ex, ...updates, updated_at: new Date().toISOString() }),
-            );
+            const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => ({
+              ...ex,
+              ...updates,
+              updated_at: new Date().toISOString(),
+            }));
             // When the exercise's name changes, dashboard nodes inside the
             // same block that bind this exerciseId have a stale cached
             // exerciseName. Sync them in the same set() so the UI never
             // shows the old label after a rename.
-            const syncedContent = updates.name === undefined
-              ? content
-              : content.map((n) => {
-                  if (n.type !== 'dashboard') return n;
-                  if (n.data.exerciseId !== exerciseId) return n;
-                  return {
-                    ...n,
-                    data: { ...n.data, exerciseName: updates.name },
-                  } as ContentNode;
-                });
+            const syncedContent =
+              updates.name === undefined
+                ? content
+                : content.map((n) => {
+                    if (n.type !== 'dashboard') return n;
+                    if (n.data.exerciseId !== exerciseId) return n;
+                    return {
+                      ...n,
+                      data: { ...n.data, exerciseName: updates.name },
+                    } as ContentNode;
+                  });
             return { ...block, content: syncedContent, updated_at: new Date().toISOString() };
           }),
         }));
@@ -986,7 +996,8 @@ export const useWorkoutStore = create<WorkoutState>()(
               ...block,
               content: reorderNodes(
                 block.content.filter(
-                  (n) => !(n.type === 'exercise' && n.data.exercise.name.toLowerCase().includes(needle)),
+                  (n) =>
+                    !(n.type === 'exercise' && n.data.exercise.name.toLowerCase().includes(needle)),
                 ),
               ),
               updated_at: new Date().toISOString(),
@@ -1014,7 +1025,8 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
 
       toggleSetComplete: (blockId, exerciseId, setId) => {
-        let result: { exercise: ExerciseCard; set: ExerciseSet; wasCompleted: boolean } | null = null;
+        let result: { exercise: ExerciseCard; set: ExerciseSet; wasCompleted: boolean } | null =
+          null;
 
         set((state) => ({
           blocks: state.blocks.map((block) => {
@@ -1029,7 +1041,11 @@ export const useWorkoutStore = create<WorkoutState>()(
                 completed_at: wasCompleted ? new Date().toISOString() : null,
               };
               const newSets = ex.sets.map((s) => (s.id === setId ? newSet : s));
-              const updatedEx: ExerciseCard = { ...ex, sets: newSets, updated_at: new Date().toISOString() };
+              const updatedEx: ExerciseCard = {
+                ...ex,
+                sets: newSets,
+                updated_at: new Date().toISOString(),
+              };
               result = { exercise: updatedEx, set: newSet, wasCompleted };
               return updatedEx;
             });
@@ -1058,7 +1074,9 @@ export const useWorkoutStore = create<WorkoutState>()(
           blocks: state.blocks.map((block) => {
             if (block.id !== blockId) return block;
             const { content } = updateExerciseInContent(block.content, exerciseId, (ex) => {
-              const filtered = ex.sets.filter((s) => s.id !== setId).map((s, i) => ({ ...s, order: i }));
+              const filtered = ex.sets
+                .filter((s) => s.id !== setId)
+                .map((s, i) => ({ ...s, order: i }));
               return { ...ex, sets: filtered, updated_at: new Date().toISOString() };
             });
             return { ...block, content, updated_at: new Date().toISOString() };
@@ -1093,11 +1111,14 @@ export const useWorkoutStore = create<WorkoutState>()(
             const nonTargetsAfter = afterAnchor.filter((n) => !targetIds.has(n.id));
             const targetsOrdered = afterAnchor.filter((n) => targetIds.has(n.id));
 
-            const reChildren = targetsOrdered.map((n, i) => ({
-              ...n,
-              section: section.id,
-              column: i % columns,
-            } as ContentNode));
+            const reChildren = targetsOrdered.map(
+              (n, i) =>
+                ({
+                  ...n,
+                  section: section.id,
+                  column: i % columns,
+                }) as ContentNode,
+            );
 
             const merged = [
               ...nonTargetsBefore,
@@ -1113,7 +1134,9 @@ export const useWorkoutStore = create<WorkoutState>()(
         return sectionId;
       },
 
-      setHighlight: (blockId) => { set({ pendingHighlight: blockId }); },
+      setHighlight: (blockId) => {
+        set({ pendingHighlight: blockId });
+      },
     }),
     {
       name: 'kairos_workout_store',

@@ -98,9 +98,7 @@ export function detectPlateaus(history: WorkoutHistoryEntry[]): PlateauInfo[] {
     }
   }
 
-  return plateaus
-    .sort((a, b) => b.weeksStalled - a.weeksStalled)
-    .slice(0, MAX_INSIGHTS_PER_RUN);
+  return plateaus.sort((a, b) => b.weeksStalled - a.weeksStalled).slice(0, MAX_INSIGHTS_PER_RUN);
 }
 
 export async function requestInsight(plateau: PlateauInfo): Promise<string> {

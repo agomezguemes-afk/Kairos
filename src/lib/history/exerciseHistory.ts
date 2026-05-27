@@ -10,21 +10,14 @@
 // these helpers never touch zustand directly. Test-friendly.
 
 import type { ExerciseCard } from '../../types/core';
-import type {
-  WorkoutHistoryEntry,
-  ExerciseHistorySummary,
-} from '../../store/workoutStore';
+import type { WorkoutHistoryEntry, ExerciseHistorySummary } from '../../store/workoutStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Identity
 
 /** Lowercase, trim, strip diacritics. Stable for name-based fallback match. */
 export function normalizeExerciseName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .trim()
-    .toLowerCase();
+  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 }
 
 /** True when two exercise references describe the same canonical exercise. */
@@ -87,10 +80,7 @@ export function getExerciseHistoryFor(
   return points;
 }
 
-function summaryToPoint(
-  summary: ExerciseHistorySummary,
-  endedAt: number,
-): ExerciseSessionPoint {
+function summaryToPoint(summary: ExerciseHistorySummary, endedAt: number): ExerciseSessionPoint {
   let topWeight: number | null = null;
   let topReps: number | null = null;
   let volume = 0;
@@ -197,11 +187,14 @@ export function computeExerciseStats(
 
   const tail = history.slice(Math.max(0, history.length - sparklineSize));
   // Pick the metric that has signal: prefer weight if any point has it.
-  const hasWeight = tail.some(p => p.topWeight != null);
-  const sparklineMetric: ExerciseStats['sparklineMetric'] =
-    hasWeight ? 'topWeight' : tail.some(p => p.volume > 0) ? 'volume' : 'empty';
+  const hasWeight = tail.some((p) => p.topWeight != null);
+  const sparklineMetric: ExerciseStats['sparklineMetric'] = hasWeight
+    ? 'topWeight'
+    : tail.some((p) => p.volume > 0)
+      ? 'volume'
+      : 'empty';
 
-  const sparkline = tail.map(p =>
+  const sparkline = tail.map((p) =>
     sparklineMetric === 'topWeight'
       ? (p.topWeight ?? 0)
       : sparklineMetric === 'volume'
@@ -228,10 +221,7 @@ export function computeExerciseStats(
  * missing/zero — there's no meaningful 1RM without both weight and reps.
  * Caps reps at 12 because Epley overestimates beyond that.
  */
-export function estimateOneRepMax(
-  weight: number | null,
-  reps: number | null,
-): number | null {
+export function estimateOneRepMax(weight: number | null, reps: number | null): number | null {
   if (weight == null || reps == null) return null;
   if (weight <= 0 || reps <= 0) return null;
   const cappedReps = Math.min(reps, 12);
@@ -264,7 +254,7 @@ export function detectPr(
   candidate: ExerciseSessionPoint,
   history: ExerciseSessionPoint[],
 ): PrResult {
-  const prior = history.filter(p => p.at !== candidate.at);
+  const prior = history.filter((p) => p.at !== candidate.at);
   if (prior.length === 0) {
     // First time ever doing this exercise — gentle PR if there's any signal.
     if (candidate.topWeight != null && candidate.topWeight > 0) {
@@ -279,12 +269,10 @@ export function detectPr(
   // Weight PR — only counts when reps are equal or greater than the previous
   // best at that weight. Comparing 100×1 vs 80×8 as a "weight PR" lies.
   if (candidate.topWeight != null) {
-    const sameOrBetter = prior
-      .filter(p => p.topWeight != null && (p.topReps ?? 0) <= (candidate.topReps ?? 0));
-    const priorMax = sameOrBetter.reduce(
-      (acc, p) => Math.max(acc, p.topWeight ?? 0),
-      0,
+    const sameOrBetter = prior.filter(
+      (p) => p.topWeight != null && (p.topReps ?? 0) <= (candidate.topReps ?? 0),
     );
+    const priorMax = sameOrBetter.reduce((acc, p) => Math.max(acc, p.topWeight ?? 0), 0);
     if (candidate.topWeight > priorMax && priorMax > 0) {
       return { isPr: true, kind: 'weight', delta: candidate.topWeight - priorMax };
     }
@@ -292,10 +280,7 @@ export function detectPr(
 
   // 1RM PR — Epley estimate broke the prior best.
   if (candidate.estimatedOneRm != null) {
-    const priorMaxRm = prior.reduce(
-      (acc, p) => Math.max(acc, p.estimatedOneRm ?? 0),
-      0,
-    );
+    const priorMaxRm = prior.reduce((acc, p) => Math.max(acc, p.estimatedOneRm ?? 0), 0);
     if (candidate.estimatedOneRm > priorMaxRm && priorMaxRm > 0) {
       return {
         isPr: true,
@@ -323,8 +308,8 @@ export function detectPr(
 
 export interface ExerciseHistoryIndex {
   byLibraryId: Map<string, ExerciseSessionPoint[]>;
-  byName:      Map<string, ExerciseSessionPoint[]>;
-  empty:       readonly ExerciseSessionPoint[];
+  byName: Map<string, ExerciseSessionPoint[]>;
+  empty: readonly ExerciseSessionPoint[];
 }
 
 /**
@@ -340,7 +325,7 @@ export function buildExerciseHistoryIndex(
   workoutHistory: WorkoutHistoryEntry[],
 ): ExerciseHistoryIndex {
   const byLibraryId = new Map<string, ExerciseSessionPoint[]>();
-  const byName      = new Map<string, ExerciseSessionPoint[]>();
+  const byName = new Map<string, ExerciseSessionPoint[]>();
 
   const sorted = [...workoutHistory].sort((a, b) => a.endedAt - b.endedAt);
   for (const entry of sorted) {
@@ -380,14 +365,14 @@ export function lookupExerciseHistory(
   let points: ExerciseSessionPoint[];
 
   if (ex.libraryId) {
-    const libHits  = index.byLibraryId.get(ex.libraryId) ?? [];
+    const libHits = index.byLibraryId.get(ex.libraryId) ?? [];
     const nameHits = index.byName.get(nameKey) ?? [];
     // Take libHits as-is; union with name-only hits (entries without a
     // libraryId on the persisted side). Skip nameHits already covered.
     const merged: ExerciseSessionPoint[] = libHits.slice();
     for (const p of nameHits) {
-      if (p.libraryId === ex.libraryId) continue;  // already in libHits
-      if (p.libraryId != null) continue;            // different libraryId → not same exercise
+      if (p.libraryId === ex.libraryId) continue; // already in libHits
+      if (p.libraryId != null) continue; // different libraryId → not same exercise
       merged.push(p);
     }
     merged.sort((a, b) => a.at - b.at);

@@ -83,7 +83,9 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
   }
 
   if (
-    i.isToday && i.resolved && i.lastSession &&
+    i.isToday &&
+    i.resolved &&
+    i.lastSession &&
     i.lastSession.targetSetCount > 0 &&
     i.lastSession.setCount >= i.lastSession.targetSetCount
   ) {
@@ -95,7 +97,9 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
   }
 
   if (
-    i.isToday && i.resolved && i.lastSession &&
+    i.isToday &&
+    i.resolved &&
+    i.lastSession &&
     i.lastSession.targetSetCount > 0 &&
     i.lastSession.setCount < i.lastSession.targetSetCount
   ) {

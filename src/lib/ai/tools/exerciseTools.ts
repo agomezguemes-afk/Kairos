@@ -187,9 +187,7 @@ export const addExerciseTool: ToolDefinition<
 
     // 6. Move into requested position if requested.
     if (args.position !== undefined) {
-      const refreshed = useWorkoutStore
-        .getState()
-        .blocks.find((b) => b.id === args.blockId);
+      const refreshed = useWorkoutStore.getState().blocks.find((b) => b.id === args.blockId);
       if (refreshed) {
         const sorted = [...refreshed.content].sort((a, b) => a.order - b.order);
         const ordered = sorted.map((n) => n.id).filter((id) => id !== lastNode.id);
@@ -212,10 +210,7 @@ const AddExerciseFieldArgs = v.object({
 
 type AddExerciseFieldArgs = v.InferOutput<typeof AddExerciseFieldArgs>;
 
-export const addExerciseFieldTool: ToolDefinition<
-  AddExerciseFieldArgs,
-  { fieldId: string }
-> = {
+export const addExerciseFieldTool: ToolDefinition<AddExerciseFieldArgs, { fieldId: string }> = {
   name: 'add_exercise_field',
   description:
     'Add a custom metric to an exercise (e.g. RPE, distance, cadence). Existing sets get a null value for the new field.',
@@ -276,10 +271,7 @@ const UpdateExerciseFieldArgs = v.object({
 
 type UpdateExerciseFieldArgs = v.InferOutput<typeof UpdateExerciseFieldArgs>;
 
-export const updateExerciseFieldTool: ToolDefinition<
-  UpdateExerciseFieldArgs,
-  { ok: true }
-> = {
+export const updateExerciseFieldTool: ToolDefinition<UpdateExerciseFieldArgs, { ok: true }> = {
   name: 'update_exercise_field',
   description: 'Change attributes (name, unit, primary flag, bounds) of an exercise field.',
   parameters: {
@@ -309,9 +301,7 @@ export const updateExerciseFieldTool: ToolDefinition<
     const store = useWorkoutStore.getState();
     const idx = exercise.fields.findIndex((f) => f.id === args.fieldId);
     if (idx < 0) throw new ToolError(`field "${args.fieldId}" not found`);
-    const fields = exercise.fields.map((f, i) =>
-      i === idx ? { ...f, ...args.patch } : f,
-    );
+    const fields = exercise.fields.map((f, i) => (i === idx ? { ...f, ...args.patch } : f));
     store.updateExercise(block.id, exercise.id, { fields });
     return { ok: true };
   },
@@ -326,10 +316,7 @@ const RemoveExerciseFieldArgs = v.object({
 
 type RemoveExerciseFieldArgs = v.InferOutput<typeof RemoveExerciseFieldArgs>;
 
-export const removeExerciseFieldTool: ToolDefinition<
-  RemoveExerciseFieldArgs,
-  { ok: true }
-> = {
+export const removeExerciseFieldTool: ToolDefinition<RemoveExerciseFieldArgs, { ok: true }> = {
   name: 'remove_exercise_field',
   description: 'Remove a custom metric from an exercise. Strips the value from every set too.',
   parameters: {
@@ -378,7 +365,8 @@ type UpdateSetValueArgs = v.InferOutput<typeof UpdateSetValueArgs>;
 
 export const updateSetValueTool: ToolDefinition<UpdateSetValueArgs, { ok: true }> = {
   name: 'update_set_value',
-  description: 'Set a single field value for one set inside an exercise (e.g. set #2, weight = 70).',
+  description:
+    'Set a single field value for one set inside an exercise (e.g. set #2, weight = 70).',
   parameters: {
     type: 'object',
     properties: {
@@ -386,12 +374,7 @@ export const updateSetValueTool: ToolDefinition<UpdateSetValueArgs, { ok: true }
       setIndex: { type: 'integer', minimum: 0 },
       fieldId: { type: 'string' },
       value: {
-        oneOf: [
-          { type: 'number' },
-          { type: 'string' },
-          { type: 'boolean' },
-          { type: 'null' },
-        ],
+        oneOf: [{ type: 'number' }, { type: 'string' }, { type: 'boolean' }, { type: 'null' }],
       },
     },
     required: ['exerciseId', 'setIndex', 'fieldId', 'value'],
@@ -402,7 +385,8 @@ export const updateSetValueTool: ToolDefinition<UpdateSetValueArgs, { ok: true }
     const { block, exercise } = findExerciseOrThrow(args.exerciseId);
     const store = useWorkoutStore.getState();
     const set = exercise.sets[args.setIndex];
-    if (!set) throw new ToolError(`set index ${args.setIndex} out of range (have ${exercise.sets.length})`);
+    if (!set)
+      throw new ToolError(`set index ${args.setIndex} out of range (have ${exercise.sets.length})`);
     if (!exercise.fields.some((f) => f.id === args.fieldId)) {
       throw new ToolError(`field "${args.fieldId}" not on exercise`);
     }
@@ -461,8 +445,7 @@ export const addSetTool: ToolDefinition<AddSetArgs, { setIndex: number }> = {
       .getState()
       .blocks.find((b) => b.id === block.id)
       ?.content.find((n) => n.type === 'exercise' && n.data.exercise.id === exercise.id);
-    const setIndex =
-      after && after.type === 'exercise' ? after.data.exercise.sets.length - 1 : 0;
+    const setIndex = after && after.type === 'exercise' ? after.data.exercise.sets.length - 1 : 0;
     return { setIndex };
   },
 };

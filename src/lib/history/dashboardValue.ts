@@ -8,11 +8,7 @@
 // Why split this from DashboardNode.tsx: the component renders one shape;
 // the calculation has 10 branches and a clear contract. Tested in isolation.
 
-import type {
-  DashboardLookback,
-  DashboardMetric,
-  DashboardNodeData,
-} from '../../types/content';
+import type { DashboardLookback, DashboardMetric, DashboardNodeData } from '../../types/content';
 import { isExerciseScopedMetric } from '../../types/content';
 import type { WorkoutBlock } from '../../types/core';
 import { calculateBlockStats } from '../../types/core';
@@ -50,10 +46,14 @@ const MS_PER_DAY = 86400_000;
 
 function lookbackToMs(l: DashboardLookback): number | null {
   switch (l) {
-    case 'session': return 0; // handled specially
-    case '4w':      return 28  * MS_PER_DAY;
-    case '12w':     return 84  * MS_PER_DAY;
-    case 'all':     return null;
+    case 'session':
+      return 0; // handled specially
+    case '4w':
+      return 28 * MS_PER_DAY;
+    case '12w':
+      return 84 * MS_PER_DAY;
+    case 'all':
+      return null;
   }
 }
 
@@ -69,7 +69,7 @@ function filterByLookback(
   const windowMs = lookbackToMs(lookback);
   if (windowMs == null) return history;
   const cutoff = nowMs - windowMs;
-  return history.filter(p => p.at >= cutoff);
+  return history.filter((p) => p.at >= cutoff);
 }
 
 function trimZero(n: number): string {
@@ -98,10 +98,7 @@ export function computeDashboardValue(
   return computeExerciseValue(data, workoutHistory, nowMs);
 }
 
-function computeBlockValue(
-  metric: DashboardMetric,
-  block: WorkoutBlock,
-): DashboardValue {
+function computeBlockValue(metric: DashboardMetric, block: WorkoutBlock): DashboardValue {
   const stats = calculateBlockStats(block);
   switch (metric) {
     case 'total_volume': {
@@ -112,9 +109,8 @@ function computeBlockValue(
         unit: 'kg',
         sparkline: [],
         caption: null,
-        progressPct: stats.total_sets > 0
-          ? Math.round((stats.completed_sets / stats.total_sets) * 100)
-          : 0,
+        progressPct:
+          stats.total_sets > 0 ? Math.round((stats.completed_sets / stats.total_sets) * 100) : 0,
         isEmpty,
       };
     }
@@ -125,9 +121,8 @@ function computeBlockValue(
         unit: '',
         sparkline: [],
         caption: stats.total_sets > 0 ? `de ${stats.total_sets}` : null,
-        progressPct: stats.total_sets > 0
-          ? Math.round((stats.completed_sets / stats.total_sets) * 100)
-          : 0,
+        progressPct:
+          stats.total_sets > 0 ? Math.round((stats.completed_sets / stats.total_sets) * 100) : 0,
         isEmpty: stats.total_sets === 0,
       };
     case 'total_exercises':
@@ -146,9 +141,7 @@ function computeBlockValue(
         formatted: String(stats.completion_percentage),
         unit: '%',
         sparkline: [],
-        caption: stats.total_sets > 0
-          ? `${stats.completed_sets}/${stats.total_sets} series`
-          : null,
+        caption: stats.total_sets > 0 ? `${stats.completed_sets}/${stats.total_sets} series` : null,
         progressPct: stats.completion_percentage,
         isEmpty: stats.total_sets === 0,
       };
@@ -227,7 +220,7 @@ function computeExerciseValue(
         value: totalVol || null,
         formatted: totalVol > 0 ? abbreviateK(totalVol) : '—',
         unit: 'kg',
-        sparkline: filtered.map(p => p.volume),
+        sparkline: filtered.map((p) => p.volume),
         caption: `${filtered.length} ${filtered.length === 1 ? 'sesión' : 'sesiones'} · ${captionLookback}`,
         progressPct: null,
         isEmpty: totalVol === 0,
@@ -240,10 +233,11 @@ function computeExerciseValue(
         value: maxRm || null,
         formatted: maxRm > 0 ? trimZero(maxRm) : '—',
         unit: 'kg',
-        sparkline: filtered.map(p => p.estimatedOneRm ?? 0),
-        caption: maxRmAll > 0 && maxRm < maxRmAll - 0.01
-          ? `1RM total ${trimZero(maxRmAll)} kg`
-          : `Estimado (Epley) · ${captionLookback}`,
+        sparkline: filtered.map((p) => p.estimatedOneRm ?? 0),
+        caption:
+          maxRmAll > 0 && maxRm < maxRmAll - 0.01
+            ? `1RM total ${trimZero(maxRmAll)} kg`
+            : `Estimado (Epley) · ${captionLookback}`,
         progressPct: maxRmAll > 0 ? Math.round((maxRm / maxRmAll) * 100) : null,
         isEmpty: maxRm === 0,
       };
@@ -252,7 +246,7 @@ function computeExerciseValue(
       const freq = filtered.length;
       // Express as sessions per week for 4w/12w windows.
       let perWeek: number | null = null;
-      if (lookback === '4w')  perWeek = Math.round((freq / 4) * 10) / 10;
+      if (lookback === '4w') perWeek = Math.round((freq / 4) * 10) / 10;
       if (lookback === '12w') perWeek = Math.round((freq / 12) * 10) / 10;
       return {
         value: freq,
@@ -276,10 +270,11 @@ function computeExerciseValue(
         value: last.topWeight,
         formatted: trimZero(last.topWeight),
         unit: 'kg',
-        sparkline: filtered.map(p => p.topWeight ?? 0),
-        caption: last.topReps != null
-          ? `× ${last.topReps} · ${formatRelative(nowMs - last.at)}`
-          : formatRelative(nowMs - last.at),
+        sparkline: filtered.map((p) => p.topWeight ?? 0),
+        caption:
+          last.topReps != null
+            ? `× ${last.topReps} · ${formatRelative(nowMs - last.at)}`
+            : formatRelative(nowMs - last.at),
         progressPct: null,
         isEmpty: false,
       };
@@ -303,10 +298,14 @@ function emptyValue(): DashboardValue {
 
 function lookbackLabel(l: DashboardLookback): string {
   switch (l) {
-    case 'session': return 'última sesión';
-    case '4w':      return '4 semanas';
-    case '12w':     return '12 semanas';
-    case 'all':     return 'todo el historial';
+    case 'session':
+      return 'última sesión';
+    case '4w':
+      return '4 semanas';
+    case '12w':
+      return '12 semanas';
+    case 'all':
+      return 'todo el historial';
   }
 }
 
@@ -314,10 +313,10 @@ function formatRelative(ms: number): string {
   const days = Math.floor(ms / MS_PER_DAY);
   if (days <= 0) return 'hoy';
   if (days === 1) return 'ayer';
-  if (days < 7)   return `hace ${days} días`;
+  if (days < 7) return `hace ${days} días`;
   const weeks = Math.floor(days / 7);
   if (weeks === 1) return 'hace 1 semana';
-  if (weeks < 8)   return `hace ${weeks} semanas`;
+  if (weeks < 8) return `hace ${weeks} semanas`;
   const months = Math.floor(days / 30);
   return months === 1 ? 'hace 1 mes' : `hace ${months} meses`;
 }

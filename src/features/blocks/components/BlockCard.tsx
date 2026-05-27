@@ -34,10 +34,7 @@ function BlockCardInner({ block, index, onPress, onLongPress, isHighlighted }: B
   React.useEffect(() => {
     if (isHighlighted) {
       highlightOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.15, { duration: 400 }),
-          withTiming(0, { duration: 400 }),
-        ),
+        withSequence(withTiming(0.15, { duration: 400 }), withTiming(0, { duration: 400 })),
         3,
         false,
       );
@@ -58,12 +55,19 @@ function BlockCardInner({ block, index, onPress, onLongPress, isHighlighted }: B
 
   return (
     <Animated.View
-      entering={FadeInUp.delay(index * 50).duration(300).springify().damping(18)}
+      entering={FadeInUp.delay(index * 50)
+        .duration(300)
+        .springify()
+        .damping(18)}
       style={styles.cardWrapper}
     >
       <Pressable
-        onPressIn={() => { scale.value = withSpring(0.96, springs.tap); }}
-        onPressOut={() => { scale.value = withSpring(1, springs.bouncy); }}
+        onPressIn={() => {
+          scale.value = withSpring(0.96, springs.tap);
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, springs.bouncy);
+        }}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           onPress();
@@ -77,7 +81,11 @@ function BlockCardInner({ block, index, onPress, onLongPress, isHighlighted }: B
         <Animated.View style={[styles.card, cardAnimatedStyle]}>
           {/* Highlight overlay */}
           <Animated.View
-            style={[styles.highlightOverlay, highlightStyle, { backgroundColor: Colors.accent.primary }]}
+            style={[
+              styles.highlightOverlay,
+              highlightStyle,
+              { backgroundColor: Colors.accent.primary },
+            ]}
             pointerEvents="none"
           />
 
@@ -88,18 +96,24 @@ function BlockCardInner({ block, index, onPress, onLongPress, isHighlighted }: B
           <View style={styles.cardHeader}>
             <View style={[styles.iconCircle, { backgroundColor: disciplineColor + '18' }]}>
               <Text style={styles.iconEmoji}>
-                {block.icon === 'strength' || block.icon === 'weightlifting' ? '\u{1F4AA}' :
-                 block.icon === 'running' ? '\u{1F3C3}' :
-                 block.icon === 'calisthenics' ? '\u{1F938}' :
-                 block.icon === 'mobility' ? '\u{1F9D8}' :
-                 block.icon === 'cycling' ? '\u{1F6B4}' :
-                 block.icon === 'swimming' ? '\u{1F3CA}' :
-                 block.icon === 'team_sport' ? '\u{26BD}' : '\u{1F3CB}'}
+                {block.icon === 'strength' || block.icon === 'weightlifting'
+                  ? '\u{1F4AA}'
+                  : block.icon === 'running'
+                    ? '\u{1F3C3}'
+                    : block.icon === 'calisthenics'
+                      ? '\u{1F938}'
+                      : block.icon === 'mobility'
+                        ? '\u{1F9D8}'
+                        : block.icon === 'cycling'
+                          ? '\u{1F6B4}'
+                          : block.icon === 'swimming'
+                            ? '\u{1F3CA}'
+                            : block.icon === 'team_sport'
+                              ? '\u{26BD}'
+                              : '\u{1F3CB}'}
               </Text>
             </View>
-            {block.is_favorite && (
-              <Feather name="star" size={14} color={Colors.accent.primary} />
-            )}
+            {block.is_favorite && <Feather name="star" size={14} color={Colors.accent.primary} />}
           </View>
 
           {/* Name */}
@@ -138,19 +152,27 @@ function BlockCardInner({ block, index, onPress, onLongPress, isHighlighted }: B
 
           {/* Status badge */}
           {block.status !== 'draft' && (
-            <View style={[
-              styles.statusBadge,
-              block.status === 'completed' && { backgroundColor: Colors.semantic.successMuted },
-              block.status === 'in_progress' && { backgroundColor: Colors.accent.muted },
-            ]}>
-              <Text style={[
-                styles.statusText,
-                block.status === 'completed' && { color: Colors.semantic.success },
-                block.status === 'in_progress' && { color: Colors.accent.primary },
-              ]}>
-                {block.status === 'completed' ? 'Completado' :
-                 block.status === 'in_progress' ? 'En progreso' :
-                 block.status === 'partial' ? 'Parcial' : ''}
+            <View
+              style={[
+                styles.statusBadge,
+                block.status === 'completed' && { backgroundColor: Colors.semantic.successMuted },
+                block.status === 'in_progress' && { backgroundColor: Colors.accent.muted },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  block.status === 'completed' && { color: Colors.semantic.success },
+                  block.status === 'in_progress' && { color: Colors.accent.primary },
+                ]}
+              >
+                {block.status === 'completed'
+                  ? 'Completado'
+                  : block.status === 'in_progress'
+                    ? 'En progreso'
+                    : block.status === 'partial'
+                      ? 'Parcial'
+                      : ''}
               </Text>
             </View>
           )}

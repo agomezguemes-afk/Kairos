@@ -58,12 +58,10 @@ function CompoundTileImpl(props: Props) {
   }, [stats.last, stats.previous]);
 
   const atOrNearMax =
-    stats.allTimeMaxWeight != null &&
-    lastTop != null &&
-    lastTop >= stats.allTimeMaxWeight - 0.01;
+    stats.allTimeMaxWeight != null && lastTop != null && lastTop >= stats.allTimeMaxWeight - 0.01;
 
   const relativeLast = useMemo(
-    () => stats.last ? formatRelativeShort(Date.now() - stats.last.at) : null,
+    () => (stats.last ? formatRelativeShort(Date.now() - stats.last.at) : null),
     [stats.last],
   );
 
@@ -85,9 +83,7 @@ function CompoundTileImpl(props: Props) {
             <View style={styles.lastValueRow}>
               <Text style={styles.lastValue}>{trimZero(lastTop)}</Text>
               <Text style={styles.lastUnit}>kg</Text>
-              {lastReps != null && (
-                <Text style={styles.lastReps}>× {lastReps}</Text>
-              )}
+              {lastReps != null && <Text style={styles.lastReps}>× {lastReps}</Text>}
             </View>
             {delta != null && (
               <Text
@@ -97,25 +93,19 @@ function CompoundTileImpl(props: Props) {
                   delta < 0 && styles.deltaValueNegative,
                 ]}
               >
-                {delta > 0 ? '+' : ''}{trimZero(delta)} kg vs anterior
+                {delta > 0 ? '+' : ''}
+                {trimZero(delta)} kg vs anterior
               </Text>
             )}
           </View>
           {showSparkline && (
             <View style={styles.sparkSlot}>
-              <Sparkline
-                data={stats.sparkline}
-                width={72}
-                height={22}
-                highlight={atOrNearMax}
-              />
+              <Sparkline data={stats.sparkline} width={72} height={22} highlight={atOrNearMax} />
             </View>
           )}
         </View>
       ) : (
-        targetSummary && (
-          <Text style={styles.targetLine}>{targetSummary}</Text>
-        )
+        targetSummary && <Text style={styles.targetLine}>{targetSummary}</Text>
       )}
 
       <View style={styles.body}>
@@ -159,10 +149,10 @@ function formatRelativeShort(ms: number): string {
   const days = Math.floor(ms / 86400_000);
   if (days <= 0) return 'hoy';
   if (days === 1) return 'ayer';
-  if (days < 7)   return `hace ${days} días`;
+  if (days < 7) return `hace ${days} días`;
   const weeks = Math.floor(days / 7);
   if (weeks === 1) return 'hace 1 sem';
-  if (weeks < 8)   return `hace ${weeks} sem`;
+  if (weeks < 8) return `hace ${weeks} sem`;
   const months = Math.floor(days / 30);
   return months === 1 ? 'hace 1 mes' : `hace ${months} meses`;
 }

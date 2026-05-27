@@ -73,24 +73,24 @@ const METRIC_ICONS: Record<DashboardMetric, keyof typeof Feather.glyphMap> = {
 };
 
 const VIZ_OPTIONS: { id: DashboardViz; label: string; icon: keyof typeof Feather.glyphMap }[] = [
-  { id: 'counter',   label: 'Contador',  icon: 'hash' },
-  { id: 'progress',  label: 'Progreso',  icon: 'pie-chart' },
-  { id: 'list',      label: 'Lista',     icon: 'list' },
+  { id: 'counter', label: 'Contador', icon: 'hash' },
+  { id: 'progress', label: 'Progreso', icon: 'pie-chart' },
+  { id: 'list', label: 'Lista', icon: 'list' },
   { id: 'sparkline', label: 'Tendencia', icon: 'trending-up' },
 ];
 
 const LOOKBACK_OPTIONS: { id: DashboardLookback; label: string }[] = [
   { id: 'session', label: 'Última' },
-  { id: '4w',      label: '4 semanas' },
-  { id: '12w',     label: '12 semanas' },
-  { id: 'all',     label: 'Todo' },
+  { id: '4w', label: '4 semanas' },
+  { id: '12w', label: '12 semanas' },
+  { id: 'all', label: 'Todo' },
 ];
 
 const TIMING_IN = { duration: 280, easing: Easing.out(Easing.cubic) };
 
 function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: DashboardNodeProps) {
   const [showConfig, setShowConfig] = useState(false);
-  const workoutHistory = useWorkoutStore(s => s.workoutHistory);
+  const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
 
   const value = useMemo(
     () => computeDashboardValue(node.data, block, workoutHistory),
@@ -109,9 +109,13 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
 
   const dismissConfig = (cb?: () => void) => {
     configBackdropOp.value = withTiming(0, { duration: 200 });
-    configTranslateY.value = withTiming(400, { duration: 220, easing: Easing.in(Easing.cubic) }, () => {
-      if (cb) runOnJS(cb)();
-    });
+    configTranslateY.value = withTiming(
+      400,
+      { duration: 220, easing: Easing.in(Easing.cubic) },
+      () => {
+        if (cb) runOnJS(cb)();
+      },
+    );
   };
 
   const handleCloseConfig = () => {
@@ -128,10 +132,11 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
 
   const isExerciseScoped = isExerciseScopedMetric(node.data.metric);
   const blockExercises: ExerciseCard[] = useMemo(
-    () => block.content
-      .filter((n): n is Extract<typeof n, { type: 'exercise' }> => n.type === 'exercise')
-      .sort((a, b) => a.order - b.order)
-      .map(n => n.data.exercise),
+    () =>
+      block.content
+        .filter((n): n is Extract<typeof n, { type: 'exercise' }> => n.type === 'exercise')
+        .sort((a, b) => a.order - b.order)
+        .map((n) => n.data.exercise),
     [block.content],
   );
 
@@ -186,9 +191,17 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
       </Pressable>
 
       {/* Config modal */}
-      <Modal visible={showConfig} transparent animationType="none" onRequestClose={handleCloseConfig}>
+      <Modal
+        visible={showConfig}
+        transparent
+        animationType="none"
+        onRequestClose={handleCloseConfig}
+      >
         <View style={styles.configBackdrop}>
-          <Animated.View style={[styles.configBackdropOverlay, configBackdropStyle]} pointerEvents="none" />
+          <Animated.View
+            style={[styles.configBackdropOverlay, configBackdropStyle]}
+            pointerEvents="none"
+          />
           <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseConfig} />
           <Animated.View style={[styles.configSheet, configSheetStyle]}>
             <View style={styles.configHandle} />
@@ -196,8 +209,12 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.configSection}>Métrica del bloque</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.configScroll}>
-                {BLOCK_METRICS.map(metric => {
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.configScroll}
+              >
+                {BLOCK_METRICS.map((metric) => {
                   const active = node.data.metric === metric;
                   return (
                     <Pressable
@@ -208,7 +225,11 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
                       }}
                       style={[styles.configChip, active && styles.configChipActive]}
                     >
-                      <Feather name={METRIC_ICONS[metric]} size={13} color={active ? Colors.ink.primary : Colors.ink.tertiary} />
+                      <Feather
+                        name={METRIC_ICONS[metric]}
+                        size={13}
+                        color={active ? Colors.ink.primary : Colors.ink.tertiary}
+                      />
                       <Text style={[styles.configChipText, active && styles.configChipTextActive]}>
                         {DASHBOARD_METRIC_LABELS[metric]}
                       </Text>
@@ -218,8 +239,12 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
               </ScrollView>
 
               <Text style={styles.configSection}>Métrica por ejercicio</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.configScroll}>
-                {EXERCISE_SCOPED_METRICS.map(metric => {
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.configScroll}
+              >
+                {EXERCISE_SCOPED_METRICS.map((metric) => {
                   const active = node.data.metric === metric;
                   return (
                     <Pressable
@@ -230,7 +255,11 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
                       }}
                       style={[styles.configChip, active && styles.configChipActive]}
                     >
-                      <Feather name={METRIC_ICONS[metric]} size={13} color={active ? Colors.ink.primary : Colors.ink.tertiary} />
+                      <Feather
+                        name={METRIC_ICONS[metric]}
+                        size={13}
+                        color={active ? Colors.ink.primary : Colors.ink.tertiary}
+                      />
                       <Text style={[styles.configChipText, active && styles.configChipTextActive]}>
                         {DASHBOARD_METRIC_LABELS[metric]}
                       </Text>
@@ -247,8 +276,12 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
                       Añade ejercicios al bloque para vincularlos
                     </Text>
                   ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.configScroll}>
-                      {blockExercises.map(ex => {
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.configScroll}
+                    >
+                      {blockExercises.map((ex) => {
                         const active = node.data.exerciseId === ex.id;
                         return (
                           <Pressable
@@ -273,7 +306,7 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
 
                   <Text style={styles.configSection}>Ventana</Text>
                   <View style={styles.lookbackRow}>
-                    {LOOKBACK_OPTIONS.map(opt => {
+                    {LOOKBACK_OPTIONS.map((opt) => {
                       const active = (node.data.lookback ?? '4w') === opt.id;
                       return (
                         <Pressable
@@ -296,7 +329,7 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
 
               <Text style={styles.configSection}>Visualización</Text>
               <View style={styles.vizRow}>
-                {VIZ_OPTIONS.map(opt => {
+                {VIZ_OPTIONS.map((opt) => {
                   const active = node.data.viz === opt.id;
                   return (
                     <Pressable
@@ -307,7 +340,11 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
                       }}
                       style={[styles.vizOption, active && styles.vizOptionActive]}
                     >
-                      <Feather name={opt.icon} size={18} color={active ? Colors.ink.primary : Colors.ink.tertiary} />
+                      <Feather
+                        name={opt.icon}
+                        size={18}
+                        color={active ? Colors.ink.primary : Colors.ink.tertiary}
+                      />
                       <Text style={[styles.vizLabel, active && styles.vizLabelActive]}>
                         {opt.label}
                       </Text>
@@ -317,10 +354,7 @@ function DashboardNodeInner({ node, block, onUpdate, onDelete, compact }: Dashbo
               </View>
             </ScrollView>
 
-            <Pressable
-              onPress={handleCloseConfig}
-              style={styles.configDone}
-            >
+            <Pressable onPress={handleCloseConfig} style={styles.configDone}>
               <Text style={styles.configDoneText}>Listo</Text>
             </Pressable>
           </Animated.View>
@@ -350,16 +384,14 @@ function renderViz(
           <Feather name={icon} size={compact ? 12 : 14} color={Colors.ink.tertiary} />
         </View>
         <View style={styles.sparkValueRow}>
-          <Text style={[styles.sparkValue, compact && styles.sparkValueCompact]}>{v.formatted}</Text>
+          <Text style={[styles.sparkValue, compact && styles.sparkValueCompact]}>
+            {v.formatted}
+          </Text>
           {v.unit ? <Text style={styles.sparkUnit}>{v.unit}</Text> : null}
         </View>
         <View style={styles.sparkChart}>
           {v.sparkline.length >= 3 ? (
-            <Sparkline
-              data={v.sparkline}
-              width={compact ? 120 : 160}
-              height={compact ? 24 : 32}
-            />
+            <Sparkline data={v.sparkline} width={compact ? 120 : 160} height={compact ? 24 : 32} />
           ) : (
             <Text style={styles.captionFallback}>{v.caption ?? 'Sin datos suficientes'}</Text>
           )}
@@ -377,7 +409,12 @@ function renderViz(
       <View style={styles.progressLayout}>
         <Text style={styles.progressLabel}>{data.label}</Text>
         <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, { width: `${pct}%` as `${number}%`, backgroundColor: accent }]} />
+          <View
+            style={[
+              styles.progressBarFill,
+              { width: `${pct}%` as `${number}%`, backgroundColor: accent },
+            ]}
+          />
         </View>
         <View style={styles.progressInfo}>
           <Text style={[styles.progressPct, { color: accent }]}>{pct}%</Text>
@@ -394,13 +431,17 @@ function renderViz(
         {blockExercises.length === 0 ? (
           <Text style={styles.listEmpty}>Sin ejercicios</Text>
         ) : (
-          blockExercises.slice(0, 5).map(ex => {
-            const done = ex.sets.filter(s => s.completed).length;
+          blockExercises.slice(0, 5).map((ex) => {
+            const done = ex.sets.filter((s) => s.completed).length;
             return (
               <View key={ex.id} style={styles.listRow}>
                 <View style={[styles.listDot, { backgroundColor: ex.color }]} />
-                <Text style={styles.listName} numberOfLines={1}>{ex.name}</Text>
-                <Text style={styles.listStat}>{done}/{ex.sets.length}</Text>
+                <Text style={styles.listName} numberOfLines={1}>
+                  {ex.name}
+                </Text>
+                <Text style={styles.listStat}>
+                  {done}/{ex.sets.length}
+                </Text>
               </View>
             );
           })
@@ -412,11 +453,13 @@ function renderViz(
   // counter (default)
   return (
     <View style={[styles.counterLayout, compact && styles.counterLayoutCompact]}>
-      <View style={[
-        styles.metricIconBg,
-        compact && styles.metricIconBgCompact,
-        { backgroundColor: accent + '18' },
-      ]}>
+      <View
+        style={[
+          styles.metricIconBg,
+          compact && styles.metricIconBgCompact,
+          { backgroundColor: accent + '18' },
+        ]}
+      >
         <Feather name={icon} size={compact ? 14 : 18} color={accent} />
       </View>
       <View style={styles.counterText}>
@@ -425,9 +468,13 @@ function renderViz(
         </Text>
         {v.unit ? <Text style={styles.counterUnit}>{v.unit}</Text> : null}
       </View>
-      <Text style={styles.counterLabel} numberOfLines={1}>{data.label}</Text>
+      <Text style={styles.counterLabel} numberOfLines={1}>
+        {data.label}
+      </Text>
       {v.caption ? (
-        <Text style={styles.counterCaption} numberOfLines={1}>{v.caption}</Text>
+        <Text style={styles.counterCaption} numberOfLines={1}>
+          {v.caption}
+        </Text>
       ) : null}
     </View>
   );

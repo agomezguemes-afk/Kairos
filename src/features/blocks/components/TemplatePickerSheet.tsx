@@ -5,14 +5,7 @@
 // and let the parent decide whether to navigate or highlight on the grid.
 
 import React, { useCallback } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -25,10 +18,7 @@ import * as Haptics from 'expo-haptics';
 
 import { Colors, Type, Spacing, Radius, Shadows } from '../../../theme/tokens';
 import { useWorkoutStore } from '../../../store/workoutStore';
-import {
-  BLOCK_TEMPLATES,
-  type BlockTemplate,
-} from '../../../data/blockTemplates';
+import { BLOCK_TEMPLATES, type BlockTemplate } from '../../../data/blockTemplates';
 import { DISCIPLINE_CONFIGS, type Discipline } from '../../../types/core';
 
 interface Props {
@@ -74,10 +64,7 @@ export default function TemplatePickerSheet({ visible, onClose, onCreated }: Pro
             <Text style={styles.hint}>Crea un bloque listo para entrenar.</Text>
           </View>
 
-          <ScrollView
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-          >
+          <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
             {BLOCK_TEMPLATES.map((tpl) => (
               <TemplateCard key={tpl.id} template={tpl} onPress={() => handleSelect(tpl)} />
             ))}
@@ -106,8 +93,12 @@ const TemplateCard = React.memo(function TemplateCard({ template, onPress }: Car
     >
       <View style={[styles.cardStripe, { backgroundColor: color }]} />
       <View style={styles.cardBody}>
-        <Text style={styles.cardName} numberOfLines={2}>{template.name}</Text>
-        <Text style={styles.cardDesc} numberOfLines={2}>{template.description}</Text>
+        <Text style={styles.cardName} numberOfLines={2}>
+          {template.name}
+        </Text>
+        <Text style={styles.cardDesc} numberOfLines={2}>
+          {template.description}
+        </Text>
         <Text style={styles.cardMeta} numberOfLines={1}>
           {`${template.exercises.length} ejercicios · ${template.recommendedFrequency}×/sem · ${disciplineLabel}`}
         </Text>

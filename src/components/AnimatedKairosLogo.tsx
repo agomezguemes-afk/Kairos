@@ -17,8 +17,8 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const VIEWBOX = 100;
-const C_LEN = 2 * Math.PI * 42;          // ≈ 263.89
-const V_LEN = 56;                          // K spine
+const C_LEN = 2 * Math.PI * 42; // ≈ 263.89
+const V_LEN = 56; // K spine
 const D_LEN = Math.sqrt(30 * 30 + 28 * 28); // ≈ 41.04 — both diagonals
 
 const DRAW_TOTAL = 1500;
@@ -82,7 +82,7 @@ export default function AnimatedKairosLogo({
       delay + 1300,
       withTiming(1, { duration: 200, easing: ease }, (finished) => {
         if (finished && onReady) {
-          // eslint-disable-next-line @typescript-eslint/no-use-before-define
+           
           runReady();
         }
       }),
@@ -171,13 +171,7 @@ export default function AnimatedKairosLogo({
             strokeDasharray={`${D_LEN} ${D_LEN}`}
             animatedProps={downProps}
           />
-          <AnimatedCircle
-            cx={66}
-            cy={22}
-            r={3.5}
-            fill={stroke}
-            animatedProps={dotProps}
-          />
+          <AnimatedCircle cx={66} cy={22} r={3.5} fill={stroke} animatedProps={dotProps} />
         </G>
       </Svg>
     </Animated.View>

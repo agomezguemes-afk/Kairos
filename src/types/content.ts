@@ -109,7 +109,18 @@ export interface SupersetNodeData {
   label?: string;
 }
 
-export type ContentNodeType = 'text' | 'exercise' | 'subBlock' | 'image' | 'divider' | 'customField' | 'dashboard' | 'timer' | 'spacer' | 'columnSection' | 'superset';
+export type ContentNodeType =
+  | 'text'
+  | 'exercise'
+  | 'subBlock'
+  | 'image'
+  | 'divider'
+  | 'customField'
+  | 'dashboard'
+  | 'timer'
+  | 'spacer'
+  | 'columnSection'
+  | 'superset';
 
 export interface ColumnSectionData {
   columns: 2 | 3;
@@ -123,17 +134,50 @@ interface NodeBase {
   section?: string;
 }
 
-export interface TextContentNode extends NodeBase { type: 'text'; data: TextNodeData }
-export interface ExerciseContentNode extends NodeBase { type: 'exercise'; data: ExerciseNodeData }
-export interface SubBlockContentNode extends NodeBase { type: 'subBlock'; data: SubBlockNodeData }
-export interface ImageContentNode extends NodeBase { type: 'image'; data: ImageNodeData }
-export interface DividerContentNode extends NodeBase { type: 'divider'; data: Record<string, never> }
-export interface CustomFieldContentNode extends NodeBase { type: 'customField'; data: CustomFieldNodeData }
-export interface DashboardContentNode extends NodeBase { type: 'dashboard'; data: DashboardNodeData }
-export interface TimerContentNode extends NodeBase { type: 'timer'; data: TimerNodeData }
-export interface SpacerContentNode extends NodeBase { type: 'spacer'; data: SpacerNodeData }
-export interface ColumnSectionContentNode extends NodeBase { type: 'columnSection'; data: ColumnSectionData }
-export interface SupersetContentNode extends NodeBase { type: 'superset'; data: SupersetNodeData }
+export interface TextContentNode extends NodeBase {
+  type: 'text';
+  data: TextNodeData;
+}
+export interface ExerciseContentNode extends NodeBase {
+  type: 'exercise';
+  data: ExerciseNodeData;
+}
+export interface SubBlockContentNode extends NodeBase {
+  type: 'subBlock';
+  data: SubBlockNodeData;
+}
+export interface ImageContentNode extends NodeBase {
+  type: 'image';
+  data: ImageNodeData;
+}
+export interface DividerContentNode extends NodeBase {
+  type: 'divider';
+  data: Record<string, never>;
+}
+export interface CustomFieldContentNode extends NodeBase {
+  type: 'customField';
+  data: CustomFieldNodeData;
+}
+export interface DashboardContentNode extends NodeBase {
+  type: 'dashboard';
+  data: DashboardNodeData;
+}
+export interface TimerContentNode extends NodeBase {
+  type: 'timer';
+  data: TimerNodeData;
+}
+export interface SpacerContentNode extends NodeBase {
+  type: 'spacer';
+  data: SpacerNodeData;
+}
+export interface ColumnSectionContentNode extends NodeBase {
+  type: 'columnSection';
+  data: ColumnSectionData;
+}
+export interface SupersetContentNode extends NodeBase {
+  type: 'superset';
+  data: SupersetNodeData;
+}
 
 export type ContentNode =
   | TextContentNode
@@ -166,7 +210,13 @@ export function createExerciseNode(order: number, exercise: ExerciseCard): Exerc
 }
 
 export function createSubBlockNode(order: number, blockId: string): SubBlockContentNode {
-  return { id: generateId(), type: 'subBlock', order, column: 0, data: { blockId, collapsed: false } };
+  return {
+    id: generateId(),
+    type: 'subBlock',
+    order,
+    column: 0,
+    data: { blockId, collapsed: false },
+  };
 }
 
 export function createDividerNode(order: number): DividerContentNode {
@@ -255,18 +305,16 @@ export function getExercisesFromContent(content: ContentNode[]): ExerciseCard[] 
   return content
     .filter((n): n is ExerciseContentNode => n.type === 'exercise')
     .sort((a, b) => a.order - b.order)
-    .map(n => n.data.exercise);
+    .map((n) => n.data.exercise);
 }
 
 export function getNextOrder(content: ContentNode[]): number {
   if (content.length === 0) return 0;
-  return Math.max(...content.map(n => n.order)) + 1;
+  return Math.max(...content.map((n) => n.order)) + 1;
 }
 
 export function reorderNodes(nodes: ContentNode[]): ContentNode[] {
-  return nodes
-    .sort((a, b) => a.order - b.order)
-    .map((n, i) => ({ ...n, order: i }));
+  return nodes.sort((a, b) => a.order - b.order).map((n, i) => ({ ...n, order: i }));
 }
 
 // ======================== RENDER GROUPS ========================
@@ -290,7 +338,7 @@ export function buildRenderGroups(content: ContentNode[]): RenderGroup[] {
   const sectionNodes = sorted.filter(
     (n): n is ColumnSectionContentNode => n.type === 'columnSection',
   );
-  const sectionIds = new Set(sectionNodes.map(n => n.id));
+  const sectionIds = new Set(sectionNodes.map((n) => n.id));
 
   const sectionChildrenMap = new Map<string, ContentNode[]>();
   for (const s of sectionNodes) sectionChildrenMap.set(s.id, []);

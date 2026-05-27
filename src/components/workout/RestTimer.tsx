@@ -51,11 +51,12 @@ export default function RestTimer({
 
   const remainingMs = Math.max(0, startTime + durationSec * 1000 - now);
   const remainingSec = Math.ceil(remainingMs / 1000);
-  const mm = Math.floor(remainingSec / 60).toString().padStart(2, '0');
+  const mm = Math.floor(remainingSec / 60)
+    .toString()
+    .padStart(2, '0');
   const ss = (remainingSec % 60).toString().padStart(2, '0');
-  const pct = durationSec > 0
-    ? Math.min(1, (durationSec * 1000 - remainingMs) / (durationSec * 1000))
-    : 1;
+  const pct =
+    durationSec > 0 ? Math.min(1, (durationSec * 1000 - remainingMs) / (durationSec * 1000)) : 1;
   const dashOffset = CIRC * (1 - pct);
   const finished = remainingMs <= 0;
 
@@ -83,7 +84,9 @@ export default function RestTimer({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label} accessibilityRole="text">Descanso</Text>
+      <Text style={styles.label} accessibilityRole="text">
+        Descanso
+      </Text>
 
       <View
         style={styles.ringWrap}
@@ -123,10 +126,7 @@ export default function RestTimer({
           {finished ? (
             <Text style={styles.doneText}>Listo</Text>
           ) : (
-            <Text
-              style={styles.timer}
-              accessibilityLabel={`Quedan ${mm}:${ss}`}
-            >
+            <Text style={styles.timer} accessibilityLabel={`Quedan ${mm}:${ss}`}>
               {mm}:{ss}
             </Text>
           )}

@@ -94,12 +94,8 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
       case 'option':
       default:
         return {
-          backgroundColor: selected
-            ? Colors.accent.primary
-            : Colors.accent.muted,
-          borderColor: selected
-            ? Colors.accent.primary
-            : Colors.accent.light,
+          backgroundColor: selected ? Colors.accent.primary : Colors.accent.muted,
+          borderColor: selected ? Colors.accent.primary : Colors.accent.light,
           textColor: selected ? Colors.text.inverse : Colors.text.primary,
         };
     }
@@ -147,12 +143,14 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
           <View style={styles.content}>
             {emoji && <Text style={styles.emoji}>{emoji}</Text>}
             {icon && <View style={styles.icon}>{icon}</View>}
-            <Text style={[
-              styles.text,
-              variant === 'option' && styles.optionText,
-              { color: variantStyles.textColor },
-              textStyle,
-            ]}>
+            <Text
+              style={[
+                styles.text,
+                variant === 'option' && styles.optionText,
+                { color: variantStyles.textColor },
+                textStyle,
+              ]}
+            >
               {title}
             </Text>
           </View>

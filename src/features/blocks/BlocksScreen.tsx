@@ -71,18 +71,27 @@ export default function BlocksScreen({ route }: any) {
 
   // Sorted blocks
   const sortedBlocks = useMemo(() => {
-    const visible = blocks.filter(b => !b.is_archived);
+    const visible = blocks.filter((b) => !b.is_archived);
     switch (sortMode) {
       case 'name':
         return [...visible].sort((a, b) => a.name.localeCompare(b.name));
       case 'status':
-        const statusOrder: Record<string, number> = { in_progress: 0, partial: 1, draft: 2, completed: 3 };
-        return [...visible].sort((a, b) => (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4));
+        const statusOrder: Record<string, number> = {
+          in_progress: 0,
+          partial: 1,
+          draft: 2,
+          completed: 3,
+        };
+        return [...visible].sort(
+          (a, b) => (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4),
+        );
       case 'favorite':
         return [...visible].sort((a, b) => (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0));
       case 'recent':
       default:
-        return [...visible].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+        return [...visible].sort(
+          (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+        );
     }
   }, [blocks, sortMode]);
 
@@ -274,8 +283,12 @@ export default function BlocksScreen({ route }: any) {
       {sortedBlocks.length > 0 && (
         <Animated.View style={[styles.fab, fabStyle, { bottom: insets.bottom + 20 }]}>
           <Pressable
-            onPressIn={() => { fabScale.value = withSpring(0.88, springs.tap); }}
-            onPressOut={() => { fabScale.value = withSpring(1, springs.bouncy); }}
+            onPressIn={() => {
+              fabScale.value = withSpring(0.88, springs.tap);
+            }}
+            onPressOut={() => {
+              fabScale.value = withSpring(1, springs.bouncy);
+            }}
             onPress={handleQuickCreate}
             onLongPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

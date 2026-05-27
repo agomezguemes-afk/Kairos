@@ -32,19 +32,14 @@ export default function PRCardsScreen() {
           data={prCards}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={[
-            styles.list,
-            { paddingBottom: insets.bottom + 24 },
-          ]}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
         />
       ) : (
         <View style={styles.empty}>
           <KairosIcon name="badge" size={40} color={Colors.text.tertiary} />
           <Text style={styles.emptyTitle}>Sin récords todavía</Text>
-          <Text style={styles.emptyDesc}>
-            Completa series para registrar tus mejores marcas.
-          </Text>
+          <Text style={styles.emptyDesc}>Completa series para registrar tus mejores marcas.</Text>
         </View>
       )}
     </View>
@@ -60,10 +55,7 @@ function PRCardItem({ card, index }: { card: PRCard; index: number }) {
   });
 
   return (
-    <Animated.View
-      entering={FadeInUp.delay(60 + index * 50).duration(350)}
-      style={styles.card}
-    >
+    <Animated.View entering={FadeInUp.delay(60 + index * 50).duration(350)} style={styles.card}>
       {/* Gold accent strip */}
       <View style={styles.cardStrip} />
 
@@ -82,11 +74,10 @@ function PRCardItem({ card, index }: { card: PRCard; index: number }) {
         {/* Record value */}
         <View style={styles.cardValueRow}>
           <Text style={styles.cardValue}>
-            {card.value}{unit}
+            {card.value}
+            {unit}
           </Text>
-          {card.secondaryText && (
-            <Text style={styles.cardSecondary}>{card.secondaryText}</Text>
-          )}
+          {card.secondaryText && <Text style={styles.cardSecondary}>{card.secondaryText}</Text>}
         </View>
 
         {/* Celebration message */}

@@ -103,7 +103,7 @@ function stripTrailingZero(n: number): string {
 
 /** Sober label per kind, no exclamations. */
 export const PR_LABEL: Record<PRKind, string> = {
-  'max-weight':         'Nuevo máximo',
+  'max-weight': 'Nuevo máximo',
   'max-reps-at-weight': 'Reps al máximo',
-  'max-volume-set':     'Set más alto',
+  'max-volume-set': 'Set más alto',
 };

@@ -10,11 +10,7 @@
 //   3. npx expo prebuild --clean && npx expo run:ios
 
 import { Platform } from 'react-native';
-import {
-  DISCIPLINE_TO_HK,
-  type HealthAvailability,
-  type WriteWorkoutInput,
-} from './types';
+import { DISCIPLINE_TO_HK, type HealthAvailability, type WriteWorkoutInput } from './types';
 
 let cached: any = null;
 let probed = false;
@@ -120,7 +116,10 @@ export async function readBodyWeight(): Promise<number | null> {
   return new Promise<number | null>((resolve) => {
     try {
       native.getLatestWeight({ unit: 'gram' }, (err: string | null, result: any) => {
-        if (err) { resolve(null); return; }
+        if (err) {
+          resolve(null);
+          return;
+        }
         // gram → kg
         const value = typeof result?.value === 'number' ? result.value / 1000 : null;
         resolve(value);

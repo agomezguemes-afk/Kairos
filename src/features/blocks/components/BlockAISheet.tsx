@@ -54,8 +54,18 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
   const [runningTool, setRunningTool] = useState<string | null>(null);
-  const [planForm, setPlanForm] = useState<{ open: boolean; objetivo: string; dias: string; duracion: string; lesiones: string }>({
-    open: false, objetivo: '', dias: '3', duracion: '45', lesiones: '',
+  const [planForm, setPlanForm] = useState<{
+    open: boolean;
+    objetivo: string;
+    dias: string;
+    duracion: string;
+    lesiones: string;
+  }>({
+    open: false,
+    objetivo: '',
+    dias: '3',
+    duracion: '45',
+    lesiones: '',
   });
   const [generating, setGenerating] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -63,7 +73,7 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
   const abortRef = useRef<AbortController | null>(null);
   const streamingIdRef = useRef<string | null>(null);
 
-  const blocks = useWorkoutStore(s => s.blocks);
+  const blocks = useWorkoutStore((s) => s.blocks);
   const { profile } = useUserProfile();
   const { streak, badges, prCards } = useGamification();
 
@@ -72,23 +82,30 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
 
   const suggestions = useMemo(() => getBlockSuggestions(block), [block]);
 
-  const conversationHistory = useMemo(() =>
-    messages
-      .slice(-8)
-      .filter((m): m is AIMessage & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')
-      .map(m => ({ role: m.role, content: m.content })),
+  const conversationHistory = useMemo(
+    () =>
+      messages
+        .slice(-8)
+        .filter(
+          (m): m is AIMessage & { role: 'user' | 'assistant' } =>
+            m.role === 'user' || m.role === 'assistant',
+        )
+        .map((m) => ({ role: m.role, content: m.content })),
     [messages],
   );
 
-  const buildContext = useCallback((): RawUserContext => ({
-    profile,
-    blocks,
-    streak,
-    prCards,
-    badges,
-    activeMission: null,
-    currentBlockId: block.id,
-  }), [profile, blocks, streak, prCards, badges, block.id]);
+  const buildContext = useCallback(
+    (): RawUserContext => ({
+      profile,
+      blocks,
+      streak,
+      prCards,
+      badges,
+      activeMission: null,
+      currentBlockId: block.id,
+    }),
+    [profile, blocks, streak, prCards, badges, block.id],
+  );
 
   useEffect(() => {
     if (visible) {
@@ -97,12 +114,15 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     }
   }, [visible, backdropOp, translateY]);
 
-  const animateOut = useCallback((cb?: () => void) => {
-    backdropOp.value = withTiming(0, TIMING_OUT);
-    translateY.value = withTiming(SHEET_H, TIMING_OUT, () => {
-      if (cb) runOnJS(cb)();
-    });
-  }, [backdropOp, translateY]);
+  const animateOut = useCallback(
+    (cb?: () => void) => {
+      backdropOp.value = withTiming(0, TIMING_OUT);
+      translateY.value = withTiming(SHEET_H, TIMING_OUT, () => {
+        if (cb) runOnJS(cb)();
+      });
+    },
+    [backdropOp, translateY],
+  );
 
   const handleClose = useCallback(() => {
     animateOut(onClose);
@@ -112,95 +132,99 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
-  const handleSend = useCallback(async (text?: string) => {
-    const msg = (text ?? input).trim();
-    if (!msg || thinking) return;
+  const handleSend = useCallback(
+    async (text?: string) => {
+      const msg = (text ?? input).trim();
+      if (!msg || thinking) return;
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setInput('');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setInput('');
 
-    const userMsg: AIMessage = {
-      id: generateId(),
-      role: 'user',
-      content: msg,
-      timestamp: Date.now(),
-    };
-    setMessages(prev => [...prev, userMsg]);
-    setThinking(true);
-    scrollToBottom();
-
-    // Reserve a streaming assistant bubble.
-    const streamingId = generateId();
-    streamingIdRef.current = streamingId;
-    setMessages(prev => [
-      ...prev,
-      { id: streamingId, role: 'assistant', content: '', timestamp: Date.now() },
-    ]);
-
-    const appendDelta = (delta: string) => {
-      setMessages(prev =>
-        prev.map(m => (m.id === streamingId ? { ...m, content: m.content + delta } : m)),
-      );
-    };
-
-    const onProgress = (e: AgentProgressEvent) => {
-      if (e.type === 'text_delta') appendDelta(e.delta);
-      if (e.type === 'tool_running') setRunningTool(e.call.name);
-      if (e.type === 'tool_result' || e.type === 'final_text') setRunningTool(null);
-    };
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    try {
-      const freshBlock = useWorkoutStore.getState().blocks.find(b => b.id === block.id) ?? block;
-      const ctx = buildContext();
-      const response = await processBlockChat(msg, freshBlock, ctx, conversationHistory, {
-        onProgress,
-        signal: controller.signal,
-      });
-      setMessages(prev => {
-        const idx = prev.findIndex(m => m.id === streamingId);
-        if (idx === -1) return [...prev, response];
-        const merged: AIMessage = {
-          ...response,
-          id: prev[idx].id,
-          content: response.content || prev[idx].content,
-        };
-        const next = prev.slice();
-        next[idx] = merged;
-        return next;
-      });
-    } catch (e) {
-      const isUnavailable = e instanceof AIUnavailableError;
-      const detail = e instanceof Error ? e.message : String(e);
-      const isAborted = detail.toLowerCase().includes('aborted');
-      setMessages(prev => {
-        const errMsg: AIMessage = {
-          id: generateId(),
-          role: 'assistant',
-          content: isAborted
-            ? 'Generación cancelada.'
-            : isUnavailable
-            ? `Kai no está disponible: ${detail}`
-            : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
-          timestamp: Date.now(),
-        };
-        // Replace the empty streaming placeholder if present, else append.
-        const idx = prev.findIndex(m => m.id === streamingId);
-        if (idx === -1) return [...prev, errMsg];
-        const next = prev.slice();
-        next[idx] = { ...errMsg, id: prev[idx].id };
-        return next;
-      });
-    } finally {
-      streamingIdRef.current = null;
-      abortRef.current = null;
-      setThinking(false);
-      setRunningTool(null);
+      const userMsg: AIMessage = {
+        id: generateId(),
+        role: 'user',
+        content: msg,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setThinking(true);
       scrollToBottom();
-    }
-  }, [input, thinking, block.id, buildContext, conversationHistory, scrollToBottom]);
+
+      // Reserve a streaming assistant bubble.
+      const streamingId = generateId();
+      streamingIdRef.current = streamingId;
+      setMessages((prev) => [
+        ...prev,
+        { id: streamingId, role: 'assistant', content: '', timestamp: Date.now() },
+      ]);
+
+      const appendDelta = (delta: string) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === streamingId ? { ...m, content: m.content + delta } : m)),
+        );
+      };
+
+      const onProgress = (e: AgentProgressEvent) => {
+        if (e.type === 'text_delta') appendDelta(e.delta);
+        if (e.type === 'tool_running') setRunningTool(e.call.name);
+        if (e.type === 'tool_result' || e.type === 'final_text') setRunningTool(null);
+      };
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const freshBlock =
+          useWorkoutStore.getState().blocks.find((b) => b.id === block.id) ?? block;
+        const ctx = buildContext();
+        const response = await processBlockChat(msg, freshBlock, ctx, conversationHistory, {
+          onProgress,
+          signal: controller.signal,
+        });
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === streamingId);
+          if (idx === -1) return [...prev, response];
+          const merged: AIMessage = {
+            ...response,
+            id: prev[idx].id,
+            content: response.content || prev[idx].content,
+          };
+          const next = prev.slice();
+          next[idx] = merged;
+          return next;
+        });
+      } catch (e) {
+        const isUnavailable = e instanceof AIUnavailableError;
+        const detail = e instanceof Error ? e.message : String(e);
+        const isAborted = detail.toLowerCase().includes('aborted');
+        setMessages((prev) => {
+          const errMsg: AIMessage = {
+            id: generateId(),
+            role: 'assistant',
+            content: isAborted
+              ? 'Generación cancelada.'
+              : isUnavailable
+                ? `Kai no está disponible: ${detail}`
+                : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
+            timestamp: Date.now(),
+          };
+          // Replace the empty streaming placeholder if present, else append.
+          const idx = prev.findIndex((m) => m.id === streamingId);
+          if (idx === -1) return [...prev, errMsg];
+          const next = prev.slice();
+          next[idx] = { ...errMsg, id: prev[idx].id };
+          return next;
+        });
+      } finally {
+        streamingIdRef.current = null;
+        abortRef.current = null;
+        setThinking(false);
+        setRunningTool(null);
+        scrollToBottom();
+      }
+    },
+    [input, thinking, block.id, buildContext, conversationHistory, scrollToBottom],
+  );
 
   const handleStop = useCallback(() => {
     if (!abortRef.current) return;
@@ -209,9 +233,12 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     abortRef.current = null;
   }, []);
 
-  const handleSuggestion = useCallback((prompt: string) => {
-    handleSend(prompt);
-  }, [handleSend]);
+  const handleSuggestion = useCallback(
+    (prompt: string) => {
+      handleSend(prompt);
+    },
+    [handleSend],
+  );
 
   const handleGeneratePlan = useCallback(async () => {
     if (!planForm.objetivo.trim() || generating) return;
@@ -223,7 +250,10 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
         días: parseInt(planForm.dias, 10) || 3,
         duración: parseInt(planForm.duracion, 10) || 45,
         lesiones: planForm.lesiones.trim()
-          ? planForm.lesiones.split(',').map((s) => s.trim()).filter(Boolean)
+          ? planForm.lesiones
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
           : undefined,
       });
       const note: AIMessage = {
@@ -237,12 +267,15 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
       setMessages((prev) => [...prev, note]);
       setPlanForm((p) => ({ ...p, open: false }));
     } catch (e) {
-      setMessages((prev) => [...prev, {
-        id: generateId(),
-        role: 'assistant',
-        content: 'Error generando la rutina. Revisa la conexión o la API key.',
-        timestamp: Date.now(),
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: generateId(),
+          role: 'assistant',
+          content: 'Error generando la rutina. Revisa la conexión o la API key.',
+          timestamp: Date.now(),
+        },
+      ]);
     } finally {
       setGenerating(false);
     }
@@ -264,14 +297,24 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     for (const r of ok) counts[r.name] = (counts[r.name] ?? 0) + 1;
     const parts: string[] = [];
     if (counts.create_block) parts.push('bloque creado');
-    if (counts.add_exercise) parts.push(`+${counts.add_exercise} ejercicio${counts.add_exercise > 1 ? 's' : ''}`);
+    if (counts.add_exercise)
+      parts.push(`+${counts.add_exercise} ejercicio${counts.add_exercise > 1 ? 's' : ''}`);
     if (counts.add_text) parts.push(`+${counts.add_text} texto${counts.add_text > 1 ? 's' : ''}`);
-    if (counts.add_divider) parts.push(`+${counts.add_divider} separador${counts.add_divider > 1 ? 'es' : ''}`);
-    if (counts.wrap_in_columns) parts.push(`${counts.wrap_in_columns} sección${counts.wrap_in_columns > 1 ? 'es' : ''} en columnas`);
-    if (counts.wrap_in_subblock) parts.push(`${counts.wrap_in_subblock} sub-bloque${counts.wrap_in_subblock > 1 ? 's' : ''}`);
-    if (counts.delete_node) parts.push(`${counts.delete_node} eliminado${counts.delete_node > 1 ? 's' : ''}`);
+    if (counts.add_divider)
+      parts.push(`+${counts.add_divider} separador${counts.add_divider > 1 ? 'es' : ''}`);
+    if (counts.wrap_in_columns)
+      parts.push(
+        `${counts.wrap_in_columns} sección${counts.wrap_in_columns > 1 ? 'es' : ''} en columnas`,
+      );
+    if (counts.wrap_in_subblock)
+      parts.push(`${counts.wrap_in_subblock} sub-bloque${counts.wrap_in_subblock > 1 ? 's' : ''}`);
+    if (counts.delete_node)
+      parts.push(`${counts.delete_node} eliminado${counts.delete_node > 1 ? 's' : ''}`);
     if (counts.set_block_meta) parts.push('meta actualizada');
-    if (counts.update_set_value) parts.push(`${counts.update_set_value} set${counts.update_set_value > 1 ? 's' : ''} editado${counts.update_set_value > 1 ? 's' : ''}`);
+    if (counts.update_set_value)
+      parts.push(
+        `${counts.update_set_value} set${counts.update_set_value > 1 ? 's' : ''} editado${counts.update_set_value > 1 ? 's' : ''}`,
+      );
     const failed = results.filter((r) => !r.ok).length;
     if (failed > 0) parts.push(`${failed} fallo${failed > 1 ? 's' : ''}`);
     return parts.join(' · ');
@@ -298,7 +341,9 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                 </View>
                 <View>
                   <Text style={styles.headerTitle}>Kai</Text>
-                  <Text style={styles.headerSub} numberOfLines={1}>{block.name}</Text>
+                  <Text style={styles.headerSub} numberOfLines={1}>
+                    {block.name}
+                  </Text>
                 </View>
               </View>
               <Pressable onPress={handleClose} hitSlop={12}>
@@ -319,24 +364,35 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                   <Feather name="cpu" size={28} color={Colors.accent.primary} />
                   <Text style={styles.emptyTitle}>Asistente de bloque</Text>
                   <Text style={styles.emptyDesc}>
-                    Puedo generar rutinas, añadir ejercicios, analizar tu bloque o ajustar el volumen.
+                    Puedo generar rutinas, añadir ejercicios, analizar tu bloque o ajustar el
+                    volumen.
                   </Text>
                 </View>
               )}
 
-              {messages.map(msg => {
+              {messages.map((msg) => {
                 const tools = msg.toolResults ?? [];
                 return (
-                  <View key={msg.id} style={[styles.bubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
+                  <View
+                    key={msg.id}
+                    style={[
+                      styles.bubble,
+                      msg.role === 'user' ? styles.userBubble : styles.aiBubble,
+                    ]}
+                  >
                     <Text style={[styles.bubbleText, msg.role === 'user' && styles.userBubbleText]}>
                       {msg.content}
                     </Text>
                     {tools.length > 0 && (
                       <View style={styles.actionBadge}>
                         <Feather
-                          name={tools.every(r => r.ok) ? 'check-circle' : 'alert-circle'}
+                          name={tools.every((r) => r.ok) ? 'check-circle' : 'alert-circle'}
                           size={11}
-                          color={tools.every(r => r.ok) ? Colors.semantic.success : Colors.semantic.warning}
+                          color={
+                            tools.every((r) => r.ok)
+                              ? Colors.semantic.success
+                              : Colors.semantic.warning
+                          }
                         />
                         <Text style={styles.actionBadgeText}>{actionSummary(tools)}</Text>
                       </View>
@@ -347,26 +403,33 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
 
               {thinking && runningTool && (
                 <View style={[styles.bubble, styles.aiBubble]}>
-                  <Text style={[styles.bubbleText, { fontStyle: 'italic', color: Colors.text.tertiary }]}>
+                  <Text
+                    style={[
+                      styles.bubbleText,
+                      { fontStyle: 'italic', color: Colors.text.tertiary },
+                    ]}
+                  >
                     Ejecutando: {runningTool}
                   </Text>
                 </View>
               )}
-              {thinking && !runningTool && (() => {
-                const id = streamingIdRef.current;
-                const m = id ? messages.find((x) => x.id === id) : undefined;
-                // Only show dots if the streaming bubble is still empty.
-                if (m && m.content.length > 0) return null;
-                return (
-                  <View style={[styles.bubble, styles.aiBubble]}>
-                    <View style={styles.thinkingRow}>
-                      <View style={styles.thinkingDot} />
-                      <View style={[styles.thinkingDot, styles.thinkingDot2]} />
-                      <View style={[styles.thinkingDot, styles.thinkingDot3]} />
+              {thinking &&
+                !runningTool &&
+                (() => {
+                  const id = streamingIdRef.current;
+                  const m = id ? messages.find((x) => x.id === id) : undefined;
+                  // Only show dots if the streaming bubble is still empty.
+                  if (m && m.content.length > 0) return null;
+                  return (
+                    <View style={[styles.bubble, styles.aiBubble]}>
+                      <View style={styles.thinkingRow}>
+                        <View style={styles.thinkingDot} />
+                        <View style={[styles.thinkingDot, styles.thinkingDot2]} />
+                        <View style={[styles.thinkingDot, styles.thinkingDot3]} />
+                      </View>
                     </View>
-                  </View>
-                );
-              })()}
+                  );
+                })()}
             </ScrollView>
 
             {/* Plan generator */}
@@ -394,7 +457,9 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                   <TextInput
                     style={[styles.planInput, styles.planInputSmall]}
                     value={planForm.dias}
-                    onChangeText={(t) => setPlanForm((p) => ({ ...p, dias: t.replace(/[^0-9]/g, '') }))}
+                    onChangeText={(t) =>
+                      setPlanForm((p) => ({ ...p, dias: t.replace(/[^0-9]/g, '') }))
+                    }
                     placeholder="Días"
                     placeholderTextColor={Colors.text.disabled}
                     keyboardType="number-pad"
@@ -402,7 +467,9 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                   <TextInput
                     style={[styles.planInput, styles.planInputSmall]}
                     value={planForm.duracion}
-                    onChangeText={(t) => setPlanForm((p) => ({ ...p, duracion: t.replace(/[^0-9]/g, '') }))}
+                    onChangeText={(t) =>
+                      setPlanForm((p) => ({ ...p, duracion: t.replace(/[^0-9]/g, '') }))
+                    }
                     placeholder="Min/sesión"
                     placeholderTextColor={Colors.text.disabled}
                     keyboardType="number-pad"
@@ -418,7 +485,10 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
                 <Pressable
                   onPress={handleGeneratePlan}
                   disabled={generating || !planForm.objetivo.trim()}
-                  style={[styles.planBtn, (generating || !planForm.objetivo.trim()) && styles.planBtnDisabled]}
+                  style={[
+                    styles.planBtn,
+                    (generating || !planForm.objetivo.trim()) && styles.planBtnDisabled,
+                  ]}
                 >
                   <Text style={styles.planBtnText}>
                     {generating ? 'Generando…' : 'Crear bloque'}

@@ -1,16 +1,13 @@
 // src/animations/splash/primitives/KairosWordmark.tsx
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import Animated, {
-  SharedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { Text } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';
 
 const LETTERS = ['K', 'A', 'I', 'R', 'O', 'S'] as const;
-const LETTER_LOCAL = 80;  // local SVG box per letter
+const LETTER_LOCAL = 80; // local SVG box per letter
 
 export interface KairosWordmarkProps {
   /** Center X of the entire wordmark in stage coordinates. */

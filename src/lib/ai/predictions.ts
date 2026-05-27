@@ -25,7 +25,10 @@ interface Sample {
 function linearRegression(samples: Sample[]): { slope: number; intercept: number } {
   const n = samples.length;
   if (n < 2) return { slope: 0, intercept: samples[0]?.v ?? 0 };
-  let sx = 0, sy = 0, sxy = 0, sx2 = 0;
+  let sx = 0,
+    sy = 0,
+    sxy = 0,
+    sx2 = 0;
   for (const s of samples) {
     sx += s.t;
     sy += s.v;
@@ -85,9 +88,7 @@ export function predictMilestone(
   for (const s of samples) {
     byDay.set(s.t, Math.max(byDay.get(s.t) ?? -Infinity, s.v));
   }
-  const uniq: Sample[] = [...byDay.entries()]
-    .map(([t, v]) => ({ t, v }))
-    .sort((a, b) => a.t - b.t);
+  const uniq: Sample[] = [...byDay.entries()].map(([t, v]) => ({ t, v })).sort((a, b) => a.t - b.t);
   if (uniq.length < 2) return null;
 
   const { slope, intercept } = linearRegression(uniq);

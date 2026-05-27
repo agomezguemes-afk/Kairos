@@ -98,21 +98,13 @@ export default function PlannerTour({ visible, onClose }: Props) {
     [pageIndex],
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: Page }) => <PageView page={item} />,
-    [],
-  );
+  const renderItem = useCallback(({ item }: { item: Page }) => <PageView page={item} />, []);
 
   const isLast = pageIndex === PAGES.length - 1;
   const ctaLabel = isLast ? 'Empezar' : 'Siguiente';
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      onRequestClose={skip}
-      statusBarTranslucent
-    >
+    <Modal visible={visible} animationType="fade" onRequestClose={skip} statusBarTranslucent>
       <View style={[styles.screen, { paddingTop: insets.top }]}>
         {/* Top bar — skip link only on first two pages. Always reserve height
             so the page content doesn't reflow when it disappears. */}

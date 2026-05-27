@@ -1,11 +1,7 @@
 // src/animations/splash/primitives/GoldBlock.tsx
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import Animated, {
-  SharedValue,
-  useAnimatedProps,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import Animated, { SharedValue, useAnimatedProps, useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { Rect, Text } from 'react-native-svg';
 
 import { VISUAL } from '../choreography';

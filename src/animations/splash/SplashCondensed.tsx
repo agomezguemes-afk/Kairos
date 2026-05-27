@@ -28,9 +28,9 @@ const TAGLINE_CY = 286;
 const SPHERE = { dx: 6, dy: -6, size: 22 };
 
 const SATELLITES = [
-  { dx: -22, dy: -22, size: 17 },   // top-left
-  { dx: -16, dy: 22, size: 18 },    // bottom-left
-  { dx: 24, dy: 24, size: 16 },     // bottom-right
+  { dx: -22, dy: -22, size: 17 }, // top-left
+  { dx: -16, dy: 22, size: 18 }, // bottom-left
+  { dx: 24, dy: 24, size: 16 }, // bottom-right
 ];
 
 // ── Easings ────────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ export default function SplashCondensed({ onDone }: SplashCondensedProps) {
   const sphereOpacity = useSharedValue(0);
   const sphereRotation = useSharedValue(0);
   const sphereVisualSize = useSharedValue(SPHERE.size);
-  const sphereRoundness = useSharedValue(SPHERE.size / 2);  // full circle
+  const sphereRoundness = useSharedValue(SPHERE.size / 2); // full circle
 
   // ── Satellites — born at sphere position, travel to constellation ──
   const sx0 = useSharedValue(sphereCx);
@@ -132,7 +132,10 @@ export default function SplashCondensed({ onDone }: SplashCondensedProps) {
 
       t(SATELLITE_BIRTH_DELAY + i * SATELLITE_STAGGER_MS, () => {
         satOpacity[i].value = withTiming(1, { duration: SATELLITE_FADE_IN_MS, easing: EASE_FLUID });
-        satScale[i].value = withTiming(1, { duration: SATELLITE_FADE_IN_MS + 80, easing: EASE_FLUID });
+        satScale[i].value = withTiming(1, {
+          duration: SATELLITE_FADE_IN_MS + 80,
+          easing: EASE_FLUID,
+        });
 
         // Soft springs — settles like a mercury drop, no harsh bounce.
         satX[i].value = withSpring(targetX, { stiffness: 95, damping: 18, mass: 0.95 });

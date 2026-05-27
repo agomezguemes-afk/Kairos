@@ -68,15 +68,14 @@ export default function OptionChip({
         accessibilityRole="button"
         accessibilityState={{ selected }}
       >
-        {icon ? <KairosIcon name={icon} size={18} color={selected ? Colors.text.inverse : Colors.text.secondary} /> : null}
-        <Text
-          style={[
-            styles.label,
-            selected && styles.labelSelected,
-          ]}
-        >
-          {label}
-        </Text>
+        {icon ? (
+          <KairosIcon
+            name={icon}
+            size={18}
+            color={selected ? Colors.text.inverse : Colors.text.secondary}
+          />
+        ) : null}
+        <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
       </AnimatedPressable>
     </Animated.View>
   );
