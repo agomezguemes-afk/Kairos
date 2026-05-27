@@ -414,6 +414,108 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
     ]);
   }, [handleDelete, nav]);
 
+  // ======================== HOOKS BEFORE EARLY RETURN ========================
+  // React Hooks must run in the same order every render. We compute
+  // everything block-derived first so the conditional `if (!block) return`
+  // below doesn't change the hook call sequence.
+
+  // First exercise on the spine renders as CompoundTile (hero); subsequent
+  // exercises render as AccessoryTile (compact).
+  const firstExerciseRowId = useMemo(() => {
+    const r = spineRows.find(row => row.kind === 'exercise');
+    return r?.id ?? null;
+  }, [spineRows]);
+
+  // Spine renderer — every node renders as one full-width tile attached to
+  // the spine. The closure captures `block`, which may be null on first
+  // mount; the renderer is only invoked once Spine itself has rows, which
+  // requires a non-null block.
+  const renderRowTile = useCallback((row: SpineRowData): React.ReactNode => {
+    const node = row.tiles[0]?.node;
+    if (!node) return null;
+    if (row.kind === 'divider') return null;
+    if (row.kind === 'section' && node.type === 'columnSection') {
+      return (
+        <SectionHeaderTile
+          sectionNode={node}
+          onChangeWidth={handleSectionWidthChange}
+          onDelete={handleDeleteNode}
+        />
+      );
+    }
+    if (row.kind === 'exercise' && node.type === 'exercise') {
+      const Tile = row.id === firstExerciseRowId ? CompoundTile : AccessoryTile;
+      return (
+        <Tile
+          exercise={node.data.exercise}
+          blockId={blockId}
+          index={node.order}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdateName={handleUpdateExerciseName}
+          onUpdateSetValue={handleUpdateSetValue}
+          onToggleSetComplete={handleSetComplete}
+          onAddSet={handleAddSet}
+          onRemoveSet={handleRemoveSet}
+          onDeleteExercise={handleDeleteExerciseConfirm}
+        />
+      );
+    }
+    if (row.kind === 'note' && node.type === 'text') {
+      return (
+        <NoteTile
+          node={node}
+          onUpdate={handleTextUpdate}
+          onChangeFormat={handleTextFormatChange}
+          onToggleCheck={handleCheckToggle}
+          onDelete={handleDeleteNode}
+          onInsertAfter={handleInsertAfter}
+        />
+      );
+    }
+    if (node.type === 'dashboard' && block) {
+      return (
+        <InlineDashboardTile
+          node={node}
+          block={block}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdate={handleDashboardUpdate}
+          onDelete={handleDeleteNode}
+        />
+      );
+    }
+    if (node.type === 'superset') {
+      return (
+        <SupersetTile
+          node={node}
+          onLongPress={() => handleOpenActions(node)}
+          onUpdate={(nodeId, partial) => {
+            const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
+            const n = fresh?.content.find(c => c.id === nodeId);
+            if (n?.type === 'superset') {
+              updateContentNode(blockId, nodeId, { data: { ...n.data, ...partial } } as any);
+            }
+          }}
+        />
+      );
+    }
+    return renderNodeDeferred(node, false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block, blockId, firstExerciseRowId]);
+
+  const handleRowTap = useCallback((row: SpineRowData) => {
+    const node = row.tiles[0]?.node;
+    if (node) handleOpenActions(node);
+  }, [handleOpenActions]);
+
+  const handleReorder = useCallback((orderedIds: string[]) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    reorderContentNodes(blockId, orderedIds);
+  }, [blockId, reorderContentNodes]);
+
+  const handleAddInsert = useCallback((type: InsertableType) => {
+    insertNode(type, null, 0);
+  }, [insertNode]);
+
   // ======================== RENDER HELPERS ========================
 
   if (!block) {
@@ -429,6 +531,12 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
 
   const disciplineColor = block.color || Colors.accent.primary;
   const pct = stats?.completion_percentage ?? 0;
+
+  // Plain helper (not a hook). Defined inline because it closes over `block`
+  // and the many handlers; cheap to recreate on each render.
+  function renderNodeDeferred(n: ContentNode, c: boolean): React.ReactNode {
+    return renderNode(n, c);
+  }
 
   const renderNode = (node: ContentNode, compact: boolean = false) => {
     switch (node.type) {
@@ -515,104 +623,6 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
         return null;
     }
   };
-
-  // First exercise on the spine renders as CompoundTile (hero); subsequent
-  // exercises render as AccessoryTile (compact). This keeps the visual
-  // rhythm of a typical session: one anchor lift, accessories under it.
-  const firstExerciseRowId = useMemo(() => {
-    const r = spineRows.find(row => row.kind === 'exercise');
-    return r?.id ?? null;
-  }, [spineRows]);
-
-  // Spine renderer — every node renders as one full-width tile attached to a
-  // station node on the gold vertical spine. Long-press the station opens
-  // BlockActionSheet (move / duplicate / transform / delete). Column data is
-  // preserved but not visually rendered side-by-side in this MVP iteration.
-  const renderRowTile = useCallback((row: SpineRowData): React.ReactNode => {
-    const node = row.tiles[0]?.node;
-    if (!node) return null;
-    if (row.kind === 'divider') return null;
-    if (row.kind === 'section' && node.type === 'columnSection') {
-      return (
-        <SectionHeaderTile
-          sectionNode={node}
-          onChangeWidth={handleSectionWidthChange}
-          onDelete={handleDeleteNode}
-        />
-      );
-    }
-    if (row.kind === 'exercise' && node.type === 'exercise') {
-      const Tile = row.id === firstExerciseRowId ? CompoundTile : AccessoryTile;
-      return (
-        <Tile
-          exercise={node.data.exercise}
-          blockId={blockId}
-          index={node.order}
-          onLongPress={() => handleOpenActions(node)}
-          onUpdateName={handleUpdateExerciseName}
-          onUpdateSetValue={handleUpdateSetValue}
-          onToggleSetComplete={handleSetComplete}
-          onAddSet={handleAddSet}
-          onRemoveSet={handleRemoveSet}
-          onDeleteExercise={handleDeleteExerciseConfirm}
-        />
-      );
-    }
-    if (row.kind === 'note' && node.type === 'text') {
-      return (
-        <NoteTile
-          node={node}
-          onUpdate={handleTextUpdate}
-          onChangeFormat={handleTextFormatChange}
-          onToggleCheck={handleCheckToggle}
-          onDelete={handleDeleteNode}
-          onInsertAfter={handleInsertAfter}
-        />
-      );
-    }
-    if (node.type === 'dashboard') {
-      return (
-        <InlineDashboardTile
-          node={node}
-          block={block!}
-          onLongPress={() => handleOpenActions(node)}
-          onUpdate={handleDashboardUpdate}
-          onDelete={handleDeleteNode}
-        />
-      );
-    }
-    if (node.type === 'superset') {
-      return (
-        <SupersetTile
-          node={node}
-          onLongPress={() => handleOpenActions(node)}
-          onUpdate={(nodeId, partial) => {
-            const fresh = useWorkoutStore.getState().blocks.find(b => b.id === blockId);
-            const n = fresh?.content.find(c => c.id === nodeId);
-            if (n?.type === 'superset') {
-              updateContentNode(blockId, nodeId, { data: { ...n.data, ...partial } } as any);
-            }
-          }}
-        />
-      );
-    }
-    return renderNode(node, false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [block, blockId, firstExerciseRowId]);
-
-  const handleRowTap = useCallback((row: SpineRowData) => {
-    const node = row.tiles[0]?.node;
-    if (node) handleOpenActions(node);
-  }, [handleOpenActions]);
-
-  const handleReorder = useCallback((orderedIds: string[]) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    reorderContentNodes(blockId, orderedIds);
-  }, [blockId, reorderContentNodes]);
-
-  const handleAddInsert = useCallback((type: InsertableType) => {
-    insertNode(type, null, 0);
-  }, [insertNode]);
 
   const renderContent = () => {
     if (block && block.content.length === 0) {

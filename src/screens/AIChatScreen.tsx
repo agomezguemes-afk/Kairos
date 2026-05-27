@@ -423,10 +423,10 @@ function ActionCard({
   onViewBlock: (id: string) => void;
 }) {
   const tools = message.toolResults ?? [];
-  if (tools.length === 0 || !message.affectedBlockId) return null;
-
   const blockId = message.affectedBlockId;
-  const block = useWorkoutStore((s) => s.blocks.find((b) => b.id === blockId));
+  // Hooks must run unconditionally — read block first, gate the render below.
+  const block = useWorkoutStore((s) => (blockId ? s.blocks.find((b) => b.id === blockId) : null));
+  if (tools.length === 0 || !blockId) return null;
 
   const isCreate = tools.some((r) => r.ok && r.name === 'create_block');
   const iconName = isCreate ? 'sparkle' : 'arrow_forward';
