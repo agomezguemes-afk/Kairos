@@ -9,6 +9,20 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **Environments — three build variants (Fase 2)**:
+  - Dynamic `app.config.ts` resolves bundle ID, name, and scheme from
+    `APP_ENV` (`development` / `staging` / `production`).
+  - Three iOS variants coexist on the same device:
+    `com.alvaro.kairos.dev`, `com.alvaro.kairos.staging`,
+    `com.alvaro.kairos`.
+  - Supabase URL pulled from `EXPO_PUBLIC_SUPABASE_URL` so dev/staging
+    can share a DEV project while production points at its own.
+  - `scripts/use-env.mjs` symlinks `.env` → `.env.<env>`; npm scripts
+    `env:dev`, `env:staging`, `env:prod`, `start:staging`, `start:prod`.
+  - `eas.json` profiles (development/preview/production) for when EAS
+    Build is adopted.
+  - `docs/ENVIRONMENTS.md` documents the matrix, setup, gotchas.
+
 - **CI/CD foundation (Fase 1)**:
   - Vitest as the formal test runner.
   - ESLint flat config (`eslint-config-expo` + prettier compatibility).
