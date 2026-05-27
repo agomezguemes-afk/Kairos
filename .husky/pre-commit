@@ -1,0 +1,3 @@
+# Run lint + prettier only on staged TS/TSX files. Full type-check + tests
+# are CI gates, not pre-commit — keeps the commit fast.
+npx lint-staged
