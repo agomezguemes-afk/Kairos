@@ -23,6 +23,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import BlockCard from './components/BlockCard';
+import CanvasGrid from './components/CanvasGrid';
 import BlockCreationSheet, { type BlockCreationOptions } from '../../components/BlockCreationSheet';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
 import KairosIcon from '../../components/KairosIcon';
@@ -36,6 +37,8 @@ import { useWorkoutStore } from '../../store/workoutStore';
 import { useGamification } from '../../context/GamificationContext';
 
 type SortMode = 'recent' | 'name' | 'status' | 'favorite';
+type ViewMode = 'canvas' | 'grid';
+const VIEW_MODE_DEFAULT: ViewMode = 'canvas';
 
 const SCREEN_W = Dimensions.get('window').width;
 const H_PAD = Spacing.screen.horizontal;
@@ -48,6 +51,8 @@ export default function BlocksScreen({ route }: any) {
   const blocks = useWorkoutStore((s) => s.blocks);
   const storeAddBlock = useWorkoutStore((s) => s.addBlock);
   const storeDeleteBlock = useWorkoutStore((s) => s.deleteBlock);
+  const setBlockCanvasPosition = useWorkoutStore((s) => s.setBlockCanvasPosition);
+  const setBlockSize = useWorkoutStore((s) => s.setBlockSize);
   const pendingHighlight = useWorkoutStore((s) => s.pendingHighlight);
   const clearHighlight = useWorkoutStore((s) => s.setHighlight);
   const { onBlockCreated } = useGamification();
@@ -59,6 +64,7 @@ export default function BlocksScreen({ route }: any) {
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('recent');
   const [showSort, setShowSort] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODE_DEFAULT);
 
   const highlightTargetId = route?.params?.highlightBlockId ?? pendingHighlight;
 
@@ -216,35 +222,70 @@ export default function BlocksScreen({ route }: any) {
           </Text>
         </View>
 
-        {/* Sort button */}
-        {sortedBlocks.length > 1 && (
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              const modes: SortMode[] = ['recent', 'name', 'status', 'favorite'];
-              const nextIdx = (modes.indexOf(sortMode) + 1) % modes.length;
-              setSortMode(modes[nextIdx]);
-            }}
-            style={styles.sortBtn}
-          >
-            <Feather name="sliders" size={14} color={Colors.accent.primary} />
-            <Text style={styles.sortText}>{sortLabels[sortMode]}</Text>
-          </Pressable>
-        )}
+        <View style={styles.headerActions}>
+          {/* View toggle: canvas (widget) ↔ grid (list) */}
+          {sortedBlocks.length > 0 && (
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setViewMode((m) => (m === 'canvas' ? 'grid' : 'canvas'));
+              }}
+              style={styles.sortBtn}
+              accessibilityLabel={
+                viewMode === 'canvas'
+                  ? 'Cambiar a vista de cuadrícula'
+                  : 'Cambiar a vista de lienzo'
+              }
+            >
+              <Feather
+                name={viewMode === 'canvas' ? 'grid' : 'layout'}
+                size={14}
+                color={Colors.accent.primary}
+              />
+              <Text style={styles.sortText}>{viewMode === 'canvas' ? 'Lienzo' : 'Cuadrícula'}</Text>
+            </Pressable>
+          )}
+
+          {/* Sort button — only meaningful in grid mode */}
+          {viewMode === 'grid' && sortedBlocks.length > 1 && (
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const modes: SortMode[] = ['recent', 'name', 'status', 'favorite'];
+                const nextIdx = (modes.indexOf(sortMode) + 1) % modes.length;
+                setSortMode(modes[nextIdx]);
+              }}
+              style={styles.sortBtn}
+            >
+              <Feather name="sliders" size={14} color={Colors.accent.primary} />
+              <Text style={styles.sortText}>{sortLabels[sortMode]}</Text>
+            </Pressable>
+          )}
+        </View>
       </Animated.View>
 
-      {/* Grid or empty state */}
+      {/* Canvas (widget-style) OR Grid (FlatList) OR empty state */}
       {sortedBlocks.length > 0 ? (
-        <FlatList
-          ref={listRef}
-          data={sortedBlocks}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          numColumns={NUM_COLUMNS}
-          contentContainerStyle={[styles.gridContent, { paddingBottom: insets.bottom + 100 }]}
-          showsVerticalScrollIndicator={false}
-          removeClippedSubviews={Platform.OS === 'android'}
-        />
+        viewMode === 'canvas' ? (
+          <CanvasGrid
+            blocks={sortedBlocks}
+            onOpenBlock={handleOpenBlock}
+            onSetPosition={setBlockCanvasPosition}
+            onSetSize={setBlockSize}
+            bottomInset={insets.bottom}
+          />
+        ) : (
+          <FlatList
+            ref={listRef}
+            data={sortedBlocks}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            numColumns={NUM_COLUMNS}
+            contentContainerStyle={[styles.gridContent, { paddingBottom: insets.bottom + 100 }]}
+            showsVerticalScrollIndicator={false}
+            removeClippedSubviews={Platform.OS === 'android'}
+          />
+        )
       ) : (
         <Animated.View entering={FadeIn.delay(200).duration(500)} style={styles.welcome}>
           <View style={styles.welcomeAvatarRing}>
@@ -356,6 +397,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.caption,
     color: Colors.text.tertiary,
     marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   sortBtn: {
     flexDirection: 'row',

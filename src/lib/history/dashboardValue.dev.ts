@@ -36,6 +36,7 @@ const emptyBlock: WorkoutBlock = {
   sort_order: 0,
   size: 'medium',
   cover: null,
+  canvasPosition: null,
   created_at: '2026-01-01',
   updated_at: '2026-01-01',
 };

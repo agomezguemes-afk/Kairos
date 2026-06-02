@@ -174,6 +174,13 @@ interface WorkoutState {
   deleteBlock: (blockId: string) => void;
   reorderBlocks: (blocks: WorkoutBlock[]) => void;
   replaceAllBlocks: (blocks: WorkoutBlock[]) => void;
+  /** Persist a block's canvas {col,row}. Pass null to unplace. Sprint 6. */
+  setBlockCanvasPosition: (
+    blockId: string,
+    position: import('../types/canvas').CanvasPosition | null,
+  ) => void;
+  /** Cycle/set a block's widget size. Sprint 6. */
+  setBlockSize: (blockId: string, size: 'small' | 'medium' | 'large') => void;
 
   addContentNode: (blockId: string, node: ContentNode) => void;
   insertContentNode: (blockId: string, node: ContentNode, position?: number) => void;
@@ -283,7 +290,12 @@ function migrateBlock(block: any): WorkoutBlock {
     }
   }
   const { exercises: _removed, ...rest } = block;
-  return { ...rest, content, layout: { columns: 1 } };
+  return {
+    ...rest,
+    content,
+    layout: { columns: 1 },
+    canvasPosition: rest.canvasPosition ?? null,
+  };
 }
 
 export const useWorkoutStore = create<WorkoutState>()(
@@ -774,6 +786,24 @@ export const useWorkoutStore = create<WorkoutState>()(
         set({ blocks });
       },
 
+      setBlockCanvasPosition: (blockId, position) => {
+        set((state) => ({
+          blocks: state.blocks.map((b) =>
+            b.id === blockId
+              ? { ...b, canvasPosition: position, updated_at: new Date().toISOString() }
+              : b,
+          ),
+        }));
+      },
+
+      setBlockSize: (blockId, size) => {
+        set((state) => ({
+          blocks: state.blocks.map((b) =>
+            b.id === blockId ? { ...b, size, updated_at: new Date().toISOString() } : b,
+          ),
+        }));
+      },
+
       // ======================== CONTENT NODE ACTIONS ========================
 
       addContentNode: (blockId, node) => {
@@ -1140,14 +1170,21 @@ export const useWorkoutStore = create<WorkoutState>()(
     }),
     {
       name: 'kairos_workout_store',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persisted: any, version: number) => {
-        if (version < 2) {
-          const state = persisted as any;
-          if (state.blocks) {
-            state.blocks = state.blocks.map(migrateBlock);
-          }
+        const state = persisted as any;
+        if (version < 2 && state?.blocks) {
+          state.blocks = state.blocks.map(migrateBlock);
+        }
+        // v3: introduce canvasPosition (Sprint 6). Existing blocks become
+        // unplaced (null) so the auto-packer puts them in order on first
+        // render. New blocks get null from createWorkoutBlock.
+        if (version < 3 && state?.blocks) {
+          state.blocks = state.blocks.map((b: any) => ({
+            ...b,
+            canvasPosition: b.canvasPosition ?? null,
+          }));
         }
         return persisted as WorkoutState;
       },

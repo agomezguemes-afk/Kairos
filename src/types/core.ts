@@ -357,6 +357,12 @@ export interface WorkoutBlock {
   sort_order: number;
   size: 'small' | 'medium' | 'large';
   cover: BlockCover | null;
+  /**
+   * Position on the home canvas. `null` = unplaced; the renderer
+   * auto-packs the block into the next free spot. Set by drag-and-drop
+   * in the canvas edit mode. Sprint 6.
+   */
+  canvasPosition: import('./canvas').CanvasPosition | null;
   created_at: ISOTimestamp;
   updated_at: ISOTimestamp;
 }
@@ -389,6 +395,7 @@ export function createWorkoutBlock(
     sort_order: sortOrder,
     size: 'medium',
     cover: null,
+    canvasPosition: null,
     created_at: now,
     updated_at: now,
   };

@@ -9,6 +9,29 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **Canvas layout (Sprint 6) — widget-style block arrangement**:
+  - New home-canvas surface on the Bloques tab. Blocks now live on a
+    4-column grid as iOS-style widgets (`small` 2×2, `medium` 4×2,
+    `large` 4×4).
+  - Long-press a block to enter **edit mode**: all widgets jiggle, the
+    corner badge appears, and the canvas scroll is disabled so drag
+    gestures don't fight the ScrollView. Tap on empty canvas to exit.
+  - **Drag to reposition**: PanGesture activates after a 120ms hold;
+    snap-to-grid on release with collision-aware re-packing so two
+    widgets never overlap.
+  - **Resize**: corner badge cycles `S → M → L → S`. Reflow is animated
+    via `springs.gentle`.
+  - **Toggle** in the header switches between "Lienzo" (canvas) and
+    "Cuadrícula" (the previous FlatList grid) so the legacy view
+    remains available.
+  - Pure layout math (`canvasLayout.ts`) is covered by 21 vitest cases
+    — packing, collision detection, pixel ↔ cell round-trip, and edge
+    cases (out-of-bounds repack, overflow clamp).
+  - `WorkoutBlock.canvasPosition` added to the model. Store gains
+    `setBlockCanvasPosition` and `setBlockSize` actions, persisted via
+    Zustand v3 migration (existing blocks default to `null` and get
+    auto-packed by the renderer on first paint).
+
 - **Environments — three build variants (Fase 2)**:
   - Dynamic `app.config.ts` resolves bundle ID, name, and scheme from
     `APP_ENV` (`development` / `staging` / `production`).
