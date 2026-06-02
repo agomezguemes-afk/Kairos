@@ -9,6 +9,35 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **AI proxy backend (Sprint 7 · Commit 1) — Edge Function with per-user quota**:
+  - New `supabase/` folder with config, migrations, and Edge Functions
+    checked into git.
+  - Migration `20260602125950_ai_quota.sql`:
+    - `subscription_tier` enum (`free` / `pro`) added to `profiles`,
+      defaulting to `free`.
+    - `ai_quota` ledger table (append-only) recording every AI call
+      with tokens, tier, provider, and model.
+    - `ai_quota_count_24h(uuid)` security-definer RPC for fast rolling
+      window quota checks.
+    - RLS: users can read their own quota rows; only `service_role`
+      writes.
+    - `pg_cron` job (`kairos-ai-quota-prune`) deletes ledger rows
+      older than 7 days at 03:17 UTC daily.
+  - Edge Function `ai-chat` (Deno): authenticates the caller, checks
+    their 24h quota against their tier policy, proxies the chat
+    completion upstream (Groq for free, Anthropic placeholder for
+    pro), and records the call ledger row only on success — failed
+    upstream calls do not burn quota. Returns HTTP 429 with
+    `{ error: 'quota_exceeded', tier, dailyCap, usedToday, resetsAt,
+    upgradeAvailable }` so the client can present the Pro paywall.
+  - Tier policy lives in code (`supabase/functions/_shared/tiers.ts`)
+    so caps/models are tunable without a migration.
+  - `supabase/README.md` documents the deploy commands and secrets
+    matrix (`GROQ_API_KEY`, `ANTHROPIC_API_KEY`).
+  - `tsconfig.json` and `eslint.config.mjs` updated to exclude
+    `supabase/functions/**` so the Deno code doesn't clash with the
+    RN typecheck/lint pipeline.
+
 - **Canvas layout (Sprint 6) — widget-style block arrangement**:
   - New home-canvas surface on the Bloques tab. Blocks now live on a
     4-column grid as iOS-style widgets (`small` 2×2, `medium` 4×2,

@@ -26,6 +26,10 @@ export default [
       'expo-env.d.ts',
       'metro.config.js',
       'babel.config.js',
+      // Supabase Edge Functions run on Deno, not Node/RN. They import
+      // from URLs and use Deno globals that this ESLint config can't
+      // resolve. They have their own deno.json + linting via `deno lint`.
+      'supabase/functions/**',
     ],
   },
   {

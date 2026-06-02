@@ -1,0 +1,304 @@
+// KAIROS — AI chat proxy Edge Function.
+//
+// One job: authenticate the user, check their 24h quota against their
+// tier policy, then proxy the chat completion to the upstream provider
+// (Groq for free, Anthropic for pro). The upstream API key never leaves
+// the server; the client only ever sees this function.
+//
+// Wire format intentionally mirrors the OpenAI/Groq chat-completions
+// shape (messages, tools, tool_choice, json_mode, stream) so the
+// existing client code in src/lib/ai/client.ts can move to this proxy
+// with a single URL swap.
+//
+// Quota semantics:
+//   1. Count current 24h calls via ai_quota_count_24h RPC.
+//   2. If count >= cap → return 429 with reset hint. Pro upsell flag in
+//      the body so the app can present the paywall.
+//   3. Otherwise call upstream. On success insert into ai_quota AFTER
+//      the call returns — failed calls (5xx, timeouts) do NOT burn
+//      quota.
+//   4. Stream responses pass through as text/event-stream; non-stream
+//      responses are returned as JSON.
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
+import { TIER_POLICY, type Tier } from '../_shared/tiers.ts';
+
+interface ChatRequest {
+  messages: Array<Record<string, unknown>>;
+  tools?: unknown[];
+  tool_choice?: unknown;
+  json_mode?: boolean;
+  stream?: boolean;
+  max_tokens?: number;
+  temperature?: number;
+  /** Override the model — currently ignored (server picks per tier). */
+  model?: string;
+}
+
+interface QuotaExceededBody {
+  error: 'quota_exceeded';
+  tier: Tier;
+  dailyCap: number;
+  usedToday: number;
+  resetsAt: string;
+  upgradeAvailable: boolean;
+}
+
+const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
+const UPSTREAM_TIMEOUT_MS = 60_000;
+
+Deno.serve(async (req) => {
+  const preflight = handleCorsPreflight(req);
+  if (preflight) return preflight;
+
+  if (req.method !== 'POST') {
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
+  // ── 1. Authenticate ────────────────────────────────────────────────
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return json({ error: 'missing_authorization' }, 401);
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!supabaseUrl || !serviceKey || !anonKey) {
+    console.error('[ai-chat] missing supabase env vars');
+    return json({ error: 'server_misconfigured' }, 500);
+  }
+
+  // user-scoped client (anon + caller JWT) just to identify the user.
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userResult, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !userResult?.user) {
+    return json({ error: 'invalid_token' }, 401);
+  }
+  const userId = userResult.user.id;
+
+  // service-role client for DB reads + writes that bypass RLS (quota,
+  // tier lookup). Never expose this client outside the function.
+  const adminClient = createClient(supabaseUrl, serviceKey);
+
+  // ── 2. Look up tier ────────────────────────────────────────────────
+  const { data: profileRow, error: profileErr } = await adminClient
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('id', userId)
+    .single();
+
+  // A missing profile row defaults to free — better than 500 for users
+  // mid-onboarding who haven't created their profile row yet.
+  if (profileErr && profileErr.code !== 'PGRST116') {
+    console.error('[ai-chat] profile lookup failed', profileErr);
+    return json({ error: 'profile_lookup_failed' }, 500);
+  }
+  const tier: Tier = (profileRow?.subscription_tier as Tier) ?? 'free';
+  const policy = TIER_POLICY[tier];
+
+  // ── 3. Check quota ────────────────────────────────────────────────
+  const { data: countResult, error: countErr } = await adminClient.rpc(
+    'ai_quota_count_24h',
+    { p_user_id: userId },
+  );
+  if (countErr) {
+    console.error('[ai-chat] quota count failed', countErr);
+    return json({ error: 'quota_check_failed' }, 500);
+  }
+  const usedToday = Number(countResult ?? 0);
+
+  if (usedToday >= policy.dailyCap) {
+    // Reset is approximately when the oldest call in the window slides
+    // out (24h after the first counted call). Cheap approximation: tell
+    // the client to retry in 24h from the earliest call. Good enough
+    // for a paywall sheet — the client doesn't need sub-minute accuracy.
+    const { data: oldestRow } = await adminClient
+      .from('ai_quota')
+      .select('used_at')
+      .eq('user_id', userId)
+      .gt('used_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+      .order('used_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const resetsAt = oldestRow?.used_at
+      ? new Date(new Date(oldestRow.used_at).getTime() + 24 * 3600 * 1000).toISOString()
+      : new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+
+    const body: QuotaExceededBody = {
+      error: 'quota_exceeded',
+      tier,
+      dailyCap: policy.dailyCap,
+      usedToday,
+      resetsAt,
+      upgradeAvailable: tier === 'free',
+    };
+    return json(body, 429);
+  }
+
+  // ── 4. Parse request body ─────────────────────────────────────────
+  let payload: ChatRequest;
+  try {
+    payload = (await req.json()) as ChatRequest;
+  } catch {
+    return json({ error: 'invalid_json' }, 400);
+  }
+  if (!Array.isArray(payload.messages) || payload.messages.length === 0) {
+    return json({ error: 'missing_messages' }, 400);
+  }
+
+  // ── 5. Proxy upstream ─────────────────────────────────────────────
+  let upstreamRes: Response;
+  let tokensUsed = 0;
+
+  if (policy.provider === 'groq') {
+    const groqKey = Deno.env.get('GROQ_API_KEY');
+    if (!groqKey) {
+      console.error('[ai-chat] GROQ_API_KEY not set');
+      return json({ error: 'upstream_misconfigured' }, 500);
+    }
+    const body: Record<string, unknown> = {
+      model: policy.model,
+      messages: payload.messages,
+      temperature: payload.temperature ?? 0.6,
+      max_tokens: payload.max_tokens ?? 1024,
+    };
+    if (payload.json_mode) body.response_format = { type: 'json_object' };
+    if (payload.tools) {
+      body.tools = payload.tools;
+      body.tool_choice = payload.tool_choice ?? 'auto';
+    }
+    if (payload.stream) body.stream = true;
+
+    upstreamRes = await fetchWithTimeout(GROQ_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${groqKey}`,
+        ...(payload.stream ? { Accept: 'text/event-stream' } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } else if (policy.provider === 'anthropic') {
+    // Wired but unreachable until we have a Pro subscriber. Kept here
+    // so production day-one of Pro doesn't need an emergency redeploy.
+    const anthKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!anthKey) {
+      console.error('[ai-chat] ANTHROPIC_API_KEY not set (pro tier user)');
+      return json({ error: 'upstream_misconfigured' }, 500);
+    }
+    // Anthropic API differs from OpenAI wire — translate minimally.
+    const sysMessage = payload.messages.find((m) => (m as { role: string }).role === 'system');
+    const nonSys = payload.messages.filter((m) => (m as { role: string }).role !== 'system');
+    const body: Record<string, unknown> = {
+      model: policy.model,
+      max_tokens: payload.max_tokens ?? 1024,
+      temperature: payload.temperature ?? 0.7,
+      messages: nonSys,
+      ...(sysMessage ? { system: (sysMessage as { content: string }).content } : {}),
+    };
+    if (payload.stream) body.stream = true;
+
+    upstreamRes = await fetchWithTimeout(ANTHROPIC_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+    });
+  } else {
+    return json({ error: 'unsupported_provider' }, 500);
+  }
+
+  if (!upstreamRes.ok) {
+    const text = await upstreamRes.text().catch(() => '');
+    console.warn('[ai-chat] upstream error', upstreamRes.status, text.slice(0, 200));
+    return json(
+      { error: 'upstream_error', status: upstreamRes.status, detail: text.slice(0, 300) },
+      502,
+    );
+  }
+
+  // ── 6. Record quota (after success) + return response ─────────────
+  // For streamed responses we tee the body: one side returns to the
+  // client, the other side counts tokens from the final usage chunk.
+  // For non-streamed we can read the JSON, count, and forward.
+
+  if (payload.stream) {
+    // Insert ledger row optimistically with tokens=0 (we can't easily
+    // count tokens mid-stream without parsing SSE here). Cost analysis
+    // for streamed calls falls back to call-count which is fine for the
+    // quota gate; provider usage dashboards still have accurate token
+    // counts for billing analysis.
+    void recordCall(adminClient, userId, tier, policy.provider, policy.model, 0);
+    return new Response(upstreamRes.body, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  }
+
+  const responseJson = (await upstreamRes.json()) as Record<string, unknown>;
+  const usage = responseJson.usage as { total_tokens?: number } | undefined;
+  tokensUsed = usage?.total_tokens ?? 0;
+
+  await recordCall(adminClient, userId, tier, policy.provider, policy.model, tokensUsed);
+
+  return new Response(JSON.stringify(responseJson), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+});
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function recordCall(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  tier: Tier,
+  provider: string,
+  model: string,
+  tokens: number,
+): Promise<void> {
+  const { error } = await admin.from('ai_quota').insert({
+    user_id: userId,
+    tokens_used: tokens,
+    tier_at_call: tier,
+    provider,
+    model,
+  });
+  if (error) {
+    // Log but don't fail the request — the user already got their
+    // response. Missing a ledger row is annoying but not catastrophic
+    // (next call's quota check will be slightly under-counted).
+    console.error('[ai-chat] failed to record call', error);
+  }
+}
