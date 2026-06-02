@@ -38,6 +38,9 @@ import { getInitialGreeting, type AIChatContext } from '../lib/ai/chat/greeting'
 import { processGlobalChat, AIUnavailableError } from '../lib/ai/chat/globalChat';
 import { getGlobalSuggestions } from '../lib/ai/chat/globalSuggestions';
 import type { AgentProgressEvent } from '../lib/ai/agent';
+import { QuotaExceededError } from '../lib/ai/client';
+import { useAiQuota } from '../lib/ai/useAiQuota';
+import QuotaExceededSheet from '../components/QuotaExceededSheet';
 import type { RawUserContext } from '../utils/userContext';
 import { generateId, getBlockExercises } from '../types/core';
 import type { AIMessage } from '../types/ai';
@@ -65,8 +68,10 @@ export default function AIChatScreen({ navigation }: any) {
   const [nodTrigger, setNodTrigger] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [runningTool, setRunningTool] = useState<string | null>(null);
+  const [quotaError, setQuotaError] = useState<QuotaExceededError | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const streamingIdRef = useRef<string | null>(null);
+  const quota = useAiQuota();
 
   // Build context for AI service — plain function, NOT a hook.
   // Reads blocks from the store's latest state to avoid stale captures.
@@ -183,27 +188,55 @@ export default function AIChatScreen({ navigation }: any) {
       abortRef.current = controller;
 
       let aiResponse: AIMessage;
+      let quotaHit: QuotaExceededError | null = null;
       try {
         aiResponse = await processGlobalChat(content, buildRawCtx(), history, {
           onProgress,
           signal: controller.signal,
         });
       } catch (e) {
-        const isUnavailable = e instanceof AIUnavailableError;
-        const detail = e instanceof Error ? e.message : String(e);
-        const isAborted = detail.toLowerCase().includes('aborted');
-        aiResponse = {
-          id: generateId(),
-          role: 'assistant',
-          content: isAborted
-            ? 'Generación cancelada.'
-            : isUnavailable
-              ? `Kai no está disponible ahora mismo: ${detail}`
-              : `Algo falló procesando tu mensaje (${detail}). Inténtalo de nuevo.`,
-          timestamp: Date.now(),
-        };
+        if (e instanceof QuotaExceededError) {
+          // Surface the paywall sheet and roll back the streaming
+          // bubble — we never even reached the model. The user's
+          // optimistic message stays so they can resend after upgrade
+          // or reset.
+          quotaHit = e;
+          aiResponse = {
+            id: generateId(),
+            role: 'assistant',
+            content: '', // replaced by sheet — message itself is hidden below
+            timestamp: Date.now(),
+          };
+        } else {
+          const isUnavailable = e instanceof AIUnavailableError;
+          const detail = e instanceof Error ? e.message : String(e);
+          const isAborted = detail.toLowerCase().includes('aborted');
+          aiResponse = {
+            id: generateId(),
+            role: 'assistant',
+            content: isAborted
+              ? 'Generación cancelada.'
+              : isUnavailable
+                ? `Kai no está disponible ahora mismo: ${detail}`
+                : `Algo falló procesando tu mensaje (${detail}). Inténtalo de nuevo.`,
+            timestamp: Date.now(),
+          };
+        }
       } finally {
         abortRef.current = null;
+      }
+
+      if (quotaHit) {
+        // Open paywall + drop the empty streaming bubble so the chat
+        // doesn't leave a placeholder behind.
+        setMessages((prev) => prev.filter((m) => m.id !== streamingId));
+        streamingIdRef.current = null;
+        setIsLoading(false);
+        setRunningTool(null);
+        setAvatarMood('idle');
+        setQuotaError(quotaHit);
+        void quota.refresh();
+        return;
       }
 
       if (aiResponse.affectedBlockId) {
@@ -233,8 +266,12 @@ export default function AIChatScreen({ navigation }: any) {
       setAvatarMood('idle');
       setNodTrigger((n) => n + 1);
       scrollToBottom();
+      // Pull the new count so the quota pill decrements in real time.
+      // Fire-and-forget — failures here don't matter, the next message
+      // will re-fetch anyway.
+      void quota.refresh();
     },
-    [input, isLoading, messages, setHighlight, scrollToBottom, profile],
+    [input, isLoading, messages, setHighlight, scrollToBottom, profile, quota],
   );
 
   const handleStop = useCallback(() => {
@@ -277,6 +314,33 @@ export default function AIChatScreen({ navigation }: any) {
             {runningTool ? `Ejecutando: ${runningTool}` : isLoading ? 'Pensando...' : 'En línea'}
           </Text>
         </View>
+        {/* Quota pill — hidden while loading the first count, hidden for
+            pro users who effectively have no visible cap. */}
+        {!quota.isLoading && !quota.error && quota.tier === 'free' && (
+          <Pressable
+            onPress={() => {
+              if (quota.remaining > 0) return;
+              // Already at cap and they tapped the pill: open the
+              // paywall sheet manually with synthesized payload so they
+              // get the upgrade CTA without having to send a message.
+              setQuotaError(
+                new QuotaExceededError(
+                  'free',
+                  quota.dailyCap,
+                  quota.usedToday,
+                  new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+                  true,
+                ),
+              );
+            }}
+            style={styles.quotaPill}
+          >
+            <Feather name="zap" size={11} color={Colors.gold.deep} />
+            <Text style={styles.quotaPillText}>
+              {quota.remaining}/{quota.dailyCap}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Messages */}
@@ -352,6 +416,20 @@ export default function AIChatScreen({ navigation }: any) {
           </Pressable>
         )}
       </View>
+
+      {/* Paywall: rendered last so it sits above the input bar + keyboard */}
+      <QuotaExceededSheet
+        visible={quotaError !== null}
+        payload={quotaError}
+        onClose={() => setQuotaError(null)}
+        onUpgrade={() => {
+          // RevenueCat / StoreKit not wired yet — surface the intent so
+          // the user knows where this goes. The button itself is a real
+          // affordance so when the IAP ships the gesture stays the same.
+          // TODO(Sprint 7 · Commit 4): present RevenueCat paywall.
+          setQuotaError(null);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -560,7 +638,22 @@ const styles = StyleSheet.create({
   backBtn: {
     marginRight: Spacing.xs,
   },
-  headerTextContainer: {},
+  headerTextContainer: { flex: 1 },
+  quotaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.gold.glow,
+  },
+  quotaPillText: {
+    fontSize: Typography.size.micro,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.gold.deep,
+    letterSpacing: 0.2,
+  },
   headerTitle: {
     fontSize: Typography.size.subheading,
     fontWeight: Typography.weight.bold,

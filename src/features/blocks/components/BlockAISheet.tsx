@@ -30,6 +30,8 @@ import { useGamification } from '../../../context/GamificationContext';
 import { useUserProfile } from '../../../context/UserProfileContext';
 import { processBlockChat } from '../../../lib/ai/chat/blockChat';
 import { AIUnavailableError } from '../../../lib/ai/chat/globalChat';
+import { QuotaExceededError } from '../../../lib/ai/client';
+import QuotaExceededSheet from '../../../components/QuotaExceededSheet';
 import type { AgentProgressEvent } from '../../../lib/ai/agent';
 import type { ToolResult } from '../../../lib/ai/tools/types';
 import { getBlockSuggestions } from '../../../lib/ai/chat/suggestions';
@@ -68,6 +70,7 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
     lesiones: '',
   });
   const [generating, setGenerating] = useState(false);
+  const [quotaError, setQuotaError] = useState<QuotaExceededError | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -194,27 +197,33 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
           return next;
         });
       } catch (e) {
-        const isUnavailable = e instanceof AIUnavailableError;
-        const detail = e instanceof Error ? e.message : String(e);
-        const isAborted = detail.toLowerCase().includes('aborted');
-        setMessages((prev) => {
-          const errMsg: AIMessage = {
-            id: generateId(),
-            role: 'assistant',
-            content: isAborted
-              ? 'Generación cancelada.'
-              : isUnavailable
-                ? `Kai no está disponible: ${detail}`
-                : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
-            timestamp: Date.now(),
-          };
-          // Replace the empty streaming placeholder if present, else append.
-          const idx = prev.findIndex((m) => m.id === streamingId);
-          if (idx === -1) return [...prev, errMsg];
-          const next = prev.slice();
-          next[idx] = { ...errMsg, id: prev[idx].id };
-          return next;
-        });
+        if (e instanceof QuotaExceededError) {
+          // Drop the streaming placeholder and surface the paywall.
+          setMessages((prev) => prev.filter((m) => m.id !== streamingId));
+          setQuotaError(e);
+        } else {
+          const isUnavailable = e instanceof AIUnavailableError;
+          const detail = e instanceof Error ? e.message : String(e);
+          const isAborted = detail.toLowerCase().includes('aborted');
+          setMessages((prev) => {
+            const errMsg: AIMessage = {
+              id: generateId(),
+              role: 'assistant',
+              content: isAborted
+                ? 'Generación cancelada.'
+                : isUnavailable
+                  ? `Kai no está disponible: ${detail}`
+                  : `Hubo un error procesando tu mensaje (${detail}). Intenta de nuevo.`,
+              timestamp: Date.now(),
+            };
+            // Replace the empty streaming placeholder if present, else append.
+            const idx = prev.findIndex((m) => m.id === streamingId);
+            if (idx === -1) return [...prev, errMsg];
+            const next = prev.slice();
+            next[idx] = { ...errMsg, id: prev[idx].id };
+            return next;
+          });
+        }
       } finally {
         streamingIdRef.current = null;
         abortRef.current = null;
@@ -554,6 +563,14 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Paywall — overlays the block sheet when AI quota is exhausted. */}
+      <QuotaExceededSheet
+        visible={quotaError !== null}
+        payload={quotaError}
+        onClose={() => setQuotaError(null)}
+        onUpgrade={() => setQuotaError(null) /* RevenueCat wiring pending */}
+      />
     </Modal>
   );
 }

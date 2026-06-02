@@ -9,6 +9,26 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **Paywall + quota pill (Sprint 7 · Commit 3)**:
+  - New `QuotaExceededSheet` — premium-minimal bottom sheet that shows
+    a live countdown to the next quota reset, a usage progress bar,
+    three value-prop bullets, and a "Desbloquear Kai Pro" CTA. CTA
+    routes to a placeholder for now; RevenueCat / StoreKit wiring is
+    explicitly deferred to Commit 4.
+  - `useAiQuota()` hook reads the current `subscription_tier` and the
+    rolling 24h count via the `ai_quota_count_24h` RPC. Returns
+    `{ tier, usedToday, dailyCap, remaining, refresh }` so any screen
+    can render the live count.
+  - **AIChatScreen**: header now shows a discreet gold pill
+    `27 / 30` for free users; tapping it when the count is zero opens
+    the paywall manually. Send flow catches `QuotaExceededError`,
+    drops the streaming placeholder, opens the sheet, and refreshes
+    the pill counter. Every successful send refreshes the pill so it
+    decrements in real time.
+  - **BlockAISheet** (Kai inside the block editor) handles the same
+    `QuotaExceededError` path and mounts its own `QuotaExceededSheet`
+    overlay.
+
 - **AI client migration to proxy (Sprint 7 · Commit 2)**:
   - `src/lib/ai/client.ts` now routes through the Supabase Edge
     Function `ai-chat` whenever an authenticated session is present.
