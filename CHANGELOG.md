@@ -9,6 +9,38 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **Polish Sprint A — Today screen identity push**:
+  - New `ReadinessRings` component on the Today/planner screen — three
+    independent 0-100 scores (Energía / Fuerza / Recuperación) rendered
+    as Apple Fitness-style mini-rings with serif numerals at center.
+    Each ring sweeps in on mount and on score change via the
+    `springs.gentle` preset. Single contextual headline below picks the
+    bottleneck dimension and turns it into a one-line recommendation
+    ("Recuperación baja. Hoy mejor sesión ligera…").
+  - `src/lib/readiness/readiness.ts` — pure scoring math driven off the
+    existing workoutHistory. Three independent heuristics covered by
+    13 vitest cases (sweet-spot rest detection, overtraining penalty,
+    recovery floor, PR boost, plateau penalty, headline routing).
+  - `PlannerHeader` now greets by first name + time of day ("Buenos
+    días, Álvaro" / "Buenas tardes…"). Falls back to "Hoy" when no
+    name is set so onboarding-incomplete users don't see a broken
+    greeting.
+  - `docs/POLISH-CHECKLIST.md` — canonical bar every screen must clear
+    before shipping. Encodes tokens, gold-use rules, motion vocabulary,
+    haptics, CTA copy, NN/g empty-state pattern, accessibility table
+    stakes, and three taste tests (two-second / serif / remove-half).
+  - `scripts/audit-design.mjs` — pre-commit-friendly scanner for
+    hardcoded hex, deprecated `Colors.background/text/border/accent`
+    paths, and legacy `Typography.*` usage. Wired as
+    `npm run audit:design` (strict) and `audit:design:soft`
+    (--allow-errors for the migration sweep). Baseline: 145 errors
+    across 54 files surfaced; will be paid down screen by screen.
+
+### Removed
+
+- Dead `src/screens/HomeTab.tsx` (orphaned dark-mode legacy — the live
+  HomeTab is the planner wrapper at `src/screens/tabs/HomeTab.tsx`).
+
 - **Paywall + quota pill (Sprint 7 · Commit 3)**:
   - New `QuotaExceededSheet` — premium-minimal bottom sheet that shows
     a live countdown to the next quota reset, a usage progress bar,

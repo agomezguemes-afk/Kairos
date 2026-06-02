@@ -16,6 +16,7 @@ import { Colors, Type, Spacing, Radius } from '../../../theme/tokens';
 import { todayISO, formatLongDate } from '../lib/dates';
 import { useMomentumPhrase } from '../hooks/useMomentumPhrase';
 import { useGamification } from '../../../context/GamificationContext';
+import { useWorkoutStore } from '../../../store/workoutStore';
 
 interface Props {
   onStreakPress?: () => void;
@@ -30,17 +31,37 @@ function streakTier(days: number): StreakTier {
   return 'veteran';
 }
 
+/**
+ * Greeting that respects local time of day. Falls back to neutral
+ * "Hoy" when the user hasn't entered a name yet — the personalised
+ * version arrives the moment onboarding completes.
+ */
+function greeting(now: Date, firstName: string | null): string {
+  const h = now.getHours();
+  let salutation: string;
+  if (h < 6) salutation = 'Buenas noches';
+  else if (h < 13) salutation = 'Buenos días';
+  else if (h < 21) salutation = 'Buenas tardes';
+  else salutation = 'Buenas noches';
+  return firstName ? `${salutation}, ${firstName}` : 'Hoy';
+}
+
 export default function PlannerHeader({ onStreakPress }: Props) {
   const today = todayISO();
   const phrase = useMomentumPhrase();
   const { streak } = useGamification();
   const tier = streakTier(streak.current);
+  const userName = useWorkoutStore((s) => s.userName).trim();
+  const firstName = userName ? userName.split(/\s+/)[0] : null;
+  const heading = greeting(new Date(), firstName);
 
   return (
     <View style={styles.container}>
       <View style={styles.row}>
         <View style={styles.titleBlock}>
-          <Text style={styles.title}>Hoy</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {heading}
+          </Text>
           <Text style={styles.date}>{formatLongDate(today)}</Text>
         </View>
         <Pressable
