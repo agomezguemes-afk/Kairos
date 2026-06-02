@@ -13,7 +13,7 @@ import {
 } from '../../../utils/userContext';
 import { runAgent, AgentError, type AgentProgressFn } from '../agent';
 import type { GroqMessage } from '../client';
-import { isGroqAvailable, GroqError } from '../client';
+import { isAIAvailable, GroqError, QuotaExceededError } from '../client';
 import { filterExercises, renderExercisesForPrompt } from '../knowledge/exercises';
 import { pickTemplates, renderTemplatesForPrompt } from '../prompts/templates';
 import { COACH_CHAT_SYSTEM } from '../prompts/system';
@@ -78,8 +78,10 @@ export async function processGlobalChat(
   history: ChatHistoryItem[] = [],
   options: GlobalChatOptions = {},
 ): Promise<AIMessage> {
-  if (!isGroqAvailable()) {
-    throw new AIUnavailableError('No hay clave de Groq configurada (EXPO_PUBLIC_GROQ_API_KEY).');
+  if (!isAIAvailable()) {
+    throw new AIUnavailableError(
+      'AI no disponible: inicia sesión para usar Kai, o configura EXPO_PUBLIC_GROQ_API_KEY en .env para desarrollo.',
+    );
   }
 
   const snapshot = buildUserContextSnapshot(rawCtx);
@@ -99,11 +101,15 @@ export async function processGlobalChat(
       signal: options.signal,
     });
   } catch (e) {
+    // QuotaExceededError must propagate untouched so the UI can present
+    // the paywall sheet. Wrapping it in AIUnavailableError would mask
+    // the tier / cap / resetsAt payload.
+    if (e instanceof QuotaExceededError) throw e;
     if (e instanceof AgentError || e instanceof GroqError) {
-      throw new AIUnavailableError(`Groq falló: ${e.message}`, e);
+      throw new AIUnavailableError(`AI falló: ${e.message}`, e);
     }
     const detail = e instanceof Error ? e.message : String(e);
-    throw new AIUnavailableError(`Groq falló: ${detail}`, e);
+    throw new AIUnavailableError(`AI falló: ${detail}`, e);
   }
 
   // The agent might create a single new block — surface its id for "Ver bloque".

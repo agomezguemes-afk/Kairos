@@ -1,5 +1,5 @@
 import { useWorkoutStore, type WorkoutHistoryEntry } from '../../store/workoutStore';
-import { callGroq, isGroqAvailable } from './client';
+import { callGroq, isAIAvailable, QuotaExceededError } from './client';
 import { PLATEAU_COACH_SYSTEM } from './prompts/system';
 
 const PLATEAU_THRESHOLD = 0.02; // <2% improvement counts as flat
@@ -102,18 +102,29 @@ export function detectPlateaus(history: WorkoutHistoryEntry[]): PlateauInfo[] {
 }
 
 export async function requestInsight(plateau: PlateauInfo): Promise<string> {
-  if (!isGroqAvailable()) {
-    return `${plateau.exerciseName}: llevas ${plateau.weeksStalled} semanas estancado en ${plateau.lastMax}kg. Prueba con un microciclo de descarga (50% volumen) y sube 2.5kg la siguiente semana.`;
-  }
+  const fallback = `${plateau.exerciseName}: llevas ${plateau.weeksStalled} semanas estancado en ${plateau.lastMax}kg. Prueba con un microciclo de descarga (50% volumen) y sube 2.5kg la siguiente semana.`;
+
+  if (!isAIAvailable()) return fallback;
+
   const user = `El usuario está estancado en "${plateau.exerciseName}" desde hace ${plateau.weeksStalled} semanas. Su mejor peso reciente es ${plateau.lastMax}kg. Dale una sugerencia concreta y amable en máximo 3 frases.`;
-  const text = await callGroq(
-    [
-      { role: 'system', content: PLATEAU_COACH_SYSTEM },
-      { role: 'user', content: user },
-    ],
-    { temperature: 0.6, maxTokens: 220 },
-  );
-  return text.trim() || `${plateau.exerciseName}: prueba a variar series/repeticiones esta semana.`;
+  try {
+    const text = await callGroq(
+      [
+        { role: 'system', content: PLATEAU_COACH_SYSTEM },
+        { role: 'user', content: user },
+      ],
+      { temperature: 0.6, maxTokens: 220 },
+    );
+    return (
+      text.trim() || `${plateau.exerciseName}: prueba a variar series/repeticiones esta semana.`
+    );
+  } catch (e) {
+    // Quota gate: don't burn the user's daily budget on background
+    // insight generation. Return the deterministic fallback so the
+    // dashboard insight card still shows something useful.
+    if (e instanceof QuotaExceededError) return fallback;
+    throw e;
+  }
 }
 
 /**

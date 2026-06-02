@@ -1,21 +1,38 @@
-// KAIROS — Unified Groq client.
-// Replaces src/lib/ai/groq.ts and the inline fetch in src/services/aiService.ts.
+// KAIROS — Unified AI client.
 //
-// Supports plain text completions, JSON-mode, tool calling, and
-// (Fase 4) SSE streaming via XMLHttpRequest. RN 0.81 + Hermes do NOT expose
-// fetch's Response.body.getReader(), so we lean on XHR's onprogress event
-// which keeps `responseText` populated mid-flight when the server sends
-// chunks with Content-Type text/event-stream. No extra dep needed.
+// Routes every chat completion through one of two upstreams:
 //
-// Model choice (verified 2026-05 against Groq docs): llama-3.3-70b-versatile
-// is on the free tier, has a 128k context window, supports parallel tool
-// calling, and is the most capable Llama variant available without a paid
-// plan. We keep it as the default; alternatives (qwen3-32b, llama-4-scout)
-// can be swapped in via the `model` option without touching call sites.
+//   1. Supabase Edge Function "ai-chat" (default in production).
+//      The function authenticates via JWT, checks the caller's 24h
+//      quota against their tier policy, calls Groq / Anthropic with the
+//      server-side key, and records the call in ai_quota. The upstream
+//      key is never in the bundle. Returns 429 with paywall payload
+//      when the user hits their cap.
+//
+//   2. Direct Groq (legacy / dev-only fallback). Used when
+//      EXPO_PUBLIC_GROQ_API_KEY is present AND there is no active
+//      Supabase session. Lets SKIP_AUTH development sessions hit the
+//      LLM without spinning up the backend. Removed once auth-required
+//      flows are mandatory.
+//
+// The public API (callGroq, chatCompletion, streamChatCompletion) keeps
+// its name + shape so existing call sites in agent.ts, coach.ts, etc.
+// don't change. Sprint 7 · Commit 2.
 
-const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+import { supabase } from '../supabase';
+
+const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 const REQUEST_TIMEOUT_MS = 25_000;
+
+// The Supabase URL is already a public identifier (lives in the bundle).
+// We append the standard Edge Functions path so the proxy lives at the
+// same origin as the rest of the auth/data calls.
+function getProxyEndpoint(): string | null {
+  const base = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+  if (!base) return null;
+  return `${base.replace(/\/$/, '')}/functions/v1/ai-chat`;
+}
 
 // ======================== TYPES ========================
 
@@ -97,6 +114,27 @@ export class GroqError extends Error {
   }
 }
 
+/**
+ * Thrown when the upstream proxy refuses the call because the user has
+ * exceeded their tier cap in the rolling 24h window. The UI catches
+ * this specifically to present the Pro upgrade sheet.
+ *
+ * Payload mirrors the server-side QuotaExceededBody in the Edge
+ * Function so consumers can render the reset hint without re-fetching.
+ */
+export class QuotaExceededError extends Error {
+  constructor(
+    readonly tier: 'free' | 'pro',
+    readonly dailyCap: number,
+    readonly usedToday: number,
+    readonly resetsAt: string,
+    readonly upgradeAvailable: boolean,
+  ) {
+    super(`AI quota exceeded (${usedToday}/${dailyCap} on ${tier})`);
+    this.name = 'QuotaExceededError';
+  }
+}
+
 // ======================== CONFIG ========================
 
 export function getGroqApiKey(): string | null {
@@ -104,30 +142,152 @@ export function getGroqApiKey(): string | null {
   return typeof k === 'string' && k.trim().length > 0 ? k.trim() : null;
 }
 
+/**
+ * @deprecated Use isAIAvailable. Will be removed once all call sites
+ * migrate. Kept as a thin alias so the rename is a no-op upgrade.
+ */
 export function isGroqAvailable(): boolean {
+  return isAIAvailable();
+}
+
+/**
+ * True when the app can make an AI call right now — either we have a
+ * Supabase session (proxy path) or a Groq key in the env (dev fallback).
+ *
+ * NOTE: this is synchronous and only checks the cached session.
+ * `supabase.auth.getSession()` returns the last-known session without a
+ * network call, so this is safe in render code. A user who just
+ * authenticated may need to wait one tick for the session to land.
+ */
+export function isAIAvailable(): boolean {
+  if (getProxyEndpoint() && hasCachedSession()) return true;
   return getGroqApiKey() !== null;
+}
+
+function hasCachedSession(): boolean {
+  // supabase-js v2 doesn't expose a synchronous session getter, so we
+  // mirror it ourselves via the onAuthStateChange listener below. The
+  // cache is seeded on cold start from AsyncStorage.
+  return cachedAccessToken !== null;
+}
+
+let cachedAccessToken: string | null = null;
+
+// Subscribe once at module load so the cache reflects sign-in /
+// sign-out events. The promise-based getSession() call seeds the cache
+// from AsyncStorage on cold start.
+supabase.auth.getSession().then(({ data }) => {
+  cachedAccessToken = data.session?.access_token ?? null;
+});
+supabase.auth.onAuthStateChange((_event, session) => {
+  cachedAccessToken = session?.access_token ?? null;
+});
+
+async function getActiveAccessToken(): Promise<string | null> {
+  if (cachedAccessToken) return cachedAccessToken;
+  const { data } = await supabase.auth.getSession();
+  cachedAccessToken = data.session?.access_token ?? null;
+  return cachedAccessToken;
 }
 
 // ======================== LOW-LEVEL CALL ========================
 
 /**
- * Generic Groq chat completion. Returns the full first choice so the caller
- * can inspect tool_calls or raw content. Throws GroqError on any failure.
+ * Generic chat completion. Routes through the Supabase proxy when an
+ * authenticated session is available, otherwise falls back to direct
+ * Groq if a dev key is present. Returns the full first choice so the
+ * caller can inspect tool_calls or raw content. Throws GroqError on
+ * upstream failure, QuotaExceededError on 429.
  */
 export async function chatCompletion(
   messages: GroqMessage[],
   opts: GroqOptions = {},
 ): Promise<GroqCompletionChoice> {
-  const key = getGroqApiKey();
-  if (!key) throw new GroqError('EXPO_PUBLIC_GROQ_API_KEY no configurada');
+  const proxyUrl = getProxyEndpoint();
+  const token = proxyUrl ? await getActiveAccessToken() : null;
 
+  if (proxyUrl && token) {
+    return chatCompletionViaProxy(proxyUrl, token, messages, opts);
+  }
+
+  const key = getGroqApiKey();
+  if (!key) {
+    throw new GroqError(
+      'No hay forma de llamar al AI: sin sesión Supabase y sin EXPO_PUBLIC_GROQ_API_KEY',
+    );
+  }
+  return chatCompletionDirectGroq(key, messages, opts);
+}
+
+async function chatCompletionViaProxy(
+  proxyUrl: string,
+  accessToken: string,
+  messages: GroqMessage[],
+  opts: GroqOptions,
+): Promise<GroqCompletionChoice> {
+  const body: Record<string, unknown> = {
+    messages,
+    temperature: opts.temperature ?? 0.6,
+    max_tokens: opts.maxTokens ?? 1024,
+  };
+  if (opts.jsonMode) body.json_mode = true;
+  if (opts.tools && opts.tools.length > 0) {
+    body.tools = opts.tools;
+    body.tool_choice = opts.toolChoice ?? 'auto';
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new GroqError('No se pudo contactar con el proxy AI', e);
+  }
+  clearTimeout(timer);
+
+  if (res.status === 429) {
+    const quotaErr = await parseQuotaError(res);
+    if (quotaErr) throw quotaErr;
+    throw new GroqError('AI proxy 429 (sin payload de cuota)');
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new GroqError(`AI proxy ${res.status}: ${text.slice(0, 300)}`);
+  }
+
+  let json: GroqCompletion;
+  try {
+    json = (await res.json()) as GroqCompletion;
+  } catch (e) {
+    throw new GroqError('Respuesta del proxy no era JSON', e);
+  }
+  const choice = json.choices?.[0];
+  if (!choice) throw new GroqError('Proxy devolvió 0 choices');
+  return choice;
+}
+
+async function chatCompletionDirectGroq(
+  key: string,
+  messages: GroqMessage[],
+  opts: GroqOptions,
+): Promise<GroqCompletionChoice> {
   const body: Record<string, unknown> = {
     model: opts.model ?? DEFAULT_MODEL,
     messages,
     temperature: opts.temperature ?? 0.6,
     max_tokens: opts.maxTokens ?? 1024,
   };
-
   if (opts.jsonMode) body.response_format = { type: 'json_object' };
   if (opts.tools && opts.tools.length > 0) {
     body.tools = opts.tools;
@@ -139,7 +299,7 @@ export async function chatCompletion(
 
   let res: Response;
   try {
-    res = await fetch(ENDPOINT, {
+    res = await fetch(GROQ_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -169,6 +329,29 @@ export async function chatCompletion(
   const choice = json.choices?.[0];
   if (!choice) throw new GroqError('Groq devolvió 0 choices');
   return choice;
+}
+
+async function parseQuotaError(res: Response): Promise<QuotaExceededError | null> {
+  try {
+    const body = (await res.json()) as {
+      error?: string;
+      tier?: 'free' | 'pro';
+      dailyCap?: number;
+      usedToday?: number;
+      resetsAt?: string;
+      upgradeAvailable?: boolean;
+    };
+    if (body.error !== 'quota_exceeded') return null;
+    return new QuotaExceededError(
+      body.tier ?? 'free',
+      body.dailyCap ?? 0,
+      body.usedToday ?? 0,
+      body.resetsAt ?? new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      body.upgradeAvailable ?? true,
+    );
+  } catch {
+    return null;
+  }
 }
 
 // ======================== TEXT-ONLY HELPER ========================
@@ -227,27 +410,48 @@ export interface StreamOptions extends GroqOptions {
  * does not expose Response.body as a ReadableStream. XHR's `progress`
  * event keeps `responseText` populated incrementally for SSE responses.
  */
-export function streamChatCompletion(
+export async function streamChatCompletion(
   messages: GroqMessage[],
   opts: StreamOptions = {},
   callbacks: StreamCallbacks = {},
 ): Promise<GroqCompletionChoice> {
-  const key = getGroqApiKey();
-  if (!key) {
-    return Promise.reject(new GroqError('EXPO_PUBLIC_GROQ_API_KEY no configurada'));
-  }
+  const proxyUrl = getProxyEndpoint();
+  const token = proxyUrl ? await getActiveAccessToken() : null;
 
+  let endpoint: string;
+  let authHeader: string;
   const body: Record<string, unknown> = {
-    model: opts.model ?? DEFAULT_MODEL,
     messages,
     temperature: opts.temperature ?? 0.6,
     max_tokens: opts.maxTokens ?? 1024,
     stream: true,
   };
-  if (opts.jsonMode) body.response_format = { type: 'json_object' };
-  if (opts.tools && opts.tools.length > 0) {
-    body.tools = opts.tools;
-    body.tool_choice = opts.toolChoice ?? 'auto';
+
+  if (proxyUrl && token) {
+    endpoint = proxyUrl;
+    authHeader = `Bearer ${token}`;
+    if (opts.jsonMode) body.json_mode = true;
+    if (opts.tools && opts.tools.length > 0) {
+      body.tools = opts.tools;
+      body.tool_choice = opts.toolChoice ?? 'auto';
+    }
+  } else {
+    const key = getGroqApiKey();
+    if (!key) {
+      return Promise.reject(
+        new GroqError(
+          'No hay forma de stream-llamar al AI: sin sesión Supabase y sin EXPO_PUBLIC_GROQ_API_KEY',
+        ),
+      );
+    }
+    endpoint = GROQ_ENDPOINT;
+    authHeader = `Bearer ${key}`;
+    body.model = opts.model ?? DEFAULT_MODEL;
+    if (opts.jsonMode) body.response_format = { type: 'json_object' };
+    if (opts.tools && opts.tools.length > 0) {
+      body.tools = opts.tools;
+      body.tool_choice = opts.toolChoice ?? 'auto';
+    }
   }
 
   return new Promise<GroqCompletionChoice>((resolve, reject) => {
@@ -351,9 +555,9 @@ export function streamChatCompletion(
       processedOffset = cursor;
     };
 
-    xhr.open('POST', ENDPOINT, true);
+    xhr.open('POST', endpoint, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.setRequestHeader('Authorization', `Bearer ${key}`);
+    xhr.setRequestHeader('Authorization', authHeader);
     xhr.setRequestHeader('Accept', 'text/event-stream');
     // RN XHR exposes responseText incrementally regardless of responseType,
     // but explicitly set 'text' so Hermes doesn't try to parse JSON.
@@ -366,10 +570,40 @@ export function streamChatCompletion(
         drainBuffer();
       } else if (xhr.readyState === 4) {
         if (xhr.status === 0 && settled) return; // already aborted
+
+        // 429 path — surface as QuotaExceededError so the UI can present
+        // the paywall sheet without an extra round-trip.
+        if (xhr.status === 429) {
+          try {
+            const parsed = JSON.parse(xhr.responseText) as {
+              error?: string;
+              tier?: 'free' | 'pro';
+              dailyCap?: number;
+              usedToday?: number;
+              resetsAt?: string;
+              upgradeAvailable?: boolean;
+            };
+            if (parsed.error === 'quota_exceeded') {
+              const qe = new QuotaExceededError(
+                parsed.tier ?? 'free',
+                parsed.dailyCap ?? 0,
+                parsed.usedToday ?? 0,
+                parsed.resetsAt ?? new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+                parsed.upgradeAvailable ?? true,
+              );
+              callbacks.onError?.(qe as unknown as GroqError);
+              settle(() => reject(qe));
+              return;
+            }
+          } catch {
+            /* fall through to generic error path */
+          }
+        }
+
         if (xhr.status < 200 || xhr.status >= 300) {
           fail(
             new GroqError(
-              `Groq ${xhr.status}: ${xhr.responseText.slice(0, 300) || 'stream failed'}`,
+              `Upstream ${xhr.status}: ${xhr.responseText.slice(0, 300) || 'stream failed'}`,
             ),
           );
           return;

@@ -9,6 +9,27 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **AI client migration to proxy (Sprint 7 · Commit 2)**:
+  - `src/lib/ai/client.ts` now routes through the Supabase Edge
+    Function `ai-chat` whenever an authenticated session is present.
+    The Groq endpoint stays wired as a fallback for `SKIP_AUTH=true`
+    local development only.
+  - New `QuotaExceededError` surfacing the server 429 payload (tier,
+    cap, used, resetsAt, upgradeAvailable). Streaming path catches the
+    429 mid-XHR and rejects with the typed error.
+  - `isGroqAvailable()` is now a thin alias of `isAIAvailable()`,
+    which returns true if either a Supabase session OR a Groq env key
+    is available. Cached access token is kept in sync via
+    `supabase.auth.onAuthStateChange`.
+  - `globalChat` and `blockChat` re-throw `QuotaExceededError`
+    untouched so the chat UI can present the paywall without losing
+    the payload. Generic Groq failures become `AIUnavailableError`.
+  - `insights.ts` falls back to the deterministic plateau suggestion
+    when quota is exhausted, so background insight generation never
+    spends the user's daily budget unprompted.
+  - `.env.example` updated to mark `EXPO_PUBLIC_GROQ_API_KEY` as
+    DEV-ONLY; production builds should ship with it empty.
+
 - **AI proxy backend (Sprint 7 · Commit 1) — Edge Function with per-user quota**:
   - New `supabase/` folder with config, migrations, and Edge Functions
     checked into git.

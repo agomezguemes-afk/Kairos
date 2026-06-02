@@ -12,7 +12,7 @@ import {
 } from '../../../utils/userContext';
 import { runAgent, AgentError, type AgentProgressFn } from '../agent';
 import type { GroqMessage } from '../client';
-import { isGroqAvailable, GroqError } from '../client';
+import { isAIAvailable, GroqError, QuotaExceededError } from '../client';
 import { filterExercises, renderExercisesForPrompt } from '../knowledge/exercises';
 import { pickTemplates, renderTemplatesForPrompt } from '../prompts/templates';
 import { BLOCK_EDITOR_SYSTEM } from '../prompts/system';
@@ -69,8 +69,10 @@ export async function processBlockChat(
   history: ChatHistoryItem[] = [],
   options: BlockChatOptions = {},
 ): Promise<AIMessage> {
-  if (!isGroqAvailable()) {
-    throw new AIUnavailableError('No hay clave de Groq configurada (EXPO_PUBLIC_GROQ_API_KEY).');
+  if (!isAIAvailable()) {
+    throw new AIUnavailableError(
+      'AI no disponible: inicia sesión para usar Kai, o configura EXPO_PUBLIC_GROQ_API_KEY en .env para desarrollo.',
+    );
   }
 
   const snapshot = buildUserContextSnapshot(rawContext);
@@ -116,11 +118,12 @@ export async function processBlockChat(
       signal: options.signal,
     });
   } catch (e) {
+    if (e instanceof QuotaExceededError) throw e;
     if (e instanceof AgentError || e instanceof GroqError) {
-      throw new AIUnavailableError(`Groq falló: ${e.message}`, e);
+      throw new AIUnavailableError(`AI falló: ${e.message}`, e);
     }
     const detail = e instanceof Error ? e.message : String(e);
-    throw new AIUnavailableError(`Groq falló: ${detail}`, e);
+    throw new AIUnavailableError(`AI falló: ${detail}`, e);
   }
 
   return {
