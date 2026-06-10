@@ -206,7 +206,7 @@ function Step1({ data, setData }: any) {
         <View style={styles.row}>
           <AnimatedButton
             title="Principiante"
-            icon={<KairosIcon name="seedling" size={20} color="#C9A96E" />}
+            icon={<KairosIcon name="seedling" size={20} color={Colors.accent.primary} />}
             onPress={() => setData({ ...data, nivel: 'Principiante' })}
             selected={data.nivel === 'Principiante'}
             variant="option"
@@ -215,7 +215,7 @@ function Step1({ data, setData }: any) {
           />
           <AnimatedButton
             title="Intermedio"
-            icon={<KairosIcon name="strength" size={20} color="#C9A96E" />}
+            icon={<KairosIcon name="strength" size={20} color={Colors.accent.primary} />}
             onPress={() => setData({ ...data, nivel: 'Intermedio' })}
             selected={data.nivel === 'Intermedio'}
             variant="option"
@@ -224,7 +224,7 @@ function Step1({ data, setData }: any) {
           />
           <AnimatedButton
             title="Avanzado"
-            icon={<KairosIcon name="trophy" size={20} color="#C9A96E" />}
+            icon={<KairosIcon name="trophy" size={20} color={Colors.accent.primary} />}
             onPress={() => setData({ ...data, nivel: 'Avanzado' })}
             selected={data.nivel === 'Avanzado'}
             variant="option"
@@ -409,7 +409,7 @@ function Step4({ data }: any) {
       </View>
 
       <View style={styles.readyBox}>
-        <KairosIcon name="target" size={40} color="#C9A96E" />
+        <KairosIcon name="target" size={40} color={Colors.accent.primary} />
         <Text style={styles.readyText}>
           Tu plan personalizado está listo. Comencemos a entrenar!
         </Text>

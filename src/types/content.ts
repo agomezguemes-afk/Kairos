@@ -277,7 +277,7 @@ export function createDashboardNode(
   metric: DashboardMetric = 'total_volume',
   viz: DashboardViz = 'counter',
   label?: string,
-  color: string = '#C9A96E',
+  color: string = '#D4AF37',
 ): DashboardContentNode {
   return {
     id: generateId(),

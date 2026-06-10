@@ -10,29 +10,31 @@ import type { FontVariant } from 'react-native/Libraries/StyleSheet/StyleSheetTy
 
 export const Colors = {
   bg: {
-    void: '#F7F7F5', // primary screen background (warm off-white)
+    void: '#FFFFFF', // primary screen background (pure white — night-run spec)
     surface: '#FFFFFF', // cards, sheets, modals
     elevated: '#F2F0EC', // raised surfaces, pressed states
-    warm: '#FAF6EE', // "premium" zones — hero cards, PR badges
-    warm2: '#F5EFE2', // deeper warm — PR celebration, editorial blocks
+    warm: '#F5F0E8', // "premium" zones — hero cards, PR badges (alt warm)
+    warm2: '#EFE8D8', // deeper warm — PR celebration, editorial blocks
   },
   ink: {
-    primary: '#1C1C1E', // headlines, body (Apple HIG deep charcoal)
-    secondary: '#3A3A3C', // emphasized secondary
-    tertiary: '#636366', // metadata
-    muted: '#9B9B9E', // labels, placeholders
+    primary: '#1A1A2E', // headlines, body (deep ink-navy)
+    secondary: '#34344A', // emphasized secondary
+    tertiary: '#6B7280', // metadata
+    muted: '#9CA3AF', // labels, placeholders
     inverse: '#FFFFFF', // text on dark/gold surfaces
   },
   gold: {
-    base: '#C9A96E', // signature accent — primary CTAs, indicators
-    deep: '#8C6E2A', // gold-on-warm text (eyebrows, chapter labels)
-    light: '#E8D5B7', // gold tint, subtle accents
-    glow: 'rgba(201,169,110,0.18)', // halos, ripples, pill backgrounds
+    base: '#D4AF37', // signature accent — primary CTAs, indicators
+    deep: '#8B6F1D', // gold-on-warm text (eyebrows, chapter labels)
+    light: '#EBDCAD', // gold tint, subtle accents
+    glow: 'rgba(212,175,55,0.18)', // halos, ripples, pill backgrounds
   },
   hair: {
-    subtle: 'rgba(28,28,30,0.06)', // section dividers
-    base: 'rgba(28,28,30,0.08)', // card borders (default)
-    strong: 'rgba(28,28,30,0.14)', // pressed borders, dividers in white
+    subtle: 'rgba(26,26,46,0.06)', // section dividers
+    base: 'rgba(26,26,46,0.08)', // card borders (default)
+    strong: 'rgba(26,26,46,0.14)', // pressed borders, dividers in white
+    gold: 'rgba(212,175,55,0.28)', // gold card borders on white (spec 0.2–0.4)
+    goldStrong: 'rgba(212,175,55,0.40)', // active/focus gold borders
   },
   discipline: {
     strength: '#E84545',
@@ -42,7 +44,7 @@ export const Colors = {
     team_sport: '#F0A030',
     cycling: '#06B6D4',
     swimming: '#3B82F6',
-    general: '#C9A96E',
+    general: '#D4AF37',
   },
   semantic: {
     success: '#1AA870',
@@ -96,8 +98,8 @@ export const Colors = {
       primary: this.gold.base,
       light: this.gold.light,
       muted: this.gold.glow,
-      dim: 'rgba(201,169,110,0.08)',
-      glow: 'rgba(201,169,110,0.35)',
+      dim: 'rgba(212,175,55,0.08)',
+      glow: 'rgba(212,175,55,0.35)',
     };
   },
 } as const;
@@ -331,35 +333,35 @@ export const Shadows = {
     elevation: 0,
   },
   subtle: {
-    shadowColor: '#1C1C1E',
+    shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
   },
   card: {
-    shadowColor: '#1C1C1E',
+    shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,
     shadowRadius: 12,
     elevation: 4,
   },
   icon: {
-    shadowColor: '#1C1C1E',
+    shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 6,
   },
   elevated: {
-    shadowColor: '#1C1C1E',
+    shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 18,
     elevation: 8,
   },
   modal: {
-    shadowColor: '#1C1C1E',
+    shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.16,
     shadowRadius: 28,
@@ -367,7 +369,7 @@ export const Shadows = {
   },
   // WHY: gold-tinted shadow for V06 press depth bloom (spec §3.5)
   cardWarm: {
-    shadowColor: '#C9A96E',
+    shadowColor: '#D4AF37',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
     shadowRadius: 22,
@@ -375,7 +377,7 @@ export const Shadows = {
   },
   // WHY: deeper neutral shadow for cards held down (spec §3.5)
   pressed: {
-    shadowColor: '#1C1C1E',
+    shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.1,
     shadowRadius: 28,

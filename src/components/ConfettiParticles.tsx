@@ -20,7 +20,7 @@ export interface ConfettiRef {
 
 // ======================== PALETTE & CONFIG ========================
 
-const GOLD_PALETTE = ['#C9A96E', '#E8C96E', '#F0C050', '#D4A843', '#FBDFAA', '#FFE878'];
+const GOLD_PALETTE = ['#D4AF37', '#E8C96E', '#F0C050', '#D4A843', '#FBDFAA', '#FFE878'];
 const N = 22;
 
 type ParticleConfig = {

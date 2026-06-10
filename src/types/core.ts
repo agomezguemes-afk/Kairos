@@ -203,7 +203,7 @@ export const DISCIPLINE_CONFIGS: Record<Discipline, DisciplineConfig> = {
     id: 'general',
     name: 'General',
     icon: 'strength',
-    color: '#C9A96E',
+    color: '#D4AF37',
     defaultFields: [
       baseField('duration', 'Duration', 'min', { isPrimary: true, order: 0, step: 5 }),
       baseField('perceivedEffort', 'Effort', '/10', { order: 1, min: 1, max: 10 }),

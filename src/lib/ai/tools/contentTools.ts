@@ -287,7 +287,7 @@ export const addDashboardTool: ToolDefinition<AddDashboardArgs, { nodeId: string
       args.metric,
       args.viz ?? 'counter',
       args.label,
-      args.color ?? '#C9A96E',
+      args.color ?? '#D4AF37',
     );
     store.insertContentNode(args.blockId, node, args.position);
     return { nodeId: node.id };

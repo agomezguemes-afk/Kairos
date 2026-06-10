@@ -37,7 +37,7 @@ const SHEET_HEIGHT = SCREEN_H * 0.88;
 const BLOCK_COLORS = [
   '#E84545',
   '#F0A030',
-  '#C9A96E',
+  '#D4AF37',
   '#1DB88E',
   '#5B8DEF',
   '#8B5CF6',

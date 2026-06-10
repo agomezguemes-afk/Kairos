@@ -159,7 +159,7 @@ const baseData: DashboardNodeData = {
   metric: 'exercise_max_weight',
   viz: 'counter',
   label: 'Peso máximo',
-  color: '#C9A96E',
+  color: '#D4AF37',
   libraryId: 'bench_press',
   exerciseName: 'Bench Press',
   lookback: '4w',
