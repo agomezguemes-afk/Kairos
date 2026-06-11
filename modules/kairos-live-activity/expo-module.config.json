@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["KairosLiveActivityModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.kairosliveactivity.KairosLiveActivityModule"]
+  }
+}

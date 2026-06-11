@@ -32,6 +32,7 @@ import SetActionSheet from '../components/workout/SetActionSheet';
 import AddExerciseSheet from '../features/blocks/components/AddExerciseSheet';
 import { useWorkoutStore, type WorkoutHistoryEntry } from '../store/workoutStore';
 import { useScheduleStore } from '../store/scheduleStore';
+import { useLiveActivitySync } from '../lib/liveActivity/useLiveActivitySync';
 import { todayISO } from '../features/planner/lib/dates';
 import type { RootStackParamList } from '../types/navigation';
 import type {
@@ -193,6 +194,10 @@ export default function ActiveWorkoutScreen() {
       startWorkout(blockId, { assignmentId, scheduledDate, source });
     }
   }, [aw, blockId, assignmentId, scheduledDate, source, startWorkout]);
+
+  // Mirror the session to the Live Activity / ongoing notification.
+  // No-op until the native module is linked (see docs/LIVE_ACTIVITY_SETUP.md).
+  useLiveActivitySync();
 
   // ===== session timer =====
   const [elapsedSec, setElapsedSec] = useState(0);
