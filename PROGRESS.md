@@ -36,3 +36,13 @@ Resume protocol: read NIGHT_REPORT.md first, then this file top-to-bottom; PLAN.
 **Deferred (logged):** rest-end local notification while backgrounded — expo-notifications adapter is still a stub (native module not wired); belongs with the Phase 3 owner steps.
 
 **Gate:** typecheck ✅ · lint 0 errors · previousReference dev suite 20/20 ✅
+
+## Task 4 — Phase 3: Live Activity scaffold (commit dc5928c)
+
+**What changed:** Expo local module `modules/kairos-live-activity` (iOS ActivityKit bridge + Android ongoing chronometer notification with actions), widget extension sources in `targets/WorkoutActivity` (Dynamic Island compact/expanded/minimal, Lock Screen, Text(timerInterval:), iOS 17 LiveActivityIntents), `useLiveActivitySync` hook mounted in ActiveWorkoutScreen, `docs/LIVE_ACTIVITY_SETUP.md` with the exact owner steps (apple-targets and manual-Xcode paths).
+
+**Key design:** JS API is a guaranteed no-op via requireOptionalNativeModule until the owner builds natively — zero risk to the current dev build. LiveActivityIntent runs in the app process, so widget buttons reach JS via NotificationCenter → module event → store actions (completeSet with prefilled values, extendRest(30)).
+
+**Risks:** Swift/Kotlin uncompiled tonight (no native build per brief) — syntax reviewed but the owner build is the real test; Android is app-posted notification (not foreground service) — upgrade path documented.
+
+**Gate:** typecheck ✅ · lint 0 errors · vitest 136/136 ✅
