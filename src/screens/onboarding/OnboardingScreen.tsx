@@ -22,7 +22,6 @@ import Animated, {
   useAnimatedScrollHandler,
   withTiming,
   withDelay,
-  withSequence,
   Easing,
   interpolate,
   Extrapolate,
@@ -39,7 +38,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { Colors, Typography } from '../../theme/tokens';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { useUserProfile } from '../../context/UserProfileContext';
-import { applyStarterSpace } from '../../lib/routines/generateStarterRoutine';
+import { generateOnboardingSpace } from '../../lib/ai/onboardingSpace';
 import { STARTER_DISCIPLINES, type StarterDiscipline } from '../../lib/routines/starterTemplates';
 import type { EquipmentTag, FitnessLevel } from '../../types/profile';
 
@@ -122,6 +121,10 @@ export default function OnboardingScreen() {
   const [equipment, setEquipment] = useState<EquipmentTag[]>([]);
   const [equipmentNotes, setEquipmentNotes] = useState('');
   const [closing, setClosing] = useState(false);
+  // Space generation (AI or template fallback) runs during the closing
+  // animation; navigation waits for it so the user always lands on a
+  // populated canvas.
+  const [buildDone, setBuildDone] = useState(false);
 
   const scrollX = useSharedValue(0);
   const closeAnim = useSharedValue(0);
@@ -164,7 +167,10 @@ export default function OnboardingScreen() {
     }
     if (page === 1) {
       if (!isNameReady) return;
-      setUserName(name);
+      // NOTE: deliberately NOT calling setUserName here. AppNavigator keys
+      // the stack on userName — committing it mid-flow removes the
+      // Onboarding screen from the navigator and yanks the user to the
+      // Dashboard at page 2. The name is committed on final navigation.
       Keyboard.dismiss();
       goToPage(2);
       return;
@@ -193,8 +199,12 @@ export default function OnboardingScreen() {
       equipment,
       equipmentNotes: trimmedNotes.length > 0 ? trimmedNotes : null,
     }).catch(() => {});
-    applyStarterSpace({ discipline, level, frequency, equipment });
     setClosing(true);
+    // Never rejects — resolves with the template fallback on any failure.
+    generateOnboardingSpace(
+      { discipline, level, frequency, equipment },
+      { userName: name.trim() },
+    ).finally(() => setBuildDone(true));
   }, [
     page,
     name,
@@ -211,25 +221,30 @@ export default function OnboardingScreen() {
     goToPage,
   ]);
 
+  // Phase 1: logo fades in and breathes while the space is being built.
   useEffect(() => {
     if (!closing) return;
-    closeAnim.value = withSequence(
-      withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) }),
-      withDelay(
-        80,
-        withTiming(2, { duration: 400, easing: Easing.in(Easing.cubic) }, (finished) => {
-          if (finished) {
-            runOnJS(nav.dispatch)(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'Dashboard' }],
-              }),
-            );
-          }
-        }),
-      ),
+    closeAnim.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
+  }, [closing, closeAnim]);
+
+  const commitAndNavigate = useCallback(() => {
+    // Reset within the current stack BEFORE committing the name: setUserName
+    // flips AppNavigator's stack config, and Dashboard exists on both sides
+    // of that flag, so the order avoids a route-not-found flash.
+    nav.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Dashboard' }] }));
+    setUserName(name);
+  }, [nav, name, setUserName]);
+
+  // Phase 2: once the space exists, shrink out and land on the canvas.
+  useEffect(() => {
+    if (!closing || !buildDone) return;
+    closeAnim.value = withDelay(
+      320,
+      withTiming(2, { duration: 400, easing: Easing.in(Easing.cubic) }, (finished) => {
+        if (finished) runOnJS(commitAndNavigate)();
+      }),
     );
-  }, [closing, closeAnim, nav]);
+  }, [closing, buildDone, closeAnim, commitAndNavigate]);
 
   const closeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(closeAnim.value, [0, 1, 2], [1, 1, 0]),
@@ -339,6 +354,11 @@ export default function OnboardingScreen() {
       {closing && (
         <View pointerEvents="none" style={styles.closeOverlay}>
           <ClosingLogo anim={closeAnim} />
+          {!buildDone && (
+            <Text style={[styles.buildingCaption, { color: colors.text.muted }]}>
+              Kai está montando tu espacio…
+            </Text>
+          )}
         </View>
       )}
     </View>
@@ -1093,6 +1113,12 @@ const styles = StyleSheet.create({
   closeLogoWrap: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  buildingCaption: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: Typography.caption.fontWeight,
+    marginTop: 24,
+    textAlign: 'center',
   },
   equipHeader: {
     alignItems: 'center',

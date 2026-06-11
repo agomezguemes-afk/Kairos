@@ -11,6 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Colors } from '../../theme/tokens';
 import PlannerHeader from './components/PlannerHeader';
+import FirstWorkoutCTA from './components/FirstWorkoutCTA';
 import HomeHeroStats from './components/HomeHeroStats';
 import ReadinessRings from './components/ReadinessRings';
 import CalendarView from './components/CalendarView';
@@ -97,6 +98,12 @@ export default function TodayPlanner() {
     [selectedDate, dayState, streak.current, blocks.length, activeWorkout, lastSession],
   );
 
+  // First-workout hero: only until the first session lands in history.
+  const firstWorkoutBlock = useMemo(() => {
+    if (history.length > 0 || activeWorkout || blocks.length === 0) return null;
+    return blocks.find((b) => b.is_favorite && !b.is_archived) ?? blocks[0];
+  }, [history.length, activeWorkout, blocks]);
+
   // ── Handlers ──────────────────────────────────────────────────────────
 
   const handleStart = useCallback(
@@ -169,6 +176,9 @@ export default function TodayPlanner() {
       >
         <HomeHeroStats />
         <PlannerHeader />
+        {firstWorkoutBlock ? (
+          <FirstWorkoutCTA block={firstWorkoutBlock} onStart={(b) => handleStart(b, null)} />
+        ) : null}
         <ReadinessRings />
         <CalendarView selectedDate={selectedDate} onSelect={setSelectedDate} />
         <DayCard
