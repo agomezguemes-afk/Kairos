@@ -22,16 +22,17 @@ Keep this file updated after every task.
 | "applyActions store API" | The store IS the action API; AI tools commit synchronously via `useWorkoutStore.getState()` |
 | Onboarding needs building | Two flows exist: `screens/onboarding/OnboardingScreen` (4-page swipe: name/goal/equipment → generateStarterRoutine) + `OnboardingChatScreen` (auth mode) |
 
-## Phase 1 — Kai generative onboarding (ACTIVATION)
+## Phase 1 — Kai generative onboarding (ACTIVATION) ✅
 
 Goal: new user → built space + loggable first workout < 2 min.
 
-- [ ] Extend onboarding question set: discipline (have: goal), level, frequency (missing)
-- [ ] `src/lib/routines/starterTemplates.ts`: 6 curated templates — strength, running, calisthenics, yoga/mobility, team sport, hybrid (replaces 4-goal ROUTINES in generateStarterRoutine)
-- [ ] Level/frequency modulate sets/reps/rest of the chosen template
-- [ ] Online path: feed answers to agent pipeline (existing tools) to personalize; hard 10s timeout → fall back to local template (offline-first, never block activation)
-- [ ] Land on Home/canvas with "Empieza tu primer entrenamiento" CTA wired to `startWorkout`
-- [ ] Unit tests for template builder (every discipline × level produces valid block with sets)
+- [x] Onboarding asks discipline (6 options), level, frequency (+name, equipment) — 5 pages
+- [x] `src/lib/routines/starterTemplates.ts`: 6 curated templates, level × frequency × equipment matrix
+- [x] A/B split at frequency ≥4 (strength, running, calisthenics, hybrid)
+- [x] AI path: `src/lib/ai/onboardingSpace.ts` — agent + tools, snapshot/restore, 9s abort + 12s hard ceiling, validation, template fallback. Runs during the closing animation; nav waits.
+- [x] FirstWorkoutCTA hero on Today until first session logged → startWorkout
+- [x] 84 unit tests (matrix, gating, progression, identity)
+- [x] BONUS FIX: setUserName deferred to final navigation — was yanking users out of onboarding at page 2 (navigator stack keyed on userName)
 
 ## Phase 2 — Live workout flow (mostly built; close the gaps)
 
