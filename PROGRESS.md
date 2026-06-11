@@ -26,3 +26,13 @@ Resume protocol: read NIGHT_REPORT.md first, then this file top-to-bottom; PLAN.
 **Risks:** (1) AI path quality on llama-3.3-70b untested tonight — validation + fallback bound the blast radius; worst case user gets the curated template. (2) OnboardingChatScreen (auth-mode flow) untouched — still uses its own logic; SKIP_AUTH is the active path. (3) Profile-mode `isOnboardingComplete` path unchanged.
 
 **Gate:** typecheck ✅ · lint 0 errors/185 warnings · vitest 136/136 ✅
+
+## Task 3 — Phase 2: live workout gap-closing (commit 190a64f)
+
+**Audit verdict:** Phase 2 was ~90% built already (ghost values, PR detection + success haptic, auto-advance, swipe nav, timestamp-math rest timer, configurable rest in editor + in-session, WorkoutSummary with volume/PRs/duration/comparison). Gaps closed:
+- Cross-block ghost values: findPreviousReference now matches id > libraryId > normalized name per entry (superset "· n/m" suffix stripped). previousValues + reference pill share the resolver.
+- Set-completion haptic Medium → Light per spec.
+
+**Deferred (logged):** rest-end local notification while backgrounded — expo-notifications adapter is still a stub (native module not wired); belongs with the Phase 3 owner steps.
+
+**Gate:** typecheck ✅ · lint 0 errors · previousReference dev suite 20/20 ✅
