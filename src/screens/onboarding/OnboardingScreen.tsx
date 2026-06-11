@@ -39,20 +39,49 @@ import { useTheme } from '../../theme/ThemeContext';
 import { Colors, Typography } from '../../theme/tokens';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { useUserProfile } from '../../context/UserProfileContext';
-import { generateStarterRoutine } from '../../lib/routines/generateStarterRoutine';
-import type { EquipmentTag } from '../../types/profile';
+import { applyStarterSpace } from '../../lib/routines/generateStarterRoutine';
+import { STARTER_DISCIPLINES, type StarterDiscipline } from '../../lib/routines/starterTemplates';
+import type { EquipmentTag, FitnessLevel } from '../../types/profile';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const PAGE_COUNT = 4;
+const PAGE_COUNT = 5;
 const ENTER_MS = 600;
 const PAGE_FADE_MS = 400;
 
 type Goal = 'strength' | 'endurance' | 'flexibility' | 'health';
-const GOAL_OPTIONS: { id: Goal; label: string; icon: KIconName }[] = [
-  { id: 'strength', label: 'Fuerza', icon: 'barbell' },
-  { id: 'endurance', label: 'Resistencia', icon: 'running' },
-  { id: 'flexibility', label: 'Flexibilidad', icon: 'mat' },
-  { id: 'health', label: 'Salud general', icon: 'zap' },
+
+// Legacy goal vocabulary still drives greetings and stats copy — derived
+// from the richer discipline answer instead of asked separately.
+const DISCIPLINE_TO_GOAL: Record<StarterDiscipline, Goal> = {
+  strength: 'strength',
+  running: 'endurance',
+  calisthenics: 'strength',
+  yoga_mobility: 'flexibility',
+  team_sport: 'health',
+  hybrid: 'health',
+};
+
+// KIcon's set is small — map each discipline to the closest available glyph.
+const DISCIPLINE_ICONS: Record<StarterDiscipline, KIconName> = {
+  strength: 'barbell',
+  running: 'running',
+  calisthenics: 'zap',
+  yoga_mobility: 'mat',
+  team_sport: 'grid',
+  hybrid: 'dashboard',
+};
+
+const LEVEL_OPTIONS: { id: FitnessLevel; label: string; hint: string }[] = [
+  { id: 'beginner', label: 'Empiezo ahora', hint: 'Menos de 6 meses entrenando' },
+  { id: 'intermediate', label: 'Tengo base', hint: 'Entreno con regularidad' },
+  { id: 'advanced', label: 'Avanzado', hint: 'Años de entrenamiento serio' },
+];
+
+const FREQUENCY_OPTIONS: { value: number; label: string }[] = [
+  { value: 2, label: '2' },
+  { value: 3, label: '3' },
+  { value: 4, label: '4' },
+  { value: 5, label: '5+' },
 ];
 
 // Equipment chips — KIcon's set is limited, so we map each option to the
@@ -87,7 +116,9 @@ export default function OnboardingScreen() {
   const listRef = useRef<FlatList<PageInfo>>(null);
   const [page, setPage] = useState(0);
   const [name, setName] = useState('');
-  const [goal, setGoal] = useState<Goal | null>(null);
+  const [discipline, setDiscipline] = useState<StarterDiscipline | null>(null);
+  const [level, setLevel] = useState<FitnessLevel | null>(null);
+  const [frequency, setFrequency] = useState<number | null>(null);
   const [equipment, setEquipment] = useState<EquipmentTag[]>([]);
   const [equipmentNotes, setEquipmentNotes] = useState('');
   const [closing, setClosing] = useState(false);
@@ -109,14 +140,16 @@ export default function OnboardingScreen() {
   }, []);
 
   const isNameReady = name.trim().length > 0;
-  const isGoalReady = goal !== null;
+  const isDisciplineReady = discipline !== null;
+  const isPlanReady = level !== null && frequency !== null;
 
   const ctaEnabled = useMemo(() => {
     if (page === 0) return true;
     if (page === 1) return isNameReady;
-    if (page === 2) return isGoalReady;
+    if (page === 2) return isDisciplineReady;
+    if (page === 3) return isPlanReady;
     return true; // equipment step is skippable
-  }, [page, isNameReady, isGoalReady]);
+  }, [page, isNameReady, isDisciplineReady, isPlanReady]);
 
   const toggleEquipment = useCallback((id: EquipmentTag) => {
     Haptics.selectionAsync().catch(() => {});
@@ -137,30 +170,41 @@ export default function OnboardingScreen() {
       return;
     }
     if (page === 2) {
-      if (!isGoalReady || !goal) return;
-      setUserGoal(goal);
+      if (!discipline) return;
+      setUserGoal(DISCIPLINE_TO_GOAL[discipline]);
       goToPage(3);
       return;
     }
-    // page === 3 (equipment) → finalise.
-    if (!goal) return;
+    if (page === 3) {
+      if (!isPlanReady) return;
+      goToPage(4);
+      return;
+    }
+    // page === 4 (equipment) → finalise.
+    if (!discipline || !level || !frequency) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     Keyboard.dismiss();
     const trimmedNotes = equipmentNotes.trim();
+    const coreDiscipline = STARTER_DISCIPLINES.find((d) => d.id === discipline)?.coreDiscipline;
     updateProfile({
+      fitnessLevel: level,
+      weeklyFrequency: frequency,
+      disciplines: coreDiscipline ? [coreDiscipline] : [],
       equipment,
       equipmentNotes: trimmedNotes.length > 0 ? trimmedNotes : null,
     }).catch(() => {});
-    generateStarterRoutine(goal);
+    applyStarterSpace({ discipline, level, frequency, equipment });
     setClosing(true);
   }, [
     page,
     name,
-    goal,
+    discipline,
+    level,
+    frequency,
     equipment,
     equipmentNotes,
     isNameReady,
-    isGoalReady,
+    isPlanReady,
     setUserName,
     setUserGoal,
     updateProfile,
@@ -202,12 +246,29 @@ export default function OnboardingScreen() {
     if (item.index === 1) return <PageName scrollX={scrollX} value={name} onChange={setName} />;
     if (item.index === 2) {
       return (
-        <PageGoal
+        <PageDiscipline
           scrollX={scrollX}
-          value={goal}
-          onChange={(g) => {
+          value={discipline}
+          onChange={(d) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-            setGoal(g);
+            setDiscipline(d);
+          }}
+        />
+      );
+    }
+    if (item.index === 3) {
+      return (
+        <PagePlan
+          scrollX={scrollX}
+          level={level}
+          frequency={frequency}
+          onLevel={(l) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            setLevel(l);
+          }}
+          onFrequency={(f) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            setFrequency(f);
           }}
         />
       );
@@ -472,16 +533,16 @@ function PageName({
 }
 
 // ============================================================
-// Page 3 · Goal
+// Page 3 · Discipline (drives the starter template)
 // ============================================================
-function PageGoal({
+function PageDiscipline({
   scrollX,
   value,
   onChange,
 }: {
   scrollX: SharedValue<number>;
-  value: Goal | null;
-  onChange: (g: Goal) => void;
+  value: StarterDiscipline | null;
+  onChange: (d: StarterDiscipline) => void;
 }) {
   const { colors } = useTheme();
   const idx = 2;
@@ -503,20 +564,26 @@ function PageGoal({
     <Animated.View style={[styles.page, pageStyle]}>
       <View style={styles.pageInner}>
         <Animated.Text style={[styles.heading, { color: colors.text.primary }, animStyle]}>
-          ¿Cuál es tu objetivo?
+          ¿Qué vas a entrenar?
+        </Animated.Text>
+        <Animated.Text style={[styles.helper, { color: colors.text.muted }, animStyle]}>
+          Kai montará tu primer plan alrededor de esto. Podrás añadir más después.
         </Animated.Text>
 
         <Animated.View style={[styles.cardGrid, animStyle]}>
-          {GOAL_OPTIONS.map((opt) => {
+          {STARTER_DISCIPLINES.map((opt) => {
             const selected = value === opt.id;
             const cardBg = selected ? colors.gold[500] : colors.surface;
             const fg = selected ? '#FFFFFF' : colors.text.primary;
             return (
               <Pressable
                 key={opt.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={opt.label}
                 onPress={() => onChange(opt.id)}
                 style={({ pressed }) => [
-                  styles.goalCard,
+                  styles.disciplineCard,
                   {
                     backgroundColor: cardBg,
                     borderColor: colors.gold[500],
@@ -525,7 +592,7 @@ function PageGoal({
                   !selected && styles.goalCardShadow,
                 ]}
               >
-                <KIcon name={opt.icon} size={28} color={fg} strokeWidth={1.5} />
+                <KIcon name={DISCIPLINE_ICONS[opt.id]} size={24} color={fg} strokeWidth={1.5} />
                 <Text
                   style={[
                     styles.goalLabel,
@@ -541,6 +608,112 @@ function PageGoal({
               </Pressable>
             );
           })}
+        </Animated.View>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ============================================================
+// Page 4 · Level + weekly frequency
+// ============================================================
+function PagePlan({
+  scrollX,
+  level,
+  frequency,
+  onLevel,
+  onFrequency,
+}: {
+  scrollX: SharedValue<number>;
+  level: FitnessLevel | null;
+  frequency: number | null;
+  onLevel: (l: FitnessLevel) => void;
+  onFrequency: (f: number) => void;
+}) {
+  const { colors } = useTheme();
+  const idx = 3;
+  const fade = useSharedValue(0);
+  const ty = useSharedValue(30);
+
+  useEffect(() => {
+    fade.value = withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
+    ty.value = withTiming(0, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
+  }, [fade, ty]);
+
+  const pageStyle = useParallaxStyle(scrollX, idx);
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [{ translateY: ty.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.page, pageStyle]}>
+      <View style={styles.pageInner}>
+        <Animated.Text style={[styles.heading, { color: colors.text.primary }, animStyle]}>
+          Tu punto de partida
+        </Animated.Text>
+
+        <Animated.View style={[styles.planSection, animStyle]}>
+          {LEVEL_OPTIONS.map((opt) => {
+            const selected = level === opt.id;
+            const bg = selected ? colors.gold[500] : colors.surface;
+            const fg = selected ? '#FFFFFF' : colors.text.primary;
+            const hintFg = selected ? 'rgba(255,255,255,0.85)' : colors.text.muted;
+            return (
+              <Pressable
+                key={opt.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${opt.label}. ${opt.hint}`}
+                onPress={() => onLevel(opt.id)}
+                style={({ pressed }) => [
+                  styles.levelRow,
+                  {
+                    backgroundColor: bg,
+                    borderColor: colors.gold[500],
+                    opacity: pressed ? 0.94 : 1,
+                  },
+                  !selected && styles.goalCardShadow,
+                ]}
+              >
+                <Text style={[styles.levelLabel, { color: fg }]}>{opt.label}</Text>
+                <Text style={[styles.levelHint, { color: hintFg }]}>{opt.hint}</Text>
+              </Pressable>
+            );
+          })}
+        </Animated.View>
+
+        <Animated.View style={[styles.planSection, animStyle]}>
+          <Text style={[styles.planLabel, { color: colors.text.muted }]}>
+            ¿Cuántos días a la semana?
+          </Text>
+          <View style={styles.freqRow}>
+            {FREQUENCY_OPTIONS.map((opt) => {
+              const selected = frequency === opt.value;
+              const bg = selected ? colors.gold[500] : colors.surface;
+              const fg = selected ? '#FFFFFF' : colors.text.primary;
+              return (
+                <Pressable
+                  key={opt.value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`${opt.label} días por semana`}
+                  onPress={() => onFrequency(opt.value)}
+                  style={({ pressed }) => [
+                    styles.freqPill,
+                    {
+                      backgroundColor: bg,
+                      borderColor: colors.gold[500],
+                      opacity: pressed ? 0.94 : 1,
+                    },
+                    !selected && styles.goalCardShadow,
+                  ]}
+                >
+                  <Text style={[styles.freqText, { color: fg }]}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </Animated.View>
       </View>
     </Animated.View>
@@ -564,7 +737,7 @@ function PageEquipment({
   onNotesChange: (s: string) => void;
 }) {
   const { colors } = useTheme();
-  const idx = 3;
+  const idx = 4;
   const fade = useSharedValue(0);
   const ty = useSharedValue(30);
 
@@ -798,14 +971,64 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 12,
   },
-  goalCard: {
-    width: 140,
-    height: 140,
-    borderRadius: 20,
+  // 6-up discipline grid — shorter than the old 4-up goal cards so three
+  // rows fit above the footer on compact screens.
+  disciplineCard: {
+    width: '47%',
+    height: 96,
+    borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+  },
+  planSection: {
+    width: '100%',
     gap: 10,
+    marginTop: 6,
+  },
+  planLabel: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: Typography.caption.fontWeight,
+    textAlign: 'center',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  levelRow: {
+    width: '100%',
+    minHeight: 64,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  levelLabel: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: '600',
+  },
+  levelHint: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: Typography.caption.fontWeight,
+  },
+  freqRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+  },
+  freqPill: {
+    minWidth: 64,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  freqText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: '600',
   },
   goalCardShadow: {
     shadowColor: Colors.ink.primary,
