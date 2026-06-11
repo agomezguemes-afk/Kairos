@@ -234,26 +234,26 @@ export default function ActiveWorkoutScreen() {
 
   // Pick a "previous" value source for the SetInput repeat affordance:
   //   1. nearest completed set earlier in this exercise (current session), then
-  //   2. the last completed set of the same exercise from history.
+  //   2. the most recent performance of the same movement anywhere in history
+  //      (id > libraryId > normalized name — cross-block ghosting).
   const previousValues = useMemo<Record<string, FieldValue> | undefined>(() => {
     if (!aw || !exercise) return undefined;
     const idx = aw.currentSetIndex;
     for (let i = idx - 1; i >= 0; i--) {
       if (exercise.sets[i].completed) return exercise.sets[i].values;
     }
-    for (const h of workoutHistory) {
-      if (h.blockId !== aw.blockId) continue;
-      const exHistory = h.exercises.find((e) => e.exerciseId === exercise.id);
-      if (!exHistory?.performedSets) continue;
-      for (let i = exHistory.performedSets.length - 1; i >= 0; i--) {
-        const ps = exHistory.performedSets[i];
-        if (ps.completed && (ps.weight != null || ps.reps != null)) {
-          return {
-            ...(ps.weight != null ? { weight: ps.weight } : {}),
-            ...(ps.reps != null ? { reps: ps.reps } : {}),
-          };
-        }
-      }
+    const ref = findPreviousReference({
+      exerciseId: exercise.id,
+      libraryId: exercise.libraryId,
+      exerciseName: exercise.name,
+      active: null,
+      history: workoutHistory,
+    });
+    if (ref && (ref.weight != null || ref.reps != null)) {
+      return {
+        ...(ref.weight != null ? { weight: ref.weight } : {}),
+        ...(ref.reps != null ? { reps: ref.reps } : {}),
+      };
     }
     return undefined;
   }, [aw, exercise, workoutHistory]);
@@ -272,6 +272,8 @@ export default function ActiveWorkoutScreen() {
     if (!exercise) return null;
     return findPreviousReference({
       exerciseId: exercise.id,
+      libraryId: exercise.libraryId,
+      exerciseName: exercise.name,
       active: aw,
       history: workoutHistory,
     });
@@ -354,7 +356,9 @@ export default function ActiveWorkoutScreen() {
 
   const handleCompleteSet = useCallback(() => {
     if (!aw || !exercise || !currentSet) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    // impactLight on snaps per motion spec — notificationSuccess is reserved
+    // for the PR milestone below.
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
     // Resolve weight/reps from the live draft (preferred) with fallback to the
     // set's persisted values — preloaded goal weights and the "Repetir anterior"

@@ -1,6 +1,6 @@
 // Run: npx tsx src/components/workout/lib/previousReference.dev.ts
 
-import { findPreviousReference, formatReference } from './previousReference';
+import { findPreviousReference, formatReference, normalizeExerciseName } from './previousReference';
 import type {
   WorkoutHistoryEntry,
   ActiveWorkout,
@@ -40,6 +40,7 @@ function set(
 function exHistory(opts: Partial<ExerciseHistorySummary>): ExerciseHistorySummary {
   return {
     exerciseId: opts.exerciseId ?? 'press',
+    libraryId: opts.libraryId,
     name: opts.name ?? 'Press banca',
     maxWeight: opts.maxWeight ?? 0,
     totalVolume: opts.totalVolume ?? 0,
@@ -175,6 +176,89 @@ check(
 );
 check('format null', formatReference(null) === null);
 check('format empty', formatReference({ source: 'history', weight: null, reps: null }) === null);
+
+// 7. Cross-block fallback via libraryId
+const crossBlock = [
+  entry({
+    id: 'h-other-block',
+    blockId: 'other',
+    blockName: 'Otro bloque',
+    endedAt: 3000,
+    exercises: [
+      exHistory({
+        exerciseId: 'press-clone-2',
+        libraryId: 'lib_bench',
+        performedSets: [{ weight: 80, reps: 5, completed: true }],
+      }),
+    ],
+  }),
+];
+const refLib = findPreviousReference({
+  exerciseId: 'press-clone-9',
+  libraryId: 'lib_bench',
+  active: null,
+  history: crossBlock,
+});
+check(
+  'libraryId matches across blocks',
+  refLib?.weight === 80 && refLib?.blockName === 'Otro bloque',
+);
+check(
+  'no libraryId → no cross match',
+  findPreviousReference({ exerciseId: 'press-clone-9', active: null, history: crossBlock }) ===
+    null,
+);
+
+// 8. Cross-block fallback via normalized name (custom exercises)
+const refName = findPreviousReference({
+  exerciseId: 'nope',
+  exerciseName: '  press BANCA ',
+  active: null,
+  history: crossBlock.map((e) => ({
+    ...e,
+    exercises: [
+      exHistory({
+        exerciseId: 'x',
+        name: 'Press banca',
+        performedSets: [{ weight: 70, reps: 6, completed: true }],
+      }),
+    ],
+  })),
+});
+check('normalized name matches', refName?.weight === 70);
+
+// 9. Exact id wins over libraryId within the same entry
+const tiered = [
+  entry({
+    id: 'h-tier',
+    endedAt: 5000,
+    exercises: [
+      exHistory({
+        exerciseId: 'other-ex',
+        libraryId: 'lib_bench',
+        performedSets: [{ weight: 100, reps: 3, completed: true }],
+      }),
+      exHistory({
+        exerciseId: 'press',
+        performedSets: [{ weight: 55, reps: 10, completed: true }],
+      }),
+    ],
+  }),
+];
+const refTier = findPreviousReference({
+  exerciseId: 'press',
+  libraryId: 'lib_bench',
+  active: null,
+  history: tiered,
+});
+check('exact id beats libraryId in same entry', refTier?.weight === 55);
+
+// 10. Superset cycle suffix is stripped for name matching
+check(
+  'normalize strips cycle suffix',
+  normalizeExerciseName('Press banca · 2/3') === 'press banca',
+);
+check('normalize collapses spaces', normalizeExerciseName('  Press   Banca ') === 'press banca');
 
 if (failed > 0) {
   console.error(`${failed} failures`);
