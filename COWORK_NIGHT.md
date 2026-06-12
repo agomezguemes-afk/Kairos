@@ -65,7 +65,10 @@ ScheduleWakeup to continue. On resume, read this file first.
 - 08:23 — A4 atomic quota reservation (251bbfd). 78/78.
 - 08:26 — B2 onboarding primitives: motion plan + skip CTA (3fbfb8a). 83/83.
 - 08:30 — Re-audit found unbounded CSV-import parse (DoS). Shipped bounded-input
-  guard `src/lib/security/inputLimits.ts` + finding #9 (08afe92... commit). 88/88.
+  guard `src/lib/security/inputLimits.ts` + finding #9 (0c018c2). 88/88.
+- 09:04 — night-run still 18 ahead of dev (not merged) → additive path: hardened
+  1RM math vs non-finite input (NaN propagation into PR detection) + added the
+  missing oneRM test suite (ed12037). 100/100.
 
 ## State: lane largely complete
 All 6 fixable findings + the input-DoS guard shipped; onboarding architecture +
