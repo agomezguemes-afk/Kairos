@@ -25,7 +25,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import KIcon, { type KIconName } from '../../../components/icons/KIcon';
-import { Colors, Radius, Spacing, Type } from '../../../theme/tokens';
+import { Colors, Radius, Shadows, Spacing, Type } from '../../../theme/tokens';
 import {
   applySmartDefaults,
   EMPTY_DRAFT,
@@ -65,31 +65,49 @@ const EQUIPMENT: { id: string; label: string }[] = [
   { id: 'yoga_mat', label: 'Esterilla' },
 ];
 
+// 'done' is the celebratory reveal — not a question, so it's outside the
+// question step order used for the progress bar.
+type Screen = OnboardingStepId | 'done';
 const STEP_ORDER: OnboardingStepId[] = ['welcome', 'goal', 'name', 'equipment'];
 
 export default function PremiumOnboarding({ onComplete }: PremiumOnboardingProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<OnboardingStepId>('welcome');
+  const [step, setStep] = useState<Screen>('welcome');
   const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
+  const [ready, setReady] = useState<OnboardingDraft | null>(null);
   const ttfv = useRef(makeTtfvTracker(Date.now()));
 
-  const progress = useMemo(() => (STEP_ORDER.indexOf(step) + 1) / STEP_ORDER.length, [step]);
-
-  const finish = useCallback(
-    (d: OnboardingDraft) => {
-      const ready = applySmartDefaults(d);
-      const sample = ttfv.current.reached();
-      if (__DEV__) {
-        // Prove the 2-minute promise in dev logs; wire to analytics later.
-        console.log('[onboarding] TTFV', sample.elapsedMs, 'ms', sample.withinMax ? 'OK' : 'OVER');
-      }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      onComplete(ready);
-    },
-    [onComplete],
+  const progress = useMemo(
+    () => (step === 'done' ? 1 : (STEP_ORDER.indexOf(step) + 1) / STEP_ORDER.length),
+    [step],
   );
 
-  const handleSkip = useCallback(() => finish(skipToValue(draft)), [draft, finish]);
+  // First value is reached here (a ready space exists). Record TTFV once.
+  const reachFirstValue = useCallback((d: OnboardingDraft): OnboardingDraft => {
+    const r = applySmartDefaults(d);
+    const sample = ttfv.current.reached();
+    if (__DEV__) {
+      // Prove the 2-minute promise in dev logs; wire to analytics later.
+      console.log('[onboarding] TTFV', sample.elapsedMs, 'ms', sample.withinMax ? 'OK' : 'OVER');
+    }
+    return r;
+  }, []);
+
+  // Full path → celebratory reveal before entering.
+  const goDone = useCallback(
+    (d: OnboardingDraft) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setReady(reachFirstValue(d));
+      setStep('done');
+    },
+    [reachFirstValue],
+  );
+
+  // Skip path → straight in, no extra tap (the whole point of skip-to-value).
+  const handleSkip = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    onComplete(reachFirstValue(skipToValue(draft)));
+  }, [draft, onComplete, reachFirstValue]);
 
   const selectGoal = useCallback((id: OnboardingGoal) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -141,8 +159,11 @@ export default function PremiumOnboarding({ onComplete }: PremiumOnboardingProps
               <EquipmentStep
                 selected={draft.equipment}
                 onToggle={toggleEquipment}
-                onFinish={() => finish(draft)}
+                onFinish={() => goDone(draft)}
               />
+            )}
+            {step === 'done' && ready && (
+              <DoneStep name={ready.name} onEnter={() => onComplete(ready)} />
             )}
           </View>
         </ScrollView>
@@ -315,6 +336,34 @@ function EquipmentStep({
   );
 }
 
+function DoneStep({ name, onEnter }: { name: string | null; onEnter: () => void }) {
+  return (
+    <View style={styles.done}>
+      <Reveal index={0}>
+        <View style={styles.doneBadge}>
+          <Text style={styles.doneCheck}>✓</Text>
+        </View>
+      </Reveal>
+      <Reveal index={1}>
+        <Text style={[styles.eyebrow, styles.center]}>TODO LISTO</Text>
+      </Reveal>
+      <Reveal index={2}>
+        <Text style={styles.doneTitle}>
+          {name ? `${name}, tu espacio\nestá preparado.` : 'Tu espacio\nestá preparado.'}
+        </Text>
+      </Reveal>
+      <Reveal index={3}>
+        <Text style={[styles.subtitle, styles.center]}>
+          Hemos preparado tu primera rutina. Entra y empieza cuando quieras.
+        </Text>
+      </Reveal>
+      <Reveal index={4} style={styles.fullWidth}>
+        <PrimaryCta label="Entrar a mi espacio" onPress={onEnter} />
+      </Reveal>
+    </View>
+  );
+}
+
 function PrimaryCta({ label, onPress }: { label: string; onPress: () => void }) {
   const handlePress = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
@@ -386,4 +435,19 @@ const styles = StyleSheet.create({
   },
   primaryPressed: { opacity: 0.92 },
   primaryText: { ...Type.subheading, color: Colors.ink.inverse },
+
+  done: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.lg },
+  center: { textAlign: 'center' },
+  doneBadge: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: Colors.gold.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+    ...Shadows.cardWarm,
+  },
+  doneCheck: { fontSize: 44, lineHeight: 50, fontWeight: '700', color: Colors.ink.inverse },
+  doneTitle: { ...Type.title, textAlign: 'center', color: Colors.ink.primary },
 });
