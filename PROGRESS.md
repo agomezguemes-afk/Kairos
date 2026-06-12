@@ -66,3 +66,11 @@ Resume protocol: read NIGHT_REPORT.md first, then this file top-to-bottom; PLAN.
 **Deferred:** BlockEditorScreen content list virtualization — interacts with drag-and-drop and column sections; too risky unattended (noted for owner).
 
 **Gate:** typecheck ✅ · lint 0 errors · vitest 157/157 ✅
+
+## Polish loop — iterations 1-3 (commits 54e4a37, e6eaebf, 1ba318c)
+
+1. Lint 185 → 118: 41 unused imports/locals across 25 files; Array<T> → T[]; stale eslint-disables removed; @typescript-eslint/no-redeclare off (valibot const+type idiom; tsc covers real conflicts).
+2. workoutStore.dev.ts (40 checks) registered in dev-suites bridge; healthkit lazy-requires react-native → store imports clean in node. Total vitest: 158.
+3. exhaustive-deps mechanical tier → 107: stable shared-value refs added to deps; streak.current → streak; documented disables on schedule hooks (assignments = invalidation key); dead setUserName dep dropped.
+
+**Remaining warnings (107):** 89 React Compiler baseline (immutability/refs/set-state-in-effect/purity — standing policy in eslint.config.mjs), ~15 exhaustive-deps needing per-case inspection (MissionContext evaluation effect, BlockEditorScreen renderNode, BlockAISheet block, AIChatScreen buildCtx, ActiveWorkoutScreen timer/draft effects, AuthScreen validate, splash one-shots), 3 purity.
