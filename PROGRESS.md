@@ -46,3 +46,11 @@ Resume protocol: read NIGHT_REPORT.md first, then this file top-to-bottom; PLAN.
 **Risks:** Swift/Kotlin uncompiled tonight (no native build per brief) — syntax reviewed but the owner build is the real test; Android is app-posted notification (not foreground service) — upgrade path documented.
 
 **Gate:** typecheck ✅ · lint 0 errors · vitest 136/136 ✅
+
+## Task 5 — Phase 4: Strong/Hevy CSV import (commit pending above)
+
+**What changed:** `src/lib/import/` (csv core, strongCsv, hevyCsv, toHistory, index with format sniffing), store action `importWorkoutHistory` (idempotent, returns added count), HISTORY_CAP 100→1000 (imports would have been truncated by the next finishWorkout), ImportDataSheet (paste→preview→confirm, ES copy) + Profile row.
+
+**Decisions:** paste-based v1 (expo-document-picker needs a native rebuild — deferred to owner; pipeline is picker-agnostic). Imported sessions use blockId 'imported' + exerciseId `import_<normalized name>` so cross-block name matching correlates them with live exercises.
+
+**Gate:** typecheck ✅ · lint 0 errors/185 warnings · vitest 157/157 ✅
