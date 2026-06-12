@@ -10,7 +10,7 @@ _Last updated: 2026-06-12._
 
 Audited the app's real attack surface: the Supabase AI proxy edge function,
 the auth/session client, secret handling, RLS, and dependencies. Found and
-fixed **five issues**, two of them serious (a bundled API key + paywall bypass,
+fixed **six issues**, two of them serious (a bundled API key + paywall bypass,
 and plaintext session tokens) and one a real privilege escalation (self-granting
 the Pro tier). Two build-time dependency CVEs are documented with remediation.
 
@@ -21,7 +21,7 @@ the Pro tier). Two build-time dependency CVEs are documented with remediation.
 | 3 | `profiles.subscription_tier` self-editable → free user grants self Pro tier | **High** | ✅ Fixed (`6e49ffe`) |
 | 4 | AI proxy trusts client `max_tokens` → cost amplification; leaks upstream errors | **Medium** | ✅ Fixed (`45f5201`) |
 | 5 | Streamed AI calls could escape the quota ledger (fire-and-forget insert) | **Low** | ✅ Fixed (`45f5201`) |
-| 6 | AI quota check/record TOCTOU → concurrent calls bypass the daily cap | **Medium** | ⏳ Planned (A4) |
+| 6 | AI quota check/record TOCTOU → concurrent calls bypass the daily cap | **Medium** | ✅ Fixed (`251bbfd`) |
 | 7 | `shell-quote` (critical) + `@xmldom/xmldom` (high) — build-time deps | **Low (not shipped)** | 📋 Documented |
 | 8 | `profiles` RLS lived outside version control (unauditable) | **Medium** | ✅ Fixed (`6e49ffe`) |
 
@@ -77,13 +77,19 @@ the client.
 The ledger insert for streamed responses was fire-and-forget and could be
 dropped when the isolate recycled. Now awaited before the stream is returned.
 
-### 6. Quota TOCTOU — Medium ⏳ (planned, A4)
-The quota count is read, the upstream call is made, and the ledger row is
-inserted **after**. N concurrent requests can all read `count < cap` before any
-insert lands, so a burst exceeds the daily cap. Planned fix: an atomic
-reserve-then-call RPC (per-user advisory lock: count + insert in one
-transaction; refund the row on upstream failure). Not yet implemented — it
-needs DB-side testing before it can be trusted.
+### 6. Quota TOCTOU — Medium ✅
+The quota count was read, the upstream call made, and the ledger row inserted
+**after**. N concurrent requests all read `count < cap` before any insert lands,
+so a burst exceeds the daily cap.
+
+**Fix:** migration `20260612031500_ai_quota_atomic_reserve.sql` adds
+`ai_quota_reserve()` — count + insert under a per-user `pg_advisory_xact_lock`
+so concurrent reservations serialize and the `(cap+1)`-th is denied — plus
+`ai_quota_release()` / `ai_quota_finalize()`. The edge function reserves after
+body validation, releases the reservation on every failure path (misconfig,
+unsupported provider, network/timeout exception, non-2xx), and finalizes the
+token count on success — preserving "failed calls don't burn quota" without the
+race. **Reviewed-not-applied — needs a DB concurrency test before deploy.**
 
 ### 7. Build-time dependency CVEs — Low (not shipped) 📋
 `npm audit --omit=dev`: 1 critical (`shell-quote`), 1 high (`@xmldom/xmldom`),
