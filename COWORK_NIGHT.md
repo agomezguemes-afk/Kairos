@@ -64,13 +64,20 @@ ScheduleWakeup to continue. On resume, read this file first.
 - 08:15 — A6 dep triage + A7 SECURITY.md report.
 - 08:23 — A4 atomic quota reservation (251bbfd). 78/78.
 - 08:26 — B2 onboarding primitives: motion plan + skip CTA (3fbfb8a). 83/83.
+- 08:30 — Re-audit found unbounded CSV-import parse (DoS). Shipped bounded-input
+  guard `src/lib/security/inputLimits.ts` + finding #9 (08afe92... commit). 88/88.
+
+## State: lane largely complete
+All 6 fixable findings + the input-DoS guard shipped; onboarding architecture +
+primitives + spec done. 10 commits, all green (88 tests). Remaining items below
+genuinely depend on EXTERNAL state (night-run merging, or on-device runs), so
+further iteration here has diminishing returns until then.
 
 ## Next on resume (priority order)
-1. Re-audit: `git fetch` + check what night-run merged into dev; re-run
-   `npm audit`; look for new attack surface (e.g. the night-run's
-   onboardingSpace.ts LLM call, CSV import parsing, Live Activity).
-2. Widen test coverage on existing pure logic (readiness, canvasLayout,
-   generateStarterRoutine input validation).
-3. B3 screen-wiring — ONLY once night-run has merged to dev (else it collides).
-4. Consider: input validation hardening on CSV import (Strong/Hevy) — untrusted
-   file parsing is a classic injection/DoS surface.
+1. Check if `feat/night-run` merged to `dev` yet (`git log dev..feat/night-run`
+   shrinking). Once merged: rebase/merge, then do B3 (wire screens to the flow)
+   + wire `assertWithinImportLimits` into the CSV importer (finding #9).
+2. Re-run `npm audit`; scan any newly-merged surface (onboardingSpace LLM call,
+   Live Activity intents) for trust-boundary issues.
+3. Widen pure-logic test coverage (generateStarterRoutine input validation,
+   readiness edge cases) — additive, no collision.
