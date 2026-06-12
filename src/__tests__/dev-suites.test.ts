@@ -22,6 +22,7 @@ const ROOT = resolve(__dirname, '..', '..');
 const DEV_SUITES: { name: string; path: string }[] = [
   { name: 'libraryHelpers', path: 'src/data/libraryHelpers.dev.ts' },
   { name: 'scheduleStore', path: 'src/store/scheduleStore.dev.ts' },
+  { name: 'workoutStore', path: 'src/store/workoutStore.dev.ts' },
   { name: 'met', path: 'src/lib/health/met.dev.ts' },
   { name: 'dashboardValue', path: 'src/lib/history/dashboardValue.dev.ts' },
   { name: 'exerciseHistory', path: 'src/lib/history/exerciseHistory.dev.ts' },

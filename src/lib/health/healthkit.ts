@@ -9,17 +9,29 @@
 //   2. Add to app.json plugins (see docs/superpowers/specs/healthkit-integration.md)
 //   3. npx expo prebuild --clean && npx expo run:ios
 
-import { Platform } from 'react-native';
 import { DISCIPLINE_TO_HK, type HealthAvailability, type WriteWorkoutInput } from './types';
 
 let cached: any = null;
 let probed = false;
 
+// react-native is required lazily (not a top-level import) so this module —
+// and everything that imports it, like workoutStore — stays loadable in
+// plain node for unit tests. RN's index.js is Flow-typed and explodes
+// outside Metro.
+function getPlatformOS(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('react-native').Platform.OS as string;
+  } catch {
+    return 'unknown';
+  }
+}
+
 /** Lazy require so a missing module doesn't throw at import time. */
 function getNative(): any {
   if (probed) return cached;
   probed = true;
-  if (Platform.OS !== 'ios') return null;
+  if (getPlatformOS() !== 'ios') return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('react-native-health');
