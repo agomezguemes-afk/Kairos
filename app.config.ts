@@ -106,7 +106,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     web: {
       favicon: './assets/favicon.png',
     },
-    plugins: ['expo-font'],
+    plugins: ['expo-font', 'expo-secure-store'],
     // Surface the active variant to the JS bundle so the UI can render
     // a subtle environment chip in non-prod builds (next sprint).
     extra: {

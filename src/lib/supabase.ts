@@ -8,9 +8,9 @@
 // auth/data calls are no-ops because the key is invalid by design.
 
 import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { SKIP_AUTH } from '../config/constants';
+import { secureSessionStorage } from './storage/secureSessionStorage';
 
 // URL + anon key both come from env so dev / staging / prod can point
 // at different Supabase projects. A hardcoded URL would tie every build
@@ -33,7 +33,10 @@ const effectiveKey = SUPABASE_ANON_KEY || 'placeholder-key-skip-auth-is-true';
 
 export const supabase = createClient(SUPABASE_URL, effectiveKey, {
   auth: {
-    storage: AsyncStorage,
+    // Session tokens live in the Keychain/Keystore (chunked), not plaintext
+    // AsyncStorage. Existing plaintext sessions are migrated + scrubbed on
+    // first read. See lib/storage/secureSessionStorage.ts.
+    storage: secureSessionStorage,
     // Disable background token refresh when SKIP_AUTH is on — avoids
     // making network calls that will always fail with the sentinel key.
     autoRefreshToken: !SKIP_AUTH,
