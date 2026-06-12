@@ -54,3 +54,15 @@ Resume protocol: read NIGHT_REPORT.md first, then this file top-to-bottom; PLAN.
 **Decisions:** paste-based v1 (expo-document-picker needs a native rebuild — deferred to owner; pipeline is picker-agnostic). Imported sessions use blockId 'imported' + exerciseId `import_<normalized name>` so cross-block name matching correlates them with live exercises.
 
 **Gate:** typecheck ✅ · lint 0 errors/185 warnings · vitest 157/157 ✅
+
+## Task 6 — Phase 5: canvas performance pass (commit above)
+
+**Before:** CanvasGrid created inline closures per cell per render → React.memo on CanvasBlockCell never matched → N cells re-rendered on any block edit, drag drop, or edit-mode toggle. position objects from packLayout are fresh each pass → same effect even with stable handlers.
+
+**After:** identity-stable handlers (cells self-identify via block/id args) + custom comparator (value-compares position.col/row, reference-compares block/metrics/handlers). Result: dragging or editing one block re-renders only that cell (plus cells whose packed position actually moved).
+
+**Audited clean (no change needed):** zero whole-store Zustand subscriptions anywhere; pan/long-press gestures live on the UI thread (shared values only, runOnJS only at drop); BlocksScreen grid + ExerciseLibrarySheet already on FlatList; CanvasWidget memo + calculateBlockStats memo correct.
+
+**Deferred:** BlockEditorScreen content list virtualization — interacts with drag-and-drop and column sections; too risky unattended (noted for owner).
+
+**Gate:** typecheck ✅ · lint 0 errors · vitest 157/157 ✅
