@@ -23,6 +23,22 @@ function resolveEnv(): AppEnv {
   return 'development';
 }
 
+// Security guard (build-time). EXPO_PUBLIC_GROQ_API_KEY is a dev-only
+// convenience: any EXPO_PUBLIC_* value is inlined into the JS bundle and
+// is extractable from a shipped app. Shipping it would leak the key and
+// let users bypass the server-side AI quota. Fail the build rather than
+// produce a release that embeds it. (The app's runtime gate in
+// devFallback.ts is the second layer; this stops the key at the door.)
+function assertNoBundledSecrets(env: AppEnv): void {
+  if (env === 'production' && (process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '').trim().length > 0) {
+    throw new Error(
+      'EXPO_PUBLIC_GROQ_API_KEY must not be set for a production build — it would be ' +
+        'embedded in the app bundle. Remove it from the production env; production AI ' +
+        'goes through the authenticated Supabase ai-chat proxy.',
+    );
+  }
+}
+
 interface VariantConfig {
   name: string;
   slug: string;
@@ -57,6 +73,7 @@ const VARIANTS: Record<AppEnv, VariantConfig> = {
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const env = resolveEnv();
+  assertNoBundledSecrets(env);
   const variant = VARIANTS[env];
 
   return {

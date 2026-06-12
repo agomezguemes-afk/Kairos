@@ -9,17 +9,19 @@
 //      key is never in the bundle. Returns 429 with paywall payload
 //      when the user hits their cap.
 //
-//   2. Direct Groq (legacy / dev-only fallback). Used when
-//      EXPO_PUBLIC_GROQ_API_KEY is present AND there is no active
-//      Supabase session. Lets SKIP_AUTH development sessions hit the
-//      LLM without spinning up the backend. Removed once auth-required
-//      flows are mandatory.
+//   2. Direct Groq (dev-only fallback). Used when EXPO_PUBLIC_GROQ_API_KEY
+//      is present AND there is no active Supabase session. Lets SKIP_AUTH
+//      development sessions hit the LLM without spinning up the backend.
+//      This path is hard-gated to development builds (see devFallback.ts):
+//      in any release build the key is never read, so it cannot leak into
+//      the bundle and cannot be used to bypass the server-side quota.
 //
 // The public API (callGroq, chatCompletion, streamChatCompletion) keeps
 // its name + shape so existing call sites in agent.ts, coach.ts, etc.
 // don't change. Sprint 7 · Commit 2.
 
 import { supabase } from '../supabase';
+import { readDevGroqKey } from './devFallback';
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
@@ -137,9 +139,14 @@ export class QuotaExceededError extends Error {
 
 // ======================== CONFIG ========================
 
+/**
+ * The direct-Groq key, or null. This is a DEV-ONLY fallback: it returns
+ * null in every release build so the key is never used (or shipped) in
+ * production, where AI must go through the authenticated Supabase proxy.
+ * See devFallback.ts for the full rationale.
+ */
 export function getGroqApiKey(): string | null {
-  const k = process.env.EXPO_PUBLIC_GROQ_API_KEY;
-  return typeof k === 'string' && k.trim().length > 0 ? k.trim() : null;
+  return readDevGroqKey();
 }
 
 /**
