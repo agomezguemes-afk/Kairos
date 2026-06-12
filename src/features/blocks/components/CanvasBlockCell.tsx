@@ -27,17 +27,19 @@ import { cellToPx, pxToCell, getSpan, spanToPx } from '../lib/canvasLayout';
 import { Colors, Radius } from '../../../theme/index';
 import { springs } from '../../../theme/animations';
 
+// Handlers receive the cell's own block/id so the parent can pass
+// identity-stable callbacks and the React.memo below actually holds.
 interface CanvasBlockCellProps {
   block: WorkoutBlock;
   position: CanvasPosition;
   metrics: GridMetrics;
   editMode: boolean;
-  onPress: () => void;
+  onOpen: (block: WorkoutBlock) => void;
   onLongPress: () => void;
   /** Called on drag release with the snapped cell coords. */
-  onDrop: (next: CanvasPosition) => void;
+  onDrop: (blockId: string, next: CanvasPosition) => void;
   /** Called on size-badge tap to cycle small→medium→large→small. */
-  onCycleSize: () => void;
+  onCycleSize: (block: WorkoutBlock) => void;
 }
 
 const NEXT_SIZE: Record<CanvasWidgetSize, CanvasWidgetSize> = {
@@ -51,7 +53,7 @@ function CanvasBlockCellInner({
   position,
   metrics,
   editMode,
-  onPress,
+  onOpen,
   onLongPress,
   onDrop,
   onCycleSize,
@@ -115,7 +117,7 @@ function CanvasBlockCellInner({
       const snapped = pxToCell(translateX.value, translateY.value, span, metrics);
       dragging.value = 0;
       scale.value = withSpring(1, springs.gentle);
-      runOnJS(onDrop)(snapped);
+      runOnJS(onDrop)(block.id, snapped);
     });
 
   const composed = Gesture.Simultaneous(longPress, pan);
@@ -136,7 +138,7 @@ function CanvasBlockCellInner({
     <GestureDetector gesture={composed}>
       <Animated.View style={[styles.absolute, animatedStyle]}>
         <Pressable
-          onPress={editMode ? undefined : onPress}
+          onPress={editMode ? undefined : () => onOpen(block)}
           onPressIn={() => {
             if (!editMode) scale.value = withSpring(0.97, springs.tap);
           }}
@@ -153,7 +155,7 @@ function CanvasBlockCellInner({
               hitSlop={10}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onCycleSize();
+                onCycleSize(block);
               }}
               style={styles.sizeBadge}
             >
@@ -177,7 +179,23 @@ function CanvasBlockCellInner({
   );
 }
 
-export default React.memo(CanvasBlockCellInner);
+// Value-compare `position` (packLayout returns fresh objects every pass) so
+// dragging one block doesn't re-render every sibling cell. Block objects keep
+// identity in the store for untouched blocks, so reference equality is right
+// for everything else.
+export default React.memo(
+  CanvasBlockCellInner,
+  (prev, next) =>
+    prev.block === next.block &&
+    prev.editMode === next.editMode &&
+    prev.metrics === next.metrics &&
+    prev.position.col === next.position.col &&
+    prev.position.row === next.position.row &&
+    prev.onOpen === next.onOpen &&
+    prev.onLongPress === next.onLongPress &&
+    prev.onDrop === next.onDrop &&
+    prev.onCycleSize === next.onCycleSize,
+);
 
 const styles = StyleSheet.create({
   absolute: { position: 'absolute', left: 0, top: 0 },

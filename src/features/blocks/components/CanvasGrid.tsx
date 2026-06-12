@@ -84,6 +84,8 @@ export default function CanvasGrid({
     [editMode, exitEditMode, onOpenBlock],
   );
 
+  // Identity-stable handlers — CanvasBlockCell is memoized and calls these
+  // with its own block/id, so cells skip re-rendering when siblings move.
   const handleDrop = useCallback(
     (blockId: string, next: CanvasPosition) => {
       onSetPosition(blockId, next);
@@ -127,10 +129,10 @@ export default function CanvasGrid({
             position={position}
             metrics={metrics}
             editMode={editMode}
-            onPress={() => handleOpen(block)}
+            onOpen={handleOpen}
             onLongPress={enterEditMode}
-            onDrop={(next) => handleDrop(block.id, next)}
-            onCycleSize={() => handleCycleSize(block)}
+            onDrop={handleDrop}
+            onCycleSize={handleCycleSize}
           />
         ))}
       </View>
