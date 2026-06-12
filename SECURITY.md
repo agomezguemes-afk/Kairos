@@ -24,6 +24,7 @@ the Pro tier). Two build-time dependency CVEs are documented with remediation.
 | 6 | AI quota check/record TOCTOU → concurrent calls bypass the daily cap | **Medium** | ✅ Fixed (`251bbfd`) |
 | 7 | `shell-quote` (critical) + `@xmldom/xmldom` (high) — build-time deps | **Low (not shipped)** | 📋 Documented |
 | 8 | `profiles` RLS lived outside version control (unauditable) | **Medium** | ✅ Fixed (`6e49ffe`) |
+| 9 | Unbounded CSV import parse → memory-exhaustion DoS on a huge/crafted file | **Medium** | 🧩 Guard shipped; wiring pending |
 
 ## Findings
 
@@ -103,6 +104,20 @@ auto-applied here to keep the lockfile diff clean for review; remediate with:
 The `profiles` table's RLS lived only in the Supabase dashboard, so it couldn't
 be reviewed or reproduced. Migration `20260612030000` brings it under code
 (see #3).
+
+### 9. Unbounded CSV import → DoS — Medium 🧩 (guard shipped, wiring pending)
+The Strong/Hevy importer (on `feat/night-run`) parses the chosen file with
+`parseCsv(text)` synchronously on the JS thread with **no size or row bound**. A
+crafted or accidentally huge file exhausts memory and freezes/crashes the app —
+a denial-of-service at an untrusted-input boundary.
+
+**Shipped:** `src/lib/security/inputLimits.ts` — a general-purpose, tested guard
+(`assertWithinImportLimits`: ≤5M chars / ≤100k lines, typed `InputTooLargeError`,
++5 tests). It is not wired here because the import code lives on the night-run
+branch (editing it would collide). **Wiring (1 line) when import merges to dev:**
+call `assertWithinImportLimits(text)` before `parseCsv(text)` in
+`src/lib/import/*`, and build records with `Object.create(null)` in
+`csvToRecords` so CSV header keys can't shadow object internals.
 
 ## Notes for the reviewer
 - The two migrations are **reviewed-not-applied** — reconcile with current prod
