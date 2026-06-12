@@ -36,7 +36,8 @@ import {
   type OnboardingGoal,
   type OnboardingStepId,
 } from '../flow/onboardingFlow';
-import SkipToValueButton from '../flow/SkipToValueButton';
+import AmbientBackground from './AmbientBackground';
+import GoldButton from './GoldButton';
 import GoldProgressBar from './GoldProgressBar';
 import PillChip from './PillChip';
 import Reveal from './Reveal';
@@ -127,6 +128,7 @@ export default function PremiumOnboarding({ onComplete }: PremiumOnboardingProps
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + Spacing.lg }]}>
+      <AmbientBackground glowY={step === 'welcome' ? 0.3 : 0.12} />
       {step !== 'welcome' && (
         <View style={styles.progressWrap}>
           <GoldProgressBar progress={progress} />
@@ -191,7 +193,7 @@ function WelcomeStep({ onPersonalize, onSkip }: { onPersonalize: () => void; onS
 
       <View style={styles.welcomeCtas}>
         <Reveal index={3} style={styles.fullWidth}>
-          <SkipToValueButton onSkip={onSkip} label="Empezar ahora" hint="Listo en 30 segundos" />
+          <GoldButton label="Empezar ahora" hint="Listo en 30 segundos" onPress={onSkip} />
         </Reveal>
         <Reveal index={4} style={styles.fullWidth}>
           <Pressable
@@ -365,20 +367,7 @@ function DoneStep({ name, onEnter }: { name: string | null; onEnter: () => void 
 }
 
 function PrimaryCta({ label, onPress }: { label: string; onPress: () => void }) {
-  const handlePress = useCallback(() => {
-    Haptics.selectionAsync().catch(() => {});
-    onPress();
-  }, [onPress]);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={handlePress}
-      style={({ pressed }) => [styles.primaryCta, pressed && styles.primaryPressed]}
-    >
-      <Text style={styles.primaryText}>{label}</Text>
-    </Pressable>
-  );
+  return <GoldButton label={label} onPress={onPress} style={styles.primaryCta} />;
 }
 
 const styles = StyleSheet.create({
@@ -425,16 +414,7 @@ const styles = StyleSheet.create({
   ghostPressed: { opacity: 0.7 },
   ghostText: { ...Type.bodyEmph, color: Colors.ink.secondary },
 
-  primaryCta: {
-    height: 56,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.gold.base,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.lg,
-  },
-  primaryPressed: { opacity: 0.92 },
-  primaryText: { ...Type.subheading, color: Colors.ink.inverse },
+  primaryCta: { marginTop: Spacing.lg },
 
   done: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.lg },
   center: { textAlign: 'center' },
