@@ -11,6 +11,6 @@ export function useMomentumPhrase(): string {
   const { streak } = useGamification();
   return useMemo(
     () => getMomentumPhrase({ history, streak: streak.current, blocksCount: blocks.length }),
-    [history, streak.current, blocks.length],
+    [history, streak, blocks.length],
   );
 }

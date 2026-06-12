@@ -55,7 +55,7 @@ export default function SetupScreen({ navigation }: any) {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [currentStep]);
+  }, [currentStep, fadeAnim, slideAnim]);
 
   // Validación por paso
   const isStepValid = () => {

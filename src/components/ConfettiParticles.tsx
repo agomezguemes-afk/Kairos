@@ -58,7 +58,7 @@ const Particle = React.memo(({ config, trigger }: { config: ParticleConfig; trig
     if (trigger === 0) return;
     p.value = 0;
     p.value = withDelay(config.delay, withTiming(1, { duration: 850 }));
-  }, [trigger]);
+  }, [trigger, config.delay, p]);
 
   const style = useAnimatedStyle(() => {
     const gravity = p.value * p.value * 90;

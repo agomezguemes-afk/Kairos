@@ -581,7 +581,7 @@ function BouncingDot({ delay: d }: { delay: number }) {
         false,
       ),
     );
-  }, []);
+  }, [d, translateY]);
 
   const style = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

@@ -23,7 +23,7 @@ export default function ProgressTree({ type, level, size = 260 }: ProgressTreePr
   const treeScale = useSharedValue(0.9);
   useEffect(() => {
     treeScale.value = withSpring(1, Animation.spring.gentle);
-  }, [level]);
+  }, [level, treeScale]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: treeScale.value }],

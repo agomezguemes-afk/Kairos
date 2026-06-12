@@ -11,6 +11,7 @@ export function useScheduleForRange(
   const assignments = useScheduleStore((s) => s.assignments);
   return useMemo(
     () => useScheduleStore.getState().resolveRange(start, end),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- assignments is the deliberate invalidation key (resolveRange reads the store imperatively)
     [assignments, start, end],
   );
 }

@@ -74,7 +74,7 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
     cardOpacity.value = withTiming(1, { duration: 280 });
     const t = setTimeout(() => confettiRef.current?.burst(), 180);
     return () => clearTimeout(t);
-  }, [block]);
+  }, [block, cardOpacity, cardScale]);
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: cardScale.value }],

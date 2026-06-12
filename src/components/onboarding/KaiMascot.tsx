@@ -36,7 +36,7 @@ export default function KaiMascot({ message, delay = 0 }: KaiMascotProps) {
         withSpring(0, { damping: 10, stiffness: 100 }),
       ),
     );
-  }, [message]);
+  }, [message, avatarY, delay]);
 
   const avatarStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: avatarY.value }],
@@ -89,7 +89,7 @@ function Dot({ index }: { index: number }) {
     animate();
     const interval = setInterval(animate, 900);
     return () => clearInterval(interval);
-  }, []);
+  }, [index, opacity]);
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,

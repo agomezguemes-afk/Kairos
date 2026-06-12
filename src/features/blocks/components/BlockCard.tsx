@@ -39,7 +39,7 @@ function BlockCardInner({ block, index, onPress, onLongPress, isHighlighted }: B
         false,
       );
     }
-  }, [isHighlighted]);
+  }, [isHighlighted, highlightOpacity]);
 
   const cardAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

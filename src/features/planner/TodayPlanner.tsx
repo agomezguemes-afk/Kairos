@@ -95,7 +95,7 @@ export default function TodayPlanner() {
         hasActiveWorkout: !!activeWorkout,
         lastSession,
       }),
-    [selectedDate, dayState, streak.current, blocks.length, activeWorkout, lastSession],
+    [selectedDate, dayState, streak, blocks.length, activeWorkout, lastSession],
   );
 
   // First-workout hero: only until the first session lands in history.

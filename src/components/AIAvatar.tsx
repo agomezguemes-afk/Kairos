@@ -41,7 +41,7 @@ function TypingDot({ delay }: { delay: number }) {
       false,
     );
     return () => cancelAnimation(y);
-  }, []);
+  }, [delay, y]);
 
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
 
@@ -68,7 +68,7 @@ export default function AIAvatar({ size = 48, mood = 'idle', nodTrigger = 0 }: A
     };
     const id = setInterval(blink, 4000 + Math.random() * 2000);
     return () => clearInterval(id);
-  }, []);
+  }, [eyeScaleY]);
 
   // ── Nod when triggered ────────────────────────────────────────
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function AIAvatar({ size = 48, mood = 'idle', nodTrigger = 0 }: A
         withSpring(0, { damping: 12, stiffness: 160 }),
       );
     }
-  }, [nodTrigger]);
+  }, [nodTrigger, headRotate]);
 
   // ── Mood ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -142,7 +142,7 @@ export default function AIAvatar({ size = 48, mood = 'idle', nodTrigger = 0 }: A
         glowOpacity.value = withTiming(0.08, { duration: 200 });
         break;
     }
-  }, [mood]);
+  }, [mood, glowOpacity, headScale, headY, mouthWidth]);
 
   // ── Animated styles ───────────────────────────────────────────
 
