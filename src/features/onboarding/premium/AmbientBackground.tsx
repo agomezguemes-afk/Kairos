@@ -28,9 +28,9 @@ function AmbientBackground({ glowY = 0.2 }: AmbientBackgroundProps) {
       {/* Faint gold halo near the hero — a glow, not a fill. */}
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         <Defs>
-          <RadialGradient id="kairosGlow" cx="50%" cy={`${glowY * 100}%`} r="65%">
-            <Stop offset="0" stopColor={Colors.gold.base} stopOpacity={0.14} />
-            <Stop offset="0.5" stopColor={Colors.gold.base} stopOpacity={0.04} />
+          <RadialGradient id="kairosGlow" cx="50%" cy={`${glowY * 100}%`} r="72%">
+            <Stop offset="0" stopColor={Colors.gold.base} stopOpacity={0.22} />
+            <Stop offset="0.45" stopColor={Colors.gold.base} stopOpacity={0.08} />
             <Stop offset="1" stopColor={Colors.gold.base} stopOpacity={0} />
           </RadialGradient>
         </Defs>

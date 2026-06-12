@@ -48,11 +48,14 @@ interface PremiumOnboardingProps {
   onComplete: (draft: OnboardingDraft) => void;
 }
 
-const GOALS: { id: OnboardingGoal; label: string; icon: KIconName }[] = [
-  { id: 'strength', label: 'Fuerza', icon: 'barbell' },
-  { id: 'endurance', label: 'Resistencia', icon: 'running' },
-  { id: 'flexibility', label: 'Flexibilidad', icon: 'mat' },
-  { id: 'health', label: 'Salud general', icon: 'zap' },
+// Each goal carries a vivid accent (from the discipline palette) so the choice
+// grid is colorful and energetic — the "aesthetic" lift — while the rest of the
+// app stays gold. Selection rings + glows in the goal's own color.
+const GOALS: { id: OnboardingGoal; label: string; icon: KIconName; accent: string }[] = [
+  { id: 'strength', label: 'Fuerza', icon: 'barbell', accent: Colors.discipline.strength },
+  { id: 'endurance', label: 'Resistencia', icon: 'running', accent: Colors.discipline.running },
+  { id: 'flexibility', label: 'Flexibilidad', icon: 'mat', accent: Colors.discipline.mobility },
+  { id: 'health', label: 'Salud general', icon: 'zap', accent: Colors.discipline.calisthenics },
 ];
 
 const EQUIPMENT: { id: string; label: string }[] = [
@@ -183,7 +186,10 @@ function WelcomeStep({ onPersonalize, onSkip }: { onPersonalize: () => void; onS
         <Text style={styles.eyebrow}>BIENVENIDO A KAIROS</Text>
       </Reveal>
       <Reveal index={1}>
-        <Text style={styles.hero}>Tu entrenamiento,{'\n'}tu espacio.</Text>
+        <Text style={styles.hero}>
+          Tu entrenamiento,{'\n'}
+          <Text style={styles.heroAccent}>tu espacio.</Text>
+        </Text>
       </Reveal>
       <Reveal index={2}>
         <Text style={styles.subtitle}>
@@ -231,18 +237,16 @@ function GoalStep({
             <Reveal key={g.id} index={2 + i} style={styles.gridCell}>
               <SoftCard
                 selected={selected}
+                accentColor={g.accent}
                 variant={selected ? 'warm' : 'surface'}
                 onPress={() => onSelect(g.id)}
                 accessibilityLabel={g.label}
                 style={styles.goalCard}
               >
-                <KIcon
-                  name={g.icon}
-                  size={30}
-                  color={selected ? Colors.gold.deep : Colors.ink.secondary}
-                  strokeWidth={1.5}
-                />
-                <Text style={styles.goalLabel}>{g.label}</Text>
+                <View style={[styles.goalIconWrap, { backgroundColor: g.accent + '1A' }]}>
+                  <KIcon name={g.icon} size={26} color={g.accent} strokeWidth={1.9} />
+                </View>
+                <Text style={[styles.goalLabel, selected && { color: g.accent }]}>{g.label}</Text>
               </SoftCard>
             </Reveal>
           );
@@ -382,14 +386,29 @@ const styles = StyleSheet.create({
   welcomeCtas: { marginTop: Spacing['3xl'], gap: Spacing.md, alignItems: 'center' },
 
   eyebrow: { ...Type.eyebrow, color: Colors.gold.deep, marginBottom: Spacing.sm },
-  hero: { ...Type.title, fontSize: 38, lineHeight: 42, color: Colors.ink.primary },
+  hero: {
+    ...Type.title,
+    fontSize: 44,
+    lineHeight: 47,
+    fontWeight: '700',
+    letterSpacing: -1,
+    color: Colors.ink.primary,
+  },
+  heroAccent: { color: Colors.gold.base },
   title: { ...Type.title, color: Colors.ink.primary, marginBottom: Spacing['2xl'] },
   subtitle: { ...Type.body, fontSize: 16, lineHeight: 24, color: Colors.ink.tertiary },
   helper: { ...Type.caption, color: Colors.ink.muted, marginBottom: Spacing.xl },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   gridCell: { width: '48%', marginBottom: Spacing.md },
-  goalCard: { height: 132, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+  goalCard: { height: 140, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+  goalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   goalLabel: { ...Type.bodyEmph, color: Colors.ink.primary },
 
   inputCard: { marginBottom: Spacing.md },

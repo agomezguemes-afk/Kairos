@@ -13,8 +13,10 @@ interface SoftCardProps {
   children: React.ReactNode;
   /** "warm" uses the premium off-white ground for hero surfaces. */
   variant?: 'surface' | 'warm';
-  /** Selected state: gold ring + gold-tinted shadow. */
+  /** Selected state: accent ring + accent-tinted glow. */
   selected?: boolean;
+  /** Accent color for the selected ring/glow. Defaults to gold. */
+  accentColor?: string;
   onPress?: () => void;
   padded?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -25,17 +27,28 @@ function SoftCard({
   children,
   variant = 'surface',
   selected = false,
+  accentColor,
   onPress,
   padded = true,
   style,
   accessibilityLabel,
 }: SoftCardProps) {
+  const accent = accentColor ?? Colors.gold.base;
+  // Accent-tinted glow when selected — vivid but soft (the "aesthetic" lift).
+  const selectedGlow: ViewStyle = {
+    shadowColor: accent,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    elevation: 5,
+  };
   const base: StyleProp<ViewStyle> = [
     styles.card,
     variant === 'warm' ? styles.warm : styles.surface,
-    selected ? styles.selected : styles.unselected,
     padded && styles.padded,
-    selected ? Shadows.cardWarm : Shadows.card,
+    selected
+      ? [{ borderColor: accent, borderWidth: 1.5 }, selectedGlow]
+      : [styles.unselected, Shadows.card],
     style,
   ];
 
