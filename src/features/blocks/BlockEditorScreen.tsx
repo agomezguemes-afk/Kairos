@@ -65,7 +65,7 @@ import {
 } from '../../types/content';
 import { buildSpineRows, type SpineRow as SpineRowData } from './lib/spineLayout';
 import type { RootStackParamList } from '../../types/navigation';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
+import { Colors, Typography, Spacing, Shadows } from '../../theme/index';
 
 import { useBlockEditor } from './hooks/useBlockEditor';
 

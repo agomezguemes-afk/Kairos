@@ -1,14 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Alert,
-  Dimensions,
-  Platform,
-} from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -40,7 +31,6 @@ type SortMode = 'recent' | 'name' | 'status' | 'favorite';
 type ViewMode = 'canvas' | 'grid';
 const VIEW_MODE_DEFAULT: ViewMode = 'canvas';
 
-const SCREEN_W = Dimensions.get('window').width;
 const H_PAD = Spacing.screen.horizontal;
 const NUM_COLUMNS = 2;
 
@@ -63,7 +53,6 @@ export default function BlocksScreen({ route }: any) {
   const [showCreation, setShowCreation] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('recent');
-  const [showSort, setShowSort] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODE_DEFAULT);
 
   const highlightTargetId = route?.params?.highlightBlockId ?? pendingHighlight;

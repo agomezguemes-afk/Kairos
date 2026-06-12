@@ -24,5 +24,5 @@ export interface AIMessage {
 
 export interface SessionContext {
   lastBlockId: string | null;
-  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+  conversationHistory: { role: 'user' | 'assistant'; content: string }[];
 }

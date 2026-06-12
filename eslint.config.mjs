@@ -44,6 +44,10 @@ export default [
       'react/react-in-jsx-scope': 'off',
       // Display names rarely useful for React.memo wrappers in this codebase.
       'react/display-name': 'off',
+      // The valibot idiom pairs a schema const with a same-name inferred type
+      // (`const X = v.object(...)` + `type X = v.InferInput<typeof X>`).
+      // That's deliberate; tsc already errors on real redeclarations.
+      '@typescript-eslint/no-redeclare': 'off',
 
       // ── React Compiler (Expo SDK 54 enables this experimental ruleset).
       // These check that components stay compatible with the React Compiler's

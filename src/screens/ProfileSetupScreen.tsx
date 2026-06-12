@@ -99,7 +99,7 @@ function Section({ title, description }: { title: string; description?: string }
 
 // ======================== SCREEN ========================
 
-export default function ProfileSetupScreen({ navigation }: any) {
+export default function ProfileSetupScreen(_props: unknown) {
   const insets = useSafeAreaInsets();
   const { upsertProfile, isLoading, error } = useAuthStore();
   const { updateProfile, completeOnboarding } = useUserProfile();

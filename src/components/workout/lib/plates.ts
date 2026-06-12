@@ -23,7 +23,7 @@ export const DEFAULT_LB_PLATES: PlateInventory = {
 
 export interface PlateSolution {
   /** Plates loaded on one side, largest first. */
-  plates: Array<{ size: number; count: number }>;
+  plates: { size: number; count: number }[];
   /** Sum of plates on one side (kg). */
   perSideKg: number;
   /** Actual total weight loaded (bar + both sides). */
@@ -66,7 +66,7 @@ export function solvePlates(input: {
   const maxPerSide = inventory.maxPerSide ?? {};
 
   let remaining = perSideTarget;
-  const loaded: Array<{ size: number; count: number }> = [];
+  const loaded: { size: number; count: number }[] = [];
 
   for (const size of sizes) {
     if (size <= 1e-6) continue;

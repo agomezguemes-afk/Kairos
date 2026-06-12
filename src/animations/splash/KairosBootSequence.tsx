@@ -35,12 +35,12 @@ const EASE_GENTLE_OUT = Easing.bezier(0.25, 0.46, 0.45, 0.94);
 const EASE_ACCEL = Easing.bezier(0.55, 0.05, 0.85, 0.3);
 
 // ── Phase timings (faster + tighter than before) ───────────────────────
-const T_ORIGIN = 0;
+const _T_ORIGIN = 0;
 const ORIGIN_MS = 480;
 
 const T_EMISSION = 520;
 const EMISSION_FADE_MS = 180;
-const EMISSION_TRAVEL_MS = 640;
+const _EMISSION_TRAVEL_MS = 640;
 const EMISSION_DISTANCE = 70;
 const EMISSION_ANGLES = [-115, -25, 70]; // degrees, asymmetric like the reference
 const EMISSION_STAGGER = 70;
@@ -61,8 +61,8 @@ const MUTATION_MS = 720;
 const MUTATION_STAGGER = 60;
 const ZOOM_PEAK = 1.13;
 
-const T_FINAL = 3820;
-const FINAL_MS = 800;
+const _T_FINAL = 3820;
+const _FINAL_MS = 800;
 
 const T_REVERSE = 4640;
 const REVERSE_LETTER_MS = 360;

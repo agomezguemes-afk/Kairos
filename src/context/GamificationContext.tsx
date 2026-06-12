@@ -4,13 +4,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type {
-  Streak,
-  Badge,
-  PRCard,
-  ExerciseBestMap,
-  GamificationStats,
-} from '../types/gamification';
+import type { Streak, Badge, PRCard, ExerciseBestMap } from '../types/gamification';
 import { createEmptyStreak } from '../types/gamification';
 import type { ExerciseCard, ExerciseSet, WorkoutBlock } from '../types/core';
 import {

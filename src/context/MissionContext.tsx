@@ -74,7 +74,7 @@ export function MissionProvider({
   const [activeMission, setActiveMission] = useState<Mission | null>(null);
   const [completedMissions, setCompletedMissions] = useState<CompletedMission[]>([]);
   const [skipCount, setSkipCount] = useState(0);
-  const [skipWeek, setSkipWeek] = useState('');
+  const [, setSkipWeek] = useState('');
   const [weeklyPRCount, setWeeklyPRCount] = useState(0);
   const [weeklyPRWeek, setWeeklyPRWeek] = useState('');
   const [isLoading, setIsLoading] = useState(true);

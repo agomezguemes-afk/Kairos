@@ -1,11 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
 
 import { useWorkoutStore } from '../../../store/workoutStore';
 import { useGamification } from '../../../context/GamificationContext';
 import { useTree } from '../../../context/TreeContext';
 import { useMission } from '../../../context/MissionContext';
-import type { ExerciseCard, FieldValue, WorkoutBlock, Discipline } from '../../../types/core';
+import type { FieldValue, Discipline } from '../../../types/core';
 import { getBlockExercises } from '../../../types/core';
 
 export function useBlockEditor(blockId: string) {
@@ -23,7 +23,7 @@ export function useBlockEditor(blockId: string) {
   const addSet = useWorkoutStore((s) => s.addSet);
   const removeSet = useWorkoutStore((s) => s.removeSet);
 
-  const { streak, onSetCompleted, onBlockCreated } = useGamification();
+  const { streak, onSetCompleted } = useGamification();
   const { onTreeSetCompleted, onTreePRCreated } = useTree();
   const { updateMissionProgress, recordPRForMission } = useMission();
 

@@ -5,7 +5,7 @@
 import { generateId, getBlockExercises } from '../types/core';
 import type { WorkoutBlock } from '../types/core';
 import type { Streak, Badge } from '../types/gamification';
-import type { Mission, MissionTemplate, MissionCategory, CompletedMission } from '../types/mission';
+import type { Mission, MissionTemplate, CompletedMission } from '../types/mission';
 
 // ======================== HELPERS ========================
 

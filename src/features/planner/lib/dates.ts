@@ -13,7 +13,6 @@ import {
   addDays,
   addMonths,
   differenceInCalendarDays,
-  isSameDay,
   eachDayOfInterval,
 } from 'date-fns';
 import { es } from 'date-fns/locale';

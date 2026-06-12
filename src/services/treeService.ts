@@ -1,7 +1,7 @@
 // KAIROS — Tree Service
 // Pure functions for progress tree calculations.
 
-import type { TreeType, TreeProgress, TreeMetrics, TreeTypeConfig } from '../types/tree';
+import type { TreeType, TreeProgress, TreeMetrics } from '../types/tree';
 import { TREE_CONFIGS } from '../types/tree';
 import type { WorkoutBlock, ExerciseSet } from '../types/core';
 import { getBlockExercises } from '../types/core';

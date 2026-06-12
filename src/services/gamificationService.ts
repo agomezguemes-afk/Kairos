@@ -131,7 +131,6 @@ export function checkForPR(
       }
     }
 
-    const unit = primaryField.unit ? ` ${primaryField.unit}` : '';
     const message = PR_MESSAGES[Math.floor(Math.random() * PR_MESSAGES.length)];
 
     const card: PRCard = {

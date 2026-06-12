@@ -62,7 +62,6 @@ export function predictMilestone(
 
   const samples: Sample[] = [];
   let lastName = '';
-  let lastValue = 0;
 
   for (const h of history) {
     const ex = h.exercises.find((e) => e.exerciseId === exerciseId);
@@ -72,12 +71,10 @@ export function predictMilestone(
     if (goal.weight !== undefined) {
       if (ex.maxWeight > 0) {
         samples.push({ t: day, v: ex.maxWeight });
-        if (h.startedAt > (samples[samples.length - 2]?.t ?? 0)) lastValue = ex.maxWeight;
       }
     } else if (goal.reps !== undefined && ex.setsCompleted > 0) {
       // Use sets completed as a coarse rep proxy.
       samples.push({ t: day, v: ex.setsCompleted });
-      lastValue = ex.setsCompleted;
     }
   }
 

@@ -1,7 +1,7 @@
 // KAIROS — Progress Tree Screen
 // Displays the user's tree, progress bar, stats, and tree type selector.
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import Animated, {
   FadeIn,
@@ -21,7 +21,7 @@ import { useTree } from '../context/TreeContext';
 import type { TreeType } from '../types/tree';
 import { TREE_CONFIGS } from '../types/tree';
 import { getMetricValue } from '../services/treeService';
-import { Colors, Typography, Spacing, Radius, Shadows, Animation } from '../theme/index';
+import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 
 const LEVEL_LABELS = [
   'Semilla',

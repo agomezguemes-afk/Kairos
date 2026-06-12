@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import type { TextContentNode, TextFormat } from '../../../types/content';
-import { Colors, Typography, Spacing, Radius } from '../../../theme/index';
+import { Colors, Typography, Spacing } from '../../../theme/index';
 
 interface TextBlockNodeProps {
   node: TextContentNode;
@@ -71,7 +71,7 @@ const PLACEHOLDER: Record<TextFormat, string> = {
 function TextBlockNodeInner({
   node,
   onUpdate,
-  onChangeFormat,
+  onChangeFormat: _onChangeFormat,
   onToggleCheck,
   onDelete,
   onInsertAfter,

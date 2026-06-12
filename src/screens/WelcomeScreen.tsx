@@ -23,7 +23,7 @@ import * as Haptics from 'expo-haptics';
 
 import KairosLogo from '../components/KairosLogo';
 import { Colors, Type, Spacing, Radius, Shadows } from '../theme/tokens';
-import { springs, easings } from '../theme/animations';
+import { springs } from '../theme/animations';
 
 const LOGO_SIZE = 80;
 

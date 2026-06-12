@@ -16,7 +16,6 @@ import Animated, {
   withTiming,
   runOnJS,
   Easing,
-  useReducedMotion,
   FadeIn,
   FadeOut,
 } from 'react-native-reanimated';
@@ -43,7 +42,7 @@ import type {
   Discipline,
 } from '../types/core';
 import { createExerciseCard } from '../types/core';
-import { Colors, Type, Spacing, Radius, Shadows, Animation } from '../theme/tokens';
+import { Colors, Type, Spacing, Radius, Shadows } from '../theme/tokens';
 import {
   findPreviousReference,
   formatReference,
@@ -448,8 +447,6 @@ export default function ActiveWorkoutScreen() {
     }
     return true;
   }, [aw]);
-
-  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (allCompleted && aw && !summary) {

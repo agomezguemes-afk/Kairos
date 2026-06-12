@@ -357,7 +357,7 @@ export default function AIChatScreen({ navigation }: any) {
           msg.role === 'assistant' ? (
             <AssistantBubble key={msg.id} message={msg} index={i} onViewBlock={handleViewBlock} />
           ) : (
-            <UserBubble key={msg.id} message={msg} index={i} />
+            <UserBubble key={msg.id} message={msg} />
           ),
         )}
 
@@ -545,7 +545,7 @@ function AssistantBubble({
   );
 }
 
-function UserBubble({ message, index }: { message: AIMessage; index: number }) {
+function UserBubble({ message }: { message: AIMessage }) {
   return (
     <Animated.View entering={FadeInRight.delay(50).duration(220)} style={styles.userRow}>
       <View style={styles.userBubble}>

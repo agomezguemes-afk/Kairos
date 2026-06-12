@@ -14,7 +14,7 @@ import Animated, {
   withTiming,
   FadeInUp,
 } from 'react-native-reanimated';
-import { Colors, Typography, Spacing, Radius, Shadows, Animation } from '../../theme/index';
+import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 interface KaiMascotProps {
   message: string;

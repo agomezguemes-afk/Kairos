@@ -6,7 +6,6 @@ import {
   isoDateAtHour,
   type ScheduledNotification,
 } from './scheduler';
-import type { ResolvedAssignment } from '../../types/schedule';
 
 let failed = 0;
 function check(name: string, cond: boolean) {

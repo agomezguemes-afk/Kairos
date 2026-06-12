@@ -120,8 +120,6 @@ export default function SetupScreen({ navigation }: any) {
     }
   };
 
-  const buttonBackgroundColor = isStepValid() ? Colors.accent.primary : Colors.text.disabled;
-
   return (
     <KeyboardAvoidingView
       style={styles.container}

@@ -3,14 +3,9 @@
 // 5 visual levels per tree type. Level 0 = seed/pot only.
 
 import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Ellipse, Rect, G, Line } from 'react-native-svg';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withDelay,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import type { TreeType } from '../types/tree';
 import { Colors, Animation } from '../theme/index';
 

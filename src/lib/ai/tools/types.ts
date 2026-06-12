@@ -36,7 +36,6 @@ export interface ToolResult {
 
 export type ToolHandler<TArgs, TResult> = (args: TArgs) => Promise<TResult> | TResult;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyToolSchema = BaseSchema<unknown, any, BaseIssue<any>>;
 
 export interface ToolDefinition<TArgs = unknown, TResult = unknown> {
@@ -48,10 +47,8 @@ export interface ToolDefinition<TArgs = unknown, TResult = unknown> {
    * valibot schema. Inputs that fail this never reach the handler — the loop
    * sends the validation error back to the model so it can self-correct.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: BaseSchema<unknown, TArgs, BaseIssue<any>>;
   handler: ToolHandler<TArgs, TResult>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ToolRegistry = Record<string, ToolDefinition<any, any>>;

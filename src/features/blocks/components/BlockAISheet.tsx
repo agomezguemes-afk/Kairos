@@ -275,7 +275,7 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
       };
       setMessages((prev) => [...prev, note]);
       setPlanForm((p) => ({ ...p, open: false }));
-    } catch (e) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {

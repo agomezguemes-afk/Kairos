@@ -1,13 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, ReactNode } from 'react';
 import { TrainingSession, TrainingStats } from '../types/training';
-import {
-  DayEntry,
-  DayEntryType,
-  WeeklyLog,
-  StreakData,
-  normalizeDate,
-  isSameDay,
-} from '../types/progress';
+import { DayEntry, WeeklyLog, StreakData, normalizeDate, isSameDay } from '../types/progress';
 import { calculateStreak, getCurrentWeek, getWeekNumber } from '../utils/streakLogic';
 
 interface EnhancedTrainingContextType {
@@ -38,7 +31,7 @@ export function TrainingProvider({ children }: { children: ReactNode }) {
 
   // Calcular log semanal actual
   const currentWeek = useMemo((): WeeklyLog => {
-    const { startDate, endDate } = getCurrentWeek();
+    const { startDate } = getCurrentWeek();
     const weekNumber = getWeekNumber(startDate);
 
     const days: DayEntry[] = [];

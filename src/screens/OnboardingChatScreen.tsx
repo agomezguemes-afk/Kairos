@@ -54,7 +54,6 @@ export default function OnboardingChatScreen({ navigation }: any) {
     setWeeklyFrequency,
     setBodyStats,
     completeOnboarding,
-    profile,
   } = useUserProfile();
 
   const scrollRef = useRef<ScrollView>(null);

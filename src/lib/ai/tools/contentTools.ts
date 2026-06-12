@@ -10,7 +10,6 @@ import * as v from 'valibot';
 
 import { useWorkoutStore } from '../../../store/workoutStore';
 import {
-  createColumnSectionNode,
   createCustomFieldNode,
   createDashboardNode,
   createDividerNode,
