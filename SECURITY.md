@@ -25,6 +25,7 @@ the Pro tier). Two build-time dependency CVEs are documented with remediation.
 | 7 | `shell-quote` (critical) + `@xmldom/xmldom` (high) — build-time deps | **Low (not shipped)** | 📋 Documented |
 | 8 | `profiles` RLS lived outside version control (unauditable) | **Medium** | ✅ Fixed (`6e49ffe`) |
 | 9 | Unbounded CSV import parse → memory-exhaustion DoS on a huge/crafted file | **Medium** | 🧩 Guard shipped; wiring pending |
+| 10 | `ws` 8.20.0 advisory (GHSA-58qx-3vcg-4xpx) via `@supabase/realtime-js` | **Low (not reachable)** | 📋 Documented |
 
 ## Findings
 
@@ -118,6 +119,19 @@ branch (editing it would collide). **Wiring (1 line) when import merges to dev:*
 call `assertWithinImportLimits(text)` before `parseCsv(text)` in
 `src/lib/import/*`, and build records with `Object.create(null)` in
 `csvToRecords` so CSV header keys can't shadow object internals.
+
+### 10. `ws` uninitialized-memory advisory via realtime-js — Low (not reachable) 📋
+New advisory since the #7 triage: `ws` 8.0.0–8.20.0 (GHSA-58qx-3vcg-4xpx,
+moderate) appears on a **runtime** dependency path — `@supabase/supabase-js →
+@supabase/realtime-js → ws@8.20.0` — unlike the build-time-only findings in #7.
+Assessed as not reachable in the shipped app: in React Native,
+`realtime-js` uses the platform's global `WebSocket`; the `ws` package's
+vulnerable code (Node-side buffer handling) only executes in a Node.js
+environment, which the app bundle is not. The other `ws` instances sit under
+the Expo/Metro dev toolchain (build-time, same class as #7).
+**Remediation:** `npm audit fix` bumps `ws` past 8.20.0 (semver-compatible);
+fold it into the same lockfile-maintenance pass as #7 and re-run
+`npm run typecheck && npm run test`.
 
 ## Notes for the reviewer
 - The two migrations are **reviewed-not-applied** — reconcile with current prod
