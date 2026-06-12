@@ -19,6 +19,13 @@ export interface TierPolicy {
   provider: 'groq' | 'anthropic' | 'openai';
   /** Provider-specific model identifier. */
   model: string;
+  /**
+   * Hard ceiling on output tokens per call. The client requests a value but
+   * the server clamps to this — without it a single call (limited only by
+   * count) could request a huge completion and amplify cost far beyond what
+   * the daily-call cap implies.
+   */
+  maxOutputTokens: number;
 }
 
 export const TIER_POLICY: Record<Tier, TierPolicy> = {
@@ -26,6 +33,7 @@ export const TIER_POLICY: Record<Tier, TierPolicy> = {
     dailyCap: 30,
     provider: 'groq',
     model: 'llama-3.3-70b-versatile',
+    maxOutputTokens: 1024,
   },
   pro: {
     dailyCap: 500,
@@ -35,5 +43,18 @@ export const TIER_POLICY: Record<Tier, TierPolicy> = {
     // (no user has pro tier in DB yet) but the policy is checked-in so
     // the day-one-of-Pro doesn't require a migration.
     model: 'claude-sonnet-4-6',
+    maxOutputTokens: 2048,
   },
 };
+
+// Request-shape limits shared across tiers. These bound the proxy's attack
+// surface independent of the per-tier quota: a single authenticated call
+// still can't ship an unbounded prompt.
+export const REQUEST_LIMITS = {
+  /** Max messages in one chat request. */
+  maxMessages: 64,
+  /** Max total characters across all message contents (~ a few hundred KB). */
+  maxTotalChars: 200_000,
+  /** Max raw request body size in bytes (cheap pre-parse guard). */
+  maxBodyBytes: 512_000,
+} as const;

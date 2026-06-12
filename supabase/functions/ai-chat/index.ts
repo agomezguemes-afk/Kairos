@@ -22,7 +22,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
-import { TIER_POLICY, type Tier } from '../_shared/tiers.ts';
+import { REQUEST_LIMITS, TIER_POLICY, type Tier } from '../_shared/tiers.ts';
 
 interface ChatRequest {
   messages: Array<Record<string, unknown>>;
@@ -141,7 +141,13 @@ Deno.serve(async (req) => {
     return json(body, 429);
   }
 
-  // ── 4. Parse request body ─────────────────────────────────────────
+  // ── 4. Parse + validate request body ──────────────────────────────
+  // Cheap pre-parse guard: reject oversized bodies before reading them.
+  const declaredLen = Number(req.headers.get('content-length') ?? 0);
+  if (declaredLen > REQUEST_LIMITS.maxBodyBytes) {
+    return json({ error: 'payload_too_large' }, 413);
+  }
+
   let payload: ChatRequest;
   try {
     payload = (await req.json()) as ChatRequest;
@@ -151,6 +157,23 @@ Deno.serve(async (req) => {
   if (!Array.isArray(payload.messages) || payload.messages.length === 0) {
     return json({ error: 'missing_messages' }, 400);
   }
+  if (payload.messages.length > REQUEST_LIMITS.maxMessages) {
+    return json({ error: 'too_many_messages' }, 400);
+  }
+  // Bound total prompt size — the daily-call cap limits frequency, this
+  // limits the cost of any single call.
+  const totalChars = payload.messages.reduce((sum, m) => {
+    const c = (m as { content?: unknown }).content;
+    return sum + (typeof c === 'string' ? c.length : 0);
+  }, 0);
+  if (totalChars > REQUEST_LIMITS.maxTotalChars) {
+    return json({ error: 'payload_too_large' }, 413);
+  }
+
+  // Clamp generation params server-side — never trust client values. Output
+  // tokens are capped per tier (cost control); temperature to a sane range.
+  const maxTokens = clampInt(payload.max_tokens, 1, policy.maxOutputTokens, policy.maxOutputTokens);
+  const temperature = clampFloat(payload.temperature, 0, 2, 0.6);
 
   // ── 5. Proxy upstream ─────────────────────────────────────────────
   let upstreamRes: Response;
@@ -165,8 +188,8 @@ Deno.serve(async (req) => {
     const body: Record<string, unknown> = {
       model: policy.model,
       messages: payload.messages,
-      temperature: payload.temperature ?? 0.6,
-      max_tokens: payload.max_tokens ?? 1024,
+      temperature,
+      max_tokens: maxTokens,
     };
     if (payload.json_mode) body.response_format = { type: 'json_object' };
     if (payload.tools) {
@@ -197,8 +220,8 @@ Deno.serve(async (req) => {
     const nonSys = payload.messages.filter((m) => (m as { role: string }).role !== 'system');
     const body: Record<string, unknown> = {
       model: policy.model,
-      max_tokens: payload.max_tokens ?? 1024,
-      temperature: payload.temperature ?? 0.7,
+      max_tokens: maxTokens,
+      temperature,
       messages: nonSys,
       ...(sysMessage ? { system: (sysMessage as { content: string }).content } : {}),
     };
@@ -218,12 +241,12 @@ Deno.serve(async (req) => {
   }
 
   if (!upstreamRes.ok) {
+    // Log the provider's detail server-side for debugging, but never echo it
+    // to the client — upstream error bodies can carry internal request ids,
+    // rate-limit headers, or account hints we don't want to expose.
     const text = await upstreamRes.text().catch(() => '');
-    console.warn('[ai-chat] upstream error', upstreamRes.status, text.slice(0, 200));
-    return json(
-      { error: 'upstream_error', status: upstreamRes.status, detail: text.slice(0, 300) },
-      502,
-    );
+    console.warn('[ai-chat] upstream error', upstreamRes.status, text.slice(0, 500));
+    return json({ error: 'upstream_error', status: upstreamRes.status }, 502);
   }
 
   // ── 6. Record quota (after success) + return response ─────────────
@@ -237,7 +260,11 @@ Deno.serve(async (req) => {
     // for streamed calls falls back to call-count which is fine for the
     // quota gate; provider usage dashboards still have accurate token
     // counts for billing analysis.
-    void recordCall(adminClient, userId, tier, policy.provider, policy.model, 0);
+    //
+    // Await the insert BEFORE returning the stream — a fire-and-forget here
+    // can be dropped when the isolate is recycled right after the response
+    // starts, letting streamed calls escape the quota ledger entirely.
+    await recordCall(adminClient, userId, tier, policy.provider, policy.model, 0);
     return new Response(upstreamRes.body, {
       status: 200,
       headers: {
@@ -268,6 +295,20 @@ function json(body: unknown, status: number): Response {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+/** Clamp a client-supplied integer into [min, max], falling back when absent/NaN. */
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+/** Clamp a client-supplied float into [min, max], falling back when absent/NaN. */
+function clampFloat(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
