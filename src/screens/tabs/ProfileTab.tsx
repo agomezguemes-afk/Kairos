@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, Switch } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useUserProfile } from '../../context/UserProfileContext';
 import { useWorkoutStore } from '../../store/workoutStore';
+import ImportDataSheet from '../../components/ImportDataSheet';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
 
 export default function ProfileTab() {
   const { profile, resetProfile } = useUserProfile();
   const notificationsEnabled = useWorkoutStore((s) => s.notificationsEnabled);
   const setNotificationsEnabled = useWorkoutStore((s) => s.setNotificationsEnabled);
+  const [importOpen, setImportOpen] = useState(false);
 
   const handleReset = () => {
     Alert.alert(
@@ -85,6 +87,28 @@ export default function ProfileTab() {
           style={styles.chevron}
         />
       </View>
+
+      {/* Import external data (Strong / Hevy CSV) */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Importar datos de Strong o Hevy"
+        onPress={() => setImportOpen(true)}
+        style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
+      >
+        <Feather name="download" size={20} color={Colors.text.secondary} />
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>Importar datos</Text>
+          <Text style={styles.cardSub}>Trae tu historial desde Strong o Hevy (CSV).</Text>
+        </View>
+        <Feather
+          name="chevron-right"
+          size={18}
+          color={Colors.text.tertiary}
+          style={styles.chevron}
+        />
+      </Pressable>
+
+      <ImportDataSheet visible={importOpen} onClose={() => setImportOpen(false)} />
 
       {/* Dev: reset onboarding */}
       <Pressable

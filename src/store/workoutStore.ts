@@ -27,6 +27,11 @@ import { instantiateTemplate, cloneLibraryEntry } from '../data/libraryHelpers';
 
 const MOCK_USER_ID = 'user_001';
 
+// Memory guard for persisted history. Raised from 100 when CSV import landed
+// — a Strong/Hevy archive easily exceeds 100 sessions and truncating a fresh
+// import on the next finishWorkout() would silently destroy it.
+const HISTORY_CAP = 1000;
+
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 export interface ActiveWorkoutRestTimer {
@@ -158,6 +163,13 @@ interface WorkoutState {
   ) => void;
   finishWorkout: () => WorkoutHistoryEntry | null;
   cancelWorkout: () => void;
+  /**
+   * Merge externally-imported sessions (Strong/Hevy CSV) into history.
+   * Idempotent: entries whose (startedAt, blockName) already exist are
+   * skipped, so re-importing the same file adds nothing. Returns the number
+   * of entries actually added.
+   */
+  importWorkoutHistory: (entries: WorkoutHistoryEntry[]) => number;
 
   activeInsights: string[];
   addInsight: (text: string) => void;
@@ -677,7 +689,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           };
           return {
             activeWorkout: null,
-            workoutHistory: [summary, ...state.workoutHistory].slice(0, 100),
+            workoutHistory: [summary, ...state.workoutHistory].slice(0, HISTORY_CAP),
           };
         });
 
@@ -718,6 +730,26 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
 
       cancelWorkout: () => set({ activeWorkout: null }),
+
+      importWorkoutHistory: (entries) => {
+        let added = 0;
+        set((state) => {
+          const existing = new Set(
+            state.workoutHistory.map((h) => `${h.startedAt}|${h.blockName}`),
+          );
+          const fresh = entries.filter((e) => {
+            const key = `${e.startedAt}|${e.blockName}`;
+            if (existing.has(key)) return false;
+            existing.add(key);
+            return true;
+          });
+          added = fresh.length;
+          if (fresh.length === 0) return state;
+          const merged = [...fresh, ...state.workoutHistory].sort((a, b) => b.endedAt - a.endedAt);
+          return { workoutHistory: merged.slice(0, HISTORY_CAP) };
+        });
+        return added;
+      },
 
       activeInsights: [],
       addInsight: (text) =>
