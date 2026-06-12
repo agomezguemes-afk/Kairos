@@ -76,6 +76,22 @@ primitives + spec done. 10 commits, all green (88 tests). Remaining items below
 genuinely depend on EXTERNAL state (night-run merging, or on-device runs), so
 further iteration here has diminishing returns until then.
 
+### C — UIUX-pro identity (Álvaro: study Behance, make it aesthetic)
+Field-studied Behance "app ui ux" (Senso, Notis+, +grid; captures in
+/tmp/behance-study) → `docs/UIUX_STUDY_BEHANCE.md`.
+- [x] **C1** Premium primitives `src/features/onboarding/premium/` (token-driven,
+  reduce-motion aware): SoftCard, PillChip, GoldProgressBar, Reveal (`13676ed`).
+- [x] **C2** `PremiumOnboarding` screen — goal-first, oversized editorial
+  greeting, gold accent, soft cards, pill equipment, calm progress, skip-to-
+  value, TTFV-tracked (`0efba68`).
+- [x] **C3** Celebratory completion reveal (`bf85c6f`/commit). 100/100.
+- [ ] **C4** More reusable premium primitives to spread identity app-wide
+  (SectionHeader, StatNumeral via Type.numHero, EmptyState). Additive.
+- [ ] **C5** When night-run merges: mount PremiumOnboarding in the navigator +
+  persist the returned draft (replaces/augments the old OnboardingScreen).
+- [ ] **C6** Study Behance home/progress screens; apply soft-card + numeral
+  language to ProgressTab/Home (additive components first).
+
 ## Next on resume (priority order)
 1. Check if `feat/night-run` merged to `dev` yet (`git log dev..feat/night-run`
    shrinking). Once merged: rebase/merge, then do B3 (wire screens to the flow)
