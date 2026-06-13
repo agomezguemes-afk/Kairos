@@ -19,18 +19,26 @@ function AmbientBackground({ glowY = 0.2 }: AmbientBackgroundProps) {
   const { width, height } = useWindowDimensions();
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {/* Warm-off-white → white vertical ground for soft depth. */}
+      {/* Warm-off-white → white → faint warm foot: a soft vertical ground that
+          grounds the frame instead of reading as flat white. */}
       <LinearGradient
-        colors={[Colors.bg.warm, Colors.bg.void, Colors.bg.surface]}
-        locations={[0, 0.55, 1]}
+        colors={[
+          Colors.bg.warm2,
+          Colors.bg.warm,
+          Colors.bg.void,
+          Colors.bg.surface,
+          Colors.bg.warm,
+        ]}
+        locations={[0, 0.22, 0.55, 0.82, 1]}
         style={StyleSheet.absoluteFill}
       />
-      {/* Faint gold halo near the hero — a glow, not a fill. */}
+      {/* Gold halo near the hero — a glow, not a fill. Slightly richer + wider so
+          there's real dimension without breaking the white+gold minimalism. */}
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         <Defs>
-          <RadialGradient id="kairosGlow" cx="50%" cy={`${glowY * 100}%`} r="72%">
-            <Stop offset="0" stopColor={Colors.gold.base} stopOpacity={0.22} />
-            <Stop offset="0.45" stopColor={Colors.gold.base} stopOpacity={0.08} />
+          <RadialGradient id="kairosGlow" cx="50%" cy={`${glowY * 100}%`} r="80%">
+            <Stop offset="0" stopColor={Colors.gold.base} stopOpacity={0.28} />
+            <Stop offset="0.4" stopColor={Colors.gold.base} stopOpacity={0.1} />
             <Stop offset="1" stopColor={Colors.gold.base} stopOpacity={0} />
           </RadialGradient>
         </Defs>
