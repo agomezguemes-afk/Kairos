@@ -95,6 +95,13 @@ ScheduleWakeup to continue. On resume, read this file first.
   new `src/features/kai/`: `proposal.ts` (Loop B generator, +10 tests) +
   `KaiProposalCard` + `memory.ts` (the "knows you" model, +9 tests) + `KaiHome`
   (reframed "your space, kept alive by Kai" — verified live). 126 tests green.
+- 17:4x — **Brain end-to-end + "AI-made → unique" round.** `metricTrend.ts`
+  (progress over ANY user metric, +7) + `brain.ts` (the passive loop composed:
+  memory+trends+rules+learned-bias → proposals, +6). Then the inflection-point
+  work: `docs/KAI_VOICE.md` (quiet-expert voice) applied to all copy; the home as
+  an editorial **training-journal page** (date + time-greeting, +tests); blocks as
+  a curated **catalogue** (Fraunces indices, no chevron); **silence as a feature**
+  (calm present Kai on quiet days). 150 tests green, all verified live.
 
 ## State: lane largely complete
 All 6 fixable findings + the input-DoS guard shipped; onboarding architecture +
