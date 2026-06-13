@@ -29,6 +29,7 @@ const SHEEN = ['#EAD3A0', '#CFAC6E', Colors.gold.base, '#B68C49'] as const;
 function KaiOrb({ size = 96, thinking = false }: KaiOrbProps) {
   const reduce = useReducedMotion();
   const pulse = useSharedValue(0);
+  const float = useSharedValue(0);
 
   useEffect(() => {
     if (reduce) {
@@ -41,7 +42,18 @@ function KaiOrb({ size = 96, thinking = false }: KaiOrbProps) {
       -1,
       true,
     );
-  }, [reduce, thinking, pulse]);
+    // A gentle hover so Kai feels like a living, floating companion at rest.
+    float.value = withRepeat(
+      withTiming(1, { duration: thinking ? 2200 : 3400, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+  }, [reduce, thinking, pulse, float]);
+
+  // The whole orb bobs softly (idle life, not a slide).
+  const floatStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: (float.value - 0.5) * 5 }],
+  }));
 
   const haloStyle = useAnimatedStyle(() => ({
     opacity: 0.25 + pulse.value * (thinking ? 0.5 : 0.3),
@@ -55,7 +67,7 @@ function KaiOrb({ size = 96, thinking = false }: KaiOrbProps) {
   const halo = size * 1.5;
 
   return (
-    <View style={[styles.wrap, { width: halo, height: halo }]}>
+    <Animated.View style={[styles.wrap, { width: halo, height: halo }, floatStyle]}>
       <Animated.View
         style={[styles.halo, { width: halo, height: halo, borderRadius: halo / 2 }, haloStyle]}
       />
@@ -69,7 +81,7 @@ function KaiOrb({ size = 96, thinking = false }: KaiOrbProps) {
           <View style={[styles.highlight, { width: size * 0.34, height: size * 0.34 }]} />
         </LinearGradient>
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 }
 
