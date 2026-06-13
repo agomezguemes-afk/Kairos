@@ -142,6 +142,72 @@ describe('Readiness — Fuerza', () => {
   });
 });
 
+describe('Readiness — hostile/corrupt input', () => {
+  it('ignores entries with non-finite endedAt instead of propagating NaN', () => {
+    const corrupt = entry(1, { endedAt: NaN });
+    const r = computeReadiness([corrupt], NOW);
+    // Sole entry is corrupt → treated as a fresh user, never NaN.
+    expect(r.signals.daysSinceLastWorkout).toBeNull();
+    expect(Number.isFinite(r.energia)).toBe(true);
+    expect(Number.isFinite(r.fuerza)).toBe(true);
+    expect(Number.isFinite(r.recuperacion)).toBe(true);
+  });
+
+  it('keeps valid entries when corrupt ones are mixed in', () => {
+    const r = computeReadiness([entry(1), entry(2, { endedAt: Infinity })], NOW);
+    expect(r.signals.daysSinceLastWorkout).toBe(1);
+    expect(Number.isFinite(r.energia)).toBe(true);
+  });
+
+  it('treats future-dated entries as trained today, not a score boost', () => {
+    const future = entry(0, { endedAt: NOW + 5 * DAY });
+    const r = computeReadiness([future], NOW);
+    expect(r.signals.daysSinceLastWorkout).toBe(0);
+    // Same-day training scores low energy, not the 1-2 day sweet spot.
+    expect(r.energia).toBeLessThanOrEqual(60);
+  });
+
+  it('non-finite maxWeight never counts as a PR', () => {
+    const mk = (daysAgo: number, weight: number): WorkoutHistoryEntry =>
+      entry(daysAgo, {
+        exercises: [
+          {
+            exerciseId: 'ex1',
+            libraryId: 'bench',
+            name: 'Banca',
+            maxWeight: weight,
+            totalVolume: 1000,
+            setsCompleted: 3,
+          },
+        ],
+      });
+    const r = computeReadiness([mk(1, NaN), mk(8, 80)], NOW);
+    expect(r.signals.prsLast4Weeks).toBe(0);
+    expect(Number.isFinite(r.fuerza)).toBe(true);
+  });
+
+  it('non-finite totalVolume does not poison the volume trend', () => {
+    const history = [
+      entry(1, { totalVolume: NaN }),
+      entry(3, { totalVolume: 3000 }),
+      entry(18, { totalVolume: 3000 }),
+    ];
+    const r = computeReadiness(history, NOW);
+    expect(Number.isFinite(r.fuerza)).toBe(true);
+  });
+
+  it('entry with no exercises is harmless', () => {
+    const r = computeReadiness([entry(1, { exercises: [] })], NOW);
+    expect(r.signals.recentMuscleGroups).toEqual([]);
+    expect(r.recuperacion).toBe(100);
+  });
+
+  it('all-corrupt history falls back to the fresh-user welcome', () => {
+    const r = computeReadiness([entry(1, { endedAt: NaN }), entry(2, { endedAt: -Infinity })], NOW);
+    expect(r.headline).toMatch(/Bienvenido/);
+  });
+});
+
 describe('Readiness — headline', () => {
   it('welcomes a brand new user', () => {
     expect(computeReadiness([], NOW).headline).toMatch(/Bienvenido/);
