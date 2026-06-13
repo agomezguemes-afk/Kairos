@@ -44,13 +44,14 @@ function SoftCard({
   accessibilityLabel,
 }: SoftCardProps) {
   const accent = accentColor ?? Colors.gold.base;
-  // Accent-tinted glow when selected — vivid but soft (the "aesthetic" lift).
+  // Selection reads from the crisp accent ring (below); the shadow is just a
+  // tight accent-tinted lift — not a soft glow halo.
   const selectedGlow: ViewStyle = {
     shadowColor: accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
   };
   const base: StyleProp<ViewStyle> = [
     styles.card,

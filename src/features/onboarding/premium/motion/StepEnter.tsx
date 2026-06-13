@@ -40,11 +40,14 @@ function StepEnter({ children, style }: StepEnterProps) {
   }, [reduce, t]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const rise = (1 - t.value) * 14; // px, whole unit
-    const scale = 0.992 + t.value * 0.008;
+    // A whisper of forward motion: the step drifts in from the right as one unit
+    // (reads as "advancing"), with a hair of rise so it doesn't feel like a flat
+    // slide. Subtle on purpose — premium, not a carousel.
+    const advance = (1 - t.value) * 22; // px from the right
+    const rise = (1 - t.value) * 6;
     return {
       opacity: t.value,
-      transform: [{ translateY: rise }, { scale: reduce ? 1 : scale }],
+      transform: reduce ? [] : [{ translateX: advance }, { translateY: rise }],
     };
   });
 
