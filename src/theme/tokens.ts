@@ -5,6 +5,7 @@
 
 import { Platform } from 'react-native';
 import type { FontVariant } from 'react-native/Libraries/StyleSheet/StyleSheetTypes';
+import { Fonts } from './fonts';
 
 // ── Color ────────────────────────────────────────────────────────────────────
 
@@ -143,77 +144,104 @@ export function buildThemeColors(_mode?: ThemeMode): ThemeColors {
 
 // ── Typography ───────────────────────────────────────────────────────────────
 
+// Brand families. With custom fonts, the WEIGHT lives in the family name (RN
+// ignores fontWeight for custom faces), so each Type preset below picks an
+// explicit weight family. `fontWeight` is kept on presets only as a hint for
+// web / the pre-load system fallback — it's a no-op on native once fonts load.
 export const FontFamily = {
-  sans: 'System',
-  serif: Platform.select({ ios: 'New York', android: 'serif', default: 'Georgia' }),
+  sans: Fonts.sansRegular, // Plus Jakarta Sans
+  serif: Fonts.serifSemiBold, // Fraunces — signature editorial serif
   mono: Platform.select({ ios: 'Menlo', default: 'monospace' }),
 } as const;
 
 /**
- * Type presets — v3.
- * Serif is reserved for exactly 4 places: splash wordmark, screen large-titles,
- * hero stat numerals, and editorial cards. Everywhere else: system sans.
+ * Type presets — v4 (brand type identity).
+ * Signature serif **Fraunces** is reserved for expressive moments: oversized
+ * greetings (`heroDisplay`), large titles (`title`), the italic accent word
+ * (`serifAccent`), and hero numerals (`numHero`). Everything structural runs in
+ * **Plus Jakarta Sans**. Optical tracking tightens as size grows.
  */
 export const Type = {
-  // Editorial serif — reserved per spec §3.2
+  // Oversized editorial greeting — Fraunces Black, the loudest brand voice.
+  heroDisplay: {
+    fontFamily: Fonts.serifBlack,
+    fontSize: 44,
+    lineHeight: 47,
+    fontWeight: '900' as const,
+    letterSpacing: -1.2,
+  },
+  // Editorial serif large-title — Fraunces SemiBold.
   title: {
-    fontFamily: FontFamily.serif,
+    fontFamily: Fonts.serifSemiBold,
     fontSize: 32,
-    lineHeight: 36,
+    lineHeight: 37,
     fontWeight: '600' as const,
-    letterSpacing: -0.6,
+    letterSpacing: -0.8,
   },
   titleSmall: {
-    fontFamily: FontFamily.serif,
+    fontFamily: Fonts.serifSemiBold,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '600' as const,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+  },
+  // Emphasized editorial word — Fraunces SemiBold *Italic*. Use sparingly for
+  // the one word that carries the line (e.g. "tu *espacio*").
+  serifAccent: {
+    fontFamily: Fonts.serifSemiBoldItalic,
+    fontSize: 32,
+    lineHeight: 37,
+    fontWeight: '600' as const,
+    fontStyle: 'italic' as const,
+    letterSpacing: -0.8,
   },
 
-  // System sans — workhorse
+  // Sans — workhorse
   heading: {
-    fontFamily: FontFamily.sans,
+    fontFamily: Fonts.sansBold,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '700' as const,
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   subheading: {
-    fontFamily: FontFamily.sans,
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 17,
     lineHeight: 24,
     fontWeight: '600' as const,
+    letterSpacing: -0.2,
   },
-  body: { fontFamily: FontFamily.sans, fontSize: 15, lineHeight: 22, fontWeight: '400' as const },
+  body: { fontFamily: Fonts.sansRegular, fontSize: 15, lineHeight: 23, fontWeight: '400' as const },
   bodyEmph: {
-    fontFamily: FontFamily.sans,
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
     fontWeight: '600' as const,
   },
   caption: {
-    fontFamily: FontFamily.sans,
+    fontFamily: Fonts.sansMedium,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500' as const,
   },
-  micro: { fontFamily: FontFamily.sans, fontSize: 11, lineHeight: 14, fontWeight: '500' as const },
+  micro: { fontFamily: Fonts.sansMedium, fontSize: 11, lineHeight: 14, fontWeight: '500' as const },
 
   // Editorial label — uppercase, tracked. The "CHAPTER 03" voice.
   eyebrow: {
-    fontFamily: FontFamily.sans,
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '600' as const,
-    letterSpacing: 1.6,
+    letterSpacing: 1.8,
     textTransform: 'uppercase' as const,
   },
 
-  // Numerical — tabular for any UI showing weight/reps/time/distance
+  // Numerical — tabular for any UI showing weight/reps/time/distance.
+  // numHero uses Fraunces (its numerals are a signature flourish); the rest run
+  // in Jakarta for crisp, tabular legibility.
   // WHY: fontVariant cast to FontVariant[] (RN's mutable type) so StyleSheet.create accepts it.
   numHero: {
-    fontFamily: FontFamily.serif,
+    fontFamily: Fonts.serifMedium,
     fontSize: 56,
     lineHeight: 60,
     fontWeight: '500' as const,
@@ -221,7 +249,7 @@ export const Type = {
     fontVariant: ['tabular-nums'] as FontVariant[],
   },
   numLarge: {
-    fontFamily: FontFamily.sans,
+    fontFamily: Fonts.sansBold,
     fontSize: 28,
     lineHeight: 32,
     fontWeight: '700' as const,
@@ -229,14 +257,14 @@ export const Type = {
     fontVariant: ['tabular-nums'] as FontVariant[],
   },
   numMedium: {
-    fontFamily: FontFamily.sans,
+    fontFamily: Fonts.sansBold,
     fontSize: 18,
     lineHeight: 22,
     fontWeight: '700' as const,
     fontVariant: ['tabular-nums'] as FontVariant[],
   },
   numSmall: {
-    fontFamily: FontFamily.sans,
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
     lineHeight: 16,
     fontWeight: '600' as const,
