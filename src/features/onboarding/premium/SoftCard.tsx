@@ -106,9 +106,10 @@ function PressableCard({
 
   useEffect(() => {
     if (selected && !reduce) {
+      // A soft, organic pop — rises with give, settles gently (not a snappy tick).
       pop.value = withSequence(
-        withSpring(1.045, { damping: 12, stiffness: 420, mass: 0.6 }),
-        withSpring(1, { damping: 15, stiffness: 300 }),
+        withSpring(1.05, { damping: 11, stiffness: 300, mass: 0.7 }),
+        withSpring(1, { damping: 16, stiffness: 230 }),
       );
     }
   }, [selected, reduce, pop]);

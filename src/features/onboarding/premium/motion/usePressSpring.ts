@@ -14,10 +14,11 @@ import {
   type WithSpringConfig,
 } from 'react-native-reanimated';
 
-// Snappy but soft — compresses fast, settles with a hair of overshoot so it
-// feels elastic, not robotic.
-const PRESS_IN: WithSpringConfig = { damping: 18, stiffness: 420, mass: 0.7 };
-const PRESS_OUT: WithSpringConfig = { damping: 14, stiffness: 320, mass: 0.8 };
+// Organic, not rigid — compresses promptly but with give, and returns with a
+// soft, slightly elastic settle (lower damping on the way out) so it feels like
+// pressing something physical rather than a hard mechanical click.
+const PRESS_IN: WithSpringConfig = { damping: 20, stiffness: 360, mass: 0.85 };
+const PRESS_OUT: WithSpringConfig = { damping: 15, stiffness: 260, mass: 0.95 };
 
 interface PressSpringOptions {
   /** Scale at full press. Larger surfaces compress less (default 0.96). */

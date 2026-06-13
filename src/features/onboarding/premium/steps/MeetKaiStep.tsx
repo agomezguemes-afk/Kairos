@@ -55,9 +55,10 @@ export default function MeetKaiStep({ name, onContinue }: MeetKaiStepProps) {
   useEffect(() => {
     if (spoke) ctaIn.value = withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) });
   }, [spoke, ctaIn]);
+  // Fade + a hair of scale (no slide) — the CTA settles into being.
   const ctaStyle = useAnimatedStyle(() => ({
     opacity: ctaIn.value,
-    transform: [{ translateY: (1 - ctaIn.value) * 10 }],
+    transform: [{ scale: 0.96 + ctaIn.value * 0.04 }],
   }));
 
   return (
