@@ -1,12 +1,17 @@
 // KAIROS — PillChip: pill-shaped selectable chip.
 //
 // The pill filter/selection control from Notis+/Senso. Unselected = hairline on
-// surface; selected = gold fill with inverse text. Haptic on press. Token-driven.
+// surface; selected = gold fill with inverse text. Shares the tactile language
+// (press compression + a soft pop on select) + haptic. Token-driven.
 
-import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import React, { useCallback } from 'react';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import Animated from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { Colors, Radius, Spacing, Type } from '../../../theme/tokens';
-import PressableScale from './motion/PressableScale';
+import { useTactile } from './motion/useTactile';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface PillChipProps {
   label: string;
@@ -15,15 +20,22 @@ interface PillChipProps {
 }
 
 function PillChip({ label, selected, onPress }: PillChipProps) {
+  const { animatedStyle, onPressIn, onPressOut } = useTactile({ selected, pressTo: 0.93 });
+
+  const handlePress = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    onPress();
+  }, [onPress]);
+
   return (
-    <PressableScale
-      onPress={onPress}
-      haptic="selection"
-      pressScale={0.93}
+    <AnimatedPressable
+      onPress={handlePress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
-      style={[styles.chip, selected ? styles.selected : styles.unselected]}
+      style={[styles.chip, selected ? styles.selected : styles.unselected, animatedStyle]}
     >
       <Text
         style={[styles.label, { color: selected ? Colors.ink.inverse : Colors.ink.secondary }]}
@@ -31,7 +43,7 @@ function PillChip({ label, selected, onPress }: PillChipProps) {
       >
         {label}
       </Text>
-    </PressableScale>
+    </AnimatedPressable>
   );
 }
 

@@ -5,17 +5,11 @@
 // and a warm "premium zone" variant for hero moments. Selection lifts it with a
 // gold ring + gold-tinted shadow. Token-driven; see docs/UIUX_STUDY_BEHANCE.md.
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSequence,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Colors, Radius, Shadows, Spacing } from '../../../theme/tokens';
-import { usePressSpring } from './motion/usePressSpring';
+import { useTactile } from './motion/useTactile';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -84,9 +78,8 @@ function SoftCard({
 }
 
 // Split out so hooks live in their own component (hooks can't run conditionally).
-// Two layered motions composed into one scale: a gentle press compression (cards
-// are large → 0.98) and a satisfying "pop" the moment it becomes selected, so
-// choosing feels physical, not a silent colour swap.
+// One tactile language: press compression (cards are large → 0.98) + a soft pop
+// the moment it becomes selected, so choosing feels physical, not a colour swap.
 function PressableCard({
   base,
   selected,
@@ -100,24 +93,7 @@ function PressableCard({
   accessibilityLabel?: string;
   children: React.ReactNode;
 }) {
-  const { pressValue, onPressIn, onPressOut } = usePressSpring({ to: 0.98 });
-  const reduce = useReducedMotion();
-  const pop = useSharedValue(1);
-
-  useEffect(() => {
-    if (selected && !reduce) {
-      // A soft, organic pop — rises with give, settles gently (not a snappy tick).
-      pop.value = withSequence(
-        withSpring(1.05, { damping: 11, stiffness: 300, mass: 0.7 }),
-        withSpring(1, { damping: 16, stiffness: 230 }),
-      );
-    }
-  }, [selected, reduce, pop]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const pressScale = 1 - pressValue.value * 0.02; // 1 → 0.98
-    return { transform: [{ scale: pressScale * pop.value }] };
-  });
+  const { animatedStyle, onPressIn, onPressOut } = useTactile({ selected, pressTo: 0.98 });
 
   return (
     <AnimatedPressable

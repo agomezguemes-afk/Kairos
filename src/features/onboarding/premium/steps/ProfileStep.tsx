@@ -4,15 +4,19 @@
 // weekly commitment (shapes the plan). Kept tactile — selectable cards + a day
 // dial — so it feels like setup, not a form.
 
-import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { Colors, Radius, Spacing, Type } from '../../../../theme/tokens';
 import type { ExperienceLevel } from '../../flow/onboardingFlow';
 import { MAX_DAYS_PER_WEEK, MIN_DAYS_PER_WEEK } from '../../flow/onboardingFlow';
 import { text } from '../textStyles';
 import SoftCard from '../SoftCard';
 import GoldButton from '../GoldButton';
-import PressableScale from '../motion/PressableScale';
+import { useTactile } from '../motion/useTactile';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface ProfileStepProps {
   name: string;
@@ -95,25 +99,9 @@ export default function ProfileStep({
 
       <Text style={styles.section}>DÍAS POR SEMANA</Text>
       <View style={styles.days}>
-        {DAYS.map((d) => {
-          const selected = daysPerWeek === d;
-          return (
-            <PressableScale
-              key={d}
-              haptic="selection"
-              pressScale={0.9}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityLabel={`${d} días`}
-              onPress={() => onChangeDays(d)}
-              style={[styles.day, selected ? styles.dayOn : styles.dayOff]}
-            >
-              <Text style={[styles.dayNum, selected ? styles.dayNumOn : styles.dayNumOff]}>
-                {d}
-              </Text>
-            </PressableScale>
-          );
-        })}
+        {DAYS.map((d) => (
+          <DayPill key={d} day={d} selected={daysPerWeek === d} onPress={() => onChangeDays(d)} />
+        ))}
       </View>
 
       <View style={styles.spacer} />
@@ -121,6 +109,36 @@ export default function ProfileStep({
         <GoldButton label="Continuar" onPress={onContinue} />
       </View>
     </View>
+  );
+}
+
+// One day in the week dial — shares the tactile language (press + select pop).
+function DayPill({
+  day,
+  selected,
+  onPress,
+}: {
+  day: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const { animatedStyle, onPressIn, onPressOut } = useTactile({ selected, pressTo: 0.9 });
+  const handlePress = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    onPress();
+  }, [onPress]);
+  return (
+    <AnimatedPressable
+      onPress={handlePress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${day} días`}
+      style={[styles.day, selected ? styles.dayOn : styles.dayOff, animatedStyle]}
+    >
+      <Text style={[styles.dayNum, selected ? styles.dayNumOn : styles.dayNumOff]}>{day}</Text>
+    </AnimatedPressable>
   );
 }
 
