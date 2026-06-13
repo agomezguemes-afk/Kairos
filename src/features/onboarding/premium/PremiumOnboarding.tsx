@@ -11,30 +11,20 @@
 //   <PremiumOnboarding onComplete={(draft) => { persist(draft); goToDashboard(); }} />
 // `draft` is already first-value-ready (smart defaults applied).
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import KIcon, { type KIconName } from '../../../components/icons/KIcon';
-import { Colors, Radius, Shadows, Spacing, Type } from '../../../theme/tokens';
+import { Colors, Spacing, Type } from '../../../theme/tokens';
 import { Fonts } from '../../../theme/fonts';
 import {
   applySmartDefaults,
   EMPTY_DRAFT,
   makeTtfvTracker,
-  normalizeName,
-  skipToValue,
+  type ExperienceLevel,
   type OnboardingDraft,
   type OnboardingGoal,
-  type OnboardingStepId,
 } from '../flow/onboardingFlow';
 import AmbientBackground from './AmbientBackground';
 import GoldButton from './GoldButton';
@@ -42,13 +32,34 @@ import GoldProgressBar from './GoldProgressBar';
 import PillChip from './PillChip';
 import SoftCard from './SoftCard';
 import StepEnter from './motion/StepEnter';
-import PressableScale from './motion/PressableScale';
+import AuthStep from './steps/AuthStep';
+import ProfileStep from './steps/ProfileStep';
+import CoachStep from './steps/CoachStep';
+import BuildingStep from './steps/BuildingStep';
+import PresentationStep from './steps/PresentationStep';
+
+// The full flow. welcome/auth are brand+account; goal→profile→equipment→coach
+// are the tracked "config" questions; building→presentation are the culmination
+// (first block created, app presented). 'done' is the legacy terminal kept only
+// as a fallback alias for presentation.
+type Screen =
+  | 'welcome'
+  | 'auth'
+  | 'goal'
+  | 'profile'
+  | 'equipment'
+  | 'coach'
+  | 'building'
+  | 'presentation';
+
+// Steps that advance the progress bar — the config questions only.
+const QUESTION_ORDER: Screen[] = ['goal', 'profile', 'equipment', 'coach'];
 
 interface PremiumOnboardingProps {
   /** Receives a first-value-ready draft (smart defaults already applied). */
   onComplete: (draft: OnboardingDraft) => void;
   /** Deep-link to a specific step (default 'welcome'). Handy for previews/tests. */
-  initialStep?: OnboardingStepId;
+  initialStep?: Screen;
 }
 
 // Each goal carries a vivid accent (from the discipline palette) so the choice
@@ -102,54 +113,39 @@ const EQUIPMENT: { id: string; label: string }[] = [
   { id: 'yoga_mat', label: 'Esterilla' },
 ];
 
-// 'done' is the celebratory reveal — not a question, so it's outside the
-// question step order used for the progress bar.
-type Screen = OnboardingStepId | 'done';
-const STEP_ORDER: OnboardingStepId[] = ['welcome', 'goal', 'name', 'equipment'];
-
 export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOnboardingProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Screen>(initialStep ?? 'welcome');
   const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
   const [ready, setReady] = useState<OnboardingDraft | null>(null);
-  const ttfv = useRef(makeTtfvTracker(Date.now()));
+  // Lazy init runs once — start the TTFV clock when onboarding first mounts.
+  const [ttfv] = useState(() => makeTtfvTracker(Date.now()));
 
-  const progress = useMemo(
-    () => (step === 'done' ? 1 : (STEP_ORDER.indexOf(step) + 1) / STEP_ORDER.length),
-    [step],
-  );
+  // Progress bar tracks only the config questions; welcome/auth/building/
+  // presentation sit outside it. Hidden entirely on the non-question screens.
+  const tracked = QUESTION_ORDER.includes(step);
+  const progress = useMemo(() => {
+    const i = QUESTION_ORDER.indexOf(step);
+    return i < 0 ? 0 : (i + 1) / QUESTION_ORDER.length;
+  }, [step]);
 
-  // First value is reached here (a ready space exists). Record TTFV once.
-  const reachFirstValue = useCallback((d: OnboardingDraft): OnboardingDraft => {
-    const r = applySmartDefaults(d);
-    const sample = ttfv.current.reached();
-    if (__DEV__) {
-      // Prove the 2-minute promise in dev logs; wire to analytics later.
-      console.log('[onboarding] TTFV', sample.elapsedMs, 'ms', sample.withinMax ? 'OK' : 'OVER');
-    }
-    return r;
-  }, []);
-
-  // Full path → celebratory reveal before entering.
-  const goDone = useCallback(
-    (d: OnboardingDraft) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setReady(reachFirstValue(d));
-      setStep('done');
+  // First value = the block is built. Recorded as we enter the building stage.
+  const reachFirstValue = useCallback(
+    (d: OnboardingDraft): OnboardingDraft => {
+      const r = applySmartDefaults(d);
+      const sample = ttfv.reached();
+      if (__DEV__) {
+        console.log('[onboarding] TTFV', sample.elapsedMs, 'ms', sample.withinMax ? 'OK' : 'OVER');
+      }
+      return r;
     },
-    [reachFirstValue],
+    [ttfv],
   );
-
-  // Skip path → straight in, no extra tap (the whole point of skip-to-value).
-  const handleSkip = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    onComplete(reachFirstValue(skipToValue(draft)));
-  }, [draft, onComplete, reachFirstValue]);
 
   const selectGoal = useCallback((id: OnboardingGoal) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setDraft((d) => ({ ...d, goal: id }));
-    setStep('name');
+    setStep('profile');
   }, []);
 
   const toggleEquipment = useCallback((id: string) => {
@@ -162,10 +158,23 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
     }));
   }, []);
 
+  // Leaving the coach → Kai builds the block. Compute the ready draft now so the
+  // building + presentation screens reflect exactly what was generated.
+  const startBuilding = useCallback(() => {
+    setReady(reachFirstValue(draft));
+    setStep('building');
+  }, [draft, reachFirstValue]);
+
+  const enterApp = useCallback(() => {
+    onComplete(ready ?? applySmartDefaults(draft));
+  }, [onComplete, ready, draft]);
+
+  const showProgress = tracked && step !== 'welcome';
+
   return (
     <View style={[styles.root, { paddingTop: insets.top + Spacing.lg }]}>
-      <AmbientBackground glowY={step === 'welcome' ? 0.3 : 0.12} />
-      {step !== 'welcome' && (
+      <AmbientBackground glowY={step === 'welcome' || step === 'auth' ? 0.28 : 0.12} />
+      {showProgress && (
         <View style={styles.progressWrap}>
           <GoldProgressBar progress={progress} />
         </View>
@@ -183,14 +192,19 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
           {/* key=step remounts so the step arrives as one cohesive gesture
               (StepEnter), not a per-item ghost cascade. */}
           <StepEnter key={step} style={styles.stepBody}>
-            {step === 'welcome' && (
-              <WelcomeStep onPersonalize={() => setStep('goal')} onSkip={handleSkip} />
-            )}
+            {step === 'welcome' && <WelcomeStep onStart={() => setStep('auth')} />}
+            {step === 'auth' && <AuthStep onAuth={() => setStep('goal')} />}
             {step === 'goal' && <GoalStep value={draft.goal} onSelect={selectGoal} />}
-            {step === 'name' && (
-              <NameStep
-                value={draft.name ?? ''}
-                onChange={(t) => setDraft((d) => ({ ...d, name: t }))}
+            {step === 'profile' && (
+              <ProfileStep
+                name={draft.name ?? ''}
+                experience={draft.experience}
+                daysPerWeek={draft.daysPerWeek}
+                onChangeName={(t) => setDraft((d) => ({ ...d, name: t }))}
+                onChangeExperience={(e: ExperienceLevel) =>
+                  setDraft((d) => ({ ...d, experience: e }))
+                }
+                onChangeDays={(n) => setDraft((d) => ({ ...d, daysPerWeek: n }))}
                 onContinue={() => setStep('equipment')}
               />
             )}
@@ -198,11 +212,25 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
               <EquipmentStep
                 selected={draft.equipment}
                 onToggle={toggleEquipment}
-                onFinish={() => goDone(draft)}
+                onFinish={() => setStep('coach')}
               />
             )}
-            {step === 'done' && ready && (
-              <DoneStep name={ready.name} onEnter={() => onComplete(ready)} />
+            {step === 'coach' && (
+              <CoachStep
+                value={draft.aiPrompt ?? ''}
+                onChange={(t) => setDraft((d) => ({ ...d, aiPrompt: t }))}
+                onContinue={startBuilding}
+              />
+            )}
+            {step === 'building' && (
+              <BuildingStep name={draft.name} onDone={() => setStep('presentation')} />
+            )}
+            {step === 'presentation' && (
+              <PresentationStep
+                name={(ready ?? draft).name}
+                goal={(ready ?? draft).goal}
+                onEnter={enterApp}
+              />
             )}
           </StepEnter>
         </ScrollView>
@@ -213,7 +241,7 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
 
 // ── Steps ───────────────────────────────────────────────────────────────────
 
-function WelcomeStep({ onPersonalize, onSkip }: { onPersonalize: () => void; onSkip: () => void }) {
+function WelcomeStep({ onStart }: { onStart: () => void }) {
   return (
     <View style={styles.welcome}>
       {/* Top: brand wordmark anchors the frame (the Senso move). */}
@@ -228,24 +256,15 @@ function WelcomeStep({ onPersonalize, onSkip }: { onPersonalize: () => void; onS
           Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
         </Text>
         <Text style={styles.subtitle}>
-          El primer lienzo que se adapta a ti, no al revés. Empieza en segundos.
+          El primer lienzo que se adapta a ti, no al revés. Lo construyes con Kai en minutos.
         </Text>
       </View>
 
-      {/* Bottom: anchored CTAs. */}
+      {/* Bottom: anchored CTA. */}
       <View style={styles.welcomeCtas}>
         <View style={styles.fullWidth}>
-          <GoldButton label="Empezar ahora" hint="Listo en 30 segundos" onPress={onSkip} />
+          <GoldButton label="Comenzar" hint="Crea tu espacio con Kai" onPress={onStart} />
         </View>
-        <PressableScale
-          haptic="light"
-          pressScale={0.98}
-          accessibilityRole="button"
-          onPress={onPersonalize}
-          style={styles.ghostCta}
-        >
-          <Text style={styles.ghostText}>Personalizar mi espacio</Text>
-        </PressableScale>
       </View>
     </View>
   );
@@ -293,49 +312,6 @@ function GoalStep({
   );
 }
 
-function NameStep({
-  value,
-  onChange,
-  onContinue,
-}: {
-  value: string;
-  onChange: (t: string) => void;
-  onContinue: () => void;
-}) {
-  return (
-    <View style={styles.stepFill}>
-      <Text style={styles.eyebrow}>PASO 2 · TÚ</Text>
-      <Text style={styles.title}>
-        ¿Cómo te <Text style={styles.titleAccent}>llamas</Text>?
-      </Text>
-      <SoftCard padded style={styles.inputCard}>
-        <TextInput
-          value={value}
-          onChangeText={onChange}
-          placeholder="Tu nombre"
-          placeholderTextColor={Colors.ink.muted}
-          cursorColor={Colors.gold.base}
-          selectionColor={Colors.gold.base}
-          style={styles.input}
-          autoCapitalize="words"
-          maxLength={32}
-          returnKeyType="done"
-          onSubmitEditing={onContinue}
-        />
-      </SoftCard>
-      <Text style={styles.helper}>Lo usaremos para personalizar tu experiencia.</Text>
-
-      <View style={styles.spacer} />
-      <View style={styles.fullWidth}>
-        <PrimaryCta
-          label={normalizeName(value) ? 'Continuar' : 'Saltar por ahora'}
-          onPress={onContinue}
-        />
-      </View>
-    </View>
-  );
-}
-
 function EquipmentStep({
   selected,
   onToggle,
@@ -364,29 +340,7 @@ function EquipmentStep({
       </View>
       <View style={styles.spacer} />
       <View style={styles.fullWidth}>
-        <PrimaryCta label="Crear mi espacio" onPress={onFinish} />
-      </View>
-    </View>
-  );
-}
-
-function DoneStep({ name, onEnter }: { name: string | null; onEnter: () => void }) {
-  return (
-    <View style={styles.done}>
-      <View style={styles.doneBadge}>
-        <Text style={styles.doneCheck}>✓</Text>
-      </View>
-      <Text style={[styles.eyebrow, styles.center]}>TODO LISTO</Text>
-      <Text style={styles.doneTitle}>
-        {name ? `${name}, tu ` : 'Tu '}
-        <Text style={styles.titleAccent}>espacio</Text>
-        {'\n'}está preparado.
-      </Text>
-      <Text style={[styles.subtitle, styles.center]}>
-        Hemos preparado tu primera rutina. Entra y empieza cuando quieras.
-      </Text>
-      <View style={styles.fullWidth}>
-        <PrimaryCta label="Entrar a mi espacio" onPress={onEnter} />
+        <PrimaryCta label="Continuar" onPress={onFinish} />
       </View>
     </View>
   );
@@ -442,40 +396,11 @@ const styles = StyleSheet.create({
   goalLabel: { ...Type.subheading, color: Colors.ink.primary },
   goalDesc: { ...Type.caption, color: Colors.ink.muted, textAlign: 'center' },
 
-  inputCard: { marginBottom: Spacing.md },
-  input: { ...Type.subheading, color: Colors.ink.primary, paddingVertical: Spacing.sm },
-
   pillWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
   },
 
-  ghostCta: {
-    height: 52,
-    borderRadius: Radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.hair.strong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '88%',
-  },
-  ghostText: { ...Type.bodyEmph, color: Colors.ink.secondary },
-
   primaryCta: { marginTop: Spacing.lg },
-
-  done: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.lg },
-  center: { textAlign: 'center' },
-  doneBadge: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.gold.base,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.sm,
-    ...Shadows.cardWarm,
-  },
-  doneCheck: { fontSize: 44, lineHeight: 50, fontWeight: '700', color: Colors.ink.inverse },
-  doneTitle: { ...Type.title, textAlign: 'center', color: Colors.ink.primary },
 });
