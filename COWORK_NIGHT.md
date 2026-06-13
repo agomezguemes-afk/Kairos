@@ -82,6 +82,19 @@ ScheduleWakeup to continue. On resume, read this file first.
   full flow: auth, deeper profile, the Kai conversational prompt, building, and a
   presentation that shows the created first block (7632b33). Verified every
   screen live on the iOS sim. typecheck clean, 116/116.
+- 05:4x — **Pro buttons + natural motion.** Studied CTA treatments in a live lab;
+  killed the PowerPoint glow → deep-gold pill, bespoke radius 18, gloss + tight
+  contact shadow + physical press-sink + darken (bd98980, 6ee2b1f, 758a256).
+  Removed all appearance-slides; softer organic springs; orb hover; unified
+  `useTactile` selection language (483befa, 481494b, 682e3a3, 2fba9a4). Saved
+  feedback memory [[no-powerpoint-shadows]].
+- 17:xx — **STRATEGY PIVOT: identity & unique value (Álvaro).** Market-researched
+  (SDT/71%-churn, adaptive-vs-wearable-lock, Notion-maintenance-burden, hybrid
+  niche) → `docs/KAIROS_VISION.md`: thesis = **assisted autonomy** (a system you
+  own, maintained by a resident two-loop agent). Built the core additively in a
+  new `src/features/kai/`: `proposal.ts` (Loop B generator, +10 tests) +
+  `KaiProposalCard` + `memory.ts` (the "knows you" model, +9 tests) + `KaiHome`
+  (reframed "your space, kept alive by Kai" — verified live). 126 tests green.
 
 ## State: lane largely complete
 All 6 fixable findings + the input-DoS guard shipped; onboarding architecture +
