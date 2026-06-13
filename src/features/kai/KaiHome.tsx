@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
 import { Fonts } from '../../theme/fonts';
 import { useTactile } from '../onboarding/premium/motion/useTactile';
+import { journalHeader } from './homeHeader';
 import KaiProposalCard from './KaiProposalCard';
 import type { Proposal } from './proposal';
 
@@ -32,6 +33,8 @@ interface KaiHomeProps {
   onAcceptProposal: (p: Proposal) => void;
   onDismissProposal: (p: Proposal) => void;
   onOpenBlock: (id: string) => void;
+  /** Injectable clock for tests/previews. */
+  now?: Date;
 }
 
 export default function KaiHome({
@@ -41,16 +44,20 @@ export default function KaiHome({
   onAcceptProposal,
   onDismissProposal,
   onOpenBlock,
+  now,
 }: KaiHomeProps) {
   const insets = useSafeAreaInsets();
+  const { eyebrow, greeting } = journalHeader(now ?? new Date());
   return (
     <ScrollView
       style={styles.root}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.xl }]}
       showsVerticalScrollIndicator={false}
     >
+      <Text style={styles.dateline}>{eyebrow}</Text>
       <Text style={styles.hi}>
-        Hola{name ? `, ${name}` : ''}
+        {greeting}
+        {name ? `, ${name}` : ''}
         <Text style={styles.dot}>.</Text>
       </Text>
       <Text style={styles.sub}>
@@ -137,7 +144,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg.void },
   content: { paddingHorizontal: Spacing.screen.horizontal, paddingBottom: 96, gap: Spacing.md },
 
-  hi: { fontFamily: Fonts.serifBlack, fontSize: 34, lineHeight: 38, color: Colors.ink.primary },
+  dateline: { ...Type.eyebrow, color: Colors.gold.deep, marginBottom: Spacing.sm },
+  hi: { fontFamily: Fonts.serifBlack, fontSize: 34, lineHeight: 40, color: Colors.ink.primary },
   dot: { color: Colors.gold.base },
   sub: { ...Type.body, fontSize: 16, color: Colors.ink.tertiary, marginBottom: Spacing.sm },
 
