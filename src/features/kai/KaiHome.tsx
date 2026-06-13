@@ -82,15 +82,23 @@ export default function KaiHome({
       </View>
 
       <View style={styles.blocks}>
-        {blocks.map((b) => (
-          <BlockRow key={b.id} block={b} onPress={() => onOpenBlock(b.id)} />
+        {blocks.map((b, i) => (
+          <BlockRow key={b.id} block={b} index={i + 1} onPress={() => onOpenBlock(b.id)} />
         ))}
       </View>
     </ScrollView>
   );
 }
 
-function BlockRow({ block, onPress }: { block: HomeBlock; onPress: () => void }) {
+function BlockRow({
+  block,
+  index,
+  onPress,
+}: {
+  block: HomeBlock;
+  index: number;
+  onPress: () => void;
+}) {
   const { animatedStyle, onPressIn, onPressOut } = useTactile({ pressTo: 0.985 });
   const accent = Colors.discipline[block.discipline] ?? Colors.gold.base;
   return (
@@ -107,7 +115,9 @@ function BlockRow({ block, onPress }: { block: HomeBlock; onPress: () => void })
         </Text>
         {block.meta ? <Text style={styles.blockMeta}>{block.meta}</Text> : null}
       </View>
-      <Text style={styles.chev}>›</Text>
+      {/* Editorial catalogue index — "your space" as a curated collection, not a
+          generic list with a chevron. */}
+      <Text style={styles.blockIndex}>{String(index).padStart(2, '0')}</Text>
     </AnimatedRow>
   );
 }
@@ -178,5 +188,11 @@ const styles = StyleSheet.create({
   blockText: { flex: 1, gap: 2 },
   blockName: { ...Type.subheading, color: Colors.ink.primary },
   blockMeta: { ...Type.caption, color: Colors.ink.muted },
-  chev: { fontSize: 22, color: Colors.ink.muted, marginLeft: Spacing.xs },
+  blockIndex: {
+    fontFamily: Fonts.serifMedium,
+    fontSize: 15,
+    color: Colors.ink.muted,
+    letterSpacing: 0.5,
+    marginLeft: Spacing.sm,
+  },
 });
