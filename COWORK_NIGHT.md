@@ -76,6 +76,12 @@ ScheduleWakeup to continue. On resume, read this file first.
   composition + rich goal cards (26e5f02); 3-zone welcome + metallic gold
   (b95fe90). Ran iOS simulator (iPhone 16e, Expo Go, Fast Refresh) and iterated
   screenshot→polish across all 5 onboarding screens. typecheck clean, 107/107.
+- 04:5x–05:2x — **Living motion + novel onboarding flow.** Killed the ghost
+  cascade → StepEnter + physical press + ambient drift (3d7d7de). Extended the
+  pure model (experience/days/aiPrompt, +8 tests, 7bdcc9f). Built & wired the
+  full flow: auth, deeper profile, the Kai conversational prompt, building, and a
+  presentation that shows the created first block (7632b33). Verified every
+  screen live on the iOS sim. typecheck clean, 116/116.
 
 ## State: lane largely complete
 All 6 fixable findings + the input-DoS guard shipped; onboarding architecture +
@@ -102,12 +108,28 @@ Field-studied Behance "app ui ux" (Senso, Notis+, +grid; captures in
   goal cards w/ descriptors. (`26e5f02`)
 - [x] **C10** Branded 3-zone welcome (`Kairos.` wordmark) + cleaner metallic
   gold button. (`b95fe90`) **Verified live on iOS sim across all 5 screens.**
+- [x] **C11** **Living motion** (Álvaro: "no AI-made", quitar el efecto fantasma).
+  Killed the per-item staggered Reveal cascade → `StepEnter` (one cohesive
+  arrival). Physical press everywhere (`usePressSpring`/`PressableScale`).
+  Ambient gold halo drifts + breathes at rest. All reduce-motion aware. (`3d7d7de`)
+- [x] **C12** **Novel onboarding flow** (Álvaro's big ask). welcome → auth
+  (Apple/Google/email) → goal → profile (experience + days/week) → equipment →
+  **coach (meet Kai, free-text prompt → shapes space)** → building (Kai assembles
+  first block) → presentation (SHOWS the created block + how Kairos works).
+  Pure model extended w/ tests (`7bdcc9f`); flow + screens + KaiOrb (`7632b33`).
+  Verified live across all screens on iOS sim.
+- [ ] **C13** Selection "pop" spring on goal/experience choices (extra liveliness). Additive.
+- [ ] **C14** Gesture back-nav between steps (swipe). Additive.
 - [ ] **C4** More reusable premium primitives to spread identity app-wide
   (SectionHeader, StatNumeral via Type.numHero, EmptyState). Additive.
 - [ ] **C5** When night-run merges: mount PremiumOnboarding in the navigator +
   persist the returned draft (replaces/augments the old OnboardingScreen). Note
   the real App.tsx must wrap the tree in `<FontGate>` (one line) to load the
-  brand fonts — the preview harness already shows the pattern.
+  brand fonts — the preview harness already shows the pattern. Wire the real
+  pieces: AuthStep `onAuth` → `useAuthStore` (Apple/Google OAuth + email); the
+  draft's `aiPrompt` → the AI block generator; BuildingStep should await real
+  generation (it currently just times out). The draft now carries
+  experience/daysPerWeek/aiPrompt for the generator to use.
 - [ ] **C6** Study Behance home/progress screens; apply soft-card + numeral
   language to ProgressTab/Home (additive components first).
 
