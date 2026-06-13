@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors, Radius, Spacing, Type } from '../../../../theme/tokens';
+import { Colors, Spacing, Type } from '../../../../theme/tokens';
 import { text } from '../textStyles';
 import PressableScale from '../motion/PressableScale';
 import { AppleGlyph, GoogleGlyph, MailGlyph } from './BrandGlyphs';
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   // doesn't look pasted onto the warm ground.
   btn: {
     height: 56,
-    borderRadius: Radius.pill,
+    borderRadius: 18, // matches the primary CTA — one shape language for actions
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,

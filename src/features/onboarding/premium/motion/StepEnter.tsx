@@ -40,14 +40,13 @@ function StepEnter({ children, style }: StepEnterProps) {
   }, [reduce, t]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    // A whisper of forward motion: the step drifts in from the right as one unit
-    // (reads as "advancing"), with a hair of rise so it doesn't feel like a flat
-    // slide. Subtle on purpose — premium, not a carousel.
-    const advance = (1 - t.value) * 22; // px from the right
-    const rise = (1 - t.value) * 6;
+    // Natural, not rigid: the step settles into focus — a soft fade with a hair
+    // of scale, like it comes into being. NO slide (objects don't fly in); the
+    // life comes from physics + interaction, not directional movement.
+    const scale = 0.985 + t.value * 0.015;
     return {
       opacity: t.value,
-      transform: reduce ? [] : [{ translateX: advance }, { translateY: rise }],
+      transform: reduce ? [] : [{ scale }],
     };
   });
 
