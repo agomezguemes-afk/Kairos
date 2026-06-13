@@ -42,5 +42,7 @@ export function usePressSpring({ to = 0.96 }: PressSpringOptions = {}) {
     return { transform: [{ scale }] };
   });
 
-  return { animatedStyle, onPressIn, onPressOut };
+  // pressValue (0 rest → 1 pressed) is exposed so callers can compose the press
+  // with another transform (e.g. SoftCard's selection pop) in one scale.
+  return { animatedStyle, pressValue: pressed, onPressIn, onPressOut };
 }

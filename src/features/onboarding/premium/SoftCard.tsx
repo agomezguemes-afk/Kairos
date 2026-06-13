@@ -5,9 +5,15 @@
 // and a warm "premium zone" variant for hero moments. Selection lifts it with a
 // gold ring + gold-tinted shadow. Token-driven; see docs/UIUX_STUDY_BEHANCE.md.
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
 import { Colors, Radius, Shadows, Spacing } from '../../../theme/tokens';
 import { usePressSpring } from './motion/usePressSpring';
 
@@ -76,9 +82,10 @@ function SoftCard({
   );
 }
 
-// Split out so the press-spring hook lives in its own component (hooks can't run
-// conditionally). The card physically compresses on touch — cards are large, so
-// the travel is gentle (0.98).
+// Split out so hooks live in their own component (hooks can't run conditionally).
+// Two layered motions composed into one scale: a gentle press compression (cards
+// are large → 0.98) and a satisfying "pop" the moment it becomes selected, so
+// choosing feels physical, not a silent colour swap.
 function PressableCard({
   base,
   selected,
@@ -92,7 +99,24 @@ function PressableCard({
   accessibilityLabel?: string;
   children: React.ReactNode;
 }) {
-  const { animatedStyle, onPressIn, onPressOut } = usePressSpring({ to: 0.98 });
+  const { pressValue, onPressIn, onPressOut } = usePressSpring({ to: 0.98 });
+  const reduce = useReducedMotion();
+  const pop = useSharedValue(1);
+
+  useEffect(() => {
+    if (selected && !reduce) {
+      pop.value = withSequence(
+        withSpring(1.045, { damping: 12, stiffness: 420, mass: 0.6 }),
+        withSpring(1, { damping: 15, stiffness: 300 }),
+      );
+    }
+  }, [selected, reduce, pop]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const pressScale = 1 - pressValue.value * 0.02; // 1 → 0.98
+    return { transform: [{ scale: pressScale * pop.value }] };
+  });
+
   return (
     <AnimatedPressable
       onPress={onPress}
