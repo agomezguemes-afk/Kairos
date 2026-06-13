@@ -41,6 +41,9 @@ function GoldButton({ label, onPress, hint, style }: GoldButtonProps) {
     };
   });
 
+  // ...and it darkens a touch under the finger, like real material.
+  const darkenStyle = useAnimatedStyle(() => ({ opacity: pressValue.value * 0.1 }));
+
   const handlePress = useCallback(() => {
     // The primary action earns a success notification — it feels like a commit.
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -66,6 +69,8 @@ function GoldButton({ label, onPress, hint, style }: GoldButtonProps) {
         >
           {/* 1px-feel top highlight — a lit edge, not a gloss bevel. */}
           <View style={styles.highlight} />
+          {/* Press darken — fills under the finger for physical feedback. */}
+          <Animated.View style={[styles.darken, darkenStyle]} pointerEvents="none" />
           <Text style={styles.text}>{label}</Text>
         </LinearGradient>
       </AnimatedPressable>
@@ -102,6 +107,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderTopLeftRadius: BTN_RADIUS,
     borderTopRightRadius: BTN_RADIUS,
+  },
+  darken: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#3A2A08',
   },
   text: { ...Type.subheading, color: Colors.ink.inverse, letterSpacing: 0.3 },
   hint: { ...Type.caption, color: Colors.ink.muted },
