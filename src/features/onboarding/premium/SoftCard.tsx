@@ -7,7 +7,11 @@
 
 import React from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { Colors, Radius, Shadows, Spacing } from '../../../theme/tokens';
+import { usePressSpring } from './motion/usePressSpring';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface SoftCardProps {
   children: React.ReactNode;
@@ -61,15 +65,46 @@ function SoftCard({
   }
 
   return (
-    <Pressable
+    <PressableCard
+      base={base}
+      selected={selected}
       onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
+    >
+      {children}
+    </PressableCard>
+  );
+}
+
+// Split out so the press-spring hook lives in its own component (hooks can't run
+// conditionally). The card physically compresses on touch — cards are large, so
+// the travel is gentle (0.98).
+function PressableCard({
+  base,
+  selected,
+  onPress,
+  accessibilityLabel,
+  children,
+}: {
+  base: StyleProp<ViewStyle>;
+  selected: boolean;
+  onPress: () => void;
+  accessibilityLabel?: string;
+  children: React.ReactNode;
+}) {
+  const { animatedStyle, onPressIn, onPressOut } = usePressSpring({ to: 0.98 });
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [base, pressed && styles.pressed]}
+      style={[base, animatedStyle]}
     >
       {children}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -82,8 +117,6 @@ const styles = StyleSheet.create({
   surface: { backgroundColor: Colors.bg.surface },
   warm: { backgroundColor: Colors.bg.warm },
   unselected: { borderColor: Colors.hair.base },
-  selected: { borderColor: Colors.gold.base, borderWidth: 1.5 },
-  pressed: { opacity: 0.96, transform: [{ scale: 0.99 }] },
 });
 
 export default React.memo(SoftCard);

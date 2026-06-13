@@ -3,10 +3,10 @@
 // The pill filter/selection control from Notis+/Senso. Unselected = hairline on
 // surface; selected = gold fill with inverse text. Haptic on press. Token-driven.
 
-import React, { useCallback } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import React from 'react';
+import { StyleSheet, Text } from 'react-native';
 import { Colors, Radius, Spacing, Type } from '../../../theme/tokens';
+import PressableScale from './motion/PressableScale';
 
 interface PillChipProps {
   label: string;
@@ -15,22 +15,15 @@ interface PillChipProps {
 }
 
 function PillChip({ label, selected, onPress }: PillChipProps) {
-  const handlePress = useCallback(() => {
-    Haptics.selectionAsync().catch(() => {});
-    onPress();
-  }, [onPress]);
-
   return (
-    <Pressable
-      onPress={handlePress}
+    <PressableScale
+      onPress={onPress}
+      haptic="selection"
+      pressScale={0.93}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.chip,
-        selected ? styles.selected : styles.unselected,
-        pressed && styles.pressed,
-      ]}
+      style={[styles.chip, selected ? styles.selected : styles.unselected]}
     >
       <Text
         style={[styles.label, { color: selected ? Colors.ink.inverse : Colors.ink.secondary }]}
@@ -38,7 +31,7 @@ function PillChip({ label, selected, onPress }: PillChipProps) {
       >
         {label}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -53,7 +46,6 @@ const styles = StyleSheet.create({
   },
   selected: { backgroundColor: Colors.gold.base, borderColor: Colors.gold.base },
   unselected: { backgroundColor: Colors.bg.surface, borderColor: Colors.hair.strong },
-  pressed: { opacity: 0.9 },
   label: { ...Type.bodyEmph },
 });
 

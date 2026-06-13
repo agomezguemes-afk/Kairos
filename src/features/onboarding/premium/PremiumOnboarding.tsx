@@ -15,7 +15,6 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -41,8 +40,9 @@ import AmbientBackground from './AmbientBackground';
 import GoldButton from './GoldButton';
 import GoldProgressBar from './GoldProgressBar';
 import PillChip from './PillChip';
-import Reveal from './Reveal';
 import SoftCard from './SoftCard';
+import StepEnter from './motion/StepEnter';
+import PressableScale from './motion/PressableScale';
 
 interface PremiumOnboardingProps {
   /** Receives a first-value-ready draft (smart defaults already applied). */
@@ -180,8 +180,9 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* key=step remounts content so the staggered entrance replays per step */}
-          <View key={step} style={styles.stepBody}>
+          {/* key=step remounts so the step arrives as one cohesive gesture
+              (StepEnter), not a per-item ghost cascade. */}
+          <StepEnter key={step} style={styles.stepBody}>
             {step === 'welcome' && (
               <WelcomeStep onPersonalize={() => setStep('goal')} onSkip={handleSkip} />
             )}
@@ -203,7 +204,7 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
             {step === 'done' && ready && (
               <DoneStep name={ready.name} onEnter={() => onComplete(ready)} />
             )}
-          </View>
+          </StepEnter>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -216,43 +217,35 @@ function WelcomeStep({ onPersonalize, onSkip }: { onPersonalize: () => void; onS
   return (
     <View style={styles.welcome}>
       {/* Top: brand wordmark anchors the frame (the Senso move). */}
-      <Reveal index={0}>
-        <Text style={styles.wordmark}>
-          Kairos<Text style={styles.wordmarkDot}>.</Text>
-        </Text>
-      </Reveal>
+      <Text style={styles.wordmark}>
+        Kairos<Text style={styles.wordmarkDot}>.</Text>
+      </Text>
 
       {/* Middle: editorial hero, vertically centred in the remaining space. */}
       <View style={styles.welcomeHero}>
-        <Reveal index={1}>
-          <Text style={styles.eyebrow}>TU TRAINING OS</Text>
-        </Reveal>
-        <Reveal index={2}>
-          <Text style={styles.hero}>
-            Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
-          </Text>
-        </Reveal>
-        <Reveal index={3}>
-          <Text style={styles.subtitle}>
-            El primer lienzo que se adapta a ti, no al revés. Empieza en segundos.
-          </Text>
-        </Reveal>
+        <Text style={styles.eyebrow}>TU TRAINING OS</Text>
+        <Text style={styles.hero}>
+          Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
+        </Text>
+        <Text style={styles.subtitle}>
+          El primer lienzo que se adapta a ti, no al revés. Empieza en segundos.
+        </Text>
       </View>
 
       {/* Bottom: anchored CTAs. */}
       <View style={styles.welcomeCtas}>
-        <Reveal index={4} style={styles.fullWidth}>
+        <View style={styles.fullWidth}>
           <GoldButton label="Empezar ahora" hint="Listo en 30 segundos" onPress={onSkip} />
-        </Reveal>
-        <Reveal index={5} style={styles.fullWidth}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onPersonalize}
-            style={({ pressed }) => [styles.ghostCta, pressed && styles.ghostPressed]}
-          >
-            <Text style={styles.ghostText}>Personalizar mi espacio</Text>
-          </Pressable>
-        </Reveal>
+        </View>
+        <PressableScale
+          haptic="light"
+          pressScale={0.98}
+          accessibilityRole="button"
+          onPress={onPersonalize}
+          style={styles.ghostCta}
+        >
+          <Text style={styles.ghostText}>Personalizar mi espacio</Text>
+        </PressableScale>
       </View>
     </View>
   );
@@ -267,19 +260,15 @@ function GoalStep({
 }) {
   return (
     <View style={styles.centerFill}>
-      <Reveal index={0}>
-        <Text style={styles.eyebrow}>PASO 1 · OBJETIVO</Text>
-      </Reveal>
-      <Reveal index={1}>
-        <Text style={styles.title}>
-          ¿Cuál es tu <Text style={styles.titleAccent}>objetivo</Text>?
-        </Text>
-      </Reveal>
+      <Text style={styles.eyebrow}>PASO 1 · OBJETIVO</Text>
+      <Text style={styles.title}>
+        ¿Cuál es tu <Text style={styles.titleAccent}>objetivo</Text>?
+      </Text>
       <View style={styles.grid}>
-        {GOALS.map((g, i) => {
+        {GOALS.map((g) => {
           const selected = value === g.id;
           return (
-            <Reveal key={g.id} index={2 + i} style={styles.gridCell}>
+            <View key={g.id} style={styles.gridCell}>
               <SoftCard
                 selected={selected}
                 accentColor={g.accent}
@@ -296,7 +285,7 @@ function GoalStep({
                   <Text style={styles.goalDesc}>{g.desc}</Text>
                 </View>
               </SoftCard>
-            </Reveal>
+            </View>
           );
         })}
       </View>
@@ -315,42 +304,34 @@ function NameStep({
 }) {
   return (
     <View style={styles.stepFill}>
-      <Reveal index={0}>
-        <Text style={styles.eyebrow}>PASO 2 · TÚ</Text>
-      </Reveal>
-      <Reveal index={1}>
-        <Text style={styles.title}>
-          ¿Cómo te <Text style={styles.titleAccent}>llamas</Text>?
-        </Text>
-      </Reveal>
-      <Reveal index={2}>
-        <SoftCard padded style={styles.inputCard}>
-          <TextInput
-            value={value}
-            onChangeText={onChange}
-            placeholder="Tu nombre"
-            placeholderTextColor={Colors.ink.muted}
-            cursorColor={Colors.gold.base}
-            selectionColor={Colors.gold.base}
-            style={styles.input}
-            autoCapitalize="words"
-            maxLength={32}
-            returnKeyType="done"
-            onSubmitEditing={onContinue}
-          />
-        </SoftCard>
-      </Reveal>
-      <Reveal index={3}>
-        <Text style={styles.helper}>Lo usaremos para personalizar tu experiencia.</Text>
-      </Reveal>
+      <Text style={styles.eyebrow}>PASO 2 · TÚ</Text>
+      <Text style={styles.title}>
+        ¿Cómo te <Text style={styles.titleAccent}>llamas</Text>?
+      </Text>
+      <SoftCard padded style={styles.inputCard}>
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          placeholder="Tu nombre"
+          placeholderTextColor={Colors.ink.muted}
+          cursorColor={Colors.gold.base}
+          selectionColor={Colors.gold.base}
+          style={styles.input}
+          autoCapitalize="words"
+          maxLength={32}
+          returnKeyType="done"
+          onSubmitEditing={onContinue}
+        />
+      </SoftCard>
+      <Text style={styles.helper}>Lo usaremos para personalizar tu experiencia.</Text>
 
       <View style={styles.spacer} />
-      <Reveal index={4} style={styles.fullWidth}>
+      <View style={styles.fullWidth}>
         <PrimaryCta
           label={normalizeName(value) ? 'Continuar' : 'Saltar por ahora'}
           onPress={onContinue}
         />
-      </Reveal>
+      </View>
     </View>
   );
 }
@@ -366,32 +347,25 @@ function EquipmentStep({
 }) {
   return (
     <View style={styles.stepFill}>
-      <Reveal index={0}>
-        <Text style={styles.eyebrow}>PASO 3 · MATERIAL</Text>
-      </Reveal>
-      <Reveal index={1}>
-        <Text style={styles.title}>
-          ¿Qué tienes <Text style={styles.titleAccent}>a mano</Text>?
-        </Text>
-      </Reveal>
-      <Reveal index={2}>
-        <Text style={styles.helper}>Opcional — si no eliges nada, asumimos peso corporal.</Text>
-      </Reveal>
+      <Text style={styles.eyebrow}>PASO 3 · MATERIAL</Text>
+      <Text style={styles.title}>
+        ¿Qué tienes <Text style={styles.titleAccent}>a mano</Text>?
+      </Text>
+      <Text style={styles.helper}>Opcional — si no eliges nada, asumimos peso corporal.</Text>
       <View style={styles.pillWrap}>
-        {EQUIPMENT.map((e, i) => (
-          <Reveal key={e.id} index={3 + i}>
-            <PillChip
-              label={e.label}
-              selected={selected.includes(e.id)}
-              onPress={() => onToggle(e.id)}
-            />
-          </Reveal>
+        {EQUIPMENT.map((e) => (
+          <PillChip
+            key={e.id}
+            label={e.label}
+            selected={selected.includes(e.id)}
+            onPress={() => onToggle(e.id)}
+          />
         ))}
       </View>
       <View style={styles.spacer} />
-      <Reveal index={3 + EQUIPMENT.length} style={styles.fullWidth}>
+      <View style={styles.fullWidth}>
         <PrimaryCta label="Crear mi espacio" onPress={onFinish} />
-      </Reveal>
+      </View>
     </View>
   );
 }
@@ -399,29 +373,21 @@ function EquipmentStep({
 function DoneStep({ name, onEnter }: { name: string | null; onEnter: () => void }) {
   return (
     <View style={styles.done}>
-      <Reveal index={0}>
-        <View style={styles.doneBadge}>
-          <Text style={styles.doneCheck}>✓</Text>
-        </View>
-      </Reveal>
-      <Reveal index={1}>
-        <Text style={[styles.eyebrow, styles.center]}>TODO LISTO</Text>
-      </Reveal>
-      <Reveal index={2}>
-        <Text style={styles.doneTitle}>
-          {name ? `${name}, tu ` : 'Tu '}
-          <Text style={styles.titleAccent}>espacio</Text>
-          {'\n'}está preparado.
-        </Text>
-      </Reveal>
-      <Reveal index={3}>
-        <Text style={[styles.subtitle, styles.center]}>
-          Hemos preparado tu primera rutina. Entra y empieza cuando quieras.
-        </Text>
-      </Reveal>
-      <Reveal index={4} style={styles.fullWidth}>
+      <View style={styles.doneBadge}>
+        <Text style={styles.doneCheck}>✓</Text>
+      </View>
+      <Text style={[styles.eyebrow, styles.center]}>TODO LISTO</Text>
+      <Text style={styles.doneTitle}>
+        {name ? `${name}, tu ` : 'Tu '}
+        <Text style={styles.titleAccent}>espacio</Text>
+        {'\n'}está preparado.
+      </Text>
+      <Text style={[styles.subtitle, styles.center]}>
+        Hemos preparado tu primera rutina. Entra y empieza cuando quieras.
+      </Text>
+      <View style={styles.fullWidth}>
         <PrimaryCta label="Entrar a mi espacio" onPress={onEnter} />
-      </Reveal>
+      </View>
     </View>
   );
 }
@@ -494,7 +460,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '88%',
   },
-  ghostPressed: { opacity: 0.7 },
   ghostText: { ...Type.bodyEmph, color: Colors.ink.secondary },
 
   primaryCta: { marginTop: Spacing.lg },
