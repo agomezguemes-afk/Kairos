@@ -47,16 +47,48 @@ import SoftCard from './SoftCard';
 interface PremiumOnboardingProps {
   /** Receives a first-value-ready draft (smart defaults already applied). */
   onComplete: (draft: OnboardingDraft) => void;
+  /** Deep-link to a specific step (default 'welcome'). Handy for previews/tests. */
+  initialStep?: OnboardingStepId;
 }
 
 // Each goal carries a vivid accent (from the discipline palette) so the choice
 // grid is colorful and energetic — the "aesthetic" lift — while the rest of the
 // app stays gold. Selection rings + glows in the goal's own color.
-const GOALS: { id: OnboardingGoal; label: string; icon: KIconName; accent: string }[] = [
-  { id: 'strength', label: 'Fuerza', icon: 'barbell', accent: Colors.discipline.strength },
-  { id: 'endurance', label: 'Resistencia', icon: 'running', accent: Colors.discipline.running },
-  { id: 'flexibility', label: 'Flexibilidad', icon: 'mat', accent: Colors.discipline.mobility },
-  { id: 'health', label: 'Salud general', icon: 'zap', accent: Colors.discipline.calisthenics },
+const GOALS: {
+  id: OnboardingGoal;
+  label: string;
+  desc: string;
+  icon: KIconName;
+  accent: string;
+}[] = [
+  {
+    id: 'strength',
+    label: 'Fuerza',
+    desc: 'Músculo y potencia',
+    icon: 'barbell',
+    accent: Colors.discipline.strength,
+  },
+  {
+    id: 'endurance',
+    label: 'Resistencia',
+    desc: 'Aguanta más',
+    icon: 'running',
+    accent: Colors.discipline.running,
+  },
+  {
+    id: 'flexibility',
+    label: 'Flexibilidad',
+    desc: 'Movilidad y calma',
+    icon: 'mat',
+    accent: Colors.discipline.mobility,
+  },
+  {
+    id: 'health',
+    label: 'Salud general',
+    desc: 'Bienestar diario',
+    icon: 'zap',
+    accent: Colors.discipline.calisthenics,
+  },
 ];
 
 const EQUIPMENT: { id: string; label: string }[] = [
@@ -75,9 +107,9 @@ const EQUIPMENT: { id: string; label: string }[] = [
 type Screen = OnboardingStepId | 'done';
 const STEP_ORDER: OnboardingStepId[] = ['welcome', 'goal', 'name', 'equipment'];
 
-export default function PremiumOnboarding({ onComplete }: PremiumOnboardingProps) {
+export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOnboardingProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<Screen>('welcome');
+  const [step, setStep] = useState<Screen>(initialStep ?? 'welcome');
   const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
   const [ready, setReady] = useState<OnboardingDraft | null>(null);
   const ttfv = useRef(makeTtfvTracker(Date.now()));
@@ -223,7 +255,7 @@ function GoalStep({
   onSelect: (id: OnboardingGoal) => void;
 }) {
   return (
-    <View>
+    <View style={styles.centerFill}>
       <Reveal index={0}>
         <Text style={styles.eyebrow}>PASO 1 · OBJETIVO</Text>
       </Reveal>
@@ -248,7 +280,10 @@ function GoalStep({
                 <View style={[styles.goalIconWrap, { backgroundColor: g.accent + '1A' }]}>
                   <KIcon name={g.icon} size={26} color={g.accent} strokeWidth={1.9} />
                 </View>
-                <Text style={[styles.goalLabel, selected && { color: g.accent }]}>{g.label}</Text>
+                <View style={styles.goalText}>
+                  <Text style={[styles.goalLabel, selected && { color: g.accent }]}>{g.label}</Text>
+                  <Text style={styles.goalDesc}>{g.desc}</Text>
+                </View>
               </SoftCard>
             </Reveal>
           );
@@ -268,7 +303,7 @@ function NameStep({
   onContinue: () => void;
 }) {
   return (
-    <View>
+    <View style={styles.stepFill}>
       <Reveal index={0}>
         <Text style={styles.eyebrow}>PASO 2 · TÚ</Text>
       </Reveal>
@@ -298,6 +333,7 @@ function NameStep({
         <Text style={styles.helper}>Lo usaremos para personalizar tu experiencia.</Text>
       </Reveal>
 
+      <View style={styles.spacer} />
       <Reveal index={4} style={styles.fullWidth}>
         <PrimaryCta
           label={normalizeName(value) ? 'Continuar' : 'Saltar por ahora'}
@@ -318,7 +354,7 @@ function EquipmentStep({
   onFinish: () => void;
 }) {
   return (
-    <View>
+    <View style={styles.stepFill}>
       <Reveal index={0}>
         <Text style={styles.eyebrow}>PASO 3 · MATERIAL</Text>
       </Reveal>
@@ -341,6 +377,7 @@ function EquipmentStep({
           </Reveal>
         ))}
       </View>
+      <View style={styles.spacer} />
       <Reveal index={3 + EQUIPMENT.length} style={styles.fullWidth}>
         <PrimaryCta label="Crear mi espacio" onPress={onFinish} />
       </Reveal>
@@ -389,6 +426,11 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: Spacing.screen.horizontal, flexGrow: 1 },
   stepBody: { flex: 1, paddingTop: Spacing.lg },
   fullWidth: { width: '100%' },
+  // Composition helpers: fill the viewport so the primary CTA anchors near the
+  // bottom (the studied apps compose the whole frame, never float in the top half).
+  stepFill: { flex: 1 },
+  centerFill: { flex: 1, justifyContent: 'center', paddingBottom: Spacing['2xl'] },
+  spacer: { flex: 1, minHeight: Spacing['2xl'] },
 
   welcome: { flex: 1, justifyContent: 'center', gap: Spacing.lg, paddingBottom: Spacing['3xl'] },
   welcomeCtas: { marginTop: Spacing['3xl'], gap: Spacing.md, alignItems: 'center' },
@@ -408,7 +450,7 @@ const styles = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   gridCell: { width: '48%', marginBottom: Spacing.md },
-  goalCard: { height: 140, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+  goalCard: { height: 152, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
   goalIconWrap: {
     width: 56,
     height: 56,
@@ -416,7 +458,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  goalLabel: { ...Type.bodyEmph, color: Colors.ink.primary },
+  goalText: { alignItems: 'center', gap: 3 },
+  goalLabel: { ...Type.subheading, color: Colors.ink.primary },
+  goalDesc: { ...Type.caption, color: Colors.ink.muted, textAlign: 'center' },
 
   inputCard: { marginBottom: Spacing.md },
   input: { ...Type.subheading, color: Colors.ink.primary, paddingVertical: Spacing.sm },
@@ -425,7 +469,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
-    marginBottom: Spacing['3xl'],
   },
 
   ghostCta: {
