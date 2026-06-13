@@ -215,25 +215,36 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
 function WelcomeStep({ onPersonalize, onSkip }: { onPersonalize: () => void; onSkip: () => void }) {
   return (
     <View style={styles.welcome}>
+      {/* Top: brand wordmark anchors the frame (the Senso move). */}
       <Reveal index={0}>
-        <Text style={styles.eyebrow}>BIENVENIDO A KAIROS</Text>
-      </Reveal>
-      <Reveal index={1}>
-        <Text style={styles.hero}>
-          Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
-        </Text>
-      </Reveal>
-      <Reveal index={2}>
-        <Text style={styles.subtitle}>
-          El primer lienzo que se adapta a ti, no al revés. Empieza en segundos.
+        <Text style={styles.wordmark}>
+          Kairos<Text style={styles.wordmarkDot}>.</Text>
         </Text>
       </Reveal>
 
+      {/* Middle: editorial hero, vertically centred in the remaining space. */}
+      <View style={styles.welcomeHero}>
+        <Reveal index={1}>
+          <Text style={styles.eyebrow}>TU TRAINING OS</Text>
+        </Reveal>
+        <Reveal index={2}>
+          <Text style={styles.hero}>
+            Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
+          </Text>
+        </Reveal>
+        <Reveal index={3}>
+          <Text style={styles.subtitle}>
+            El primer lienzo que se adapta a ti, no al revés. Empieza en segundos.
+          </Text>
+        </Reveal>
+      </View>
+
+      {/* Bottom: anchored CTAs. */}
       <View style={styles.welcomeCtas}>
-        <Reveal index={3} style={styles.fullWidth}>
+        <Reveal index={4} style={styles.fullWidth}>
           <GoldButton label="Empezar ahora" hint="Listo en 30 segundos" onPress={onSkip} />
         </Reveal>
-        <Reveal index={4} style={styles.fullWidth}>
+        <Reveal index={5} style={styles.fullWidth}>
           <Pressable
             accessibilityRole="button"
             onPress={onPersonalize}
@@ -432,8 +443,11 @@ const styles = StyleSheet.create({
   centerFill: { flex: 1, justifyContent: 'center', paddingBottom: Spacing['2xl'] },
   spacer: { flex: 1, minHeight: Spacing['2xl'] },
 
-  welcome: { flex: 1, justifyContent: 'center', gap: Spacing.lg, paddingBottom: Spacing['3xl'] },
-  welcomeCtas: { marginTop: Spacing['3xl'], gap: Spacing.md, alignItems: 'center' },
+  welcome: { flex: 1, paddingTop: Spacing.sm, paddingBottom: Spacing.lg },
+  wordmark: { ...Type.titleSmall, color: Colors.ink.primary, letterSpacing: -0.4 },
+  wordmarkDot: { color: Colors.gold.base },
+  welcomeHero: { flex: 1, justifyContent: 'center', gap: Spacing.lg },
+  welcomeCtas: { gap: Spacing.md, alignItems: 'center' },
 
   eyebrow: { ...Type.eyebrow, color: Colors.gold.deep, marginBottom: Spacing.sm },
   // Oversized editorial greeting — Fraunces Black, with the key word set in
@@ -478,7 +492,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.hair.strong,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '85%',
+    width: '88%',
   },
   ghostPressed: { opacity: 0.7 },
   ghostText: { ...Type.bodyEmph, color: Colors.ink.secondary },

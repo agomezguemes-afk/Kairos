@@ -17,9 +17,11 @@ interface GoldButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-// Soft top-lit metallic sheen: a touch lighter at the top, base in the middle,
-// slightly deeper at the bottom. Kept subtle — it should read as one gold.
-const SHEEN = ['#D8BD83', Colors.gold.base, '#B89456'] as const;
+// Soft top-lit metallic sheen: a crisp highlight at the very top, base through
+// the middle, a warm (not olive) deep gold at the bottom. Reads as one gold
+// with dimension, not a flat fill.
+const SHEEN = ['#EAD3A0', '#CFAC6E', Colors.gold.base, '#B68C49'] as const;
+const SHEEN_LOCATIONS = [0, 0.18, 0.6, 1] as const;
 
 function GoldButton({ label, onPress, hint, style }: GoldButtonProps) {
   const handlePress = useCallback(() => {
@@ -38,6 +40,7 @@ function GoldButton({ label, onPress, hint, style }: GoldButtonProps) {
       >
         <LinearGradient
           colors={SHEEN}
+          locations={SHEEN_LOCATIONS}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={styles.cta}
