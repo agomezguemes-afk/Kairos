@@ -33,6 +33,7 @@ import PillChip from './PillChip';
 import SoftCard from './SoftCard';
 import StepEnter from './motion/StepEnter';
 import AuthStep from './steps/AuthStep';
+import MeetKaiStep from './steps/MeetKaiStep';
 import ProfileStep from './steps/ProfileStep';
 import CoachStep from './steps/CoachStep';
 import BuildingStep from './steps/BuildingStep';
@@ -45,6 +46,7 @@ import PresentationStep from './steps/PresentationStep';
 type Screen =
   | 'welcome'
   | 'auth'
+  | 'meet-kai'
   | 'goal'
   | 'profile'
   | 'equipment'
@@ -193,7 +195,10 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
               (StepEnter), not a per-item ghost cascade. */}
           <StepEnter key={step} style={styles.stepBody}>
             {step === 'welcome' && <WelcomeStep onStart={() => setStep('auth')} />}
-            {step === 'auth' && <AuthStep onAuth={() => setStep('goal')} />}
+            {step === 'auth' && <AuthStep onAuth={() => setStep('meet-kai')} />}
+            {step === 'meet-kai' && (
+              <MeetKaiStep name={draft.name} onContinue={() => setStep('goal')} />
+            )}
             {step === 'goal' && <GoalStep value={draft.goal} onSelect={selectGoal} />}
             {step === 'profile' && (
               <ProfileStep
