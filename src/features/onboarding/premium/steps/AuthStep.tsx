@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors, Radius, Shadows, Spacing, Type } from '../../../../theme/tokens';
+import { Colors, Radius, Spacing, Type } from '../../../../theme/tokens';
 import { text } from '../textStyles';
 import PressableScale from '../motion/PressableScale';
 import { AppleGlyph, GoogleGlyph, MailGlyph } from './BrandGlyphs';
@@ -100,15 +100,24 @@ const styles = StyleSheet.create({
   hero: { flex: 1, justifyContent: 'center', gap: Spacing.lg },
   providers: { gap: Spacing.md },
 
+  // Flat sign-in buttons — pro apps don't float these. Solid dark / crisp white
+  // with a hairline; a whisper-tight contact shadow only on the dark one so it
+  // doesn't look pasted onto the warm ground.
   btn: {
     height: 56,
     borderRadius: Radius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    ...Shadows.subtle,
   },
-  btnDark: { backgroundColor: Colors.ink.primary },
+  btnDark: {
+    backgroundColor: Colors.ink.primary,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   btnLight: {
     backgroundColor: Colors.bg.surface,
     borderWidth: StyleSheet.hairlineWidth,
