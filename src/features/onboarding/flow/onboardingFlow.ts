@@ -12,6 +12,29 @@
 
 export type OnboardingGoal = 'strength' | 'endurance' | 'flexibility' | 'health';
 
+/** Self-reported training experience — shapes starter intensity/volume. */
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export const EXPERIENCE_LEVELS: readonly ExperienceLevel[] = [
+  'beginner',
+  'intermediate',
+  'advanced',
+];
+
+export const DEFAULT_EXPERIENCE: ExperienceLevel = 'beginner';
+
+/** Sessions per week the user wants to commit to. */
+export const MIN_DAYS_PER_WEEK = 1;
+export const MAX_DAYS_PER_WEEK = 7;
+export const DEFAULT_DAYS_PER_WEEK = 3;
+
+/**
+ * Hard cap on the free-text prompt the user writes to Kai (the AI copilot).
+ * This is an untrusted-input boundary that gets forwarded to an LLM, so the cap
+ * is a real guard (token cost + prompt-abuse surface), not just a UI nicety.
+ */
+export const MAX_AI_PROMPT_LEN = 500;
+
 // Mirrors the union accepted by src/lib/routines/generateStarterRoutine.ts.
 // Kept local (not imported) so this module pulls in no native dependencies.
 export const ONBOARDING_GOALS: readonly OnboardingGoal[] = [
@@ -34,9 +57,21 @@ export interface OnboardingDraft {
   goal: OnboardingGoal | null;
   name: string | null;
   equipment: readonly string[];
+  /** Deeper profile (collected after the goal) — all optional, all defaulted. */
+  experience: ExperienceLevel | null;
+  daysPerWeek: number | null;
+  /** Free-text context the user hands to Kai to shape their starter space. */
+  aiPrompt: string | null;
 }
 
-export const EMPTY_DRAFT: OnboardingDraft = { goal: null, name: null, equipment: [] };
+export const EMPTY_DRAFT: OnboardingDraft = {
+  goal: null,
+  name: null,
+  equipment: [],
+  experience: null,
+  daysPerWeek: null,
+  aiPrompt: null,
+};
 
 export type OnboardingStepId = 'welcome' | 'goal' | 'name' | 'equipment';
 
@@ -57,6 +92,27 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
 
 export function isValidGoal(value: unknown): value is OnboardingGoal {
   return typeof value === 'string' && (ONBOARDING_GOALS as readonly string[]).includes(value);
+}
+
+export function isValidExperience(value: unknown): value is ExperienceLevel {
+  return typeof value === 'string' && (EXPERIENCE_LEVELS as readonly string[]).includes(value);
+}
+
+/** Round + clamp to [1, 7]; null for non-finite/non-number input. */
+export function clampDaysPerWeek(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.min(MAX_DAYS_PER_WEEK, Math.max(MIN_DAYS_PER_WEEK, Math.round(value)));
+}
+
+/**
+ * Trim, collapse whitespace, cap at MAX_AI_PROMPT_LEN. Returns null for empty /
+ * non-string input. This is the sanitizer for the untrusted Kai prompt.
+ */
+export function normalizeAiPrompt(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const collapsed = raw.trim().replace(/\s+/g, ' ');
+  if (collapsed.length === 0) return null;
+  return collapsed.slice(0, MAX_AI_PROMPT_LEN);
 }
 
 /**
@@ -93,6 +149,10 @@ export function applySmartDefaults(draft: OnboardingDraft): OnboardingDraft {
     goal: isValidGoal(draft.goal) ? draft.goal : DEFAULT_GOAL,
     name: normalizeName(draft.name),
     equipment: equipment.length > 0 ? equipment : [DEFAULT_EQUIPMENT],
+    experience: isValidExperience(draft.experience) ? draft.experience : DEFAULT_EXPERIENCE,
+    daysPerWeek: clampDaysPerWeek(draft.daysPerWeek) ?? DEFAULT_DAYS_PER_WEEK,
+    // The Kai prompt stays optional — null is a valid "no extra context".
+    aiPrompt: normalizeAiPrompt(draft.aiPrompt),
   };
 }
 
@@ -124,6 +184,9 @@ export function fullProgress(draft: OnboardingDraft): number {
     isValidGoal(draft.goal),
     normalizeName(draft.name) !== null,
     dedupe(draft.equipment).length > 0,
+    isValidExperience(draft.experience),
+    clampDaysPerWeek(draft.daysPerWeek) !== null,
+    normalizeAiPrompt(draft.aiPrompt) !== null,
   ];
   const done = checks.filter(Boolean).length;
   return done / checks.length;

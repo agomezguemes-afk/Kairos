@@ -1,15 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
   applySmartDefaults,
+  clampDaysPerWeek,
+  DEFAULT_DAYS_PER_WEEK,
   DEFAULT_EQUIPMENT,
+  DEFAULT_EXPERIENCE,
   DEFAULT_GOAL,
   EMPTY_DRAFT,
   firstValueReady,
   fullProgress,
+  isValidExperience,
   isValidGoal,
   makeTtfvTracker,
+  MAX_AI_PROMPT_LEN,
+  MAX_DAYS_PER_WEEK,
   MAX_NAME_LEN,
   MAX_TTFV_MS,
+  MIN_DAYS_PER_WEEK,
+  normalizeAiPrompt,
   normalizeName,
   requiredProgress,
   skipToValue,
@@ -56,14 +64,38 @@ describe('applySmartDefaults', () => {
     expect(out.equipment).toEqual([DEFAULT_EQUIPMENT]);
     expect(out.name).toBeNull();
 
-    const kept = applySmartDefaults({ goal: 'endurance', name: ' Sam ', equipment: ['dumbbells'] });
+    const kept = applySmartDefaults({
+      ...EMPTY_DRAFT,
+      goal: 'endurance',
+      name: ' Sam ',
+      equipment: ['dumbbells'],
+    });
     expect(kept.goal).toBe('endurance');
     expect(kept.name).toBe('Sam');
     expect(kept.equipment).toEqual(['dumbbells']);
   });
 
+  it('defaults the deeper profile fields, keeps valid ones', () => {
+    const out = applySmartDefaults(EMPTY_DRAFT);
+    expect(out.experience).toBe(DEFAULT_EXPERIENCE);
+    expect(out.daysPerWeek).toBe(DEFAULT_DAYS_PER_WEEK);
+    expect(out.aiPrompt).toBeNull();
+
+    const kept = applySmartDefaults({
+      ...EMPTY_DRAFT,
+      goal: 'strength',
+      experience: 'advanced',
+      daysPerWeek: 5,
+      aiPrompt: '  Quiero ganar fuerza  ',
+    });
+    expect(kept.experience).toBe('advanced');
+    expect(kept.daysPerWeek).toBe(5);
+    expect(kept.aiPrompt).toBe('Quiero ganar fuerza');
+  });
+
   it('dedupes equipment and drops blanks', () => {
     const out = applySmartDefaults({
+      ...EMPTY_DRAFT,
       goal: 'health',
       name: null,
       equipment: ['dumbbells', 'dumbbells', '', 'barbell_plates'],
@@ -85,11 +117,58 @@ describe('progress', () => {
     expect(requiredProgress({ ...EMPTY_DRAFT, goal: 'health' })).toBe(1);
   });
 
-  it('fullProgress counts goal + name + equipment thirds', () => {
+  it('fullProgress counts all six profile dimensions', () => {
     expect(fullProgress(EMPTY_DRAFT)).toBe(0);
-    expect(fullProgress({ goal: 'health', name: null, equipment: [] })).toBeCloseTo(1 / 3);
-    const full: OnboardingDraft = { goal: 'health', name: 'Sam', equipment: ['dumbbells'] };
+    expect(fullProgress({ ...EMPTY_DRAFT, goal: 'health' })).toBeCloseTo(1 / 6);
+    const full: OnboardingDraft = {
+      goal: 'health',
+      name: 'Sam',
+      equipment: ['dumbbells'],
+      experience: 'intermediate',
+      daysPerWeek: 4,
+      aiPrompt: 'Correr un 10k',
+    };
     expect(fullProgress(full)).toBe(1);
+  });
+});
+
+describe('isValidExperience', () => {
+  it('accepts the three levels, rejects the rest', () => {
+    expect(isValidExperience('beginner')).toBe(true);
+    expect(isValidExperience('advanced')).toBe(true);
+    expect(isValidExperience('pro')).toBe(false);
+    expect(isValidExperience(null)).toBe(false);
+    expect(isValidExperience(3)).toBe(false);
+  });
+});
+
+describe('clampDaysPerWeek', () => {
+  it('rounds and clamps into [1, 7]', () => {
+    expect(clampDaysPerWeek(0)).toBe(MIN_DAYS_PER_WEEK);
+    expect(clampDaysPerWeek(99)).toBe(MAX_DAYS_PER_WEEK);
+    expect(clampDaysPerWeek(3.4)).toBe(3);
+    expect(clampDaysPerWeek(4.6)).toBe(5);
+  });
+
+  it('returns null for non-finite / non-number', () => {
+    expect(clampDaysPerWeek(NaN)).toBeNull();
+    expect(clampDaysPerWeek(Infinity)).toBeNull();
+    expect(clampDaysPerWeek('3')).toBeNull();
+    expect(clampDaysPerWeek(null)).toBeNull();
+  });
+});
+
+describe('normalizeAiPrompt', () => {
+  it('trims, collapses whitespace, and caps at MAX_AI_PROMPT_LEN', () => {
+    expect(normalizeAiPrompt('  hola   Kai  ')).toBe('hola Kai');
+    expect(normalizeAiPrompt('x'.repeat(MAX_AI_PROMPT_LEN + 200))).toHaveLength(MAX_AI_PROMPT_LEN);
+  });
+
+  it('returns null for empty / non-string', () => {
+    expect(normalizeAiPrompt('   ')).toBeNull();
+    expect(normalizeAiPrompt('')).toBeNull();
+    expect(normalizeAiPrompt(null)).toBeNull();
+    expect(normalizeAiPrompt(undefined)).toBeNull();
   });
 });
 
