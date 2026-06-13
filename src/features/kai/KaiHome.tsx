@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
 import { Fonts } from '../../theme/fonts';
 import { useTactile } from '../onboarding/premium/motion/useTactile';
+import KaiOrb from '../onboarding/premium/KaiOrb';
 import { journalHeader } from './homeHeader';
 import KaiProposalCard from './KaiProposalCard';
 import type { Proposal } from './proposal';
@@ -60,21 +61,24 @@ export default function KaiHome({
         {name ? `, ${name}` : ''}
         <Text style={styles.dot}>.</Text>
       </Text>
-      <Text style={styles.sub}>
-        {proposal
-          ? 'Mientras no estabas, Kai pensó esto.'
-          : 'Tu espacio está en orden. Hoy decides tú.'}
-      </Text>
-
       {proposal ? (
-        <View style={styles.proposalWrap}>
-          <KaiProposalCard
-            proposal={proposal}
-            onAccept={onAcceptProposal}
-            onDismiss={onDismissProposal}
-          />
+        <>
+          <Text style={styles.sub}>Mientras no estabas, Kai pensó esto.</Text>
+          <View style={styles.proposalWrap}>
+            <KaiProposalCard
+              proposal={proposal}
+              onAccept={onAcceptProposal}
+              onDismiss={onDismissProposal}
+            />
+          </View>
+        </>
+      ) : (
+        // Silence is a feature: a calm, present Kai instead of a filled screen.
+        <View style={styles.quiet}>
+          <KaiOrb size={26} />
+          <Text style={styles.quietText}>Todo en orden. Hoy mandas tú.</Text>
         </View>
-      ) : null}
+      )}
 
       <View style={styles.spaceHeader}>
         <Text style={styles.spaceEyebrow}>TU ESPACIO</Text>
@@ -160,6 +164,14 @@ const styles = StyleSheet.create({
   sub: { ...Type.body, fontSize: 16, color: Colors.ink.tertiary, marginBottom: Spacing.sm },
 
   proposalWrap: { marginBottom: Spacing.sm },
+  quiet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  quietText: { ...Type.body, fontSize: 16, color: Colors.ink.tertiary },
 
   spaceHeader: {
     flexDirection: 'row',
