@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import KIcon, { type KIconName } from '../../../components/icons/KIcon';
 import { Colors, Radius, Shadows, Spacing, Type } from '../../../theme/tokens';
+import { Fonts } from '../../../theme/fonts';
 import {
   applySmartDefaults,
   EMPTY_DRAFT,
@@ -187,8 +188,7 @@ function WelcomeStep({ onPersonalize, onSkip }: { onPersonalize: () => void; onS
       </Reveal>
       <Reveal index={1}>
         <Text style={styles.hero}>
-          Tu entrenamiento,{'\n'}
-          <Text style={styles.heroAccent}>tu espacio.</Text>
+          Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
         </Text>
       </Reveal>
       <Reveal index={2}>
@@ -228,7 +228,9 @@ function GoalStep({
         <Text style={styles.eyebrow}>PASO 1 · OBJETIVO</Text>
       </Reveal>
       <Reveal index={1}>
-        <Text style={styles.title}>¿Cuál es tu objetivo?</Text>
+        <Text style={styles.title}>
+          ¿Cuál es tu <Text style={styles.titleAccent}>objetivo</Text>?
+        </Text>
       </Reveal>
       <View style={styles.grid}>
         {GOALS.map((g, i) => {
@@ -271,7 +273,9 @@ function NameStep({
         <Text style={styles.eyebrow}>PASO 2 · TÚ</Text>
       </Reveal>
       <Reveal index={1}>
-        <Text style={styles.title}>¿Cómo te llamas?</Text>
+        <Text style={styles.title}>
+          ¿Cómo te <Text style={styles.titleAccent}>llamas</Text>?
+        </Text>
       </Reveal>
       <Reveal index={2}>
         <SoftCard padded style={styles.inputCard}>
@@ -319,7 +323,9 @@ function EquipmentStep({
         <Text style={styles.eyebrow}>PASO 3 · MATERIAL</Text>
       </Reveal>
       <Reveal index={1}>
-        <Text style={styles.title}>¿Qué tienes a mano?</Text>
+        <Text style={styles.title}>
+          ¿Qué tienes <Text style={styles.titleAccent}>a mano</Text>?
+        </Text>
       </Reveal>
       <Reveal index={2}>
         <Text style={styles.helper}>Opcional — si no eliges nada, asumimos peso corporal.</Text>
@@ -355,7 +361,9 @@ function DoneStep({ name, onEnter }: { name: string | null; onEnter: () => void 
       </Reveal>
       <Reveal index={2}>
         <Text style={styles.doneTitle}>
-          {name ? `${name}, tu espacio\nestá preparado.` : 'Tu espacio\nestá preparado.'}
+          {name ? `${name}, tu ` : 'Tu '}
+          <Text style={styles.titleAccent}>espacio</Text>
+          {'\n'}está preparado.
         </Text>
       </Reveal>
       <Reveal index={3}>
@@ -386,16 +394,15 @@ const styles = StyleSheet.create({
   welcomeCtas: { marginTop: Spacing['3xl'], gap: Spacing.md, alignItems: 'center' },
 
   eyebrow: { ...Type.eyebrow, color: Colors.gold.deep, marginBottom: Spacing.sm },
-  hero: {
-    ...Type.title,
-    fontSize: 44,
-    lineHeight: 47,
-    fontWeight: '700',
-    letterSpacing: -1,
-    color: Colors.ink.primary,
-  },
-  heroAccent: { color: Colors.gold.base },
+  // Oversized editorial greeting — Fraunces Black, with the key word set in
+  // Fraunces italic gold (heavy-upright + light-italic = the signature voice).
+  hero: { ...Type.heroDisplay, color: Colors.ink.primary },
+  // Dedicated italic TTF — reference by family only (no fontStyle, which would
+  // synthetically double-skew an already-italic face on Android).
+  heroAccent: { fontFamily: Fonts.serifSemiBoldItalic, color: Colors.gold.base },
   title: { ...Type.title, color: Colors.ink.primary, marginBottom: Spacing['2xl'] },
+  // Italic accent word inside a serif title (inherits the title's size).
+  titleAccent: { fontFamily: Fonts.serifSemiBoldItalic, color: Colors.gold.base },
   subtitle: { ...Type.body, fontSize: 16, lineHeight: 24, color: Colors.ink.tertiary },
   helper: { ...Type.caption, color: Colors.ink.muted, marginBottom: Spacing.xl },
 

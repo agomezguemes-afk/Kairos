@@ -187,12 +187,12 @@ export const Type = {
   },
   // Emphasized editorial word — Fraunces SemiBold *Italic*. Use sparingly for
   // the one word that carries the line (e.g. "tu *espacio*").
+  // Dedicated italic TTF — no fontStyle (avoids synthetic double-skew on Android).
   serifAccent: {
     fontFamily: Fonts.serifSemiBoldItalic,
     fontSize: 32,
     lineHeight: 37,
     fontWeight: '600' as const,
-    fontStyle: 'italic' as const,
     letterSpacing: -0.8,
   },
 
