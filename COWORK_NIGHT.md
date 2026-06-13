@@ -69,6 +69,13 @@ ScheduleWakeup to continue. On resume, read this file first.
 - 09:04 — night-run still 18 ahead of dev (not merged) → additive path: hardened
   1RM math vs non-finite input (NaN propagation into PR detection) + added the
   missing oneRM test suite (ed12037). 100/100.
+- ~04:1x (next day) — resumed. SECURITY #10 (ws advisory) triaged. Readiness
+  robustness vs non-finite/future history (+7 tests, 607386f). 107/107.
+- 04:1x–04:35 — **Brand type identity + live design polish.** Vendored Fraunces
+  + Plus Jakarta Sans, Type v4 (e2a68b6); editorial voice (726e950); full-frame
+  composition + rich goal cards (26e5f02); 3-zone welcome + metallic gold
+  (b95fe90). Ran iOS simulator (iPhone 16e, Expo Go, Fast Refresh) and iterated
+  screenshot→polish across all 5 onboarding screens. typecheck clean, 107/107.
 
 ## State: lane largely complete
 All 6 fixable findings + the input-DoS guard shipped; onboarding architecture +
@@ -85,10 +92,22 @@ Field-studied Behance "app ui ux" (Senso, Notis+, +grid; captures in
   greeting, gold accent, soft cards, pill equipment, calm progress, skip-to-
   value, TTFV-tracked (`0efba68`).
 - [x] **C3** Celebratory completion reveal (`bf85c6f`/commit). 100/100.
+- [x] **C7** **Brand type identity** (Álvaro: "fuente creativa propia nueva").
+  Fraunces (signature editorial serif) + Plus Jakarta Sans, vendored to
+  assets/fonts (offline, OFL). `src/theme/fonts.ts` + `FontGate.tsx`; tokens
+  Type v4 with explicit per-weight families → propagates app-wide. (`e2a68b6`)
+- [x] **C8** Editorial type voice in onboarding: Fraunces Black hero + italic
+  gold accent word on every headline. (`726e950`)
+- [x] **C9** Full-frame composition (anchored CTAs, centred goal grid) + richer
+  goal cards w/ descriptors. (`26e5f02`)
+- [x] **C10** Branded 3-zone welcome (`Kairos.` wordmark) + cleaner metallic
+  gold button. (`b95fe90`) **Verified live on iOS sim across all 5 screens.**
 - [ ] **C4** More reusable premium primitives to spread identity app-wide
   (SectionHeader, StatNumeral via Type.numHero, EmptyState). Additive.
 - [ ] **C5** When night-run merges: mount PremiumOnboarding in the navigator +
-  persist the returned draft (replaces/augments the old OnboardingScreen).
+  persist the returned draft (replaces/augments the old OnboardingScreen). Note
+  the real App.tsx must wrap the tree in `<FontGate>` (one line) to load the
+  brand fonts — the preview harness already shows the pattern.
 - [ ] **C6** Study Behance home/progress screens; apply soft-card + numeral
   language to ProgressTab/Home (additive components first).
 

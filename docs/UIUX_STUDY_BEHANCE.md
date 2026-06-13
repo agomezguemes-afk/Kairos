@@ -46,7 +46,38 @@ language, and an onboarding that *shows it off*. Both shipped here.
   the screens the night-run is editing. One-line mount documented in the
   component header.
 
+## Type identity — the creative voice (shipped)
+The app had no type identity of its own (System sans + the OS serif "New York").
+It now has one, grounded in the studied editorial language and propagated
+app-wide through `tokens.ts` (every `Type.*` consumer inherits it):
+
+- **Fraunces** — signature editorial serif (soft/wonk character). The creative
+  voice: oversized greetings (`Type.heroDisplay`, Fraunces Black), large titles
+  (`Type.title`), the **italic gold accent word** (`Type.serifAccent` /
+  `serifSemiBoldItalic`) that carries one word per headline, and hero numerals
+  (`Type.numHero`). Heavy-upright + light-italic is the recognizable move.
+- **Plus Jakarta Sans** — warm geometric workhorse for body, labels, controls,
+  and tabular numerals.
+- Vendored to `assets/fonts/` (offline, OFL-licensed) and loaded via
+  `src/theme/fonts.ts` (`useKairosFonts`) behind `src/theme/FontGate.tsx` so the
+  first paint never flashes system → brand. RN gotcha handled: each weight is a
+  separately-registered family (fontWeight is ignored for custom faces), and
+  italic uses a dedicated TTF (no synthetic Android skew).
+
+## Composition lift (shipped)
+The earlier screens floated in the top ~60% of the frame — the single biggest
+gap vs Senso/Notis+. Fixed: the onboarding now composes the whole frame.
+- Welcome is a 3-zone layout: `Kairos.` wordmark (top) · editorial hero
+  (centred) · CTAs (anchored bottom).
+- Question steps anchor the primary CTA near the bottom via a flex spacer; the
+  goal grid centres vertically.
+- Goal cards gained a one-line descriptor (label + muted caption) for Senso-style
+  product-card depth. GoldButton sheen reworked for real metallic dimension.
+
+Verified live on the iOS simulator (iPhone 16e) across all five screens —
+captures in `/tmp/kairos-shots/`.
+
 ## Identity guardrails (kept)
 - White/warm-off-white ground, gold is rare and meaningful (never decorative).
-- Serif reserved for hero titles/numerals only; system sans elsewhere.
+- Serif (Fraunces) reserved for hero titles/accents/numerals; Jakarta elsewhere.
 - Hairlines + soft shadows over hard borders. Motion serves comprehension.
