@@ -30,8 +30,8 @@ interface MeetKaiStepProps {
 
 const LINES = (name: string | null) => [
   name ? `Hola, ${name}. Soy Kai.` : 'Hola. Soy Kai.',
-  'Tu copiloto. Voy a acompañarte en cada entrenamiento.',
-  'Construyamos tu espacio juntos.',
+  'Tu copiloto. Voy a estar cerca, sin hacer ruido.',
+  'Vamos a montar tu espacio.',
 ];
 
 export default function MeetKaiStep({ name, onContinue }: MeetKaiStepProps) {

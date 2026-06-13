@@ -68,8 +68,8 @@ export function generateProposals(input: ProposalInputs, max = 2): Proposal[] {
         id: 'start',
         kind: 'start',
         tone: 'focus',
-        headline: 'Empecemos tu espacio',
-        detail: 'Aún no tienes ningún bloque. Puedo crear el primero contigo en un minuto.',
+        headline: 'Tu espacio está vacío',
+        detail: 'Empecemos por el primer bloque. Lo montamos juntos en un minuto.',
         acceptLabel: 'Crear con Kai',
         priority: 100,
       },
@@ -82,8 +82,8 @@ export function generateProposals(input: ProposalInputs, max = 2): Proposal[] {
       id: `pr-${input.recentPr.name}`,
       kind: 'progress',
       tone: 'celebrate',
-      headline: `Nuevo récord en ${input.recentPr.name}`,
-      detail: 'Lo registré en tu progreso. Vas hacia arriba — mantengamos el estímulo.',
+      headline: `Récord en ${input.recentPr.name}`,
+      detail: 'Lo dejé anotado en tu progreso. Vas subiendo.',
       acceptLabel: 'Ver progreso',
       priority: 90,
     });
@@ -95,9 +95,9 @@ export function generateProposals(input: ProposalInputs, max = 2): Proposal[] {
       id: `streak-${milestone}`,
       kind: 'progress',
       tone: 'celebrate',
-      headline: `${milestone} días de racha`,
-      detail: 'Esto ya es identidad, no fuerza de voluntad. Sigue así.',
-      acceptLabel: 'Seguir',
+      headline: `${milestone} días seguidos`,
+      detail: 'Ya no es esfuerzo. Es quién eres.',
+      acceptLabel: 'Ver racha',
       priority: 85,
     });
   }
@@ -109,7 +109,7 @@ export function generateProposals(input: ProposalInputs, max = 2): Proposal[] {
       kind: 'deload',
       tone: 'recover',
       headline: 'Mucha carga esta semana',
-      detail: `Llevas ${input.sessionsLast7Days} sesiones en 7 días. Te propongo una sesión más ligera o un día de descanso para que el progreso cuaje.`,
+      detail: `${input.sessionsLast7Days} sesiones en siete días. Hoy yo bajaría el ritmo — el progreso cuaja en el descanso.`,
       acceptLabel: 'Aligerar hoy',
       priority: 80,
     });
@@ -121,10 +121,10 @@ export function generateProposals(input: ProposalInputs, max = 2): Proposal[] {
       id: `plateau-${input.stalledLift.name}`,
       kind: 'insight',
       tone: 'focus',
-      headline: `${input.stalledLift.name} lleva ${input.stalledLift.weeks} semanas estancado`,
+      headline: `${input.stalledLift.name} lleva ${input.stalledLift.weeks} semanas plano`,
       detail:
-        'Suele ser estímulo repetido. Puedo cambiar la variante o bajar volumen una semana para romper la meseta.',
-      acceptLabel: 'Proponer cambio',
+        'Suele ser el mismo estímulo. Si quieres, cambio la variante o bajo volumen una semana.',
+      acceptLabel: 'Cambiar algo',
       priority: 70,
     });
   }
@@ -139,8 +139,9 @@ export function generateProposals(input: ProposalInputs, max = 2): Proposal[] {
         id: `balance-${top[0]}`,
         kind: 'balance',
         tone: 'focus',
-        headline: 'Tu entrenamiento está muy concentrado',
-        detail: `Casi todo es ${spanishDomain(top[0])} últimamente. Un bloque complementario te haría más completo y reduciría el riesgo de lesión.`,
+        headline: `Casi todo es ${spanishDomain(top[0])} últimamente`,
+        detail:
+          'Un día de otra cosa te haría más completo y cuidaría las articulaciones. Puedo sugerir un bloque.',
         acceptLabel: 'Sugerir bloque',
         priority: 60,
       });
@@ -153,8 +154,8 @@ export function generateProposals(input: ProposalInputs, max = 2): Proposal[] {
       id: 'return',
       kind: 'recover',
       tone: 'recover',
-      headline: 'Bienvenido de vuelta',
-      detail: `Han pasado ${input.daysSinceLastWorkout} días. Empecemos suave para reconectar — sin prisa.`,
+      headline: 'Cuánto tiempo',
+      detail: `${input.daysSinceLastWorkout} días fuera. Volvemos suave, sin prisa.`,
       acceptLabel: 'Sesión suave',
       priority: 50,
     });
