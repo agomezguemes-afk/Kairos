@@ -16,7 +16,9 @@ import { useTactile } from '../onboarding/premium/motion/useTactile';
 import KaiOrb from '../onboarding/premium/KaiOrb';
 import { journalHeader } from './homeHeader';
 import KaiProposalCard from './KaiProposalCard';
+import KaiReflectionCard from './KaiReflectionCard';
 import type { Proposal } from './proposal';
+import type { Reflection } from './reflection';
 
 export interface HomeBlock {
   id: string;
@@ -30,9 +32,12 @@ interface KaiHomeProps {
   name: string | null;
   /** The single proposal Kai surfaces today (or null = Kai is silent). */
   proposal: Proposal | null;
+  /** A periodic "how far you've come" moment; takes precedence over a proposal. */
+  reflection?: Reflection | null;
   blocks: HomeBlock[];
   onAcceptProposal: (p: Proposal) => void;
   onDismissProposal: (p: Proposal) => void;
+  onDismissReflection?: () => void;
   onOpenBlock: (id: string) => void;
   /** Injectable clock for tests/previews. */
   now?: Date;
@@ -41,9 +46,11 @@ interface KaiHomeProps {
 export default function KaiHome({
   name,
   proposal,
+  reflection,
   blocks,
   onAcceptProposal,
   onDismissProposal,
+  onDismissReflection,
   onOpenBlock,
   now,
 }: KaiHomeProps) {
@@ -61,7 +68,13 @@ export default function KaiHome({
         {name ? `, ${name}` : ''}
         <Text style={styles.dot}>.</Text>
       </Text>
-      {proposal ? (
+      {/* One Kai moment at most (silence > noise): a reflection takes precedence
+          over a proposal; otherwise Kai stays quietly present. */}
+      {reflection ? (
+        <View style={styles.proposalWrap}>
+          <KaiReflectionCard reflection={reflection} onDismiss={onDismissReflection} />
+        </View>
+      ) : proposal ? (
         <>
           <Text style={styles.sub}>Mientras no estabas, Kai pensó esto.</Text>
           <View style={styles.proposalWrap}>
