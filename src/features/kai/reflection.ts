@@ -59,6 +59,17 @@ function n(value: number): string {
  * are tested directly.
  */
 export function reflect(input: ReflectionInputs): Reflection | null {
+  // Cold start is where churn is highest (KAIROS_CRITIQUE §7): the first
+  // sessions, before there's any trend to show. Acknowledge the one thing that's
+  // already real — that you started — in the present tense (Segar), plainly.
+  if (input.sessionsTotal >= 1 && input.sessionsTotal < MIN_SESSIONS) {
+    return {
+      headline:
+        input.sessionsTotal === 1 ? 'Primera sesión hecha.' : `${input.sessionsTotal} sesiones ya.`,
+      lines: ['Lo más difícil de entrenar es empezar.'],
+    };
+  }
+
   if (input.weeksTraining < MIN_WEEKS || input.sessionsTotal < MIN_SESSIONS) return null;
 
   const realGains = input.gains

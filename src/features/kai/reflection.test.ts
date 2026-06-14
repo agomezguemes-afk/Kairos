@@ -9,9 +9,18 @@ const BASE: ReflectionInputs = {
 };
 
 describe('reflect', () => {
-  it('stays silent when it is too early to honestly reflect', () => {
-    expect(reflect({ ...BASE, weeksTraining: 1 })).toBeNull();
-    expect(reflect({ ...BASE, sessionsTotal: 3 })).toBeNull();
+  it('stays silent for a never-trained user', () => {
+    expect(reflect({ weeksTraining: 0, sessionsTotal: 0, gains: [], domainsCount: 0 })).toBeNull();
+  });
+
+  it('acknowledges the cold start (first sessions) — where churn is highest', () => {
+    const first = reflect({ weeksTraining: 1, sessionsTotal: 1, gains: [], domainsCount: 1 });
+    expect(first).not.toBeNull();
+    expect(first!.headline).toBe('Primera sesión hecha.');
+    expect(first!.lines[0]).toMatch(/empezar/);
+
+    const third = reflect({ weeksTraining: 1, sessionsTotal: 3, gains: [], domainsCount: 1 });
+    expect(third!.headline).toBe('3 sesiones ya.');
   });
 
   it('shows the biggest real gain in plain, specific words', () => {
