@@ -174,3 +174,4 @@ Field-studied Behance "app ui ux" (Senso, Notis+, +grid; captures in
    readiness edge cases) — additive, no collision.
 - 10:0x (loop) — iter 1: `reflection.ts` (+8): Kai shows how far you've come (the visible moat). 158 tests.
 - 10:1x (loop) — iter 2: `KaiReflectionCard` + KaiHome integ — the visible moat ("8 semanas. 24 sesiones. Tu 5k bajó…"). Verified on sim. 158 tests.
+- 10:2x (loop) — iter 3: `deriveSnapshot` (+5, incl. end-to-end store→think). The Kai brain pipeline runs on real-store-shaped data. 163 tests.
