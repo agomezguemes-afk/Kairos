@@ -178,3 +178,4 @@ Field-studied Behance "app ui ux" (Senso, Notis+, +grid; captures in
 - 19:5x (loop) — iter 4: cold-start reflection (la semana 1, donde más se abandona). 164 tests.
 - 19:5x (loop) — iter 5 (anti-slop): redesigned KaiOrb (glossy AI bauble → crafted gold seal). Verified on sim. Restarted Metro -c (RNSVG hot-reload registry pollution).
 - 20:1x (loop) — iter 6: KaiFace first take (orb→character with face+emotions, Álvaro's pivot). Verified on sim (__FacePreview). HONEST: leans emoji-cute; needs editorial refinement (eyes/brows/palette). NOT yet propagated to real screens — awaiting Álvaro's style steer.
+- 20:2x (loop) — iter 7: KaiFace redesigned to the LOGO CUBE with a face (Álvaro's steer) — living gold block, fluid bob/tilt/squash/blink. Verified on sim.
