@@ -1,11 +1,12 @@
-// KAIROS — KaiFace: Kai is the brand's block, alive.
+// KAIROS — KaiFace: Kai's character. Flat & clean, with deeply animated emotions.
 //
-// Álvaro's call: Kai should BE the logo's cube — a gold block (the brand atom;
-// the app is literally built from training "blocks") with eyes + a mouth, and
-// VERY fluid motion. So Kai is a 3D isometric gold cube (top + front + side
-// faces) with a soft face on the front. It bobs, tilts and breathes on smooth
-// sine loops, blinks, and squashes-&-stretches with the bob (classic fluid
-// animation). Emotion is carried by the eyes + mouth. Reduce-motion → calm hold.
+// Álvaro: drop the 3D (cheap); what matters is fluid, finely-crafted emotion
+// animation. So Kai is a flat gold block (the brand atom, 2D and clean) whose
+// LIFE is in the motion: eyes and mouth morph between feelings on springs, it
+// blinks, breathes, glances around, and squash-&-stretch-bounces when it's
+// pleased. Emotions don't snap — they ease. Reduce-motion holds a calm neutral.
+//
+// emotion: 'idle' | 'happy' | 'thinking' | 'proud' | 'rest'
 
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -18,12 +19,15 @@ import Animated, {
   withDelay,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
+  type WithSpringConfig,
 } from 'react-native-reanimated';
-import Svg, { Ellipse, Path, Polygon } from 'react-native-svg';
+import Svg, { Defs, Ellipse, LinearGradient, Path, Stop } from 'react-native-svg';
 import { Colors } from '../../../theme/tokens';
 
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 export type KaiEmotion = 'idle' | 'happy' | 'thinking' | 'proud' | 'rest';
 
@@ -32,34 +36,56 @@ interface KaiFaceProps {
   emotion?: KaiEmotion;
 }
 
-// Isometric cube faces on a 100×100 stage. Front face is the character's face.
-const FRONT = { x: 22, y: 34, w: 52, h: 56, rx: 7 };
-const FX = FRONT.x + FRONT.w / 2; // 48 — face centre x
-const EYE_Y = 58;
-const EYE_DX = 11;
-const EYE_RX = 5.2;
-const EYE_RY = 7.2;
+// Flat block on a 100×100 stage. Face features live on it.
+const BODY = { x: 18, y: 20, w: 64, h: 64, rx: 17 };
+const FX = 50; // face centre x
+const EYE_Y = 49;
+const EYE_DX = 13;
+const EYE_RX = 6;
+const EYE_RY = 7.6;
+const MOUTH_Y = 67;
+
+// Emotions ease, never snap.
+const EASE: WithSpringConfig = { damping: 15, stiffness: 170, mass: 0.9 };
 
 export default function KaiFace({ size = 96, emotion = 'idle' }: KaiFaceProps) {
   const reduce = useReducedMotion();
+
+  // Emotion targets (spring-interpolated → fluid morphs).
+  const joy = useSharedValue(0); // squints eyes + reveals happy arcs
+  const smile = useSharedValue(0.4); // mouth curve
+  const up = useSharedValue(0); // gaze up (thinking)
+  const pop = useSharedValue(0); // one-shot bounce on a pleased emotion
+
+  // Continuous life.
   const blink = useSharedValue(1);
-  const bob = useSharedValue(0); // 0..1 sine
+  const breathe = useSharedValue(0);
   const look = useSharedValue(0);
+
+  useEffect(() => {
+    const pleased = emotion === 'happy' || emotion === 'proud' || emotion === 'rest';
+    joy.value = withSpring(pleased ? 1 : 0, EASE);
+    smile.value = withSpring(emotion === 'thinking' ? 0 : pleased ? 1 : 0.4, EASE);
+    up.value = withSpring(emotion === 'thinking' ? 1 : 0, EASE);
+    if ((emotion === 'happy' || emotion === 'proud') && !reduce) {
+      pop.value = withSequence(
+        withSpring(1, { damping: 7, stiffness: 260, mass: 0.7 }),
+        withSpring(0, { damping: 12, stiffness: 180 }),
+      );
+    }
+  }, [emotion, reduce, joy, smile, up, pop]);
 
   useEffect(() => {
     if (reduce) return;
     blink.value = withRepeat(
       withSequence(
-        withDelay(2400, withTiming(0, { duration: 80, easing: Easing.in(Easing.quad) })),
-        withTiming(1, { duration: 130, easing: Easing.out(Easing.cubic) }),
-        withDelay(140, withTiming(1, { duration: 1 })),
+        withDelay(2300, withTiming(0, { duration: 75, easing: Easing.in(Easing.quad) })),
+        withTiming(1, { duration: 120, easing: Easing.out(Easing.cubic) }),
       ),
       -1,
     );
-    // One slow master sine drives bob + tilt + breathe so they stay in phase and
-    // read as a single, buttery motion (very fluid, no competing rhythms).
-    bob.value = withRepeat(
-      withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }),
+    breathe.value = withRepeat(
+      withTiming(1, { duration: 2700, easing: Easing.inOut(Easing.sin) }),
       -1,
       true,
     );
@@ -68,90 +94,80 @@ export default function KaiFace({ size = 96, emotion = 'idle' }: KaiFaceProps) {
       -1,
       true,
     );
-  }, [reduce, blink, bob, look]);
+  }, [reduce, blink, breathe, look]);
 
-  const lookUp = emotion === 'thinking';
-  const eyesAsArcs = emotion === 'happy' || emotion === 'proud' || emotion === 'rest';
-
-  // Whole-cube fluid motion: float up/down, a hair of tilt, and squash-&-stretch
-  // (wider+shorter at the bottom of the bob, taller+narrower at the top).
-  const cubeStyle = useAnimatedStyle(() => {
-    const s = bob.value - 0.5; // -0.5..0.5
+  const bodyStyle = useAnimatedStyle(() => {
+    const br = reduce ? 0 : breathe.value - 0.5;
+    const p = pop.value;
     return {
       transform: [
-        { translateY: -s * 6 },
-        { rotate: `${s * 3}deg` },
-        { scaleX: reduce ? 1 : 1 - s * 0.03 },
-        { scaleY: reduce ? 1 : 1 + s * 0.03 },
+        { translateY: -br * 3.5 - p * 4 },
+        { rotate: `${up.value * -2 + br * 1.4}deg` },
+        { scaleX: (1 - br * 0.022) * (1 - p * 0.05) },
+        { scaleY: (1 + br * 0.022) * (1 + p * 0.07) },
       ],
     };
   });
 
-  const eyeL = useAnimatedProps(() => {
-    const dx = reduce ? 0 : (look.value - 0.5) * 2.4;
-    const dy = (lookUp ? -3 : 0) + (reduce ? 0 : (look.value - 0.5) * 1);
-    const ry = EYE_RY * (reduce ? 1 : 0.1 + blink.value * 0.9);
-    return { ry, cx: FX - EYE_DX + dx, cy: EYE_Y + dy } as never;
-  });
-  const eyeR = useAnimatedProps(() => {
-    const dx = reduce ? 0 : (look.value - 0.5) * 2.4;
-    const dy = (lookUp ? -3 : 0) + (reduce ? 0 : (look.value - 0.5) * 1);
-    const ry = EYE_RY * (reduce ? 1 : 0.1 + blink.value * 0.9);
-    return { ry, cx: FX + EYE_DX + dx, cy: EYE_Y + dy } as never;
-  });
+  const eyeL = useAnimatedProps(() => eyeProps(-1, joy, blink, up, look, reduce));
+  const eyeR = useAnimatedProps(() => eyeProps(1, joy, blink, up, look, reduce));
 
-  const mouth =
-    emotion === 'happy' || emotion === 'proud'
-      ? `M${FX - 9} 73 Q${FX} ${emotion === 'proud' ? 82 : 80} ${FX + 9} 73` // smile
-      : emotion === 'thinking'
-        ? `M${FX - 6} 75 L${FX + 6} 75` // flat, focused
-        : `M${FX - 7} 74 Q${FX} 77.5 ${FX + 7} 74`; // gentle idle smile
+  // Happy arcs over the eyes — fade in as joy rises (the squint→smile-eyes morph).
+  const arcs = useAnimatedProps(() => ({ opacity: joy.value }));
+
+  const mouthProps = useAnimatedProps(() => {
+    const c = smile.value; // 0 flat … 1 big smile
+    const curve = c * 9; // control dips down = upturned mouth
+    return { d: `M${FX - 9} ${MOUTH_Y} Q ${FX} ${MOUTH_Y + curve} ${FX + 9} ${MOUTH_Y}` };
+  });
 
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
-      <View style={[styles.glow, { width: size * 1.3, height: size * 1.3 }]} pointerEvents="none" />
-      <Animated.View style={cubeStyle}>
+      <View
+        style={[styles.glow, { width: size * 1.28, height: size * 1.28 }]}
+        pointerEvents="none"
+      />
+      <Animated.View style={bodyStyle}>
         <Svg width={size} height={size} viewBox="0 0 100 100">
-          {/* Right side face (darkest). */}
-          <Polygon points="74,34 88,22 88,78 74,90" fill="#B5904C" />
-          {/* Top face (lightest). */}
-          <Polygon points="22,34 74,34 88,22 36,22" fill="#E4CB8F" />
-          {/* Front face — Kai's face. */}
+          <Defs>
+            <LinearGradient id="kaiBody" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#D9BC83" />
+              <Stop offset="1" stopColor="#C29E5C" />
+            </LinearGradient>
+          </Defs>
+
           <Path
-            d={roundedRect(FRONT.x, FRONT.y, FRONT.w, FRONT.h, FRONT.rx)}
-            fill="#CDA869"
-            stroke="rgba(255,250,238,0.45)"
+            d={roundedRect(BODY.x, BODY.y, BODY.w, BODY.h, BODY.rx)}
+            fill="url(#kaiBody)"
+            stroke="rgba(255,250,238,0.4)"
             strokeWidth={1.2}
           />
 
-          {eyesAsArcs ? (
-            <>
-              <Path
-                d={`M${FX - EYE_DX - 6} ${EYE_Y + 2} Q ${FX - EYE_DX} ${EYE_Y - 6} ${FX - EYE_DX + 6} ${EYE_Y + 2}`}
-                stroke={Colors.ink.primary}
-                strokeWidth={3.2}
-                strokeLinecap="round"
-                fill="none"
-              />
-              <Path
-                d={`M${FX + EYE_DX - 6} ${EYE_Y + 2} Q ${FX + EYE_DX} ${EYE_Y - 6} ${FX + EYE_DX + 6} ${EYE_Y + 2}`}
-                stroke={Colors.ink.primary}
-                strokeWidth={3.2}
-                strokeLinecap="round"
-                fill="none"
-              />
-            </>
-          ) : (
-            <>
-              <AnimatedEllipse rx={EYE_RX} fill={Colors.ink.primary} animatedProps={eyeL} />
-              <AnimatedEllipse rx={EYE_RX} fill={Colors.ink.primary} animatedProps={eyeR} />
-            </>
-          )}
+          <AnimatedEllipse rx={EYE_RX} fill={Colors.ink.primary} animatedProps={eyeL} />
+          <AnimatedEllipse rx={EYE_RX} fill={Colors.ink.primary} animatedProps={eyeR} />
 
-          <Path
-            d={mouth}
+          {/* Happy eye-arcs, revealed by joy (over the squinting eyes). */}
+          <AnimatedPath
+            animatedProps={arcs}
+            d={`M${FX - EYE_DX - 6} ${EYE_Y + 1} Q ${FX - EYE_DX} ${EYE_Y - 6} ${FX - EYE_DX + 6} ${EYE_Y + 1}`}
             stroke={Colors.ink.primary}
-            strokeWidth={2.6}
+            strokeWidth={3.1}
+            strokeLinecap="round"
+            fill="none"
+          />
+          <AnimatedPath
+            animatedProps={arcs}
+            d={`M${FX + EYE_DX - 6} ${EYE_Y + 1} Q ${FX + EYE_DX} ${EYE_Y - 6} ${FX + EYE_DX + 6} ${EYE_Y + 1}`}
+            stroke={Colors.ink.primary}
+            strokeWidth={3.1}
+            strokeLinecap="round"
+            fill="none"
+          />
+
+          <AnimatedPath
+            animatedProps={mouthProps}
+            stroke={Colors.ink.primary}
+            strokeWidth={2.7}
             strokeLinecap="round"
             fill="none"
           />
@@ -159,6 +175,24 @@ export default function KaiFace({ size = 96, emotion = 'idle' }: KaiFaceProps) {
       </Animated.View>
     </View>
   );
+}
+
+// Eye geometry per side (-1 left, +1 right). Squints with joy, lifts with `up`,
+// drifts with idle `look`, and squashes shut on blink.
+function eyeProps(
+  side: -1 | 1,
+  joy: { value: number },
+  blink: { value: number },
+  up: { value: number },
+  look: { value: number },
+  reduce: boolean,
+) {
+  'worklet';
+  const drift = reduce ? 0 : (look.value - 0.5) * 2.2;
+  const ry = EYE_RY * blink.value * (1 - joy.value * 0.82);
+  const cy = EYE_Y - up.value * 3 + (reduce ? 0 : (look.value - 0.5) * 0.9);
+  const cx = FX + side * EYE_DX + drift;
+  return { ry, cy, cx } as never;
 }
 
 /** SVG path for a rounded rectangle. */
