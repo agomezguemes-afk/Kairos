@@ -40,7 +40,7 @@ export default function CoachStep({ value, onChange, onContinue }: CoachStepProp
           Cuéntame qué <Text style={text.titleAccent}>buscas</Text>
         </Text>
         <Text style={[text.subtitleCenter, styles.kaiSub]}>
-          Escríbelo con tus palabras. Yo diseño tu primer espacio a partir de esto.
+          Qué quieres, qué no te está funcionando, cómo entrenas. Con eso pienso tu plan.
         </Text>
       </View>
 

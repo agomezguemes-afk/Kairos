@@ -261,7 +261,7 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
           Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
         </Text>
         <Text style={styles.subtitle}>
-          El primer lienzo que se adapta a ti, no al revés. Lo construyes con Kai en minutos.
+          Tú llevas el control. Kai se encarga de pensar el plan — sin adivinar, sin agobiarte.
         </Text>
       </View>
 
