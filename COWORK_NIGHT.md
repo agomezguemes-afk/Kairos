@@ -176,3 +176,4 @@ Field-studied Behance "app ui ux" (Senso, Notis+, +grid; captures in
 - 10:1x (loop) — iter 2: `KaiReflectionCard` + KaiHome integ — the visible moat ("8 semanas. 24 sesiones. Tu 5k bajó…"). Verified on sim. 158 tests.
 - 10:2x (loop) — iter 3: `deriveSnapshot` (+5, incl. end-to-end store→think). The Kai brain pipeline runs on real-store-shaped data. 163 tests.
 - 19:5x (loop) — iter 4: cold-start reflection (la semana 1, donde más se abandona). 164 tests.
+- 19:5x (loop) — iter 5 (anti-slop): redesigned KaiOrb (glossy AI bauble → crafted gold seal). Verified on sim. Restarted Metro -c (RNSVG hot-reload registry pollution).
