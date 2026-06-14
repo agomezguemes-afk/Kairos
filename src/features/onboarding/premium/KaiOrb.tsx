@@ -16,7 +16,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Shadows } from '../../../theme/tokens';
+import { Colors } from '../../../theme/tokens';
 
 interface KaiOrbProps {
   size?: number;
@@ -24,7 +24,10 @@ interface KaiOrbProps {
   thinking?: boolean;
 }
 
-const SHEEN = ['#EAD3A0', '#CFAC6E', Colors.gold.base, '#B68C49'] as const;
+// Warm vertical gold — top a touch lighter, base deeper. A soft disc, not a
+// glossy 3D bauble (the generic "AI orb" tell). Personality comes from the
+// crafted seal edge + a restrained sheen, not metallic shine.
+const CORE = ['#DCC089', '#BE9B57'] as const;
 
 function KaiOrb({ size = 96, thinking = false }: KaiOrbProps) {
   const reduce = useReducedMotion();
@@ -73,12 +76,32 @@ function KaiOrb({ size = 96, thinking = false }: KaiOrbProps) {
       />
       <Animated.View style={coreStyle}>
         <LinearGradient
-          colors={SHEEN}
-          start={{ x: 0.2, y: 0 }}
-          end={{ x: 0.8, y: 1 }}
+          colors={CORE}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
           style={[styles.core, { width: size, height: size, borderRadius: size / 2 }]}
         >
-          <View style={[styles.highlight, { width: size * 0.34, height: size * 0.34 }]} />
+          {/* Soft top sheen (a lit edge, not a bauble dot). */}
+          <LinearGradient
+            colors={['rgba(255,250,235,0.35)', 'rgba(255,250,235,0)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={[styles.sheen, { height: size * 0.42 }]}
+            pointerEvents="none"
+          />
+          {/* Crafted seal edge — a thin lighter-gold inner rim. */}
+          <View
+            style={[
+              styles.rim,
+              {
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+                borderWidth: Math.max(1, size * 0.018),
+              },
+            ]}
+            pointerEvents="none"
+          />
         </LinearGradient>
       </Animated.View>
     </Animated.View>
@@ -92,14 +115,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    ...Shadows.cardWarm,
+    // Tighter, warmer contact glow — a present object, not a floaty bauble.
+    shadowColor: '#7A5E22',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 9,
+    elevation: 4,
   },
-  highlight: {
+  sheen: {
     position: 'absolute',
-    top: '16%',
-    left: '18%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.45)',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  rim: {
+    position: 'absolute',
+    borderColor: 'rgba(255,250,238,0.45)',
   },
 });
 
