@@ -102,6 +102,17 @@ ScheduleWakeup to continue. On resume, read this file first.
   an editorial **training-journal page** (date + time-greeting, +tests); blocks as
   a curated **catalogue** (Fraunces indices, no chevron); **silence as a feature**
   (calm present Kai on quiet days). 150 tests green, all verified live.
+- 18:xx (next day) — **HONEST CRITIQUE + product re-aim (Álvaro: substance over
+  beauty).** Researched demand/moat/behavior-change critically → `docs/
+  KAIROS_CRITIQUE.md`: as "a prettier AI coach" Kairos is a vitamin with no moat
+  vs hardware ecosystems; it's a painkiller only for the self-coached trainer
+  drowning in their own programming, and the only software moat is the
+  **compounding, user-owned system + Kai's memory**. Killed vitamin framing
+  (accountability/abstract-goals/build-an-ecosystem/streaks). Re-aimed onboarding
+  copy to the pain ("Tú llevas el control. Kai se encarga de pensar el plan — sin
+  adivinar, sin agobiarte"). UIUX trend study via web (calm/transparent-AI/
+  character-type validates direction); live Behance browse blocked (extension
+  needs Álvaro present to approve). Structural repositioning held for review.
 
 ## State: lane largely complete
 All 6 fixable findings + the input-DoS guard shipped; onboarding architecture +

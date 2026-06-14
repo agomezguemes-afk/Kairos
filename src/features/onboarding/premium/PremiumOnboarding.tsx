@@ -268,7 +268,7 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
       {/* Bottom: anchored CTA. */}
       <View style={styles.welcomeCtas}>
         <View style={styles.fullWidth}>
-          <GoldButton label="Comenzar" hint="Crea tu espacio con Kai" onPress={onStart} />
+          <GoldButton label="Comenzar" hint="Kai piensa, tú entrenas" onPress={onStart} />
         </View>
       </View>
     </View>
