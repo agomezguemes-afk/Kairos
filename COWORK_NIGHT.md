@@ -172,3 +172,4 @@ Field-studied Behance "app ui ux" (Senso, Notis+, +grid; captures in
    Live Activity intents) for trust-boundary issues.
 3. Widen pure-logic test coverage (generateStarterRoutine input validation,
    readiness edge cases) — additive, no collision.
+- 10:0x (loop) — iter 1: `reflection.ts` (+8): Kai shows how far you've come (the visible moat). 158 tests.
