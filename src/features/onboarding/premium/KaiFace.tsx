@@ -1,13 +1,16 @@
-// KAIROS — KaiFace: Kai as a single attentive eye, not a friendly face.
+// KAIROS — KaiFace: Kai as a single recessed aperture, not a literal eye.
 //
-// Álvaro: a friendly cartoon face lacks originality/personality. So a different
-// path that fits what Kai *is* — an agent that watches your progress and focuses.
-// Kai is a single, living gold eye: it looks around, follows you, its pupil
-// dilates with interest and contracts when it focuses, its lids narrow when it's
-// thinking and lift into a warm crescent when it's pleased, and it blinks. The
-// personality is attention — curious, intelligent, watchful — not cuteness. The
-// form is a rock-solid flat gold block (no deform/rotate); all life is the eye,
-// in 2D, spring-eased. Poke it and its pupil flares. Reduce-motion → calm hold.
+// Álvaro: more minimalist, without losing detail or creativity. So Kai sheds the
+// literal eyeball (cream sclera → "minion") and becomes a refined **aperture** in
+// a flat gold seal: a dark recessed well with a hair-thin gold iris-ring that
+// always hugs it, one precise catchlight, and a softly concave socket. Fewer
+// elements, each exquisite. The personality is still attention — the aperture
+// dilates with interest, contracts to a tight point when it focuses, looks
+// around, blinks, and the gold closes into a warm crescent when it's pleased —
+// but it reads as a lens/eclipse, not a cartoon. The detail lives in the ring,
+// the glint and the spring of the motion. Stable flat form (no deform/rotate);
+// all life is on the 2D plane. Poke it and the aperture flares. Reduce-motion →
+// calm hold.
 //
 // emotion: 'idle' | 'happy' | 'thinking' | 'proud' | 'rest'
 
@@ -26,7 +29,17 @@ import Animated, {
   withTiming,
   type WithSpringConfig,
 } from 'react-native-reanimated';
-import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  ClipPath,
+  Defs,
+  G,
+  LinearGradient,
+  Path,
+  RadialGradient,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 import { Colors } from '../../../theme/tokens';
 
 const ACircle = Animated.createAnimatedComponent(Circle);
@@ -43,8 +56,8 @@ interface KaiFaceProps {
 
 const CX = 50;
 const CY = 50;
-const EYE_R = 21; // eyeball radius
-const GOLD_LID = '#CCA567'; // lids = block gold so the eye shuts into the form
+const EYE_R = 19; // aperture opening radius — smaller, more negative space (minimal)
+const GOLD_LID = '#CDA866'; // lids = block gold so the aperture shuts into the form
 
 const EASE: WithSpringConfig = { damping: 16, stiffness: 150, mass: 1 };
 const GAZE: WithSpringConfig = { damping: 18, stiffness: 110, mass: 1 };
@@ -58,11 +71,11 @@ interface Pose {
   upY: number; // gaze bias (thinking looks up)
 }
 const POSES: Record<KaiEmotion, Pose> = {
-  idle: { dilate: 0.32, warmth: 0, focus: 0, upX: 0, upY: 0 },
-  happy: { dilate: 0.7, warmth: 1, focus: 0, upX: 0, upY: 0 },
-  proud: { dilate: 0.5, warmth: 0.7, focus: 0, upX: 0, upY: 0 },
+  idle: { dilate: 0.3, warmth: 0, focus: 0, upX: 0, upY: 0 },
+  happy: { dilate: 0.6, warmth: 1, focus: 0, upX: 0, upY: 0 },
+  proud: { dilate: 0.45, warmth: 0.65, focus: 0, upX: 0, upY: 0 },
   thinking: { dilate: 0, warmth: 0, focus: 1, upX: 0.4, upY: -0.7 },
-  rest: { dilate: 0.6, warmth: 0.8, focus: 0, upX: 0, upY: 0 },
+  rest: { dilate: 0.55, warmth: 0.8, focus: 0, upX: 0, upY: 0 },
 };
 
 export default function KaiFace({ size = 96, emotion = 'idle', interactive = true }: KaiFaceProps) {
@@ -148,21 +161,19 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
     blink.value = withSequence(withTiming(0, { duration: 55 }), withTiming(1, { duration: 110 }));
   }, [reduce, gazeX, gazeY, dilate, warmth, blink]);
 
-  const iris = useAnimatedProps(() => {
-    const gx = reduce ? 0 : gazeX.value * 5;
-    const gy = reduce ? 0 : gazeY.value * 4;
-    return { cx: CX + gx, cy: CY + gy } as never;
-  });
+  // The aperture: a dark recessed well whose radius reads as interest/focus. The
+  // hair-thin gold stroke is the iris-ring — because it's the same circle, it
+  // always hugs the well perfectly as it breathes.
   const pupil = useAnimatedProps(() => {
     const gx = reduce ? 0 : gazeX.value * 5;
     const gy = reduce ? 0 : gazeY.value * 4;
-    const r = 5.3 + dilate.value * 2.4 - focus.value * 1.8;
+    const r = 6.4 + dilate.value * 2.2 - focus.value * 2.6;
     return { cx: CX + gx, cy: CY + gy, r } as never;
   });
   const glint = useAnimatedProps(() => {
     const gx = reduce ? 0 : gazeX.value * 5;
     const gy = reduce ? 0 : gazeY.value * 4;
-    return { cx: CX + gx - 3.6, cy: CY + gy - 4.4, opacity: blink.value } as never;
+    return { cx: CX + gx - 2.7, cy: CY + gy - 3.3, opacity: blink.value } as never;
   });
   const upperLid = useAnimatedProps(() => {
     // bottom edge sweeps down to close; narrows a little when focused
@@ -172,9 +183,11 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
   });
   const lowerLid = useAnimatedProps(() => {
     const closed = 1 - blink.value;
-    const raise = warmth.value * 24 + focus.value * 6 + closed * 10;
+    // Lift the gold from below — but leave a clear crescent of the well visible
+    // (without a bright sclera, over-lifting just blanks the aperture).
+    const raise = warmth.value * 12 + focus.value * 6 + closed * 10;
     const topY = CY + EYE_R - raise;
-    const arch = warmth.value * 12; // convex top = warm crescent eye
+    const arch = warmth.value * 10; // convex top = warm crescent aperture
     return {
       d: `M${CX - EYE_R - 6} ${CY + EYE_R + 6} L${CX - EYE_R - 6} ${topY} Q ${CX} ${topY - arch} ${CX + EYE_R + 6} ${topY} L${CX + EYE_R + 6} ${CY + EYE_R + 6} Z`,
     } as never;
@@ -184,31 +197,38 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
     <Svg width={size} height={size} viewBox="0 0 100 100">
       <Defs>
         <LinearGradient id="kaiBody" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#D9BC83" />
-          <Stop offset="1" stopColor="#C29E5C" />
+          <Stop offset="0" stopColor="#D9BD84" />
+          <Stop offset="1" stopColor="#CAA85F" />
         </LinearGradient>
-        <LinearGradient id="kaiIris" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#D9AE57" />
-          <Stop offset="1" stopColor="#A9802F" />
-        </LinearGradient>
+        {/* Concave socket: deeper at the centre, lit at the rim. */}
+        <RadialGradient id="kaiSocket" cx="50%" cy="46%" r="52%">
+          <Stop offset="0" stopColor="#9C7B3A" />
+          <Stop offset="1" stopColor="#CDAB6B" />
+        </RadialGradient>
+        {/* The well, with a touch of depth lifted toward the catchlight. */}
+        <RadialGradient id="kaiWell" cx="40%" cy="36%" r="66%">
+          <Stop offset="0" stopColor="#2C2114" />
+          <Stop offset="1" stopColor="#15100A" />
+        </RadialGradient>
         <ClipPath id="eyeClip">
           <Circle cx={CX} cy={CY} r={EYE_R} />
         </ClipPath>
       </Defs>
 
+      {/* Flat gold seal — a hairline lit edge, not a 3D bauble. */}
       <Path
         d={roundedRect(12, 12, 76, 76, 22)}
         fill="url(#kaiBody)"
-        stroke="rgba(255,250,238,0.4)"
-        strokeWidth={1.2}
+        stroke="rgba(255,250,238,0.38)"
+        strokeWidth={1.1}
       />
 
       <G clipPath="url(#eyeClip)">
-        <Circle cx={CX} cy={CY} r={EYE_R} fill="#F4EAD2" />
-        <ACircle r={11.5} fill="url(#kaiIris)" animatedProps={iris} />
-        <ACircle fill="#241B12" animatedProps={pupil} />
-        <ACircle r={2.3} fill="#FFFFFF" animatedProps={glint} />
-        {/* Lids are the block's gold — the eye shuts into the form. */}
+        <Circle cx={CX} cy={CY} r={EYE_R} fill="url(#kaiSocket)" />
+        {/* Aperture (dark well) + its hair-thin gold iris-ring, one circle. */}
+        <ACircle fill="url(#kaiWell)" stroke="#E6C57E" strokeWidth={1.3} animatedProps={pupil} />
+        <ACircle r={1.9} fill="#FFF7E6" animatedProps={glint} />
+        {/* Lids are the block's gold — the aperture shuts into the form. */}
         <ARect
           x={CX - EYE_R - 6}
           y={CY - EYE_R - 6}
@@ -218,14 +238,14 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
         />
         <APath fill={GOLD_LID} animatedProps={lowerLid} />
       </G>
-      {/* Eye set into the block — a soft rim for definition. */}
+      {/* The crafted opening — one recessed rim for definition. */}
       <Circle
         cx={CX}
         cy={CY}
         r={EYE_R}
         fill="none"
-        stroke="rgba(120,92,40,0.35)"
-        strokeWidth={1.6}
+        stroke="rgba(108,82,34,0.45)"
+        strokeWidth={1.3}
       />
     </Svg>
   );
@@ -233,7 +253,7 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
       <View
-        style={[styles.glow, { width: size * 1.26, height: size * 1.26 }]}
+        style={[styles.glow, { width: size * 1.08, height: size * 1.08, top: size * 0.06 }]}
         pointerEvents="none"
       />
       {interactive ? (
@@ -261,6 +281,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: 999,
     backgroundColor: Colors.gold.glow,
+    opacity: 0.55,
     zIndex: -1,
   },
 });
