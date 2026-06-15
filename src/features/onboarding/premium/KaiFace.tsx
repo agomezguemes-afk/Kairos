@@ -1,16 +1,17 @@
-// KAIROS — KaiFace: Kai as a single recessed aperture, not a literal eye.
+// KAIROS — KaiFace: Kai as "El Glifo", a single living gold stroke.
 //
-// Álvaro: more minimalist, without losing detail or creativity. So Kai sheds the
-// literal eyeball (cream sclera → "minion") and becomes a refined **aperture** in
-// a flat gold seal: a dark recessed well with a hair-thin gold iris-ring that
-// always hugs it, one precise catchlight, and a softly concave socket. Fewer
-// elements, each exquisite. The personality is still attention — the aperture
-// dilates with interest, contracts to a tight point when it focuses, looks
-// around, blinks, and the gold closes into a warm crescent when it's pleased —
-// but it reads as a lens/eclipse, not a cartoon. The detail lives in the ring,
-// the glint and the spring of the motion. Stable flat form (no deform/rotate);
-// all life is on the 2D plane. Poke it and the aperture flares. Reduce-motion →
-// calm hold.
+// Álvaro: not a natural eye — an elemental, minimalist figure that emotes through
+// movement, with richly polished animation. So Kai is **one continuous gold
+// stroke** — a living signature — that draws and reshapes itself with its mood.
+// No face, no eye, no anatomy. All character is in the line and how it moves:
+//   · rest/idle — a calm, near-flat stroke with a slow travelling wave (it breathes)
+//   · happy     — the line buoys into a warm upward smile-curve
+//   · thinking  — it compresses, tenses, and a bright bead scans along it
+//   · proud     — it rises to the right and flicks up into a confident flourish
+//   · rest(mood)— settles low and calm
+// A soft tip-spark catches light; a poke sends a ripple + flourish through it.
+// The silhouette never deforms by squash/rotate — it *redraws*. 2D, spring-eased.
+// Reduce-motion → a calm, still stroke.
 //
 // emotion: 'idle' | 'happy' | 'thinking' | 'proud' | 'rest'
 
@@ -18,6 +19,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedProps,
   useReducedMotion,
@@ -29,21 +31,10 @@ import Animated, {
   withTiming,
   type WithSpringConfig,
 } from 'react-native-reanimated';
-import Svg, {
-  Circle,
-  ClipPath,
-  Defs,
-  G,
-  LinearGradient,
-  Path,
-  RadialGradient,
-  Rect,
-  Stop,
-} from 'react-native-svg';
+import Svg, { Circle, Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 import { Colors } from '../../../theme/tokens';
 
 const ACircle = Animated.createAnimatedComponent(Circle);
-const ARect = Animated.createAnimatedComponent(Rect);
 const APath = Animated.createAnimatedComponent(Path);
 
 export type KaiEmotion = 'idle' | 'happy' | 'thinking' | 'proud' | 'rest';
@@ -56,70 +47,113 @@ interface KaiFaceProps {
 
 const CX = 50;
 const CY = 50;
-const EYE_R = 19; // aperture opening radius — smaller, more negative space (minimal)
-const GOLD_LID = '#CDA866'; // lids = block gold so the aperture shuts into the form
+const TWO_PI = Math.PI * 2;
 
 const EASE: WithSpringConfig = { damping: 16, stiffness: 150, mass: 1 };
-const GAZE: WithSpringConfig = { damping: 18, stiffness: 110, mass: 1 };
-const MOOD: WithSpringConfig = { damping: 17, stiffness: 95, mass: 1 };
+const MOOD: WithSpringConfig = { damping: 18, stiffness: 110, mass: 1 };
 
 interface Pose {
-  dilate: number; // pupil size: + bigger (interest), − smaller (focus)
-  warmth: number; // lower lid lifts into a crescent (pleased)
-  focus: number; // both lids narrow (concentration)
-  upX: number;
-  upY: number; // gaze bias (thinking looks up)
+  mood: number; // + smile (ends up / middle down), − arch
+  tilt: number; // overall slope (right rises)
+  tighten: number; // horizontal compression of the stroke
+  flourish: number; // proud's rising end-hook
+  waveAmp: number; // amplitude of the idle travelling wave (life)
+  spark: number; // tip-spark brightness
 }
 const POSES: Record<KaiEmotion, Pose> = {
-  idle: { dilate: 0.3, warmth: 0, focus: 0, upX: 0, upY: 0 },
-  happy: { dilate: 0.6, warmth: 1, focus: 0, upX: 0, upY: 0 },
-  proud: { dilate: 0.45, warmth: 0.65, focus: 0, upX: 0, upY: 0 },
-  thinking: { dilate: 0, warmth: 0, focus: 1, upX: 0.4, upY: -0.7 },
-  rest: { dilate: 0.55, warmth: 0.8, focus: 0, upX: 0, upY: 0 },
+  idle: { mood: 0.25, tilt: 0, tighten: 1.0, flourish: 0, waveAmp: 1.4, spark: 0.4 },
+  happy: { mood: 1.55, tilt: 0, tighten: 0.94, flourish: 0, waveAmp: 0.6, spark: 0.7 },
+  proud: { mood: 0.4, tilt: 4.6, tighten: 1.0, flourish: 1.45, waveAmp: 0.5, spark: 0.85 },
+  thinking: { mood: -0.4, tilt: 0, tighten: 0.66, flourish: 0, waveAmp: 2.4, spark: 0.5 },
+  rest: { mood: -0.5, tilt: -1.6, tighten: 0.88, flourish: 0, waveAmp: 0.7, spark: 0.2 },
 };
+
+// Cubic Bézier scalar — used to ride the scanning bead along the live stroke.
+function bez(t: number, a: number, b: number, c: number, d: number): number {
+  'worklet';
+  const m = 1 - t;
+  return m * m * m * a + 3 * m * m * t * b + 3 * m * t * t * c + t * t * t * d;
+}
 
 export default function KaiFace({ size = 96, emotion = 'idle', interactive = true }: KaiFaceProps) {
   const reduce = useReducedMotion();
 
-  const blink = useSharedValue(1); // 1 open … 0 closed
-  const gazeX = useSharedValue(0);
-  const gazeY = useSharedValue(0);
-  const dilate = useSharedValue(POSES.idle.dilate);
-  const warmth = useSharedValue(0);
-  const focus = useSharedValue(0);
+  const mood = useSharedValue(POSES.idle.mood);
+  const tilt = useSharedValue(POSES.idle.tilt);
+  const tighten = useSharedValue(POSES.idle.tighten);
+  const flourish = useSharedValue(0);
+  const waveAmp = useSharedValue(POSES.idle.waveAmp);
+  const spark = useSharedValue(POSES.idle.spark);
+  const wavePhase = useSharedValue(0);
+  const scan = useSharedValue(0); // 0..1 position of the thinking bead
+  const scanO = useSharedValue(0); // bead opacity
+  const pulse = useSharedValue(0); // poke ripple
+
+  // The 8 numbers that define the live stroke, from the current mood + the
+  // travelling wave. One source of truth so the path, the tip-spark and the
+  // scanning bead all ride the exact same curve.
+  const pts = useCallback(() => {
+    'worklet';
+    const half = 27 * tighten.value;
+    const x0 = CX - half;
+    const x3 = CX + half;
+    const w = reduce ? 0 : waveAmp.value;
+    const ph = wavePhase.value;
+    const m = mood.value;
+    const tl = tilt.value;
+    const fl = flourish.value;
+    const y0 = CY - m * 7 + tl + Math.sin(ph) * w;
+    const y3 = CY - m * 7 - tl - fl * 12 + Math.sin(ph + Math.PI) * w;
+    const c1x = CX - half * 0.42;
+    const c2x = CX + half * 0.42;
+    const c1y = CY + m * 9 + tl * 0.5 + Math.sin(ph + 1) * w * 1.5;
+    const c2y = CY + m * 9 - tl * 0.5 - fl * 8 + Math.sin(ph + 2) * w * 1.5;
+    return { x0, y0, c1x, c1y, c2x, c2y, x3, y3 };
+  }, [reduce, tighten, waveAmp, wavePhase, mood, tilt, flourish]);
 
   const settle = useCallback(
     (p: Pose, cfg: WithSpringConfig) => {
       'worklet';
-      dilate.value = withSpring(p.dilate, cfg);
-      warmth.value = withSpring(p.warmth, cfg);
-      focus.value = withSpring(p.focus, cfg);
+      mood.value = withSpring(p.mood, cfg);
+      tilt.value = withSpring(p.tilt, cfg);
+      tighten.value = withSpring(p.tighten, cfg);
+      flourish.value = withSpring(p.flourish, cfg);
+      waveAmp.value = withSpring(p.waveAmp, cfg);
+      spark.value = withSpring(p.spark, cfg);
     },
-    [dilate, warmth, focus],
+    [mood, tilt, tighten, flourish, waveAmp, spark],
   );
 
   useEffect(() => {
-    const p = POSES[emotion];
-    settle(p, EASE);
-    if (!reduce) {
-      gazeX.value = withSpring(p.upX, GAZE);
-      gazeY.value = withSpring(p.upY, GAZE);
-    }
-  }, [emotion, reduce, settle, gazeX, gazeY]);
+    settle(POSES[emotion], EASE);
+  }, [emotion, settle]);
 
+  // The breath: a slow, endless travelling wave that keeps the line alive.
   useEffect(() => {
     if (reduce) return;
-    blink.value = withRepeat(
-      withSequence(
-        withDelay(2900, withTiming(0, { duration: 70, easing: Easing.in(Easing.quad) })),
-        withTiming(1, { duration: 130, easing: Easing.out(Easing.cubic) }),
-      ),
+    wavePhase.value = withRepeat(
+      withTiming(TWO_PI, { duration: 4200, easing: Easing.linear }),
       -1,
+      false,
     );
-  }, [reduce, blink]);
+    return () => cancelAnimation(wavePhase);
+  }, [reduce, wavePhase]);
 
-  // Living attention — only in idle. Kai glances around and its interest flickers
-  // (pupil dilates a touch, a curious beat) then settles. Real, changing, on-plane.
+  // Thinking: a bright bead runs along the signature, over and over.
+  useEffect(() => {
+    if (reduce || emotion !== 'thinking') {
+      scanO.value = withSpring(0, MOOD);
+      cancelAnimation(scan);
+      return;
+    }
+    scanO.value = withSpring(1, MOOD);
+    scan.value = 0;
+    scan.value = withRepeat(withTiming(1, { duration: 1300, easing: Easing.linear }), -1, false);
+    return () => cancelAnimation(scan);
+  }, [reduce, emotion, scan, scanO]);
+
+  // A small, well-mannered idle delight: every so often the line lifts a touch,
+  // as if catching a thought, then settles. Only at idle, on the 2D plane.
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -127,151 +161,130 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
     let t: ReturnType<typeof setTimeout>;
     const tick = () => {
       if (!alive.current) return;
-      gazeX.value = withSpring((Math.random() * 2 - 1) * 0.85, GAZE);
-      gazeY.value = withSpring((Math.random() * 2 - 1) * 0.55, GAZE);
-      if (Math.random() < 0.5) dilate.value = withSpring(0.55, MOOD); // a flicker of interest
+      mood.value = withSpring(0.45, MOOD);
+      spark.value = withSpring(0.55, MOOD);
       t = setTimeout(
         () => {
           if (!alive.current) return;
-          gazeX.value = withSpring(0, GAZE);
-          gazeY.value = withSpring(0, GAZE);
-          dilate.value = withSpring(POSES.idle.dilate, MOOD);
-          t = setTimeout(tick, 2600 + Math.random() * 2600);
+          mood.value = withSpring(POSES.idle.mood, MOOD);
+          spark.value = withSpring(POSES.idle.spark, MOOD);
+          t = setTimeout(tick, 3200 + Math.random() * 3200);
         },
-        1100 + Math.random() * 900,
+        900 + Math.random() * 700,
       );
     };
-    t = setTimeout(tick, 2000 + Math.random() * 1600);
+    t = setTimeout(tick, 2600 + Math.random() * 1800);
     return () => {
       alive.current = false;
       clearTimeout(t);
     };
-  }, [reduce, emotion, gazeX, gazeY, dilate]);
+  }, [reduce, emotion, mood, spark]);
 
   const poke = useCallback(() => {
     if (reduce) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    gazeX.value = withSpring(0, GAZE);
-    gazeY.value = withSpring(0, GAZE);
-    dilate.value = withSequence(
-      withSpring(1, EASE),
-      withDelay(650, withSpring(POSES.idle.dilate, EASE)),
+    const p = POSES[emotion];
+    // A flourish runs through the line + a spark flash + an outward ripple.
+    mood.value = withSequence(
+      withSpring(p.mood + 0.5, EASE),
+      withDelay(420, withSpring(p.mood, EASE)),
     );
-    warmth.value = withSequence(withSpring(0.8, EASE), withDelay(750, withSpring(0, EASE)));
-    blink.value = withSequence(withTiming(0, { duration: 55 }), withTiming(1, { duration: 110 }));
-  }, [reduce, gazeX, gazeY, dilate, warmth, blink]);
+    spark.value = withSequence(withSpring(1, EASE), withDelay(520, withSpring(p.spark, EASE)));
+    pulse.value = withSequence(
+      withTiming(1, { duration: 0 }),
+      withTiming(0, { duration: 620, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [reduce, emotion, mood, spark, pulse]);
 
-  // The aperture: a dark recessed well whose radius reads as interest/focus. The
-  // hair-thin gold stroke is the iris-ring — because it's the same circle, it
-  // always hugs the well perfectly as it breathes.
-  const pupil = useAnimatedProps(() => {
-    const gx = reduce ? 0 : gazeX.value * 5;
-    const gy = reduce ? 0 : gazeY.value * 4;
-    const r = 6.4 + dilate.value * 2.2 - focus.value * 2.6;
-    return { cx: CX + gx, cy: CY + gy, r } as never;
-  });
-  const glint = useAnimatedProps(() => {
-    const gx = reduce ? 0 : gazeX.value * 5;
-    const gy = reduce ? 0 : gazeY.value * 4;
-    return { cx: CX + gx - 2.7, cy: CY + gy - 3.3, opacity: blink.value } as never;
-  });
-  const upperLid = useAnimatedProps(() => {
-    // bottom edge sweeps down to close; narrows a little when focused
-    const closed = 1 - blink.value;
-    const bottom = CY - EYE_R + closed * (2 * EYE_R) + focus.value * 7;
-    return { height: Math.max(0, bottom - (CY - EYE_R - 6)) } as never;
-  });
-  const lowerLid = useAnimatedProps(() => {
-    const closed = 1 - blink.value;
-    // Lift the gold from below — but leave a clear crescent of the well visible
-    // (without a bright sclera, over-lifting just blanks the aperture).
-    const raise = warmth.value * 12 + focus.value * 6 + closed * 10;
-    const topY = CY + EYE_R - raise;
-    const arch = warmth.value * 10; // convex top = warm crescent aperture
+  const strokeProps = useAnimatedProps(() => {
+    const p = pts();
     return {
-      d: `M${CX - EYE_R - 6} ${CY + EYE_R + 6} L${CX - EYE_R - 6} ${topY} Q ${CX} ${topY - arch} ${CX + EYE_R + 6} ${topY} L${CX + EYE_R + 6} ${CY + EYE_R + 6} Z`,
+      d: `M${p.x0} ${p.y0} C ${p.c1x} ${p.c1y} ${p.c2x} ${p.c2y} ${p.x3} ${p.y3}`,
     } as never;
   });
+  const tipProps = useAnimatedProps(() => {
+    const p = pts();
+    return {
+      cx: p.x3,
+      cy: p.y3,
+      r: 2.7 + spark.value * 1.1,
+      opacity: 0.55 + spark.value * 0.45,
+    } as never;
+  });
+  const beadProps = useAnimatedProps(() => {
+    const p = pts();
+    const t = scan.value;
+    return {
+      cx: bez(t, p.x0, p.c1x, p.c2x, p.x3),
+      cy: bez(t, p.y0, p.c1y, p.c2y, p.y3),
+      opacity: scanO.value,
+    } as never;
+  });
+  const rippleProps = useAnimatedProps(() => {
+    return { r: 14 + pulse.value * 32, opacity: pulse.value * 0.26 } as never;
+  });
 
-  const face = (
+  const glyph = (
     <Svg width={size} height={size} viewBox="0 0 100 100">
       <Defs>
-        <LinearGradient id="kaiBody" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#D9BD84" />
-          <Stop offset="1" stopColor="#CAA85F" />
+        <LinearGradient id="kaiInk" x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor="#E7C57C" />
+          <Stop offset="0.5" stopColor="#D8AC55" />
+          <Stop offset="1" stopColor="#BF8F3B" />
         </LinearGradient>
-        {/* Concave socket: deeper at the centre, lit at the rim. */}
-        <RadialGradient id="kaiSocket" cx="50%" cy="46%" r="52%">
-          <Stop offset="0" stopColor="#9C7B3A" />
-          <Stop offset="1" stopColor="#CDAB6B" />
-        </RadialGradient>
-        {/* The well, with a touch of depth lifted toward the catchlight. */}
-        <RadialGradient id="kaiWell" cx="40%" cy="36%" r="66%">
-          <Stop offset="0" stopColor="#2C2114" />
-          <Stop offset="1" stopColor="#15100A" />
-        </RadialGradient>
-        <ClipPath id="eyeClip">
-          <Circle cx={CX} cy={CY} r={EYE_R} />
-        </ClipPath>
       </Defs>
 
-      {/* Flat gold seal — a hairline lit edge, not a 3D bauble. */}
-      <Path
-        d={roundedRect(12, 12, 76, 76, 22)}
-        fill="url(#kaiBody)"
-        stroke="rgba(255,250,238,0.38)"
-        strokeWidth={1.1}
-      />
-
-      <G clipPath="url(#eyeClip)">
-        <Circle cx={CX} cy={CY} r={EYE_R} fill="url(#kaiSocket)" />
-        {/* Aperture (dark well) + its hair-thin gold iris-ring, one circle. */}
-        <ACircle fill="url(#kaiWell)" stroke="#E6C57E" strokeWidth={1.3} animatedProps={pupil} />
-        <ACircle r={1.9} fill="#FFF7E6" animatedProps={glint} />
-        {/* Lids are the block's gold — the aperture shuts into the form. */}
-        <ARect
-          x={CX - EYE_R - 6}
-          y={CY - EYE_R - 6}
-          width={2 * (EYE_R + 6)}
-          fill={GOLD_LID}
-          animatedProps={upperLid}
-        />
-        <APath fill={GOLD_LID} animatedProps={lowerLid} />
-      </G>
-      {/* The crafted opening — one recessed rim for definition. */}
-      <Circle
+      {/* Poke ripple — a quiet outward ring. */}
+      <ACircle
         cx={CX}
         cy={CY}
-        r={EYE_R}
         fill="none"
-        stroke="rgba(108,82,34,0.45)"
-        strokeWidth={1.3}
+        stroke="#D8AC55"
+        strokeWidth={1.4}
+        animatedProps={rippleProps}
       />
+
+      {/* Soft echo beneath the stroke — a hair of lift, not a drop shadow. */}
+      <G opacity={0.22}>
+        <APath
+          fill="none"
+          stroke="#6E5220"
+          strokeWidth={7.4}
+          strokeLinecap="round"
+          transform="translate(0 2)"
+          animatedProps={strokeProps}
+        />
+      </G>
+
+      {/* The living signature. */}
+      <APath
+        fill="none"
+        stroke="url(#kaiInk)"
+        strokeWidth={7}
+        strokeLinecap="round"
+        animatedProps={strokeProps}
+      />
+
+      {/* The scanning bead (thinking) + the tip-spark. */}
+      <ACircle r={2.4} fill="#FFF4D6" animatedProps={beadProps} />
+      <ACircle fill="#FFF4D6" animatedProps={tipProps} />
     </Svg>
   );
 
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
       <View
-        style={[styles.glow, { width: size * 1.08, height: size * 1.08, top: size * 0.06 }]}
+        style={[styles.glow, { width: size * 0.92, height: size * 0.92 }]}
         pointerEvents="none"
       />
       {interactive ? (
         <Pressable onPress={poke} accessibilityRole="button" accessibilityLabel="Kai">
-          {face}
+          {glyph}
         </Pressable>
       ) : (
-        face
+        glyph
       )}
     </View>
-  );
-}
-
-function roundedRect(x: number, y: number, w: number, h: number, r: number): string {
-  return (
-    `M${x + r} ${y} h${w - 2 * r} a${r} ${r} 0 0 1 ${r} ${r} v${h - 2 * r} ` +
-    `a${r} ${r} 0 0 1 ${-r} ${r} h${-(w - 2 * r)} a${r} ${r} 0 0 1 ${-r} ${-r} ` +
-    `v${-(h - 2 * r)} a${r} ${r} 0 0 1 ${r} ${-r} Z`
   );
 }
 
@@ -281,7 +294,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: 999,
     backgroundColor: Colors.gold.glow,
-    opacity: 0.55,
+    opacity: 0.4,
     zIndex: -1,
   },
 });
