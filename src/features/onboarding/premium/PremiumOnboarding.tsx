@@ -249,14 +249,20 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
 function WelcomeStep({ onStart }: { onStart: () => void }) {
   return (
     <View style={styles.welcome}>
-      {/* Top: brand wordmark anchors the frame (the Senso move). */}
-      <Text style={styles.wordmark}>
-        Kairos<Text style={styles.wordmarkDot}>.</Text>
-      </Text>
+      {/* Top: brand wordmark anchors the frame (the Senso move), with the
+          consumer-register category line beneath it — "tu práctica, operada"
+          (VUELTA_DE_ROSCA §5; "Training OS" is banned techie register in UI). */}
+      <View>
+        <Text style={styles.wordmark}>
+          Kairos<Text style={styles.wordmarkDot}>.</Text>
+        </Text>
+        <Text style={styles.mastheadSub}>
+          tu práctica, <Text style={styles.mastheadSubAccent}>operada</Text>
+        </Text>
+      </View>
 
       {/* Middle: editorial hero, vertically centred in the remaining space. */}
       <View style={styles.welcomeHero}>
-        <Text style={styles.eyebrow}>TU TRAINING OS</Text>
         <Text style={styles.hero}>
           Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
         </Text>
@@ -371,6 +377,15 @@ const styles = StyleSheet.create({
   welcome: { flex: 1, paddingTop: Spacing.sm, paddingBottom: Spacing.lg },
   wordmark: { ...Type.titleSmall, color: Colors.ink.primary, letterSpacing: -0.4 },
   wordmarkDot: { color: Colors.gold.base },
+  // Category line in Fraunces italic — the mockups' masthead pairing.
+  mastheadSub: {
+    fontFamily: Fonts.serifItalic,
+    fontSize: 15,
+    lineHeight: 20,
+    color: Colors.ink.secondary,
+    marginTop: 2,
+  },
+  mastheadSubAccent: { fontFamily: Fonts.serifSemiBoldItalic, color: Colors.gold.deep },
   welcomeHero: { flex: 1, justifyContent: 'center', gap: Spacing.lg },
   welcomeCtas: { gap: Spacing.md, alignItems: 'center' },
 
