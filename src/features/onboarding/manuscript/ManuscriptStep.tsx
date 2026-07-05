@@ -52,6 +52,8 @@ interface ManuscriptStepProps {
   onDone: (filled: FilledBlank[]) => void;
   /** DEV: drive the page with scripted fills (visual self-validation). */
   autoplay?: boolean;
+  /** DEV: stop the autoplay at a state so it can be photographed. */
+  freezeAt?: SentenceSpec['id'] | 'signature';
 }
 
 type PageStage = 'opening' | 'sentences' | 'closing' | 'signed' | 'folding';
@@ -78,7 +80,11 @@ function InkLine({
   );
 }
 
-export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptStepProps) {
+export default function ManuscriptStep({
+  onDone,
+  autoplay = false,
+  freezeAt,
+}: ManuscriptStepProps) {
   const reduce = useReducedMotion();
   const [stage, setStage] = useState<PageStage>('opening');
   const [cursor, setCursor] = useState(-1);
@@ -89,6 +95,12 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
   const [picked, setPicked] = useState<string[]>([]);
   const [days, setDays] = useState(3);
   const [text, setText] = useState('');
+  // Re-opened settled line (tap to edit). Only one editor lives at a time.
+  const [editing, setEditing] = useState<number | null>(null);
+  const cursorRef = useRef(cursor);
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
 
   const doneRef = useRef(onDone);
   useEffect(() => {
@@ -106,6 +118,7 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
   }, []);
 
   const advance = useCallback((from: number) => {
+    if (from !== cursorRef.current) return; // a re-edited line never moves the pen
     Keyboard.dismiss();
     if (from + 1 < SENTENCES.length) {
       setCursor(from + 1);
@@ -117,15 +130,23 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
   const settle = useCallback(
     (i: number, fill: string, value: LineState['value']) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      if (editing === i) {
+        // Re-edited line: its closing ink is already written — just retint.
+        patch(i, { phase: 'done', fill, value, skipped: false });
+        setEditing(null);
+        Keyboard.dismiss();
+        return;
+      }
       patch(i, { phase: 'settling', fill, value });
     },
-    [patch],
+    [patch, editing],
   );
 
   const skip = useCallback(
     (i: number) => {
       Haptics.selectionAsync().catch(() => {});
       patch(i, { phase: 'settling', skipped: true, fill: null, value: null });
+      setEditing(null);
       Keyboard.dismiss();
     },
     [patch],
@@ -146,6 +167,7 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
   const fold = useSharedValue(0);
   const signed = useCallback(() => {
     setStage('signed');
+    if (freezeAt === 'signature') return;
     const filled: FilledBlank[] = SENTENCES.map((s, i) => ({
       id: s.id,
       skipped: lines[i].skipped || lines[i].phase !== 'done',
@@ -163,12 +185,28 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
       },
       reduce ? 200 : 1100,
     );
-  }, [lines, fold, reduce]);
+  }, [lines, fold, reduce, freezeAt]);
 
   const pageStyle = useAnimatedStyle(() => ({
     opacity: 1 - fold.value * 0.85,
     transform: [{ translateY: fold.value * -14 }, { scale: 1 - fold.value * 0.02 }],
   }));
+
+  const reopen = useCallback(
+    (i: number) => {
+      if (stage !== 'sentences') return; // the signed page is history, not a form
+      const spec = SENTENCES[i];
+      const l = lines[i];
+      Haptics.selectionAsync().catch(() => {});
+      if (spec.kind === 'scrubber') setDays(typeof l.value === 'number' ? l.value : 3);
+      if (spec.kind === 'chips') setPicked(Array.isArray(l.value) ? [...l.value] : []);
+      if (spec.kind === 'text' || spec.kind === 'prompt')
+        setText(typeof l.value === 'string' ? l.value : '');
+      patch(i, { phase: 'filling', skipped: false });
+      setEditing(i);
+    },
+    [stage, lines, patch],
+  );
 
   // ── Live fill mirrors ─────────────────────────────────────────────────────
   const fillFor = useCallback(
@@ -177,6 +215,8 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
       const l = lines[i];
       if (l.phase === 'settling' || l.phase === 'done') return l.fill;
       if (l.phase !== 'filling') return null;
+      const active = editing ?? cursor;
+      if (i !== active) return l.fill;
       switch (spec.kind) {
         case 'scrubber':
           return String(days);
@@ -191,7 +231,7 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
           return null;
       }
     },
-    [lines, days, picked, text],
+    [lines, days, picked, text, editing, cursor],
   );
 
   // ── Editors ────────────────────────────────────────────────────────────────
@@ -284,6 +324,12 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
     const l = lines[cursor];
     if (l.phase !== 'filling') return;
     const spec = SENTENCES[cursor];
+    if (freezeAt === spec.id) {
+      // Photographic freeze: stage the editor's state but never settle.
+      if (spec.id === 'days') setDays(4);
+      if (spec.id === 'equipment') setPicked(['dumbbells', 'resistance_bands', 'yoga_mat']);
+      return;
+    }
     const t = setTimeout(() => {
       switch (spec.id) {
         case 'name':
@@ -320,7 +366,7 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
       }
     }, 900);
     return () => clearTimeout(t);
-  }, [autoplay, cursor, lines, settle, skip, confirmChoice]);
+  }, [autoplay, cursor, lines, settle, skip, confirmChoice, freezeAt]);
 
   // ── Margin rule (progress as ink, not a stepper) ──────────────────────────
   const settledCount = lines.filter((l) => l.phase === 'done').length;
@@ -344,7 +390,10 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
 
   return (
     <Animated.View style={[styles.root, pageStyle]}>
-      <Text style={styles.eyebrow}>TU LIBRO · PÁGINA PRIMERA</Text>
+      <View style={styles.masthead}>
+        <Text style={styles.eyebrow}>TU LIBRO · PÁGINA PRIMERA</Text>
+        <KaiFace size={44} emotion={glifoEmotion} showGlow={false} interactive={false} />
+      </View>
 
       <View style={styles.page} onLayout={(e) => setPageH(e.nativeEvent.layout.height)}>
         <Animated.View style={[styles.marginRule, ruleStyle]} />
@@ -364,23 +413,17 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
                 onSettled={() => {
                   if (l.phase === 'done') return;
                   patch(i, { phase: 'done' });
+                  setEditing(null);
                   setTimeout(() => advance(i), 340);
                 }}
+                onReopen={stage === 'sentences' && editing == null ? () => reopen(i) : undefined}
               />
-              {l.phase === 'filling' && !pageDone && (
+              {l.phase === 'filling' && (editing ?? cursor) === i && !pageDone && (
                 <Animated.View
                   entering={reduce ? undefined : FadeIn.duration(240)}
                   style={styles.editorRow}
                 >
-                  <View style={styles.editorGlyph}>
-                    <KaiFace
-                      size={40}
-                      emotion={glifoEmotion}
-                      showGlow={false}
-                      interactive={false}
-                    />
-                  </View>
-                  <View style={styles.editorTools}>{renderEditor(i)}</View>
+                  {renderEditor(i)}
                 </Animated.View>
               )}
             </View>
@@ -422,7 +465,13 @@ export default function ManuscriptStep({ onDone, autoplay = false }: ManuscriptS
 
 const styles = StyleSheet.create({
   root: { flex: 1, paddingTop: Spacing.sm },
-  eyebrow: { ...Type.eyebrow, color: Colors.gold.deep, marginBottom: Spacing.xl },
+  masthead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.lg,
+  },
+  eyebrow: { ...Type.eyebrow, color: Colors.gold.deep },
   page: { paddingLeft: Spacing.lg, position: 'relative' },
   marginRule: {
     position: 'absolute',
@@ -442,14 +491,9 @@ const styles = StyleSheet.create({
   },
   kaiInkMuted: { color: Colors.ink.tertiary },
   editorRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.md,
     marginTop: -Spacing.xs,
     marginBottom: Spacing.lg,
   },
-  editorGlyph: { marginTop: 2 },
-  editorTools: { flex: 1 },
   closing: { marginTop: Spacing.md },
   signatureRow: {
     flexDirection: 'row',
@@ -463,7 +507,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: Colors.ink.primary,
   },
-  footer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', minHeight: 56 },
+  footer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    minHeight: 56,
+    marginTop: Spacing.xl,
+  },
   handOff: { paddingVertical: 12, paddingHorizontal: 16 },
   handOffText: { ...Type.caption, color: Colors.ink.tertiary },
 });

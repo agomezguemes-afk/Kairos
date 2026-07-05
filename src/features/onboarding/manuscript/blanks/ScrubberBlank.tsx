@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   instrument: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: Spacing.xl,
   },
   numeralWrap: { alignItems: 'center', minWidth: 88, paddingVertical: 2 },
@@ -172,6 +172,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     columnGap: Spacing.xl,
     marginTop: Spacing.xs,
   },

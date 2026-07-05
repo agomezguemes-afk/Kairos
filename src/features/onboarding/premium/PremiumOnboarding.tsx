@@ -68,6 +68,8 @@ interface PremiumOnboardingProps {
   initialStep?: Screen;
   /** DEV only: scripted fills so the manuscript page can be photographed. */
   manuscriptAutoplay?: boolean;
+  /** DEV only: freeze the manuscript autoplay at a state. */
+  manuscriptFreezeAt?: React.ComponentProps<typeof ManuscriptStep>['freezeAt'];
 }
 
 // Each goal carries a vivid accent (from the discipline palette) so the choice
@@ -125,6 +127,7 @@ export default function PremiumOnboarding({
   onComplete,
   initialStep,
   manuscriptAutoplay = false,
+  manuscriptFreezeAt,
 }: PremiumOnboardingProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Screen>(initialStep ?? 'welcome');
@@ -209,6 +212,7 @@ export default function PremiumOnboarding({
             {step === 'manuscrito' && (
               <ManuscriptStep
                 autoplay={manuscriptAutoplay}
+                freezeAt={manuscriptFreezeAt}
                 onDone={(filled: FilledBlank[]) => {
                   const d = applyPage(draft, filled);
                   setDraft(d);

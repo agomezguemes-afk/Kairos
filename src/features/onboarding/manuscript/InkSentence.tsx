@@ -80,7 +80,7 @@ function Caret() {
   const blink = useSharedValue(1);
   useEffect(() => {
     if (reduce) return;
-    blink.value = withRepeat(withTiming(0.15, { duration: 520, easing: Easing.linear }), -1, true);
+    blink.value = withRepeat(withTiming(0.3, { duration: 640, easing: Easing.linear }), -1, true);
   }, [reduce, blink]);
   const style = useAnimatedStyle(() => ({ opacity: blink.value }));
   return <Animated.Text style={[styles.caret, style]}>▍</Animated.Text>;
@@ -147,5 +147,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.serifSemiBoldItalic,
     color: Colors.gold.deep,
   },
-  caret: { color: Colors.gold.base, fontSize: 22 },
+  caret: { color: Colors.gold.base, fontSize: 20, opacity: 0.7 },
 });
