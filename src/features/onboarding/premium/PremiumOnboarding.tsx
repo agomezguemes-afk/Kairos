@@ -342,22 +342,25 @@ function EquipmentStep({
 }) {
   return (
     <View style={styles.stepFill}>
-      <Text style={styles.eyebrow}>PASO 3 · MATERIAL</Text>
-      <Text style={styles.title}>
-        ¿Qué tienes <Text style={styles.titleAccent}>a mano</Text>?
-      </Text>
-      <Text style={styles.helper}>Opcional — si no eliges nada, asumimos peso corporal.</Text>
-      <View style={styles.pillWrap}>
-        {EQUIPMENT.map((e) => (
-          <PillChip
-            key={e.id}
-            label={e.label}
-            selected={selected.includes(e.id)}
-            onPress={() => onToggle(e.id)}
-          />
-        ))}
+      {/* Centred like the goal step — a short question shouldn't sit
+          top-heavy over half a screen of empty ground. */}
+      <View style={styles.equipBody}>
+        <Text style={styles.eyebrow}>PASO 3 · MATERIAL</Text>
+        <Text style={styles.title}>
+          ¿Qué tienes <Text style={styles.titleAccent}>a mano</Text>?
+        </Text>
+        <Text style={styles.helper}>Opcional — si no eliges nada, asumimos peso corporal.</Text>
+        <View style={styles.pillWrap}>
+          {EQUIPMENT.map((e) => (
+            <PillChip
+              key={e.id}
+              label={e.label}
+              selected={selected.includes(e.id)}
+              onPress={() => onToggle(e.id)}
+            />
+          ))}
+        </View>
       </View>
-      <View style={styles.spacer} />
       <View style={styles.fullWidth}>
         <PrimaryCta label="Continuar" onPress={onFinish} />
       </View>
@@ -379,6 +382,7 @@ const styles = StyleSheet.create({
   // Composition helpers: fill the viewport so the primary CTA anchors near the
   // bottom (the studied apps compose the whole frame, never float in the top half).
   stepFill: { flex: 1 },
+  equipBody: { flex: 1, justifyContent: 'center', paddingBottom: Spacing['2xl'] },
   centerFill: { flex: 1, justifyContent: 'center', paddingBottom: Spacing['2xl'] },
   spacer: { flex: 1, minHeight: Spacing['2xl'] },
 
