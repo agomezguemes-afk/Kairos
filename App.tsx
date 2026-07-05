@@ -53,7 +53,7 @@ export default function App() {
               </Pressable>
             </ScrollView>
           ) : (
-            <KaiConcepts />
+            <PremiumOnboarding onComplete={setResult} />
           )}
           </ErrorBoundary>
           </FontGate>
