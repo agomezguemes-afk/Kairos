@@ -27,6 +27,7 @@ import {
   type OnboardingGoal,
 } from '../flow/onboardingFlow';
 import AmbientBackground from './AmbientBackground';
+import KaiFace from './KaiFace';
 import GoldButton from './GoldButton';
 import GoldProgressBar from './GoldProgressBar';
 import PillChip from './PillChip';
@@ -269,6 +270,13 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
         <Text style={styles.subtitle}>
           Tú llevas el control. Kai se encarga de pensar el plan — sin adivinar, sin agobiarte.
         </Text>
+
+        {/* El Glifo signs the hero — the Kai the copy names is present from
+            the first frame: calm, low, alive. Optical left-align: the calm
+            stroke starts at ~6% of the square canvas. */}
+        <View style={styles.welcomeGlyph}>
+          <KaiFace size={150} emotion="calm" showGlow={false} />
+        </View>
       </View>
 
       {/* Bottom: anchored CTA. */}
@@ -388,6 +396,9 @@ const styles = StyleSheet.create({
   mastheadSubAccent: { fontFamily: Fonts.serifSemiBoldItalic, color: Colors.gold.deep },
   welcomeHero: { flex: 1, justifyContent: 'center', gap: Spacing.lg },
   welcomeCtas: { gap: Spacing.md, alignItems: 'center' },
+  // Negative margins re-center the stroke's visual mass (canvas is square,
+  // stroke lives in the middle band) against the text column.
+  welcomeGlyph: { marginLeft: -9, marginTop: -Spacing.xl, marginBottom: -Spacing['2xl'] },
 
   eyebrow: { ...Type.eyebrow, color: Colors.gold.deep, marginBottom: Spacing.sm },
   // Oversized editorial greeting — Fraunces Black, with the key word set in

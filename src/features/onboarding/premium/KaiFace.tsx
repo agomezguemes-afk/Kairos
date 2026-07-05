@@ -37,12 +37,15 @@ import { Colors } from '../../../theme/tokens';
 const ACircle = Animated.createAnimatedComponent(Circle);
 const APath = Animated.createAnimatedComponent(Path);
 
-export type KaiEmotion = 'idle' | 'happy' | 'thinking' | 'proud' | 'rest';
+export type KaiEmotion = 'idle' | 'happy' | 'thinking' | 'proud' | 'rest' | 'calm';
 
 interface KaiFaceProps {
   size?: number;
   emotion?: KaiEmotion;
   interactive?: boolean;
+  /** The soft circular aura behind the stroke. Off for inline/signature uses
+      where the stroke sits against text and the disc would read as a plate. */
+  showGlow?: boolean;
 }
 
 const CX = 50;
@@ -59,13 +62,33 @@ interface Pose {
   flourish: number; // proud's rising end-hook
   waveAmp: number; // amplitude of the idle travelling wave (life)
   spark: number; // tip-spark brightness
+  weight: number; // stroke pressure — calm poses draw a lighter, wider line
 }
 const POSES: Record<KaiEmotion, Pose> = {
-  idle: { mood: 0.25, tilt: 0, tighten: 1.0, flourish: 0, waveAmp: 1.4, spark: 0.4 },
-  happy: { mood: 1.55, tilt: 0, tighten: 0.94, flourish: 0, waveAmp: 0.6, spark: 0.7 },
-  proud: { mood: 0.4, tilt: 4.6, tighten: 1.0, flourish: 1.45, waveAmp: 0.5, spark: 0.85 },
-  thinking: { mood: -0.4, tilt: 0, tighten: 0.66, flourish: 0, waveAmp: 2.4, spark: 0.5 },
-  rest: { mood: -0.5, tilt: -1.6, tighten: 0.88, flourish: 0, waveAmp: 0.7, spark: 0.2 },
+  idle: { mood: 0.25, tilt: 0, tighten: 1.0, flourish: 0, waveAmp: 1.4, spark: 0.4, weight: 1 },
+  happy: { mood: 1.55, tilt: 0, tighten: 0.94, flourish: 0, waveAmp: 0.6, spark: 0.7, weight: 1 },
+  proud: {
+    mood: 0.4,
+    tilt: 4.6,
+    tighten: 1.0,
+    flourish: 1.45,
+    waveAmp: 0.5,
+    spark: 0.85,
+    weight: 1,
+  },
+  thinking: {
+    mood: -0.4,
+    tilt: 0,
+    tighten: 0.66,
+    flourish: 0,
+    waveAmp: 2.4,
+    spark: 0.5,
+    weight: 1,
+  },
+  rest: { mood: -0.5, tilt: -1.6, tighten: 0.88, flourish: 0, waveAmp: 0.7, spark: 0.2, weight: 1 },
+  // The mockups' ambient stroke: wide, light, barely breathing. For quiet
+  // presences (welcome signature, home at peace) — same line, lighter pressure.
+  calm: { mood: 0.12, tilt: 0, tighten: 1.62, flourish: 0, waveAmp: 0.9, spark: 0.25, weight: 0.6 },
 };
 
 // Cubic Bézier scalar — used to ride the scanning bead along the live stroke.
@@ -75,7 +98,12 @@ function bez(t: number, a: number, b: number, c: number, d: number): number {
   return m * m * m * a + 3 * m * m * t * b + 3 * m * t * t * c + t * t * t * d;
 }
 
-export default function KaiFace({ size = 96, emotion = 'idle', interactive = true }: KaiFaceProps) {
+export default function KaiFace({
+  size = 96,
+  emotion = 'idle',
+  interactive = true,
+  showGlow = true,
+}: KaiFaceProps) {
   const reduce = useReducedMotion();
 
   const mood = useSharedValue(POSES.idle.mood);
@@ -84,6 +112,7 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
   const flourish = useSharedValue(0);
   const waveAmp = useSharedValue(POSES.idle.waveAmp);
   const spark = useSharedValue(POSES.idle.spark);
+  const weight = useSharedValue(POSES.idle.weight);
   const wavePhase = useSharedValue(0);
   const scan = useSharedValue(0); // 0..1 position of the thinking bead
   const scanO = useSharedValue(0); // bead opacity
@@ -120,8 +149,9 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
       flourish.value = withSpring(p.flourish, cfg);
       waveAmp.value = withSpring(p.waveAmp, cfg);
       spark.value = withSpring(p.spark, cfg);
+      weight.value = withSpring(p.weight, cfg);
     },
-    [mood, tilt, tighten, flourish, waveAmp, spark],
+    [mood, tilt, tighten, flourish, waveAmp, spark, weight],
   );
 
   useEffect(() => {
@@ -200,6 +230,14 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
     const p = pts();
     return {
       d: `M${p.x0} ${p.y0} C ${p.c1x} ${p.c1y} ${p.c2x} ${p.c2y} ${p.x3} ${p.y3}`,
+      strokeWidth: 7 * weight.value,
+    } as never;
+  });
+  const echoProps = useAnimatedProps(() => {
+    const p = pts();
+    return {
+      d: `M${p.x0} ${p.y0} C ${p.c1x} ${p.c1y} ${p.c2x} ${p.c2y} ${p.x3} ${p.y3}`,
+      strokeWidth: 7.4 * weight.value,
     } as never;
   });
   const tipProps = useAnimatedProps(() => {
@@ -249,21 +287,14 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
         <APath
           fill="none"
           stroke="#6E5220"
-          strokeWidth={7.4}
           strokeLinecap="round"
           transform="translate(0 2)"
-          animatedProps={strokeProps}
+          animatedProps={echoProps}
         />
       </G>
 
       {/* The living signature. */}
-      <APath
-        fill="none"
-        stroke="url(#kaiInk)"
-        strokeWidth={7}
-        strokeLinecap="round"
-        animatedProps={strokeProps}
-      />
+      <APath fill="none" stroke="url(#kaiInk)" strokeLinecap="round" animatedProps={strokeProps} />
 
       {/* The scanning bead (thinking) + the tip-spark. */}
       <ACircle r={2.4} fill="#FFF4D6" animatedProps={beadProps} />
@@ -273,10 +304,12 @@ export default function KaiFace({ size = 96, emotion = 'idle', interactive = tru
 
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
-      <View
-        style={[styles.glow, { width: size * 0.92, height: size * 0.92 }]}
-        pointerEvents="none"
-      />
+      {showGlow && (
+        <View
+          style={[styles.glow, { width: size * 0.92, height: size * 0.92 }]}
+          pointerEvents="none"
+        />
+      )}
       {interactive ? (
         <Pressable onPress={poke} accessibilityRole="button" accessibilityLabel="Kai">
           {glyph}
