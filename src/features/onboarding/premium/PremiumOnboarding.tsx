@@ -267,9 +267,9 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
         <Text style={styles.hero}>
           Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
         </Text>
-        <Text style={styles.subtitle}>
-          Tú llevas el control. Kai se encarga de pensar el plan — sin adivinar, sin agobiarte.
-        </Text>
+        {/* One message per slot: the CTA hint already says "Kai piensa, tú
+            entrenas" — the subtitle doesn't repeat it. */}
+        <Text style={styles.subtitle}>Tú llevas el control — sin adivinar, sin agobiarte.</Text>
 
         {/* El Glifo signs the hero — the Kai the copy names is present from
             the first frame: calm, low, alive. Optical left-align: the calm
