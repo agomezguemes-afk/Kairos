@@ -44,7 +44,7 @@ export default function App() {
         <ThemeProvider>
           <FontGate>
           <ErrorBoundary>
-          {false && result ? (
+          {result ? (
             <ScrollView contentContainerStyle={styles.done}>
               <Text style={styles.h}>✅ Onboarding completado</Text>
               <Text style={styles.code}>{JSON.stringify(result, null, 2)}</Text>
@@ -53,7 +53,7 @@ export default function App() {
               </Pressable>
             </ScrollView>
           ) : (
-            <PremiumOnboarding key="msg4" initialStep="manuscrito" manuscriptAutoplay manuscriptFreezeAt="signature" onComplete={setResult} />
+            <PremiumOnboarding key="journey" onComplete={setResult} />
           )}
           </ErrorBoundary>
           </FontGate>
