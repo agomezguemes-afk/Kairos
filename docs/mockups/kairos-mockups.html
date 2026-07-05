@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kairos — Mockups (La sesión viva)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500;1,9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#F7F7F5; --warm:#F4F1EA; --surface:#FFFFFF;
+    --ink:#1A1F2E; --ink-2:#4A5163; --ink-3:#8A90A0; --ink-4:#B6BAC6;
+    --gold:#D4AF37; --gold-deep:#B8912E; --gold-glow:rgba(212,175,55,.12);
+    --hair:rgba(26,31,46,.08); --hair-strong:rgba(26,31,46,.14);
+    --serif:'Fraunces',Georgia,serif; --sans:'Plus Jakarta Sans',-apple-system,system-ui,sans-serif;
+    /* contact shadow — tight, grounded, NEVER a floaty glow (per Álvaro's taste) */
+    --contact:0 3px 5px rgba(26,31,46,.10), 0 1px 2px rgba(26,31,46,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#EDECE7;color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;padding:48px 24px 96px}
+  .page{max-width:1180px;margin:0 auto}
+  .masthead{margin-bottom:8px}
+  .wordmark{font-family:var(--serif);font-weight:900;font-size:34px;letter-spacing:-1px}
+  .wordmark .dot{color:var(--gold)}
+  .sub{font-family:var(--serif);font-style:italic;font-weight:500;font-size:20px;color:var(--ink-2);margin-top:2px}
+  .lede{max-width:640px;color:var(--ink-2);font-size:14.5px;line-height:1.55;margin:18px 0 40px}
+  .lede b{color:var(--ink)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:40px 32px;align-items:start}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .caption{text-align:center;max-width:320px}
+  .caption .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold-deep)}
+  .caption h3{font-family:var(--serif);font-weight:600;font-size:19px;margin:3px 0 5px}
+  .caption p{font-size:12.5px;line-height:1.5;color:var(--ink-3)}
+
+  /* phone frame */
+  .phone{width:300px;height:620px;border-radius:44px;background:var(--ground);
+    box-shadow:var(--contact), inset 0 0 0 1px var(--hair);
+    padding:22px 20px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+  .phone::before{content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);width:96px;height:5px;border-radius:3px;background:var(--hair-strong)}
+  .status{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink-3);font-weight:600;margin-top:6px}
+  .eyebrow{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-deep)}
+  .num-hero{font-family:var(--serif);font-weight:900;font-size:60px;line-height:.95;letter-spacing:-2px}
+  .num-med{font-family:var(--serif);font-weight:600;font-size:26px}
+  .serif-line{font-family:var(--serif);font-size:19px;line-height:1.35;font-weight:500}
+  .accent{font-style:italic;color:var(--gold-deep)}
+  .kai-line{font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+  .muted{color:var(--ink-3)}
+  .hair{height:1px;background:var(--hair);width:100%}
+
+  /* the live target chip — a thing to chase */
+  .target{display:inline-flex;align-items:baseline;gap:8px;background:var(--warm);border-radius:16px;padding:12px 18px;box-shadow:inset 0 0 0 1px var(--hair)}
+  .target .lbl{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-3)}
+  .target .val{font-family:var(--serif);font-weight:900;font-size:34px;color:var(--gold-deep);line-height:1}
+
+  .gold-btn{margin-top:auto;height:52px;border-radius:26px;background:linear-gradient(180deg,#E0BE4C,#C79E2C);
+    color:#fff;font-weight:700;font-size:15px;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 5px rgba(184,145,46,.28), inset 0 1px 0 rgba(255,255,255,.35)}
+  .ghost-link{text-align:center;font-size:12px;font-weight:600;color:var(--ink-3);padding:12px}
+
+  /* stat row / folded */
+  .stats{display:flex;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);padding:12px 0}
+  .stats .s{flex:1;text-align:center}
+  .stats .s .v{font-family:var(--serif);font-weight:600;font-size:18px}
+  .stats .s .l{font-size:9.5px;color:var(--ink-3);letter-spacing:.3px}
+  .stats .div{width:1px;background:var(--hair)}
+  .fold{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11.5px;color:var(--ink-3);font-weight:600;padding:10px}
+
+  /* space / cross-domain home */
+  .apps{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+  .app{background:var(--surface);border-radius:18px;padding:14px;box-shadow:inset 0 0 0 1px var(--hair);min-height:82px;display:flex;flex-direction:column;justify-content:space-between}
+  .app .nm{font-weight:700;font-size:13px}
+  .app .mt{font-size:10.5px;color:var(--ink-3)}
+  .app .dot{width:8px;height:8px;border-radius:50%}
+
+  /* Glifo states strip */
+  .states{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;margin-top:8px;background:var(--surface);border-radius:24px;padding:26px 22px;box-shadow:var(--contact)}
+  .state{display:flex;flex-direction:column;align-items:center;gap:8px;width:120px}
+  .state .nm{font-size:11px;font-weight:700;color:var(--ink-2)}
+  .state .d{font-size:10.5px;color:var(--ink-3);text-align:center;line-height:1.4}
+  .section-t{font-family:var(--serif);font-weight:600;font-size:22px;margin:56px 0 6px}
+  .section-s{color:var(--ink-3);font-size:13px;margin-bottom:22px;max-width:640px;line-height:1.5}
+  .foot{margin-top:64px;color:var(--ink-4);font-size:11.5px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="masthead">
+    <div class="wordmark">Kairos<span class="dot">.</span></div>
+    <div class="sub">tu práctica, <span style="color:var(--gold-deep)">operada</span></div>
+  </div>
+  <p class="lede">Mockups de baja fidelidad de <b>los momentos clave</b> del producto — no
+  pantallas finales, sino la <b>forma</b> de la idea. Identidad real: fondo cálido, oro raro
+  y con sentido, Fraunces editorial, El Glifo como trazo vivo, sombras de contacto (nunca
+  halos flotantes). Todo coherente con <b>La sesión viva</b> y la arquitectura.</p>
+
+  <div class="grid">
+
+    <!-- 1. EL DESCANSO VIVO -->
+    <div class="cell">
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>Serie 2 · Press banca</span></div>
+        <div style="text-align:center;margin-top:18px" class="eyebrow">Descanso</div>
+        <!-- ring + glifo inside -->
+        <div style="position:relative;width:200px;height:200px;margin:10px auto 6px">
+          <svg width="200" height="200" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="92" fill="none" stroke="var(--hair-strong)" stroke-width="9" opacity=".5"/>
+            <circle cx="100" cy="100" r="92" fill="none" stroke="var(--gold)" stroke-width="9" stroke-linecap="round"
+              stroke-dasharray="578" stroke-dashoffset="190" transform="rotate(-90 100 100)"/>
+          </svg>
+          <!-- El Glifo — a single living gold stroke, breathing (proud/rising pose) -->
+          <svg class="glifo" width="130" height="80" viewBox="0 0 130 80"
+            style="position:absolute;top:60px;left:35px">
+            <path d="M8 52 C 34 52, 46 20, 66 20 C 88 20, 100 44, 122 30" fill="none"
+              stroke="var(--gold-deep)" stroke-width="5" stroke-linecap="round">
+              <animate attributeName="d" dur="4s" repeatCount="indefinite"
+                values="M8 52 C 34 52, 46 20, 66 20 C 88 20, 100 44, 122 30;
+                        M8 50 C 34 50, 46 24, 66 22 C 88 20, 100 40, 122 28;
+                        M8 52 C 34 52, 46 20, 66 20 C 88 20, 100 44, 122 30"/>
+            </path>
+            <circle r="3.2" fill="var(--gold)"><animateMotion dur="2.2s" repeatCount="indefinite"
+              path="M8 52 C 34 52, 46 20, 66 20 C 88 20, 100 44, 122 30"/></circle>
+          </svg>
+        </div>
+        <div style="text-align:center;margin-top:2px" class="kai-line">Limpia. Te sobró.</div>
+        <div style="display:flex;justify-content:center;margin:16px 0 4px">
+          <span class="target"><span class="lbl">esta serie</span><span class="val">9</span></span>
+        </div>
+        <div style="text-align:center" class="kai-line muted">o 30s más y vamos a 8</div>
+        <div class="gold-btn">Hecho</div>
+        <div class="ghost-link">Saltar descanso</div>
+      </div>
+      <div class="caption">
+        <div class="eyebrow">El momento adictivo</div>
+        <h3>El descanso vivo</h3>
+        <p>El hueco muerto del timer se llena: la micro-lectura de la serie + el objetivo vivo
+        de la siguiente. Te quedas en Kairos porque hay un 9 que perseguir — no por una
+        notificación. Ganamos a Instagram sus 90 segundos.</p>
+      </div>
+    </div>
+
+    <!-- 2. LA LECTURA -->
+    <div class="cell">
+      <div class="phone">
+        <div class="status"><span>10:07</span><span>·</span></div>
+        <div style="margin-top:16px" class="eyebrow">La lectura de hoy</div>
+        <!-- resting glifo -->
+        <svg width="150" height="56" viewBox="0 0 150 56" style="margin:16px 0 8px">
+          <path d="M10 34 C 40 34, 55 30, 75 30 C 98 30, 112 34, 140 34" fill="none"
+            stroke="var(--gold-deep)" stroke-width="5" stroke-linecap="round">
+            <animate attributeName="d" dur="5s" repeatCount="indefinite"
+              values="M10 34 C 40 34, 55 30, 75 30 C 98 30, 112 34, 140 34;
+                      M10 33 C 40 33, 55 31, 75 31 C 98 31, 112 33, 140 33;
+                      M10 34 C 40 34, 55 30, 75 30 C 98 30, 112 34, 140 34"/>
+          </path>
+        </svg>
+        <div class="serif-line">Tu fuerza estuvo donde debe. Lo que te frenó fue la última
+          serie: ahí es donde <span class="accent">ganas</span> ahora.</div>
+        <div style="margin-top:18px" class="eyebrow">El foco</div>
+        <div class="kai-line" style="margin-top:4px">Resistencia a la fatiga en el press.
+          Una serie de respaldo la próxima vez.</div>
+        <div style="flex:1"></div>
+        <div class="fold">Ver la sesión ▾</div>
+        <div class="stats">
+          <div class="s"><div class="v">4.280</div><div class="l">VOLUMEN KG</div></div>
+          <div class="div"></div>
+          <div class="s"><div class="v">14</div><div class="l">SERIES</div></div>
+          <div class="div"></div>
+          <div class="s"><div class="v">38m</div><div class="l">DURACIÓN</div></div>
+        </div>
+      </div>
+      <div class="caption">
+        <div class="eyebrow">Entiéndete en un entrenamiento</div>
+        <h3>La Lectura</h3>
+        <p>No un recap de estadísticas — <b>entendimiento</b>. Una frase (dónde vas mejor/peor)
+        + una sola cosa (el foco). Los números quedan plegados debajo, para quien quiera el
+        porqué. Profundidad inversamente visible.</p>
+      </div>
+    </div>
+
+    <!-- 3. EL ESPACIO (cross-domain) -->
+    <div class="cell">
+      <div class="phone">
+        <div class="status"><span>7:30</span><span>·</span></div>
+        <div style="margin-top:18px" class="eyebrow">Buenos días, Álvaro</div>
+        <div class="num-med" style="margin-top:2px">Tu <span class="accent">práctica</span></div>
+        <!-- resting, low, quiet glifo — nothing to say today -->
+        <svg width="120" height="44" viewBox="0 0 120 44" style="margin:14px 0 6px">
+          <path d="M8 30 C 34 30, 48 28, 60 28 C 78 28, 92 30, 112 30" fill="none"
+            stroke="var(--gold-deep)" stroke-width="4.5" stroke-linecap="round" opacity=".85">
+            <animate attributeName="d" dur="6s" repeatCount="indefinite"
+              values="M8 30 C 34 30, 48 28, 60 28 C 78 28, 92 30, 112 30;
+                      M8 29 C 34 29, 48 29, 60 29 C 78 29, 92 29, 112 29;
+                      M8 30 C 34 30, 48 28, 60 28 C 78 28, 92 30, 112 30"/>
+          </path>
+        </svg>
+        <div class="kai-line muted" style="margin-bottom:2px">Todo al día. Nada que decir hoy.</div>
+        <div class="apps">
+          <div class="app"><div><span class="dot" style="background:var(--gold)"></span>
+            <span class="nm" style="margin-left:6px">Fuerza</span></div><div class="mt">Empuje · hoy</div></div>
+          <div class="app"><div><span class="dot" style="background:#7FA8B6"></span>
+            <span class="nm" style="margin-left:6px">Carrera</span></div><div class="mt">Tempo · mañana</div></div>
+          <div class="app"><div><span class="dot" style="background:#A6B67F"></span>
+            <span class="nm" style="margin-left:6px">Movilidad</span></div><div class="mt">Cadera</div></div>
+          <div class="app"><div><span class="dot" style="background:#B69C7F"></span>
+            <span class="nm" style="margin-left:6px">Escalada</span></div><div class="mt">Técnica</div></div>
+        </div>
+        <div style="margin-top:14px" class="kai-line">
+          <span style="color:var(--gold-deep);font-weight:700">Kai:</span> tu carrera subió y la
+          sentadilla se estancó. Compiten por recuperación.</div>
+        <div class="gold-btn" style="margin-top:16px">Entrenar fuerza</div>
+      </div>
+      <div class="caption">
+        <div class="eyebrow">Un operador, todos los dominios</div>
+        <h3>El Espacio</h3>
+        <p>Todo tu condicionamiento en un sitio — y Kai razona <b>entre</b> dominios (carrera vs.
+        recuperación de fuerza), algo que una app de una sola categoría no puede. Casi siempre,
+        calla: el vacío es la promesa cumplida.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- EL GLIFO — ESTADOS -->
+  <div class="section-t">El Glifo — el carácter es el estado del sistema</div>
+  <div class="section-s">Un solo trazo de oro vivo (no una cara, no un ojo). Sus poses no son
+  "emociones" decorativas — son <b>estados del sistema operativo</b>. Aprendes a leer tu
+  entrenamiento en la forma de una línea.</div>
+  <div class="states">
+    <div class="state">
+      <svg width="110" height="46" viewBox="0 0 110 46"><path d="M8 30 C 32 30, 44 28, 55 28 C 74 28, 86 30, 102 30" fill="none" stroke="var(--gold-deep)" stroke-width="4.5" stroke-linecap="round"/></svg>
+      <div class="nm">En calma</div><div class="d">Reconciliado. Todo cuadra. Nada que decir.</div>
+    </div>
+    <div class="state">
+      <svg width="110" height="46" viewBox="0 0 110 46"><path d="M8 32 C 30 32, 40 18, 55 18 C 72 18, 82 30, 102 26" fill="none" stroke="var(--gold-deep)" stroke-width="4.5" stroke-linecap="round"/><circle cx="55" cy="18" r="3" fill="var(--gold)"/></svg>
+      <div class="nm">Tiene algo que decir</div><div class="d">Una cuenta recorre el trazo: un desajuste que merece una frase.</div>
+    </div>
+    <div class="state">
+      <svg width="110" height="46" viewBox="0 0 110 46"><path d="M8 30 C 30 30, 42 12, 60 12 C 82 12, 92 34, 102 22" fill="none" stroke="var(--gold-deep)" stroke-width="5" stroke-linecap="round"/></svg>
+      <div class="nm">El momento</div><div class="d">Se tensa hacia arriba: estás a una rep de tu récord.</div>
+    </div>
+    <div class="state">
+      <svg width="110" height="46" viewBox="0 0 110 46"><path d="M8 30 C 34 30, 48 34, 60 34 C 78 34, 88 30, 102 32" fill="none" stroke="var(--gold-deep)" stroke-width="4" stroke-linecap="round" opacity=".7"/></svg>
+      <div class="nm">Cierre / bajo</div><div class="d">Se asienta al cerrar el día. Descanso legítimo, sin culpa.</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Mockups estáticos, baja fidelidad — la forma de la idea, no el pixel final. Tokens
+    alineados con <code>src/theme/tokens.ts</code> (oro #D4AF37, fondo cálido, Fraunces +
+    Plus Jakarta). El Glifo aquí es una aproximación SVG del <code>KaiFace.tsx</code> real.
+    LOCAL-ONLY, sin tocar la app. — 2026-07-03
+  </div>
+</div>
+</body>
+</html>
