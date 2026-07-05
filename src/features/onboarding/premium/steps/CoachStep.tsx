@@ -57,7 +57,9 @@ export default function CoachStep({ value, onChange, onContinue }: CoachStepProp
           textAlignVertical="top"
           maxLength={MAX_AI_PROMPT_LEN}
         />
-        <Text style={styles.counter}>{remaining}</Text>
+        {/* The count only matters when the ceiling is near — a permanent
+            counter reads as spreadsheet chrome (anti-noise law). */}
+        {remaining <= 60 && <Text style={styles.counter}>{remaining}</Text>}
       </View>
 
       <Text style={styles.orPick}>O elige un punto de partida</Text>
