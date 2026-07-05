@@ -53,7 +53,7 @@ export default function App() {
               </Pressable>
             </ScrollView>
           ) : (
-            <PremiumOnboarding onComplete={setResult} />
+            <PremiumOnboarding key="ms1" initialStep="manuscrito" manuscriptAutoplay onComplete={setResult} />
           )}
           </ErrorBoundary>
           </FontGate>

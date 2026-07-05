@@ -33,6 +33,8 @@ import GoldProgressBar from './GoldProgressBar';
 import PillChip from './PillChip';
 import SoftCard from './SoftCard';
 import StepEnter from './motion/StepEnter';
+import ManuscriptStep from '../manuscript/ManuscriptStep';
+import { applyPage, type FilledBlank } from '../manuscript/manuscript';
 import AuthStep from './steps/AuthStep';
 import MeetKaiStep from './steps/MeetKaiStep';
 import ProfileStep from './steps/ProfileStep';
@@ -47,6 +49,7 @@ import PresentationStep from './steps/PresentationStep';
 type Screen =
   | 'welcome'
   | 'auth'
+  | 'manuscrito'
   | 'meet-kai'
   | 'goal'
   | 'profile'
@@ -63,6 +66,8 @@ interface PremiumOnboardingProps {
   onComplete: (draft: OnboardingDraft) => void;
   /** Deep-link to a specific step (default 'welcome'). Handy for previews/tests. */
   initialStep?: Screen;
+  /** DEV only: scripted fills so the manuscript page can be photographed. */
+  manuscriptAutoplay?: boolean;
 }
 
 // Each goal carries a vivid accent (from the discipline palette) so the choice
@@ -116,7 +121,11 @@ const EQUIPMENT: { id: string; label: string }[] = [
   { id: 'yoga_mat', label: 'Esterilla' },
 ];
 
-export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOnboardingProps) {
+export default function PremiumOnboarding({
+  onComplete,
+  initialStep,
+  manuscriptAutoplay = false,
+}: PremiumOnboardingProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Screen>(initialStep ?? 'welcome');
   const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
@@ -196,7 +205,18 @@ export default function PremiumOnboarding({ onComplete, initialStep }: PremiumOn
               (StepEnter), not a per-item ghost cascade. */}
           <StepEnter key={step} style={styles.stepBody}>
             {step === 'welcome' && <WelcomeStep onStart={() => setStep('auth')} />}
-            {step === 'auth' && <AuthStep onAuth={() => setStep('meet-kai')} />}
+            {step === 'auth' && <AuthStep onAuth={() => setStep('manuscrito')} />}
+            {step === 'manuscrito' && (
+              <ManuscriptStep
+                autoplay={manuscriptAutoplay}
+                onDone={(filled: FilledBlank[]) => {
+                  const d = applyPage(draft, filled);
+                  setDraft(d);
+                  setReady(reachFirstValue(d));
+                  setStep('presentation');
+                }}
+              />
+            )}
             {step === 'meet-kai' && (
               <MeetKaiStep name={draft.name} onContinue={() => setStep('goal')} />
             )}
