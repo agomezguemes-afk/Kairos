@@ -12,7 +12,7 @@ import { MAX_AI_PROMPT_LEN } from '../../flow/onboardingFlow';
 import { text } from '../textStyles';
 import GoldButton from '../GoldButton';
 import PressableScale from '../motion/PressableScale';
-import KaiOrb from '../KaiOrb';
+import KaiFace from '../KaiFace';
 
 interface CoachStepProps {
   value: string;
@@ -34,7 +34,7 @@ export default function CoachStep({ value, onChange, onContinue }: CoachStepProp
   return (
     <View style={styles.root}>
       <View style={styles.intro}>
-        <KaiOrb size={72} />
+        <KaiFace size={100} emotion="idle" />
         <Text style={[text.eyebrowCenter, styles.kaiLabel]}>KAI · TU COPILOTO</Text>
         <Text style={styles.kaiTitle}>
           Cuéntame qué <Text style={text.titleAccent}>buscas</Text>

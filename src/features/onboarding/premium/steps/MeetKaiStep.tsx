@@ -19,7 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors, Spacing, Type } from '../../../../theme/tokens';
 import { text } from '../textStyles';
-import KaiOrb from '../KaiOrb';
+import KaiFace from '../KaiFace';
 import KaiSpeech from '../KaiSpeech';
 import GoldButton from '../GoldButton';
 
@@ -65,7 +65,10 @@ export default function MeetKaiStep({ name, onContinue }: MeetKaiStepProps) {
     <Pressable style={styles.root} onPress={() => setRevealAll(true)} accessibilityRole="none">
       <View style={styles.stage}>
         <Animated.View style={orbStyle}>
-          <KaiOrb size={120} />
+          {/* El Glifo — the canonical Kai (a single living stroke, Álvaro's
+              pick), not the legacy orb. It turns happy the moment it finishes
+              speaking: the character reacts to its own introduction. */}
+          <KaiFace size={148} emotion={spoke ? 'happy' : 'idle'} />
         </Animated.View>
 
         <Text style={[text.eyebrowCenter, styles.label]}>TU COPILOTO</Text>

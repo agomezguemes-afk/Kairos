@@ -10,7 +10,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { Spacing, Type, Colors } from '../../../../theme/tokens';
 import { text } from '../textStyles';
-import KaiOrb from '../KaiOrb';
+import KaiFace from '../KaiFace';
 import GoldProgressBar from '../GoldProgressBar';
 
 interface BuildingStepProps {
@@ -48,7 +48,7 @@ export default function BuildingStep({ name, onDone }: BuildingStepProps) {
 
   return (
     <View style={styles.root}>
-      <KaiOrb size={108} thinking />
+      <KaiFace size={148} emotion="thinking" />
       <Text style={[text.eyebrowCenter, styles.label]}>KAI ESTÁ TRABAJANDO</Text>
       <Text style={styles.title}>
         {name ? `Preparando el espacio\nde ${name}` : 'Preparando\ntu espacio'}
