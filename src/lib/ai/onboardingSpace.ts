@@ -12,6 +12,8 @@ import { isAIAvailable } from './client';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { applyStarterSpace, type StarterSpaceResult } from '../routines/generateStarterRoutine';
 import { STARTER_DISCIPLINES, type StarterAnswers } from '../routines/starterTemplates';
+import { computeWeekAssignments } from '../routines/weekAssignments';
+import { ANALYTICS_EVENTS, track } from '../analytics';
 import type { WorkoutBlock } from '../../types/core';
 
 const DEFAULT_TIMEOUT_MS = 9_000;
@@ -19,8 +21,12 @@ const DEFAULT_TIMEOUT_MS = 9_000;
 // transport — the user is staring at the closing animation, never block them.
 const HARD_CEILING_EXTRA_MS = 3_000;
 
+// Integration contract (docs/ai-board/BACKLOG.md): the Reveal paints
+// blocks + weekAssignments; completeOnboarding(result) commits the week.
 export interface OnboardingSpaceResult extends StarterSpaceResult {
   source: 'ai' | 'template';
+  /** Wall-clock time of the full generation (AI attempt + fallback included). */
+  durationMs: number;
 }
 
 const SYSTEM_PROMPT = `Eres Kai, el copiloto de entrenamiento de KAIROS. Tu única tarea ahora es construir el primer espacio de entrenamiento de un usuario nuevo usando las herramientas disponibles.
@@ -72,9 +78,10 @@ export async function generateOnboardingSpace(
   opts: { userName?: string; timeoutMs?: number } = {},
 ): Promise<OnboardingSpaceResult> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const startedAt = Date.now();
 
   if (!isAIAvailable()) {
-    return applyTemplate(answers);
+    return applyTemplate(answers, startedAt);
   }
 
   const snapshot = useWorkoutStore.getState().blocks;
@@ -100,29 +107,52 @@ export async function generateOnboardingSpace(
 
     const store = useWorkoutStore.getState();
     store.updateBlock(created[0].id, { is_favorite: true });
-    return {
-      blockIds: created.map((b) => b.id),
-      firstBlockId: created[0].id,
-      source: 'ai',
-    };
+    const blockIds = created.map((b) => b.id);
+    const idSet = new Set(blockIds);
+    // Re-read so `blocks` reflects the is_favorite commit above.
+    const blocks = useWorkoutStore.getState().blocks.filter((b) => idSet.has(b.id));
+    return finalize(
+      {
+        blocks,
+        weekAssignments: computeWeekAssignments(blockIds, answers.frequency),
+        blockIds,
+        firstBlockId: created[0].id,
+        source: 'ai',
+      },
+      startedAt,
+    );
   } catch (e) {
     // Partial tool commits from the failed run must not survive.
     useWorkoutStore.getState().replaceAllBlocks(snapshot);
     if (__DEV__) console.warn('Kai onboarding: AI path failed, using template', e);
-    return applyTemplate(answers);
+    return applyTemplate(answers, startedAt);
   } finally {
     clearTimeout(abortTimer);
   }
 }
 
-function applyTemplate(answers: StarterAnswers): OnboardingSpaceResult {
+function applyTemplate(answers: StarterAnswers, startedAt: number): OnboardingSpaceResult {
   const result = applyStarterSpace(answers);
   if (!result) {
     // Unreachable with a valid discipline — but never strand the user.
     const fallback = applyStarterSpace({ ...answers, discipline: 'hybrid' })!;
-    return { ...fallback, source: 'template' };
+    return finalize({ ...fallback, source: 'template' }, startedAt);
   }
-  return { ...result, source: 'template' };
+  return finalize({ ...result, source: 'template' }, startedAt);
+}
+
+function finalize(
+  result: Omit<OnboardingSpaceResult, 'durationMs'>,
+  startedAt: number,
+): OnboardingSpaceResult {
+  const durationMs = Date.now() - startedAt;
+  track(ANALYTICS_EVENTS.spaceGenerated, {
+    source: result.source,
+    duration_ms: durationMs,
+    blocks: result.blocks.length,
+    sessions_per_week: result.weekAssignments.length,
+  });
+  return { ...result, durationMs };
 }
 
 function withHardCeiling<T>(p: Promise<T>, ms: number): Promise<T> {

@@ -9,6 +9,7 @@ import {
   type StarterAnswers,
   type StarterDiscipline,
 } from './starterTemplates';
+import { computeWeekAssignments, type WeekAssignment } from './weekAssignments';
 
 type Goal = 'strength' | 'endurance' | 'flexibility' | 'health';
 
@@ -16,6 +17,10 @@ type Goal = 'strength' | 'endurance' | 'flexibility' | 'health';
 const USER_ID = 'user_001';
 
 export interface StarterSpaceResult {
+  /** The created blocks, as committed to the store. */
+  blocks: WorkoutBlock[];
+  /** Weekly plan proposal (0=domingo … 6=sábado). Committed by completeOnboarding. */
+  weekAssignments: WeekAssignment[];
   blockIds: string[];
   /** The favorite block the "first workout" CTA should launch. */
   firstBlockId: string;
@@ -31,7 +36,13 @@ export function applyStarterSpace(answers: StarterAnswers): StarterSpaceResult |
   const built = buildStarterBlocks(answers, USER_ID, store.blocks.length);
   if (built.length === 0) return null;
   store.replaceAllBlocks([...store.blocks, ...built]);
-  return { blockIds: built.map((b) => b.id), firstBlockId: built[0].id };
+  const blockIds = built.map((b) => b.id);
+  return {
+    blocks: built,
+    weekAssignments: computeWeekAssignments(blockIds, answers.frequency),
+    blockIds,
+    firstBlockId: built[0].id,
+  };
 }
 
 const GOAL_TO_DISCIPLINE: Record<Goal, StarterDiscipline> = {
