@@ -24,6 +24,13 @@ import { estimateKcal } from '../lib/health/met';
 import { getTemplate } from '../data/blockTemplates';
 import { getLibraryEntry } from '../data/exerciseLibrary';
 import { instantiateTemplate, cloneLibraryEntry } from '../data/libraryHelpers';
+import { useScheduleStore } from './scheduleStore';
+import { buildWeeklyRule } from '../features/planner/lib/rrule';
+import { todayISO } from '../features/planner/lib/dates';
+import { groupAssignmentsByBlock, toRRuleWeekday } from '../lib/routines/weekAssignments';
+import { ANALYTICS_EVENTS, track } from '../lib/analytics';
+// Type-only: erased at runtime, so no workoutStore ↔ onboardingSpace cycle.
+import type { OnboardingSpaceResult } from '../lib/ai/onboardingSpace';
 
 const MOCK_USER_ID = 'user_001';
 
@@ -111,6 +118,15 @@ interface WorkoutState {
   userGoal: 'strength' | 'endurance' | 'flexibility' | 'health' | null;
   setUserName: (name: string) => void;
   setUserGoal: (goal: 'strength' | 'endurance' | 'flexibility' | 'health') => void;
+  // Canonical onboarding flag — the ONLY gate AppNavigator consults. ISO
+  // timestamp once completeOnboarding() runs; null on fresh installs.
+  onboardingCompletedAt: string | null;
+  /**
+   * Finish onboarding in one atomic step: seed the weekly schedule from the
+   * generated space, flip the persistent flag, emit `onboarding_completed`.
+   * Idempotent — repeat calls (double-tap on «Empezar») are no-ops.
+   */
+  completeOnboarding: (result: OnboardingSpaceResult) => void;
   healthkitEnabled: boolean;
   bodyWeightKg: number | null;
   setHealthkitEnabled: (enabled: boolean) => void;
@@ -310,6 +326,35 @@ function migrateBlock(block: any): WorkoutBlock {
   };
 }
 
+// Exported for unit tests — zustand gives no other handle on `migrate`.
+export function migratePersistedWorkoutState(persisted: any, version: number): WorkoutState {
+  const state = persisted as any;
+  if (version < 2 && state?.blocks) {
+    state.blocks = state.blocks.map(migrateBlock);
+  }
+  // v3: introduce canvasPosition (Sprint 6). Existing blocks become
+  // unplaced (null) so the auto-packer puts them in order on first
+  // render. New blocks get null from createWorkoutBlock.
+  if (version < 3 && state?.blocks) {
+    state.blocks = state.blocks.map((b: any) => ({
+      ...b,
+      canvasPosition: b.canvasPosition ?? null,
+    }));
+  }
+  // v4: canonical onboarding flag. Users onboarded under the old
+  // userName-based gate must not see the quiz again — backfill the flag.
+  if (version < 4 && state) {
+    if (
+      state.onboardingCompletedAt == null &&
+      typeof state.userName === 'string' &&
+      state.userName.trim().length > 0
+    ) {
+      state.onboardingCompletedAt = new Date().toISOString();
+    }
+  }
+  return persisted as WorkoutState;
+}
+
 export const useWorkoutStore = create<WorkoutState>()(
   persist(
     (set, get) => ({
@@ -322,6 +367,30 @@ export const useWorkoutStore = create<WorkoutState>()(
       setUserName: (name) => set({ userName: name.trim() }),
       setUserGoal: (goal) =>
         set({ userGoal: goal as 'strength' | 'endurance' | 'flexibility' | 'health' }),
+      onboardingCompletedAt: null,
+      completeOnboarding: (result) => {
+        // Idempotency guard: a second tap must not duplicate the schedule.
+        if (get().onboardingCompletedAt !== null) return;
+
+        const schedule = useScheduleStore.getState();
+        const startDate = todayISO();
+        for (const [blockId, weekdays] of groupAssignmentsByBlock(result.weekAssignments)) {
+          if (weekdays.length === 0) continue;
+          schedule.assignRecurring({
+            blockId,
+            rrule: buildWeeklyRule(weekdays.map(toRRuleWeekday)),
+            startDate,
+          });
+        }
+
+        set({ onboardingCompletedAt: new Date().toISOString() });
+        track(ANALYTICS_EVENTS.onboardingCompleted, {
+          source: result.source,
+          duration_ms: result.durationMs,
+          blocks: result.blocks.length,
+          sessions_per_week: result.weekAssignments.length,
+        });
+      },
       healthkitEnabled: false,
       bodyWeightKg: null,
       setHealthkitEnabled: (enabled) => set({ healthkitEnabled: enabled }),
@@ -351,6 +420,14 @@ export const useWorkoutStore = create<WorkoutState>()(
           }
         }
         if (exercises.length === 0) return;
+
+        // Activation funnel: the very first session the user ever starts.
+        if (get().workoutHistory.length === 0) {
+          track(ANALYTICS_EVENTS.firstWorkoutStarted, {
+            blockId,
+            source: ctx?.source ?? 'free',
+          });
+        }
 
         // Preload set values from per-exercise goals so the user starts each
         // set with the planned target instead of an empty input. We only fill
@@ -625,6 +702,7 @@ export const useWorkoutStore = create<WorkoutState>()(
 
       finishWorkout: () => {
         let summary: WorkoutHistoryEntry | null = null;
+        const wasFirstWorkout = get().workoutHistory.length === 0;
         set((state) => {
           if (!state.activeWorkout) return state;
           const aw = state.activeWorkout;
@@ -705,6 +783,13 @@ export const useWorkoutStore = create<WorkoutState>()(
         // block the caller (summary return) on the round-trip.
         // (TS can't track the assignment inside set(), hence the explicit cast.)
         const finalized = summary as WorkoutHistoryEntry | null;
+        if (finalized && wasFirstWorkout) {
+          track(ANALYTICS_EVENTS.firstWorkoutCompleted, {
+            blockId: finalized.blockId,
+            duration_sec: finalized.durationSec,
+            sets: finalized.setCount,
+          });
+        }
         if (finalized) {
           const state = get();
           if (state.healthkitEnabled && isHealthKitAvailable()) {
@@ -1202,24 +1287,9 @@ export const useWorkoutStore = create<WorkoutState>()(
     }),
     {
       name: 'kairos_workout_store',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
-      migrate: (persisted: any, version: number) => {
-        const state = persisted as any;
-        if (version < 2 && state?.blocks) {
-          state.blocks = state.blocks.map(migrateBlock);
-        }
-        // v3: introduce canvasPosition (Sprint 6). Existing blocks become
-        // unplaced (null) so the auto-packer puts them in order on first
-        // render. New blocks get null from createWorkoutBlock.
-        if (version < 3 && state?.blocks) {
-          state.blocks = state.blocks.map((b: any) => ({
-            ...b,
-            canvasPosition: b.canvasPosition ?? null,
-          }));
-        }
-        return persisted as WorkoutState;
-      },
+      migrate: migratePersistedWorkoutState,
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         AsyncStorage.getItem('kairos_blocks_v1')

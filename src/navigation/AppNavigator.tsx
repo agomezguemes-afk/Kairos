@@ -68,8 +68,11 @@ function DashboardTabs() {
 export default function AppNavigator() {
   const { session, isInitialized } = useAuthStore();
   const { isLoading: profileLoading, isOnboardingComplete } = useUserProfile();
-  const userName = useWorkoutStore((s) => s.userName);
-  const onboarded = userName.trim().length > 0;
+  // Canonical gate: flipped by workoutStore.completeOnboarding() when the
+  // user accepts their generated space. Persisted; migration v4 backfills
+  // users onboarded under the old userName-based gate.
+  const onboardingCompletedAt = useWorkoutStore((s) => s.onboardingCompletedAt);
+  const onboarded = onboardingCompletedAt !== null;
 
   // Splash overlay state — shown once on launch
   const [splashVisible, setSplashVisible] = useState(true);
