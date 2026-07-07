@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.kairos.app'
+    namespace 'com.kairos.app.dev'
     defaultConfig {
-        applicationId 'com.kairos.app'
+        applicationId 'com.kairos.app.dev'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

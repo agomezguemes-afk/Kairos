@@ -1,4 +1,4 @@
-package com.kairos.app
+package com.kairos.app.dev
 
 import android.app.Application
 import android.content.res.Configuration
