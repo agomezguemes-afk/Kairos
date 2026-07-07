@@ -15,8 +15,6 @@ import { Type, Spacing } from '../theme/tokens';
 // Screens
 import WelcomeScreen from '../screens/WelcomeScreen';
 import AuthScreen from '../screens/AuthScreen';
-import ProfileSetupScreen from '../screens/ProfileSetupScreen';
-import OnboardingChatScreen from '../screens/OnboardingChatScreen';
 import SplashScreen from '../screens/SplashScreen';
 
 import HomeTab from '../screens/tabs/HomeTab';
@@ -67,7 +65,7 @@ function DashboardTabs() {
 
 export default function AppNavigator() {
   const { session, isInitialized } = useAuthStore();
-  const { isLoading: profileLoading, isOnboardingComplete } = useUserProfile();
+  const { isLoading: profileLoading } = useUserProfile();
   // Canonical gate: flipped by workoutStore.completeOnboarding() when the
   // user accepts their generated space. Persisted; migration v4 backfills
   // users onboarded under the old userName-based gate.
@@ -180,11 +178,6 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
             <Stack.Screen name="Auth" component={AuthScreen} />
-          </>
-        ) : !isOnboardingComplete ? (
-          <>
-            <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-            <Stack.Screen name="Onboarding" component={OnboardingChatScreen} />
           </>
         ) : !onboarded ? (
           <>

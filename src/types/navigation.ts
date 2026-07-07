@@ -18,8 +18,7 @@ export type RootStackParamList = {
   // Auth
   Welcome: undefined;
   Auth: undefined;
-  ProfileSetup: undefined;
-  // Legacy onboarding (kept for local-only users who skip Supabase)
+  // Canonical quiz onboarding (OnboardingScreen) — both auth and local modes
   Onboarding: undefined;
   // Main app
   Dashboard: NavigatorScreenParams<DashboardTabParamList> | undefined;
