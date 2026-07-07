@@ -232,7 +232,7 @@ export default function BlockAISheet({ visible, block, onClose }: BlockAISheetPr
         scrollToBottom();
       }
     },
-    [input, thinking, block.id, buildContext, conversationHistory, scrollToBottom],
+    [input, thinking, block, buildContext, conversationHistory, scrollToBottom],
   );
 
   const handleStop = useCallback(() => {

@@ -133,9 +133,24 @@ export function MissionProvider({
         setIsLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot hydration on mount; currentWeek is captured deliberately
+  }, []);
+
+  // ---- Persist helpers ----
+  // Declared before the auto-generate effect so it can be a real dependency.
+  const persistMission = useCallback(async (m: Mission | null) => {
+    try {
+      if (m) {
+        await AsyncStorage.setItem(KEYS.activeMission, JSON.stringify(m));
+      } else {
+        await AsyncStorage.removeItem(KEYS.activeMission);
+      }
+    } catch {}
   }, []);
 
   // ---- Auto-generate mission if none active ----
+  // Safe with full deps: the `activeMission === null` guard makes re-runs
+  // no-ops once a mission exists.
   useEffect(() => {
     if (!isLoading && activeMission === null) {
       const ctx = {
@@ -149,18 +164,7 @@ export function MissionProvider({
       setActiveMission(mission);
       persistMission(mission);
     }
-  }, [isLoading, activeMission]);
-
-  // ---- Persist helpers ----
-  const persistMission = useCallback(async (m: Mission | null) => {
-    try {
-      if (m) {
-        await AsyncStorage.setItem(KEYS.activeMission, JSON.stringify(m));
-      } else {
-        await AsyncStorage.removeItem(KEYS.activeMission);
-      }
-    } catch {}
-  }, []);
+  }, [isLoading, activeMission, streak, badges, blocks, completedMissions, prCards.length, persistMission]);
 
   const persistCompleted = useCallback(async (list: CompletedMission[]) => {
     try {

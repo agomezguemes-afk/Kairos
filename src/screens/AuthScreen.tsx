@@ -49,12 +49,12 @@ export default function AuthScreen({ navigation }: any) {
       friction: 5,
     }).start();
 
-  const validate = (): string | null => {
+  const validate = useCallback((): string | null => {
     if (!email.trim()) return 'Ingresa tu correo electrónico.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Correo electrónico no válido.';
     if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres.';
     return null;
-  };
+  }, [email, password]);
 
   const handleSubmit = useCallback(async () => {
     clearError();
@@ -78,7 +78,7 @@ export default function AuthScreen({ navigation }: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
     // Success → AppNavigator reacts to session change automatically.
-  }, [email, password, mode, signIn, signUp, clearError]);
+  }, [email, password, mode, signIn, signUp, clearError, validate]);
 
   const toggleMode = () => {
     clearError();

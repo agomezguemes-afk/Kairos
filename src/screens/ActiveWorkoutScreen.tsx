@@ -199,15 +199,18 @@ export default function ActiveWorkoutScreen() {
   useLiveActivitySync();
 
   // ===== session timer =====
+  // Keyed on startTime alone — keying on `aw` would tear the interval down
+  // on every store mutation (each set completion).
+  const sessionStartTime = aw?.startTime;
   const [elapsedSec, setElapsedSec] = useState(0);
   useEffect(() => {
-    if (!aw) return;
-    setElapsedSec(Math.floor((Date.now() - aw.startTime) / 1000));
+    if (sessionStartTime == null) return;
+    setElapsedSec(Math.floor((Date.now() - sessionStartTime) / 1000));
     const id = setInterval(() => {
-      setElapsedSec(Math.floor((Date.now() - aw.startTime) / 1000));
+      setElapsedSec(Math.floor((Date.now() - sessionStartTime) / 1000));
     }, 1000);
     return () => clearInterval(id);
-  }, [aw?.startTime]);
+  }, [sessionStartTime]);
 
   // ===== completion summary =====
   const [summary, setSummary] = useState<WorkoutHistoryEntry | null>(null);
@@ -292,6 +295,7 @@ export default function ActiveWorkoutScreen() {
       return;
     }
     setDraftValues({ ...currentSet.values });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on set IDENTITY only; reacting to currentSet.values would clobber in-progress typing
   }, [currentSet?.id]);
 
   // ===== fade transition between exercises =====
