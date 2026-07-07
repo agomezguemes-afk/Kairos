@@ -141,35 +141,42 @@ export default function WelcomeScreen({ navigation }: { navigation: any }) {
 
       {/* ── Bottom CTAs ── */}
       <Animated.View style={[styles.footer, btnsStyle]}>
-        {/* Primary CTA — gold (moment screen, per spec §4.4) */}
+        {/* Primary CTA — gold (moment screen, per spec §4.4).
+            Soft-wall: valor antes de cuenta — «Empezar» va directo al quiz. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Crear cuenta"
+          accessibilityLabel="Empezar"
+          accessibilityHint="Comienza el cuestionario para crear tu espacio de entrenamiento"
           onPressIn={() => pressIn(ctaScale)}
           onPressOut={() => pressOut(ctaScale)}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-            navigation.navigate('Auth');
+            // TODO(integración): DEV-L debe registrar la ruta 'Onboarding' en el
+            // stack pre-sesión (hoy solo existe en los stacks post-auth/local).
+            navigation.navigate('Onboarding');
           }}
         >
           <Animated.View style={[styles.primaryBtn, ctaStyle]}>
-            <Text style={styles.primaryBtnText}>Crear cuenta</Text>
+            <Text style={styles.primaryBtnText}>Empezar</Text>
           </Animated.View>
         </Pressable>
 
         {/* Secondary — ghost style (spec §4.4: demote to ghost) */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Iniciar sesión"
+          accessibilityLabel="Ya tengo cuenta"
+          accessibilityHint="Abre el inicio de sesión"
           onPressIn={() => pressIn(loginScale)}
           onPressOut={() => pressOut(loginScale)}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-            navigation.navigate('Auth');
+            // Fix del bug: antes ambos CTAs navegaban a Auth sin modo y el
+            // usuario de «Crear cuenta» aterrizaba en «Bienvenido de nuevo».
+            navigation.navigate('Auth', { mode: 'signin' });
           }}
         >
           <Animated.View style={[styles.secondaryBtn, loginStyle]}>
-            <Text style={styles.secondaryBtnText}>Iniciar sesión</Text>
+            <Text style={styles.secondaryBtnText}>Ya tengo cuenta</Text>
           </Animated.View>
         </Pressable>
 
