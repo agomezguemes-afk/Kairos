@@ -6,10 +6,14 @@
 
 import React, { useCallback, useRef } from 'react';
 import PremiumOnboarding from '../../features/onboarding/premium/PremiumOnboarding';
-import type { OnboardingDraft, OnboardingGoal } from '../../features/onboarding/flow/onboardingFlow';
+import type {
+  OnboardingDraft,
+  OnboardingGoal,
+} from '../../features/onboarding/flow/onboardingFlow';
 import { generateOnboardingSpace, type OnboardingSpaceResult } from '../../lib/ai/onboardingSpace';
 import type { StarterAnswers, StarterDiscipline } from '../../lib/routines/starterTemplates';
 import type { EquipmentTag } from '../../types/profile';
+import { markOnboardedThisSession } from '../../features/onboarding/plannerTourGate';
 import { useWorkoutStore } from '../../store/workoutStore';
 
 // El vocabulario del manuscrito es humano (objetivos); el generador habla en
@@ -44,6 +48,10 @@ export default function PremiumOnboardingScreen() {
   }, []);
 
   const handleComplete = useCallback(async (draft: OnboardingDraft) => {
+    // Marca la sesión ANTES del await: cuando completeOnboarding voltee el
+    // navigator y monte HomeTab, el gate ya sabe que este arranque acaba de
+    // onboardear y difiere el PlannerTour a la siguiente sesión.
+    markOnboardedThisSession();
     const pending =
       generationRef.current ??
       generateOnboardingSpace(draftToStarterAnswers(draft), {
@@ -57,7 +65,5 @@ export default function PremiumOnboardingScreen() {
     completeOnboarding(result);
   }, []);
 
-  return (
-    <PremiumOnboarding onBuildingStart={handleBuildingStart} onComplete={handleComplete} />
-  );
+  return <PremiumOnboarding onBuildingStart={handleBuildingStart} onComplete={handleComplete} />;
 }
