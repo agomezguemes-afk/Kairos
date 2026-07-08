@@ -13,10 +13,8 @@ import {
   __resetTrackedEvents,
   THEATRE_MIN_MS,
   THEATRE_STEP_INTERVAL_MS,
-  GOAL_LABELS,
-  GOAL_CAPTIONS,
+  DISCIPLINE_CAPTIONS,
   EVENTS,
-  type Goal,
 } from './onboardingFlow';
 
 describe('planForFrequency', () => {
@@ -81,12 +79,10 @@ describe('assignWeekdays', () => {
 });
 
 describe('buildTheatreSteps', () => {
-  it('devuelve 4 pasos narrados para cada objetivo', () => {
-    for (const goal of Object.keys(GOAL_LABELS) as Goal[]) {
-      const steps = buildTheatreSteps(goal);
-      expect(steps).toHaveLength(4);
-      expect(steps[1]).toContain(GOAL_LABELS[goal].toLowerCase());
-    }
+  it('devuelve 4 pasos narrados con la disciplina en minúsculas', () => {
+    const steps = buildTheatreSteps('Fuerza');
+    expect(steps).toHaveLength(4);
+    expect(steps[1]).toContain('fuerza');
   });
 
   it('la cadencia de pasos nunca deja silencios > 2s', () => {
@@ -95,10 +91,11 @@ describe('buildTheatreSteps', () => {
     expect(THEATRE_STEP_INTERVAL_MS * 3).toBeLessThan(THEATRE_MIN_MS);
   });
 
-  it('cada objetivo tiene caption de micro-momento', () => {
-    for (const goal of Object.keys(GOAL_LABELS) as Goal[]) {
-      expect(GOAL_CAPTIONS[goal].length).toBeGreaterThan(0);
+  it('cada disciplina del quiz tiene caption de micro-momento', () => {
+    for (const caption of Object.values(DISCIPLINE_CAPTIONS)) {
+      expect(caption.length).toBeGreaterThan(0);
     }
+    expect(Object.keys(DISCIPLINE_CAPTIONS)).toHaveLength(6);
   });
 });
 

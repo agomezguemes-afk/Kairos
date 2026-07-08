@@ -1,37 +1,48 @@
-// KAIROS — Stubs de integración del onboarding (DEV-U ↔ DEV-L)
-// Este módulo programa contra el contrato del sprint (docs/ai-board/BACKLOG.md).
-// El orquestador lo conecta a las APIs reales de DEV-L al mergear.
+// KAIROS — Adaptador de integración del onboarding (DEV-U ↔ DEV-L)
+// Conecta el generador real (src/lib/ai/onboardingSpace.ts — IA con fallback
+// de plantilla, nunca rechaza) con la forma que el Reveal pinta. Las piezas
+// que DEV-L aún no ha aterrizado (L1 semana sembrada, L2 completeOnboarding,
+// L4 analytics) quedan marcadas TODO(integración).
 
 import { useWorkoutStore } from '../../store/workoutStore';
-import { generateStarterRoutine } from '../../lib/routines/generateStarterRoutine';
-import { assignWeekdays, type OnboardingSpaceResult, type QuizAnswers } from './onboardingFlow';
+import { generateOnboardingSpace as generateSpace } from '../../lib/ai/onboardingSpace';
+import type { StarterAnswers } from '../../lib/routines/starterTemplates';
+import { assignWeekdays, type OnboardingSpaceResult } from './onboardingFlow';
 
-// TODO(integración): sustituir por el `generateOnboardingSpace` real de DEV-L
-// (camino IA con fallback de plantilla). Este stub usa la plantilla local para
-// que el flujo completo funcione standalone antes del merge.
-export async function generateOnboardingSpace(
-  answers: QuizAnswers,
+/**
+ * Genera el espacio con la API real y lo adapta al contrato del Reveal
+ * ({ blocks, weekAssignments, source, durationMs }).
+ */
+export async function generateSpaceForReveal(
+  answers: StarterAnswers,
+  userName: string,
 ): Promise<OnboardingSpaceResult> {
   const startedAt = Date.now();
-  const block = generateStarterRoutine(answers.goal);
-  if (!block) {
-    throw new Error('No se pudo crear tu primer bloque');
-  }
+  // Nunca rechaza: en cualquier fallo devuelve la plantilla curada.
+  const result = await generateSpace(answers, { userName });
+  const all = useWorkoutStore.getState().blocks;
+  const blocks = result.blockIds
+    .map((id) => all.find((b) => b.id === id))
+    .filter((b): b is NonNullable<typeof b> => b !== undefined);
   return {
-    blocks: [block],
-    weekAssignments: assignWeekdays([block.id], answers.frequency),
-    source: 'template',
+    blocks,
+    // TODO(integración): sustituir por los weekAssignments reales cuando
+    // generateOnboardingSpace los devuelva (DEV-L, L1).
+    weekAssignments: assignWeekdays(
+      blocks.map((b) => b.id),
+      answers.frequency,
+    ),
+    source: result.source,
     durationMs: Date.now() - startedAt,
   };
 }
 
 // TODO(integración): sustituir por la acción real del store de DEV-L (L2):
 // siembra la semana, persiste `onboardingCompletedAt` y emite
-// `onboarding_completed`. El stub es no-op porque los bloques ya están en el
-// store (los insertó el stub de generación) y el gate de navegación actual
-// sigue siendo `userName`.
+// `onboarding_completed`. Stub no-op: los bloques ya están en el store y el
+// gate de navegación de esta base sigue siendo `userName`.
 export function completeOnboarding(_result: OnboardingSpaceResult): void {
-  // no-op hasta el merge
+  // no-op hasta el merge con DEV-L
 }
 
 /** Limpia los bloques de un resultado descartado (acción «Regenerar»). */

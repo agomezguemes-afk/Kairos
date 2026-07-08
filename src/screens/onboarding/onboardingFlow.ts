@@ -3,21 +3,9 @@
 // Testeable en node (vitest) — no importar nada con side effects nativos.
 
 import type { WorkoutBlock } from '../../types/core';
-import type { EquipmentTag, FitnessLevel } from '../../types/profile';
+import type { StarterDiscipline } from '../../lib/routines/starterTemplates';
 
 // ── Tipos del contrato ───────────────────────────────────────────────────────
-
-export type Goal = 'strength' | 'endurance' | 'flexibility' | 'health';
-
-export interface QuizAnswers {
-  name: string;
-  goal: Goal;
-  level: FitnessLevel;
-  /** Días de entrenamiento por semana (2-5 en el quiz). */
-  frequency: number;
-  equipment: EquipmentTag[];
-  equipmentNotes: string;
-}
 
 /** 0 = domingo … 6 = sábado (convención del contrato). */
 export interface WeekAssignment {
@@ -27,6 +15,7 @@ export interface WeekAssignment {
 
 export type OnboardingSource = 'ai' | 'template';
 
+/** Forma que el Reveal pinta — DEV-L la expondrá desde generateOnboardingSpace (L1). */
 export interface OnboardingSpaceResult {
   blocks: WorkoutBlock[];
   weekAssignments: WeekAssignment[];
@@ -36,22 +25,17 @@ export interface OnboardingSpaceResult {
 
 // ── Copy compartido ──────────────────────────────────────────────────────────
 
-export const GOAL_LABELS: Record<Goal, string> = {
-  strength: 'Fuerza',
-  endurance: 'Resistencia',
-  flexibility: 'Flexibilidad',
-  health: 'Salud general',
-};
-
-/** Micro-momento de reconocimiento al seleccionar objetivo (patrón Runna). */
-export const GOAL_CAPTIONS: Record<Goal, string> = {
+/** Micro-momento de reconocimiento al seleccionar disciplina (patrón Runna). */
+export const DISCIPLINE_CAPTIONS: Record<StarterDiscipline, string> = {
   strength: 'Kai preparará tu espacio de fuerza',
-  endurance: 'Kai preparará tu espacio de resistencia',
-  flexibility: 'Kai preparará tu espacio de movilidad',
-  health: 'Kai preparará tu espacio de bienestar',
+  running: 'Kai preparará tu espacio de running',
+  calisthenics: 'Kai preparará tu espacio de calistenia',
+  yoga_mobility: 'Kai preparará tu espacio de movilidad',
+  team_sport: 'Kai preparará tu espacio para tu deporte',
+  hybrid: 'Kai preparará tu espacio híbrido',
 };
 
-// ── Semana sembrada (espejo local de L1 hasta que DEV-L la implemente) ───────
+// ── Semana sembrada (espejo local de L1 hasta que DEV-L la exponga) ──────────
 
 // WHY: lunes-first porque es la convención de planificación en España.
 const WEEK_PLANS: Record<number, number[]> = {
@@ -92,10 +76,10 @@ export const THEATRE_MIN_MS = 2600;
 export const THEATRE_STEP_INTERVAL_MS = 650;
 
 /** 4 pasos narrados, idénticos en camino IA y fallback de plantilla. */
-export function buildTheatreSteps(goal: Goal): string[] {
+export function buildTheatreSteps(disciplineLabel: string): string[] {
   return [
     'Analizando tu punto de partida',
-    `Seleccionando ejercicios de ${GOAL_LABELS[goal].toLowerCase()}`,
+    `Seleccionando ejercicios de ${disciplineLabel.toLowerCase()}`,
     'Montando tu primer bloque',
     'Programando tu semana',
   ];
@@ -140,7 +124,7 @@ const MAX_QUEUE = 200;
 const trackedEvents: TrackedEvent[] = [];
 
 // TODO(integración): sustituir por `import { track } from '../../lib/analytics'`
-// (DEV-L, tarea L4) y borrar este stub junto a sus helpers de test.
+// (DEV-L, tarea L4 — aún no existe en esta base) y borrar este stub.
 export function track(event: string, props?: Record<string, unknown>): void {
   trackedEvents.push({ event, props, ts: Date.now() });
   if (trackedEvents.length > MAX_QUEUE) trackedEvents.shift();
