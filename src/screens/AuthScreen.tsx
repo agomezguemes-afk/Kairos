@@ -23,11 +23,18 @@ import { Colors, Typography, Spacing, Radius, Shadows } from '../theme/index';
 
 type Mode = 'signin' | 'signup';
 
-export default function AuthScreen({ navigation }: any) {
+interface AuthScreenProps {
+  navigation: { goBack: () => void };
+  // TODO(integración): DEV-L debe ampliar RootStackParamList con
+  // `Auth: { mode?: 'signin' | 'signup' } | undefined` (src/types/navigation.ts).
+  route?: { params?: { mode?: Mode } };
+}
+
+export default function AuthScreen({ navigation, route }: AuthScreenProps) {
   const insets = useSafeAreaInsets();
   const { signIn, signUp, isLoading, error, clearError } = useAuthStore();
 
-  const [mode, setMode] = useState<Mode>('signin');
+  const [mode, setMode] = useState<Mode>(route?.params?.mode ?? 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -49,18 +56,16 @@ export default function AuthScreen({ navigation }: any) {
       friction: 5,
     }).start();
 
-  const validate = useCallback((): string | null => {
-    if (!email.trim()) return 'Ingresa tu correo electrónico.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Correo electrónico no válido.';
-    if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres.';
-    return null;
-  }, [email, password]);
-
   const handleSubmit = useCallback(async () => {
     clearError();
     setLocalError(null);
 
-    const validationError = validate();
+    const validationError = (() => {
+      if (!email.trim()) return 'Ingresa tu correo electrónico.';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Correo electrónico no válido.';
+      if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres.';
+      return null;
+    })();
     if (validationError) {
       setLocalError(validationError);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -78,7 +83,7 @@ export default function AuthScreen({ navigation }: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
     // Success → AppNavigator reacts to session change automatically.
-  }, [email, password, mode, signIn, signUp, clearError, validate]);
+  }, [email, password, mode, signIn, signUp, clearError]);
 
   const toggleMode = () => {
     clearError();
@@ -102,7 +107,13 @@ export default function AuthScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         {/* Back arrow */}
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.back}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          style={styles.back}
+        >
           <Feather name="arrow-left" size={22} color={Colors.text.primary} />
         </Pressable>
 
@@ -172,6 +183,8 @@ export default function AuthScreen({ navigation }: any) {
                 onSubmitEditing={handleSubmit}
               />
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 onPress={() => setShowPassword((s) => !s)}
                 hitSlop={8}
                 style={styles.eyeBtn}
@@ -193,21 +206,13 @@ export default function AuthScreen({ navigation }: any) {
             </View>
           ) : null}
 
-          {/* Forgot password (sign-in only) */}
-          {mode === 'signin' && (
-            <Pressable
-              style={styles.forgotBtn}
-              onPress={() => {
-                /* TODO: implement password reset */
-                console.log('[Auth] forgot password tapped');
-              }}
-            >
-              <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
-            </Pressable>
-          )}
+          {/* Reset de contraseña retirado hasta que exista el flujo real
+              (resetPasswordForEmail) — un link que no hace nada es peor que su ausencia. */}
 
           {/* Primary CTA */}
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={mode === 'signin' ? 'Iniciar sesión' : 'Crear cuenta'}
             onPressIn={springDown}
             onPressOut={springUp}
             onPress={handleSubmit}
@@ -230,39 +235,17 @@ export default function AuthScreen({ navigation }: any) {
             </Animated.View>
           </Pressable>
 
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social placeholders */}
-          <Pressable
-            style={styles.socialBtn}
-            onPress={() => {
-              // TODO: implement Google OAuth
-              console.log('[Auth] Google sign-in tapped — not yet implemented');
-            }}
-          >
-            <Feather name="globe" size={18} color={Colors.text.primary} />
-            <Text style={styles.socialBtnText}>Continuar con Google</Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.socialBtn}
-            onPress={() => {
-              // TODO: implement Apple Sign In
-              console.log('[Auth] Apple sign-in tapped — not yet implemented');
-            }}
-          >
-            <Feather name="smartphone" size={18} color={Colors.text.primary} />
-            <Text style={styles.socialBtnText}>Continuar con Apple</Text>
-          </Pressable>
+          {/* Apple/Google retirados hasta que exista el OAuth real —
+              eran placeholders con console.log e iconos incorrectos. */}
         </View>
 
         {/* Toggle mode */}
-        <Pressable onPress={toggleMode} style={styles.toggleRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={mode === 'signin' ? 'Crear una cuenta nueva' : 'Ir a iniciar sesión'}
+          onPress={toggleMode}
+          style={styles.toggleRow}
+        >
           <Text style={styles.toggleText}>
             {mode === 'signin' ? '¿Aún no tienes cuenta? ' : '¿Ya tienes cuenta? '}
           </Text>
@@ -373,15 +356,6 @@ const styles = StyleSheet.create({
     color: Colors.semantic.error,
     flex: 1,
   },
-  forgotBtn: {
-    alignSelf: 'flex-end',
-    paddingVertical: 2,
-  },
-  forgotText: {
-    fontSize: Typography.size.caption,
-    color: Colors.accent.primary,
-    fontWeight: Typography.weight.medium,
-  },
   primaryBtn: {
     backgroundColor: Colors.accent.primary,
     paddingVertical: Spacing.lg,
@@ -400,38 +374,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.subheading,
     fontWeight: Typography.weight.semibold,
     color: Colors.text.inverse,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: Spacing.xs,
-    gap: Spacing.md,
-  },
-  dividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.border.light,
-  },
-  dividerText: {
-    fontSize: Typography.size.caption,
-    color: Colors.text.disabled,
-  },
-  socialBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.background.surface,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.md + 2,
-    height: 52,
-  },
-  socialBtnText: {
-    fontSize: Typography.size.body,
-    fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
   },
   toggleRow: {
     flexDirection: 'row',
