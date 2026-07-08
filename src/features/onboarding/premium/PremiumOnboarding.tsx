@@ -11,7 +11,7 @@
 //   <PremiumOnboarding onComplete={(draft) => { persist(draft); goToDashboard(); }} />
 // `draft` is already first-value-ready (smart defaults applied).
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -41,6 +41,7 @@ import ProfileStep from './steps/ProfileStep';
 import CoachStep from './steps/CoachStep';
 import BuildingStep from './steps/BuildingStep';
 import PresentationStep from './steps/PresentationStep';
+import type { OnboardingAnalyticsEvent } from './onboardingAnalytics';
 
 // The full flow. welcome/auth are brand+account; goal→profile→equipment→coach
 // are the tracked "config" questions; building→presentation are the culmination
@@ -70,6 +71,11 @@ interface PremiumOnboardingProps {
    * the theatre instead of blocking after it.
    */
   onBuildingStart?: (draft: OnboardingDraft) => void;
+  /**
+   * Funnel taps. The component stays free of the analytics queue: it reports
+   * WHAT happened; the host maps events to ANALYTICS_EVENTS + track().
+   */
+  onEvent?: (event: OnboardingAnalyticsEvent) => void;
   /** Deep-link to a specific step (default 'welcome'). Handy for previews/tests. */
   initialStep?: Screen;
   /** DEV only: scripted fills so the manuscript page can be photographed. */
@@ -132,6 +138,7 @@ const EQUIPMENT: { id: string; label: string }[] = [
 export default function PremiumOnboarding({
   onComplete,
   onBuildingStart,
+  onEvent,
   initialStep,
   manuscriptAutoplay = false,
   manuscriptFreezeAt,
@@ -142,6 +149,26 @@ export default function PremiumOnboarding({
   const [ready, setReady] = useState<OnboardingDraft | null>(null);
   // Lazy init runs once — start the TTFV clock when onboarding first mounts.
   const [ttfv] = useState(() => makeTtfvTracker(Date.now()));
+
+  // Mirror onEvent in a ref so the step-view effect keys on `step` alone and
+  // never re-fires when the parent passes a fresh callback identity.
+  const eventRef = useRef(onEvent);
+  useEffect(() => {
+    eventRef.current = onEvent;
+  }, [onEvent]);
+  const emit = useCallback((e: OnboardingAnalyticsEvent) => eventRef.current?.(e), []);
+
+  // Funnel: onboarding_started once (welcome), quiz_step_viewed per step, and
+  // plan_reveal_viewed when the presentation (the reveal) becomes visible.
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (!startedRef.current && step === 'welcome') {
+      startedRef.current = true;
+      emit({ type: 'started' });
+    }
+    emit({ type: 'step_viewed', step });
+    if (step === 'presentation') emit({ type: 'reveal_viewed' });
+  }, [step, emit]);
 
   // Progress bar tracks only the config questions; welcome/auth/building/
   // presentation sit outside it. Hidden entirely on the non-question screens.
@@ -190,8 +217,9 @@ export default function PremiumOnboarding({
   }, [draft, reachFirstValue, onBuildingStart]);
 
   const enterApp = useCallback(() => {
+    emit({ type: 'reveal_action', action: 'start' });
     onComplete(ready ?? applySmartDefaults(draft));
-  }, [onComplete, ready, draft]);
+  }, [onComplete, ready, draft, emit]);
 
   const showProgress = tracked && step !== 'welcome';
 
@@ -216,13 +244,28 @@ export default function PremiumOnboarding({
           {/* key=step remounts so the step arrives as one cohesive gesture
               (StepEnter), not a per-item ghost cascade. */}
           <StepEnter key={step} style={styles.stepBody}>
-            {step === 'welcome' && <WelcomeStep onStart={() => setStep('auth')} />}
-            {step === 'auth' && <AuthStep onAuth={() => setStep('manuscrito')} />}
+            {step === 'welcome' && (
+              <WelcomeStep
+                onStart={() => {
+                  emit({ type: 'step_completed', step: 'welcome' });
+                  setStep('auth');
+                }}
+              />
+            )}
+            {step === 'auth' && (
+              <AuthStep
+                onAuth={() => {
+                  emit({ type: 'step_completed', step: 'auth' });
+                  setStep('manuscrito');
+                }}
+              />
+            )}
             {step === 'manuscrito' && (
               <ManuscriptStep
                 autoplay={manuscriptAutoplay}
                 freezeAt={manuscriptFreezeAt}
                 onDone={(filled: FilledBlank[]) => {
+                  emit({ type: 'step_completed', step: 'manuscrito' });
                   const d = applyPage(draft, filled);
                   setDraft(d);
                   setReady(reachFirstValue(d));

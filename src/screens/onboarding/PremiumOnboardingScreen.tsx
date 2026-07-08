@@ -14,6 +14,11 @@ import { generateOnboardingSpace, type OnboardingSpaceResult } from '../../lib/a
 import type { StarterAnswers, StarterDiscipline } from '../../lib/routines/starterTemplates';
 import type { EquipmentTag } from '../../types/profile';
 import { markOnboardedThisSession } from '../../features/onboarding/plannerTourGate';
+import {
+  mapOnboardingEvent,
+  type OnboardingAnalyticsEvent,
+} from '../../features/onboarding/premium/onboardingAnalytics';
+import { track } from '../../lib/analytics';
 import { useWorkoutStore } from '../../store/workoutStore';
 
 // El vocabulario del manuscrito es humano (objetivos); el generador habla en
@@ -65,5 +70,18 @@ export default function PremiumOnboardingScreen() {
     completeOnboarding(result);
   }, []);
 
-  return <PremiumOnboarding onBuildingStart={handleBuildingStart} onComplete={handleComplete} />;
+  // El componente premium reporta QUÉ pasó; aquí lo traducimos al catálogo real
+  // y llamamos a track(). Callback estable — el efecto de vistas keyea en step.
+  const handleEvent = useCallback((event: OnboardingAnalyticsEvent) => {
+    const mapped = mapOnboardingEvent(event);
+    track(mapped.name, mapped.props);
+  }, []);
+
+  return (
+    <PremiumOnboarding
+      onBuildingStart={handleBuildingStart}
+      onComplete={handleComplete}
+      onEvent={handleEvent}
+    />
+  );
 }
