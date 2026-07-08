@@ -29,7 +29,7 @@ import ProgressTreeScreen from '../screens/ProgressTreeScreen';
 import AIChatScreen from '../screens/AIChatScreen';
 import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
 import KairosTabBar from '../components/KairosTabBar';
-import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
+import PremiumOnboardingScreen from '../screens/onboarding/PremiumOnboardingScreen';
 
 import { useAuthStore } from '../store/useAuthStore';
 import { useUserProfile } from '../context/UserProfileContext';
@@ -116,7 +116,7 @@ export default function AppNavigator() {
             </Stack.Navigator>
           ) : (
             <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+              <Stack.Screen name="Onboarding" component={PremiumOnboardingScreen} />
               <Stack.Screen name="Dashboard" component={DashboardTabs} />
               <Stack.Screen
                 name="BlockDetail"
@@ -181,7 +181,7 @@ export default function AppNavigator() {
           </>
         ) : !onboarded ? (
           <>
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="Onboarding" component={PremiumOnboardingScreen} />
             <Stack.Screen name="Dashboard" component={DashboardTabs} />
             <Stack.Screen
               name="BlockDetail"

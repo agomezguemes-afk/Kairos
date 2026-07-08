@@ -64,6 +64,12 @@ const QUESTION_ORDER: Screen[] = ['goal', 'profile', 'equipment', 'coach'];
 interface PremiumOnboardingProps {
   /** Receives a first-value-ready draft (smart defaults already applied). */
   onComplete: (draft: OnboardingDraft) => void;
+  /**
+   * Fires when the building theatre starts, with the same ready draft that
+   * onComplete will deliver — lets the host overlap real generation with
+   * the theatre instead of blocking after it.
+   */
+  onBuildingStart?: (draft: OnboardingDraft) => void;
   /** Deep-link to a specific step (default 'welcome'). Handy for previews/tests. */
   initialStep?: Screen;
   /** DEV only: scripted fills so the manuscript page can be photographed. */
@@ -125,6 +131,7 @@ const EQUIPMENT: { id: string; label: string }[] = [
 
 export default function PremiumOnboarding({
   onComplete,
+  onBuildingStart,
   initialStep,
   manuscriptAutoplay = false,
   manuscriptFreezeAt,
@@ -176,9 +183,11 @@ export default function PremiumOnboarding({
   // Leaving the coach → Kai builds the block. Compute the ready draft now so the
   // building + presentation screens reflect exactly what was generated.
   const startBuilding = useCallback(() => {
-    setReady(reachFirstValue(draft));
+    const r = reachFirstValue(draft);
+    setReady(r);
+    onBuildingStart?.(r);
     setStep('building');
-  }, [draft, reachFirstValue]);
+  }, [draft, reachFirstValue, onBuildingStart]);
 
   const enterApp = useCallback(() => {
     onComplete(ready ?? applySmartDefaults(draft));
