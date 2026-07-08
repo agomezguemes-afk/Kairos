@@ -3,7 +3,11 @@
 Recorrido E2E en simulador iPhone 16e (instalación limpia, build Debug + Metro), controlado
 por el orquestador con cliclick. Capturas en el scratchpad de la sesión.
 
-## Veredicto: APROBADO con 4 hallazgos
+> **Corrección del fundador (mismo día):** este veredicto midió solo funcionalidad. Queda
+> degradado a **PASA FUNCIONAL — CALIDAD PENDIENTE DE TEARDOWN** contra referentes
+> (ver PRINCIPLES.md v2 y el teardown 06-design-teardown.md). "Funcional ≠ entregable."
+
+## Veredicto: PASA FUNCIONAL (calidad pendiente de teardown crítico)
 
 El flujo canónico funciona de punta a punta:
 
