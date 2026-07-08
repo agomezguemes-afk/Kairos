@@ -1,17 +1,26 @@
 // KAIROS — TextBlank: inline free text (name / the line in your words). A
 // serif input styled as manuscript ink over a gold hairline — no boxes, no
 // cards. Submit typesets; the quiet skip word keeps it optional.
+//
+// The input is deliberately UNCONTROLLED (defaultValue + ref mirror): a
+// controlled `value` round-trip can push a stale render back into the native
+// field mid-typing and truncate fast input (the «Alvaro»→«A» P0). The commit
+// always resolves from the submit event's own text — never from render state.
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, Type } from '../../../../theme/tokens';
 import { Fonts } from '../../../../theme/fonts';
+import { resolveSubmitText } from './textCommit';
 
 interface TextBlankProps {
+  /** Initial text when the editor (re)opens — the input owns it afterwards. */
   value: string;
+  /** Keystroke mirror for the live prose fill — never fed back into the input. */
   onChange: (t: string) => void;
-  onConfirm: () => void;
+  /** Receives the FULL input text at the moment of commit (return or «así»). */
+  onConfirm: (text: string) => void;
   skipLabel: string;
   onSkip: () => void;
   placeholder: string;
@@ -32,24 +41,44 @@ export default function TextBlank({
   confirmLabel = 'así',
 }: TextBlankProps) {
   const ref = useRef<TextInput>(null);
+  const latest = useRef(value);
+  const [hasText, setHasText] = useState(value.trim().length > 0);
+
   useEffect(() => {
     // Focus after the ink settles — the keyboard is part of the instrument.
     const t = setTimeout(() => ref.current?.focus(), 260);
     return () => clearTimeout(t);
   }, []);
 
-  const confirm = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    onConfirm();
-  };
+  const commit = useCallback(
+    (t: string) => {
+      latest.current = t;
+      if (t.trim().length > 0) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        onConfirm(t);
+      } else {
+        onSkip();
+      }
+    },
+    [onConfirm, onSkip],
+  );
+
+  const handleChange = useCallback(
+    (t: string) => {
+      latest.current = t;
+      setHasText(t.trim().length > 0);
+      onChange(t);
+    },
+    [onChange],
+  );
 
   return (
     <View>
       <View style={styles.inputWrap}>
         <TextInput
           ref={ref}
-          value={value}
-          onChangeText={onChange}
+          defaultValue={value}
+          onChangeText={handleChange}
           placeholder={placeholder}
           placeholderTextColor={Colors.ink.muted}
           cursorColor={Colors.gold.base}
@@ -60,9 +89,11 @@ export default function TextBlank({
           returnKeyType="done"
           blurOnSubmit
           multiline={multiline}
-          onSubmitEditing={() => {
-            if (value.trim().length > 0) confirm();
-            else onSkip();
+          onSubmitEditing={(e) => commit(resolveSubmitText(e.nativeEvent.text, latest.current))}
+          onEndEditing={(e) => {
+            // Blur without submit: refresh the mirror so a later «así» tap
+            // commits the full text even if a keystroke render was dropped.
+            latest.current = resolveSubmitText(e.nativeEvent.text, latest.current);
           }}
           accessibilityLabel={placeholder}
         />
@@ -70,9 +101,9 @@ export default function TextBlank({
       </View>
 
       <View style={styles.actions}>
-        {value.trim().length > 0 ? (
+        {hasText ? (
           <Pressable
-            onPress={confirm}
+            onPress={() => commit(latest.current)}
             accessibilityRole="button"
             accessibilityLabel="Confirmar"
             style={styles.action}
