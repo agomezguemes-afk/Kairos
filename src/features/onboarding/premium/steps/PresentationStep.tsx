@@ -16,9 +16,16 @@ interface PresentationStepProps {
   name: string | null;
   goal: OnboardingGoal | null;
   onEnter: () => void;
+  /** True while the host finishes generating the space after «Entrar». */
+  entering?: boolean;
 }
 
-export default function PresentationStep({ name, goal, onEnter }: PresentationStepProps) {
+export default function PresentationStep({
+  name,
+  goal,
+  onEnter,
+  entering = false,
+}: PresentationStepProps) {
   const block = previewStarterBlock(goal);
   const accent = Colors.discipline[block.discipline];
 
@@ -60,7 +67,12 @@ export default function PresentationStep({ name, goal, onEnter }: PresentationSt
 
       <View style={styles.spacer} />
       <View style={styles.fullWidth}>
-        <GoldButton label="Entrar a Kairos" onPress={onEnter} />
+        <GoldButton
+          label="Entrar a Kairos"
+          onPress={onEnter}
+          loading={entering}
+          loadingLabel="Kai está terminando…"
+        />
       </View>
     </View>
   );

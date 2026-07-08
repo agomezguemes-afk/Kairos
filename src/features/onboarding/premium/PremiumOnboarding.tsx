@@ -63,8 +63,11 @@ type Screen =
 const QUESTION_ORDER: Screen[] = ['goal', 'profile', 'equipment', 'coach'];
 
 interface PremiumOnboardingProps {
-  /** Receives a first-value-ready draft (smart defaults already applied). */
-  onComplete: (draft: OnboardingDraft) => void;
+  /**
+   * Receives a first-value-ready draft (smart defaults already applied). May be
+   * async — while its promise is pending the enter CTA shows a waiting state.
+   */
+  onComplete: (draft: OnboardingDraft) => void | Promise<void>;
   /**
    * Fires when the building theatre starts, with the same ready draft that
    * onComplete will deliver — lets the host overlap real generation with
@@ -147,6 +150,9 @@ export default function PremiumOnboarding({
   const [step, setStep] = useState<Screen>(initialStep ?? 'welcome');
   const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
   const [ready, setReady] = useState<OnboardingDraft | null>(null);
+  // True from the «Entrar» tap until onComplete resolves (real generation may
+  // still be running) — drives the CTA's accessible waiting state.
+  const [entering, setEntering] = useState(false);
   // Lazy init runs once — start the TTFV clock when onboarding first mounts.
   const [ttfv] = useState(() => makeTtfvTracker(Date.now()));
 
@@ -216,10 +222,24 @@ export default function PremiumOnboarding({
     setStep('building');
   }, [draft, reachFirstValue, onBuildingStart]);
 
+  // Guard setState after the success path unmounts us (completeOnboarding flips
+  // the navigator stack). Only the still-mounted error path resets `entering`.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   const enterApp = useCallback(() => {
+    if (entering) return; // one commit — ignore double taps while resolving
     emit({ type: 'reveal_action', action: 'start' });
-    onComplete(ready ?? applySmartDefaults(draft));
-  }, [onComplete, ready, draft, emit]);
+    setEntering(true);
+    Promise.resolve(onComplete(ready ?? applySmartDefaults(draft))).finally(() => {
+      if (mounted.current) setEntering(false);
+    });
+  }, [onComplete, ready, draft, emit, entering]);
 
   const showProgress = tracked && step !== 'welcome';
 
@@ -312,6 +332,7 @@ export default function PremiumOnboarding({
                 name={(ready ?? draft).name}
                 goal={(ready ?? draft).goal}
                 onEnter={enterApp}
+                entering={entering}
               />
             )}
           </StepEnter>

@@ -8,11 +8,19 @@
 // physical sink (scale + the shadow tightens).
 
 import React, { useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Colors, Type } from '../../../theme/tokens';
+import { Colors, Spacing, Type } from '../../../theme/tokens';
 import { usePressSpring } from './motion/usePressSpring';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -24,9 +32,20 @@ interface GoldButtonProps {
   onPress: () => void;
   hint?: string;
   style?: StyleProp<ViewStyle>;
+  /** While true the button is inert and shows a spinner + `loadingLabel`. */
+  loading?: boolean;
+  /** Copy shown next to the spinner while loading. */
+  loadingLabel?: string;
 }
 
-function GoldButton({ label, onPress, hint, style }: GoldButtonProps) {
+function GoldButton({
+  label,
+  onPress,
+  hint,
+  style,
+  loading = false,
+  loadingLabel,
+}: GoldButtonProps) {
   const { pressValue, onPressIn, onPressOut } = usePressSpring({ to: 0.975 });
 
   // Press = a physical sink: scales down AND its contact shadow tightens, so the
@@ -45,20 +64,23 @@ function GoldButton({ label, onPress, hint, style }: GoldButtonProps) {
   const darkenStyle = useAnimatedStyle(() => ({ opacity: pressValue.value * 0.1 }));
 
   const handlePress = useCallback(() => {
+    if (loading) return; // inert while the host resolves — no double-commit
     // The primary action earns a success notification — it feels like a commit.
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     onPress();
-  }, [onPress]);
+  }, [onPress, loading]);
 
   return (
     <View style={[styles.wrap, style]}>
       <AnimatedPressable
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={loading ? (loadingLabel ?? label) : label}
         accessibilityHint={hint}
+        accessibilityState={{ disabled: loading, busy: loading }}
+        disabled={loading}
         onPress={handlePress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
+        onPressIn={loading ? undefined : onPressIn}
+        onPressOut={loading ? undefined : onPressOut}
         style={[styles.button, animatedStyle]}
       >
         <LinearGradient
@@ -71,7 +93,14 @@ function GoldButton({ label, onPress, hint, style }: GoldButtonProps) {
           <View style={styles.highlight} />
           {/* Press darken — fills under the finger for physical feedback. */}
           <Animated.View style={[styles.darken, darkenStyle]} pointerEvents="none" />
-          <Text style={styles.text}>{label}</Text>
+          {loading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={Colors.ink.inverse} />
+              {loadingLabel ? <Text style={styles.text}>{loadingLabel}</Text> : null}
+            </View>
+          ) : (
+            <Text style={styles.text}>{label}</Text>
+          )}
         </LinearGradient>
       </AnimatedPressable>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
@@ -112,6 +141,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#3A2A08',
   },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   text: { ...Type.subheading, color: Colors.ink.inverse, letterSpacing: 0.3 },
   hint: { ...Type.caption, color: Colors.ink.muted },
 });
