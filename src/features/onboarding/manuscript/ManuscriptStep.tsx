@@ -290,7 +290,13 @@ export default function ManuscriptStep({
           <TextBlank
             value={text}
             onChange={(t) => setText(t)}
-            onConfirm={() => settle(i, text.trim(), text.trim())}
+            // The committed text comes from the input's own submit/blur event —
+            // never from `text` render state, which lags fast typing (P0 fix).
+            onConfirm={(committed) => {
+              const t = committed.trim();
+              if (t.length > 0) settle(i, t, t);
+              else skip(i);
+            }}
             skipLabel={spec.skipLabel}
             onSkip={() => skip(i)}
             placeholder="tu nombre"
@@ -302,7 +308,11 @@ export default function ManuscriptStep({
           <TextBlank
             value={text}
             onChange={(t) => setText(t)}
-            onConfirm={() => settle(i, text.trim(), text.trim())}
+            onConfirm={(committed) => {
+              const t = committed.trim();
+              if (t.length > 0) settle(i, t, t);
+              else skip(i);
+            }}
             skipLabel={spec.skipLabel}
             onSkip={() => skip(i)}
             placeholder="lo que Kai deba saber"
