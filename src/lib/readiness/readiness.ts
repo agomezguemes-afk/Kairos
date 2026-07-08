@@ -45,10 +45,13 @@ export function computeReadiness(
   history: WorkoutHistoryEntry[],
   now = Date.now(),
 ): ReadinessSnapshot {
-  const signals = collectSignals(history, now);
+  // History comes from persisted storage — a corrupt/imported entry with a
+  // non-finite timestamp would otherwise propagate NaN into every score.
+  const clean = history.filter((h) => Number.isFinite(h.endedAt));
+  const signals = collectSignals(clean, now);
 
   const energia = scoreEnergia(signals);
-  const fuerza = scoreFuerza(signals, history, now);
+  const fuerza = scoreFuerza(signals, clean, now);
   const recuperacion = scoreRecuperacion(signals);
 
   return {
@@ -74,7 +77,9 @@ function collectSignals(history: WorkoutHistoryEntry[], now: number): ReadinessS
 
   const sorted = [...history].sort((a, b) => b.endedAt - a.endedAt);
   const last = sorted[0];
-  const daysSinceLastWorkout = Math.floor((now - last.endedAt) / MS_PER_DAY);
+  // Future-dated entries (clock skew, imported data) count as "trained today",
+  // not as a negative gap that would inflate the energy score.
+  const daysSinceLastWorkout = Math.max(0, Math.floor((now - last.endedAt) / MS_PER_DAY));
 
   const last7d = now - 7 * MS_PER_DAY;
   const sessionsLast7Days = sorted.filter((h) => h.endedAt >= last7d).length;
@@ -105,7 +110,7 @@ function collectSignals(history: WorkoutHistoryEntry[], now: number): ReadinessS
     for (const ex of recentSorted[i].exercises) {
       const key = ex.libraryId ?? ex.name.toLowerCase();
       const prev = bestSeen.get(key) ?? 0;
-      if (ex.maxWeight > prev) {
+      if (Number.isFinite(ex.maxWeight) && ex.maxWeight > prev) {
         if (prev > 0) prsLast4Weeks += 1; // first seen isn't a "PR"
         bestSeen.set(key, ex.maxWeight);
       }
@@ -177,8 +182,9 @@ function scoreFuerza(s: ReadinessSignals, history: WorkoutHistoryEntry[], now: n
   let recentVol = 0;
   let priorVol = 0;
   for (const h of history) {
-    if (h.endedAt >= last14d) recentVol += h.totalVolume;
-    else if (h.endedAt >= prior14d) priorVol += h.totalVolume;
+    const vol = Number.isFinite(h.totalVolume) ? h.totalVolume : 0;
+    if (h.endedAt >= last14d) recentVol += vol;
+    else if (h.endedAt >= prior14d) priorVol += vol;
   }
 
   let trend = 0;

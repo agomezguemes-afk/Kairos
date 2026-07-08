@@ -8,6 +8,10 @@
 import type { WorkoutHistoryEntry } from '../../../../store/workoutStore';
 
 export function epley1RM(weight: number, reps: number): number {
+  // Reject non-finite inputs (NaN/Infinity) up front — a corrupted or imported
+  // value must read as "no estimate" (0), never propagate NaN into PR detection
+  // and progress charts.
+  if (!Number.isFinite(weight) || !Number.isFinite(reps)) return 0;
   if (weight <= 0 || reps <= 0) return 0;
   if (reps === 1) return weight;
   if (reps > 12) return 0; // out of validated range
@@ -15,6 +19,7 @@ export function epley1RM(weight: number, reps: number): number {
 }
 
 export function brzycki1RM(weight: number, reps: number): number {
+  if (!Number.isFinite(weight) || !Number.isFinite(reps)) return 0;
   if (weight <= 0 || reps <= 0) return 0;
   if (reps === 1) return weight;
   if (reps > 12) return 0;
