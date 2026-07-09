@@ -34,9 +34,9 @@ export default function HomeHeroStats() {
           <Text style={styles.emptyValue}>0</Text>
           <View style={styles.emptyCopy}>
             <Text style={styles.emptyHeadline}>Tu primera semana</Text>
-            <Text style={styles.emptySub}>
-              Programa un bloque y empieza a construir tu historia.
-            </Text>
+            {/* Descriptive only — the single gold "Empezar ahora" below is the
+                one primary action; this line no longer competes with it. */}
+            <Text style={styles.emptySub}>Aquí verás tu historia en cuanto entrenes.</Text>
           </View>
         </View>
       </View>

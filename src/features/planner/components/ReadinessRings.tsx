@@ -36,6 +36,11 @@ export default function ReadinessRings({ onPress }: Props) {
   const history = useWorkoutStore((s) => s.workoutHistory);
   const snapshot = useMemo(() => computeReadiness(history), [history]);
 
+  // Day 0: no sessions yet → no data to score. Never fabricate 90/70/100.
+  // Show a single-accent "por calibrar" state until the first session lands.
+  const calibrating = snapshot.signals.daysSinceLastWorkout === null;
+  const headline = calibrating ? 'Se calibra con tu primer entrenamiento.' : snapshot.headline;
+
   return (
     <Pressable
       onPress={() => {
@@ -43,20 +48,35 @@ export default function ReadinessRings({ onPress }: Props) {
         onPress?.();
       }}
       accessibilityRole="button"
-      accessibilityLabel={`Tu estado: ${snapshot.headline}`}
+      accessibilityLabel={
+        calibrating ? 'Tu estado: por calibrar' : `Tu estado: ${snapshot.headline}`
+      }
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
     >
       <Text style={styles.eyebrow}>Tu estado hoy</Text>
       <View style={styles.row}>
-        <RingCell label="Energía" score={snapshot.energia} hue={Colors.gold.base} />
-        <RingCell label="Fuerza" score={snapshot.fuerza} hue={Colors.semantic.info} />
+        {/* Single accent (gold) while calibrating — the three data hues only
+            appear once there are real numbers to cross-reference. */}
+        <RingCell
+          label="Energía"
+          score={snapshot.energia}
+          hue={Colors.gold.base}
+          calibrating={calibrating}
+        />
+        <RingCell
+          label="Fuerza"
+          score={snapshot.fuerza}
+          hue={calibrating ? Colors.gold.base : Colors.semantic.info}
+          calibrating={calibrating}
+        />
         <RingCell
           label="Recuperación"
           score={snapshot.recuperacion}
-          hue={Colors.semantic.success}
+          hue={calibrating ? Colors.gold.base : Colors.semantic.success}
+          calibrating={calibrating}
         />
       </View>
-      <Text style={styles.headline}>{snapshot.headline}</Text>
+      <Text style={styles.headline}>{headline}</Text>
     </Pressable>
   );
 }
@@ -68,16 +88,27 @@ const STROKE = 7;
 const RADIUS = (RING_SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-function RingCell({ label, score, hue }: { label: string; score: number; hue: string }) {
+function RingCell({
+  label,
+  score,
+  hue,
+  calibrating = false,
+}: {
+  label: string;
+  score: number;
+  hue: string;
+  calibrating?: boolean;
+}) {
   const progress = useSharedValue(0);
   const numberOpacity = useSharedValue(0);
 
   // Animate sweep on mount + whenever score changes. Numerals fade in
-  // slightly behind the sweep for a sequenced reveal.
+  // slightly behind the sweep for a sequenced reveal. While calibrating there
+  // is no data → the ring stays empty (track only) and the centre shows "—".
   useEffect(() => {
-    progress.value = withSpring(score / 100, springs.gentle);
+    progress.value = calibrating ? 0 : withSpring(score / 100, springs.gentle);
     numberOpacity.value = withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) });
-  }, [score, progress, numberOpacity]);
+  }, [score, calibrating, progress, numberOpacity]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: CIRCUMFERENCE * (1 - progress.value),
@@ -115,7 +146,9 @@ function RingCell({ label, score, hue }: { label: string; score: number; hue: st
           />
         </Svg>
         <Animated.View style={[styles.numberCenter, numberStyle]}>
-          <Text style={styles.number}>{score}</Text>
+          <Text style={[styles.number, calibrating && styles.numberCalibrating]}>
+            {calibrating ? '—' : score}
+          </Text>
         </Animated.View>
       </View>
       <Text style={styles.cellLabel}>{label}</Text>
@@ -175,6 +208,7 @@ const styles = StyleSheet.create({
     color: Colors.ink.primary,
     letterSpacing: -0.3,
   },
+  numberCalibrating: { color: Colors.ink.muted },
   cellLabel: {
     ...Type.micro,
     color: Colors.ink.tertiary,
