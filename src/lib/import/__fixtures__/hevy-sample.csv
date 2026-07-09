@@ -1,0 +1,5 @@
+title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_kg,reps,distance_km,duration_seconds,rpe
+Morning Hybrid,2026-07-09 07:00:00,2026-07-09 08:00:00,,Squat,,,0,normal,80,5,,,8
+Morning Hybrid,2026-07-09 07:00:00,2026-07-09 08:00:00,,Squat,,,1,normal,80,5,,,9
+Morning Hybrid,2026-07-09 07:00:00,2026-07-09 08:00:00,,Row Erg,,,0,normal,,,1.0,240,
+Morning Hybrid,2026-07-09 07:00:00,2026-07-09 08:00:00,,Row Erg,,,1,warmup,,,0.5,120,
