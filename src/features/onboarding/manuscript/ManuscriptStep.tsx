@@ -398,10 +398,27 @@ export default function ManuscriptStep({
   const visibleCount = stage === 'opening' ? 0 : Math.min(cursor + 1, SENTENCES.length);
   const pageDone = stage === 'signed' || stage === 'folding';
 
+  // Goal-gradient: which page of six the pen is on. The user always knows how
+  // much is left (Cal AI / Duolingo progress rule).
+  const totalPages = SENTENCES.length;
+  const activeIndex = editing ?? cursor;
+  const pageNum =
+    stage === 'opening'
+      ? 1
+      : stage === 'sentences'
+        ? Math.min(Math.max(activeIndex, 0) + 1, totalPages)
+        : totalPages;
+
   return (
     <Animated.View style={[styles.root, pageStyle]}>
       <View style={styles.masthead}>
-        <Text style={styles.eyebrow}>TU LIBRO · PÁGINA PRIMERA</Text>
+        <Text
+          style={styles.eyebrow}
+          accessibilityRole="text"
+          accessibilityLabel={`Página ${pageNum} de ${totalPages}`}
+        >
+          TU LIBRO · PÁGINA {pageNum} DE {totalPages}
+        </Text>
         <KaiFace size={44} emotion={glifoEmotion} showGlow={false} interactive={false} />
       </View>
 
@@ -412,6 +429,10 @@ export default function ManuscriptStep({
 
         {SENTENCES.slice(0, visibleCount).map((spec, i) => {
           const l = lines[i];
+          const isActive = (editing ?? cursor) === i;
+          // A settled line that isn't being edited folds into a compact recap
+          // so the active question + its editor never get pushed below the fold.
+          const compact = l.phase === 'done' && !isActive;
           return (
             <View key={spec.id}>
               <InkSentence
@@ -419,6 +440,7 @@ export default function ManuscriptStep({
                 phase={l.phase}
                 fill={fillFor(i)}
                 skipped={l.skipped}
+                compact={compact}
                 onReady={() => patch(i, { phase: 'filling' })}
                 onSettled={() => {
                   if (l.phase === 'done') return;

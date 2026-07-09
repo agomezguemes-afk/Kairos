@@ -38,6 +38,11 @@ interface InkSentenceProps {
   onSettled: () => void;
   /** Re-open a settled line (tap to edit — the page stays yours). */
   onReopen?: () => void;
+  /**
+   * Render a settled line small + muted so it files into the margin instead of
+   * pushing the active question below the fold (fatigue fix).
+   */
+  compact?: boolean;
 }
 
 function useTyped(target: string, enabled: boolean, instant: boolean, onDone?: () => void) {
@@ -94,6 +99,7 @@ export default function InkSentence({
   onReady,
   onSettled,
   onReopen,
+  compact = false,
 }: InkSentenceProps) {
   const reduce = useReducedMotion();
 
@@ -108,7 +114,7 @@ export default function InkSentence({
   const showCaret = !rewriting && phase === 'filling' && (fill == null || fill.length === 0);
 
   const line = (
-    <Text style={styles.ink}>
+    <Text style={[styles.ink, compact && styles.inkCompact]}>
       {beforeShown}
       {!rewriting && fill != null && fill.length > 0 && <Text style={styles.filled}>{fill}</Text>}
       {showCaret && <Caret />}
@@ -117,7 +123,10 @@ export default function InkSentence({
   );
 
   return (
-    <Animated.View entering={reduce ? undefined : FadeIn.duration(220)} style={styles.row}>
+    <Animated.View
+      entering={reduce ? undefined : FadeIn.duration(220)}
+      style={[styles.row, compact && styles.rowCompact]}
+    >
       {phase === 'done' && onReopen ? (
         <Pressable
           onPress={onReopen}
@@ -136,6 +145,9 @@ export default function InkSentence({
 
 const styles = StyleSheet.create({
   row: { marginBottom: 22 },
+  // Settled lines file into the margin — small + muted so the active question
+  // and its editor stay above the fold.
+  rowCompact: { marginBottom: 8 },
   ink: {
     fontFamily: Fonts.serifRegular,
     fontSize: 24,
@@ -143,9 +155,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     color: Colors.ink.primary,
   },
+  inkCompact: {
+    fontSize: 16,
+    lineHeight: 22,
+    color: Colors.ink.tertiary,
+  },
+  // The chosen answer is SOLID gold ink — distinct from the underlined,
+  // still-selectable options in the editor below (elegido sólido / opción outline).
   filled: {
     fontFamily: Fonts.serifSemiBoldItalic,
-    color: Colors.gold.deep,
+    color: Colors.gold.base,
   },
   caret: { color: Colors.gold.base, fontSize: 20, opacity: 0.7 },
 });
