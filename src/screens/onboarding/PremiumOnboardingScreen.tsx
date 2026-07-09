@@ -24,7 +24,6 @@ import type { StarterAnswers, StarterDiscipline } from '../../lib/routines/start
 import type { EquipmentTag } from '../../types/profile';
 import { Colors } from '../../theme/tokens';
 import { getBlockExercises, type ExerciseCard } from '../../types/core';
-import { markOnboardedThisSession } from '../../features/onboarding/plannerTourGate';
 import {
   mapOnboardingEvent,
   type OnboardingAnalyticsEvent,
@@ -109,10 +108,6 @@ export default function PremiumOnboardingScreen() {
   }, []);
 
   const handleComplete = useCallback(async (draft: OnboardingDraft) => {
-    // Marca la sesión ANTES del await: cuando completeOnboarding voltee el
-    // navigator y monte HomeTab, el gate ya sabe que este arranque acaba de
-    // onboardear.
-    markOnboardedThisSession();
     const pending =
       generationRef.current ??
       generateOnboardingSpace(draftToStarterAnswers(draft), {
