@@ -7,11 +7,16 @@ import {
 } from './onboardingAnalytics';
 
 describe('onboardingStepIndex', () => {
-  it('numbers the canonical steps in order', () => {
+  it('numbers the canonical guest-first steps in order (auth last)', () => {
     expect(onboardingStepIndex('welcome')).toBe(0);
-    expect(onboardingStepIndex('auth')).toBe(1);
-    expect(onboardingStepIndex('manuscrito')).toBe(2);
+    expect(onboardingStepIndex('manuscrito')).toBe(1);
+    expect(onboardingStepIndex('building')).toBe(2);
     expect(onboardingStepIndex('presentation')).toBe(3);
+    expect(onboardingStepIndex('auth')).toBe(4);
+  });
+
+  it('places auth after the reveal (value before account)', () => {
+    expect(onboardingStepIndex('auth')).toBeGreaterThan(onboardingStepIndex('presentation'));
   });
 
   it('returns -1 for off-path steps (still recorded, just unordered)', () => {
@@ -29,14 +34,14 @@ describe('mapOnboardingEvent', () => {
   it('maps step_viewed to quiz_step_viewed with numeric step + name', () => {
     expect(mapOnboardingEvent({ type: 'step_viewed', step: 'manuscrito' })).toEqual({
       name: ANALYTICS_EVENTS.quizStepViewed,
-      props: { step: 2, step_name: 'manuscrito' },
+      props: { step: 1, step_name: 'manuscrito' },
     });
   });
 
   it('maps step_completed to onboarding_step_completed', () => {
     expect(mapOnboardingEvent({ type: 'step_completed', step: 'auth' })).toEqual({
       name: ANALYTICS_EVENTS.onboardingStepCompleted,
-      props: { step: 1, step_name: 'auth' },
+      props: { step: 4, step_name: 'auth' },
     });
   });
 

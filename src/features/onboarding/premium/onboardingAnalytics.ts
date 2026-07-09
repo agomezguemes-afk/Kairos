@@ -11,8 +11,16 @@
 
 import { ANALYTICS_EVENTS, type AnalyticsEventName } from '../../../lib/analytics/events';
 
-/** Canonical step order for the Manuscrito flow. Index = the `step` number. */
-export const ONBOARDING_STEP_ORDER = ['welcome', 'auth', 'manuscrito', 'presentation'] as const;
+// Canonical, guest-first step order. Index = the `step` number. Auth is LAST —
+// value (manuscrito → building → presentation) is delivered before the account
+// is ever asked for.
+export const ONBOARDING_STEP_ORDER = [
+  'welcome',
+  'manuscrito',
+  'building',
+  'presentation',
+  'auth',
+] as const;
 
 export type OnboardingStepName = (typeof ONBOARDING_STEP_ORDER)[number] | string;
 

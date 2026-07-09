@@ -1,79 +1,61 @@
-// KAIROS — PremiumOnboarding: the Behance-informed, goal-first onboarding.
+// KAIROS — PremiumOnboarding: the guest-first, value-before-account onboarding.
 //
-// A visually rich, <2-minute flow that shows off the premium language from
-// docs/UIUX_STUDY_BEHANCE.md (oversized editorial greeting, one gold accent,
-// soft cards, pill controls, calm gold progress, state-reactive + reduce-motion
-// aware entrances). Composes the pure flow logic (onboardingFlow) and the
-// primitives. Presentational by design: it never imports navigation or the
-// store — the parent passes onComplete and handles persistence/navigation.
+// The canonical flow is a <2-minute story that delivers value BEFORE asking for
+// an account (Duolingo/Headspace/Blinkist activation order):
 //
-// Mount (one line, e.g. in a screen the navigator already owns):
-//   <PremiumOnboarding onComplete={(draft) => { persist(draft); goToDashboard(); }} />
-// `draft` is already first-value-ready (smart defaults applied).
+//   welcome → manuscrito → building → presentation → auth
+//
+// welcome is the brand moment; el Manuscrito is the personalization (6 madlib
+// questions in one page); building is the labor-illusion theatre that cites the
+// user's answers while the real space is generated; presentation is the reveal
+// (the seeded week + the first real block, celebrated with a spring + haptic);
+// and ONLY then does auth appear, reframed as "guarda lo que Kai acaba de
+// crearte" — with a persistent guest path. Presentational by design: it never
+// imports navigation or the store — the parent passes onComplete/buildReveal.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
-import KIcon, { type KIconName } from '../../../components/icons/KIcon';
 import { Colors, Spacing, Type } from '../../../theme/tokens';
 import { Fonts } from '../../../theme/fonts';
 import {
   applySmartDefaults,
+  clampDaysPerWeek,
+  DEFAULT_DAYS_PER_WEEK,
   EMPTY_DRAFT,
   makeTtfvTracker,
-  type ExperienceLevel,
   type OnboardingDraft,
   type OnboardingGoal,
 } from '../flow/onboardingFlow';
 import AmbientBackground from './AmbientBackground';
 import KaiFace from './KaiFace';
 import GoldButton from './GoldButton';
-import GoldProgressBar from './GoldProgressBar';
-import PillChip from './PillChip';
-import SoftCard from './SoftCard';
 import StepEnter from './motion/StepEnter';
 import ManuscriptStep from '../manuscript/ManuscriptStep';
 import { applyPage, type FilledBlank } from '../manuscript/manuscript';
-import AuthStep from './steps/AuthStep';
-import MeetKaiStep from './steps/MeetKaiStep';
-import ProfileStep from './steps/ProfileStep';
-import CoachStep from './steps/CoachStep';
+import AuthStep, { type AuthProvider } from './steps/AuthStep';
 import BuildingStep from './steps/BuildingStep';
 import PresentationStep from './steps/PresentationStep';
+import { localRevealFromDraft, type RevealPlan } from './reveal';
 import type { OnboardingAnalyticsEvent } from './onboardingAnalytics';
 
-// The full flow. welcome/auth are brand+account; goal→profile→equipment→coach
-// are the tracked "config" questions; building→presentation are the culmination
-// (first block created, app presented). 'done' is the legacy terminal kept only
-// as a fallback alias for presentation.
-type Screen =
-  | 'welcome'
-  | 'auth'
-  | 'manuscrito'
-  | 'meet-kai'
-  | 'goal'
-  | 'profile'
-  | 'equipment'
-  | 'coach'
-  | 'building'
-  | 'presentation';
-
-// Steps that advance the progress bar — the config questions only.
-const QUESTION_ORDER: Screen[] = ['goal', 'profile', 'equipment', 'coach'];
+// The guest-first flow. Account creation (auth) is the LAST step, after the
+// reveal — value is delivered before anything is asked.
+type Screen = 'welcome' | 'manuscrito' | 'building' | 'presentation' | 'auth';
 
 interface PremiumOnboardingProps {
   /**
    * Receives a first-value-ready draft (smart defaults already applied). May be
-   * async — while its promise is pending the enter CTA shows a waiting state.
+   * async — while its promise is pending the auth step shows a busy state.
    */
   onComplete: (draft: OnboardingDraft) => void | Promise<void>;
   /**
-   * Fires when the building theatre starts, with the same ready draft that
-   * onComplete will deliver — lets the host overlap real generation with
-   * the theatre instead of blocking after it.
+   * Builds the reveal view-model (seeded week + featured block) for a ready
+   * draft. Kicks off the real generation and resolves once it's done, so the
+   * building theatre lasts max(min-theatre, generation). If omitted, a local
+   * preview is used (deep-linked previews / tests).
    */
-  onBuildingStart?: (draft: OnboardingDraft) => void;
+  buildReveal?: (draft: OnboardingDraft) => Promise<RevealPlan>;
   /**
    * Funnel taps. The component stays free of the analytics queue: it reports
    * WHAT happened; the host maps events to ANALYTICS_EVENTS + track().
@@ -87,60 +69,42 @@ interface PremiumOnboardingProps {
   manuscriptFreezeAt?: React.ComponentProps<typeof ManuscriptStep>['freezeAt'];
 }
 
-// Each goal carries a vivid accent (from the discipline palette) so the choice
-// grid is colorful and energetic — the "aesthetic" lift — while the rest of the
-// app stays gold. Selection rings + glows in the goal's own color.
-const GOALS: {
-  id: OnboardingGoal;
-  label: string;
-  desc: string;
-  icon: KIconName;
-  accent: string;
-}[] = [
-  {
-    id: 'strength',
-    label: 'Fuerza',
-    desc: 'Músculo y potencia',
-    icon: 'barbell',
-    accent: Colors.discipline.strength,
-  },
-  {
-    id: 'endurance',
-    label: 'Resistencia',
-    desc: 'Aguanta más',
-    icon: 'running',
-    accent: Colors.discipline.running,
-  },
-  {
-    id: 'flexibility',
-    label: 'Flexibilidad',
-    desc: 'Movilidad y calma',
-    icon: 'mat',
-    accent: Colors.discipline.mobility,
-  },
-  {
-    id: 'health',
-    label: 'Salud general',
-    desc: 'Bienestar diario',
-    icon: 'zap',
-    accent: Colors.discipline.calisthenics,
-  },
-];
+// Human phrasing for the labor-illusion copy — cites the user's own answers.
+const GOAL_PHRASE: Record<OnboardingGoal, string> = {
+  strength: 'tu fuerza',
+  endurance: 'tu resistencia',
+  flexibility: 'tu movilidad',
+  health: 'tu base',
+};
 
-const EQUIPMENT: { id: string; label: string }[] = [
-  { id: 'bodyweight', label: 'Peso corporal' },
-  { id: 'dumbbells', label: 'Mancuernas' },
-  { id: 'barbell_plates', label: 'Barra + discos' },
-  { id: 'kettlebell', label: 'Kettlebell' },
-  { id: 'resistance_bands', label: 'Bandas' },
-  { id: 'pull_up_bar', label: 'Dominadas' },
-  { id: 'machines_full_gym', label: 'Gimnasio' },
-  { id: 'yoga_mat', label: 'Esterilla' },
-];
+const EQUIP_WORD: Record<string, string> = {
+  dumbbells: 'mancuernas',
+  barbell_plates: 'una barra',
+  kettlebell: 'una kettlebell',
+  resistance_bands: 'bandas',
+  pull_up_bar: 'una barra de dominadas',
+  yoga_mat: 'una esterilla',
+  machines_full_gym: 'un gimnasio',
+};
+
+function equipmentPhrase(eq: readonly string[]): string {
+  if (eq.includes('machines_full_gym')) return 'un gimnasio';
+  const first = eq.find((e) => e !== 'bodyweight');
+  if (!first) return 'tu propio peso';
+  return EQUIP_WORD[first] ?? 'tu material';
+}
+
+/** "Con 3 días y un gimnasio, te monto tu fuerza…" — cites ≥2 answers. */
+function buildingSummary(d: OnboardingDraft): string {
+  const days = clampDaysPerWeek(d.daysPerWeek) ?? DEFAULT_DAYS_PER_WEEK;
+  const dayWord = days === 1 ? 'día' : 'días';
+  const goal = GOAL_PHRASE[d.goal ?? 'health'];
+  return `Con ${days} ${dayWord} y ${equipmentPhrase(d.equipment)}, te monto ${goal}…`;
+}
 
 export default function PremiumOnboarding({
   onComplete,
-  onBuildingStart,
+  buildReveal,
   onEvent,
   initialStep,
   manuscriptAutoplay = false,
@@ -150,8 +114,10 @@ export default function PremiumOnboarding({
   const [step, setStep] = useState<Screen>(initialStep ?? 'welcome');
   const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
   const [ready, setReady] = useState<OnboardingDraft | null>(null);
-  // True from the «Entrar» tap until onComplete resolves (real generation may
-  // still be running) — drives the CTA's accessible waiting state.
+  const [reveal, setReveal] = useState<RevealPlan | null>(null);
+  const [revealReady, setRevealReady] = useState(false);
+  // True from the auth choice until onComplete resolves (real generation may
+  // still be settling) — drives the auth step's accessible busy state.
   const [entering, setEntering] = useState(false);
   // Lazy init runs once — start the TTFV clock when onboarding first mounts.
   const [ttfv] = useState(() => makeTtfvTracker(Date.now()));
@@ -176,15 +142,7 @@ export default function PremiumOnboarding({
     if (step === 'presentation') emit({ type: 'reveal_viewed' });
   }, [step, emit]);
 
-  // Progress bar tracks only the config questions; welcome/auth/building/
-  // presentation sit outside it. Hidden entirely on the non-question screens.
-  const tracked = QUESTION_ORDER.includes(step);
-  const progress = useMemo(() => {
-    const i = QUESTION_ORDER.indexOf(step);
-    return i < 0 ? 0 : (i + 1) / QUESTION_ORDER.length;
-  }, [step]);
-
-  // First value = the block is built. Recorded as we enter the building stage.
+  // First value = the space is built. Recorded as we enter the building stage.
   const reachFirstValue = useCallback(
     (d: OnboardingDraft): OnboardingDraft => {
       const r = applySmartDefaults(d);
@@ -197,33 +155,8 @@ export default function PremiumOnboarding({
     [ttfv],
   );
 
-  const selectGoal = useCallback((id: OnboardingGoal) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setDraft((d) => ({ ...d, goal: id }));
-    setStep('profile');
-  }, []);
-
-  const toggleEquipment = useCallback((id: string) => {
-    Haptics.selectionAsync().catch(() => {});
-    setDraft((d) => ({
-      ...d,
-      equipment: d.equipment.includes(id)
-        ? d.equipment.filter((x) => x !== id)
-        : [...d.equipment, id],
-    }));
-  }, []);
-
-  // Leaving the coach → Kai builds the block. Compute the ready draft now so the
-  // building + presentation screens reflect exactly what was generated.
-  const startBuilding = useCallback(() => {
-    const r = reachFirstValue(draft);
-    setReady(r);
-    onBuildingStart?.(r);
-    setStep('building');
-  }, [draft, reachFirstValue, onBuildingStart]);
-
   // Guard setState after the success path unmounts us (completeOnboarding flips
-  // the navigator stack). Only the still-mounted error path resets `entering`.
+  // the navigator stack). Only still-mounted paths call setState.
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -232,25 +165,57 @@ export default function PremiumOnboarding({
     };
   }, []);
 
-  const enterApp = useCallback(() => {
-    if (entering) return; // one commit — ignore double taps while resolving
-    emit({ type: 'reveal_action', action: 'start' });
-    setEntering(true);
-    Promise.resolve(onComplete(ready ?? applySmartDefaults(draft))).finally(() => {
-      if (mounted.current) setEntering(false);
-    });
-  }, [onComplete, ready, draft, emit, entering]);
+  // Leaving the manuscrito → Kai builds the space. Compute the ready draft now
+  // and kick off the reveal generation so building + presentation reflect
+  // exactly what was generated.
+  const goToBuilding = useCallback(
+    (d: OnboardingDraft) => {
+      const r = reachFirstValue(d);
+      setReady(r);
+      setReveal(null);
+      setRevealReady(false);
+      setStep('building');
+      const pending = buildReveal ? buildReveal(r) : Promise.resolve(localRevealFromDraft(r));
+      pending
+        .then((plan) => {
+          if (!mounted.current) return;
+          setReveal(plan);
+          setRevealReady(true);
+        })
+        .catch(() => {
+          // Generation never rejects in practice, but never strand the theatre.
+          if (!mounted.current) return;
+          setReveal(localRevealFromDraft(r));
+          setRevealReady(true);
+        });
+    },
+    [reachFirstValue, buildReveal],
+  );
 
-  const showProgress = tracked && step !== 'welcome';
+  const completeFlow = useCallback(
+    (_method: AuthProvider | 'guest') => {
+      if (entering) return; // one commit — ignore double taps while resolving
+      emit({ type: 'step_completed', step: 'auth' });
+      setEntering(true);
+      Promise.resolve(onComplete(ready ?? applySmartDefaults(draft))).finally(() => {
+        if (mounted.current) setEntering(false);
+      });
+    },
+    [onComplete, ready, draft, emit, entering],
+  );
+
+  // The reveal shown on the presentation step. Falls back to a local preview so
+  // a deep-linked presentation step is never blank.
+  const revealPlan = useMemo(
+    () => reveal ?? localRevealFromDraft(ready ?? applySmartDefaults(draft)),
+    [reveal, ready, draft],
+  );
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + Spacing.lg }]}>
-      <AmbientBackground glowY={step === 'welcome' || step === 'auth' ? 0.28 : 0.12} />
-      {showProgress && (
-        <View style={styles.progressWrap}>
-          <GoldProgressBar progress={progress} />
-        </View>
-      )}
+      <AmbientBackground
+        glowY={step === 'welcome' || step === 'auth' ? 0.28 : step === 'presentation' ? 0.18 : 0.12}
+      />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -268,14 +233,6 @@ export default function PremiumOnboarding({
               <WelcomeStep
                 onStart={() => {
                   emit({ type: 'step_completed', step: 'welcome' });
-                  setStep('auth');
-                }}
-              />
-            )}
-            {step === 'auth' && (
-              <AuthStep
-                onAuth={() => {
-                  emit({ type: 'step_completed', step: 'auth' });
                   setStep('manuscrito');
                 }}
               />
@@ -288,51 +245,33 @@ export default function PremiumOnboarding({
                   emit({ type: 'step_completed', step: 'manuscrito' });
                   const d = applyPage(draft, filled);
                   setDraft(d);
-                  setReady(reachFirstValue(d));
-                  setStep('presentation');
+                  goToBuilding(d);
                 }}
               />
             )}
-            {step === 'meet-kai' && (
-              <MeetKaiStep name={draft.name} onContinue={() => setStep('goal')} />
-            )}
-            {step === 'goal' && <GoalStep value={draft.goal} onSelect={selectGoal} />}
-            {step === 'profile' && (
-              <ProfileStep
-                name={draft.name ?? ''}
-                experience={draft.experience}
-                daysPerWeek={draft.daysPerWeek}
-                onChangeName={(t) => setDraft((d) => ({ ...d, name: t }))}
-                onChangeExperience={(e: ExperienceLevel) =>
-                  setDraft((d) => ({ ...d, experience: e }))
-                }
-                onChangeDays={(n) => setDraft((d) => ({ ...d, daysPerWeek: n }))}
-                onContinue={() => setStep('equipment')}
-              />
-            )}
-            {step === 'equipment' && (
-              <EquipmentStep
-                selected={draft.equipment}
-                onToggle={toggleEquipment}
-                onFinish={() => setStep('coach')}
-              />
-            )}
-            {step === 'coach' && (
-              <CoachStep
-                value={draft.aiPrompt ?? ''}
-                onChange={(t) => setDraft((d) => ({ ...d, aiPrompt: t }))}
-                onContinue={startBuilding}
-              />
-            )}
             {step === 'building' && (
-              <BuildingStep name={draft.name} onDone={() => setStep('presentation')} />
+              <BuildingStep
+                name={(ready ?? draft).name}
+                summary={buildingSummary(ready ?? draft)}
+                ready={revealReady}
+                onDone={() => setStep('presentation')}
+              />
             )}
             {step === 'presentation' && (
               <PresentationStep
                 name={(ready ?? draft).name}
-                goal={(ready ?? draft).goal}
-                onEnter={enterApp}
-                entering={entering}
+                reveal={revealPlan}
+                onEnter={() => {
+                  emit({ type: 'reveal_action', action: 'start' });
+                  setStep('auth');
+                }}
+              />
+            )}
+            {step === 'auth' && (
+              <AuthStep
+                busy={entering}
+                onAuth={(provider) => completeFlow(provider)}
+                onSkip={() => completeFlow('guest')}
               />
             )}
           </StepEnter>
@@ -348,14 +287,13 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
   return (
     <View style={styles.welcome}>
       {/* Top: brand wordmark anchors the frame (the Senso move), with the
-          consumer-register category line beneath it — "tu práctica, operada"
-          (VUELTA_DE_ROSCA §5; "Training OS" is banned techie register in UI). */}
+          consumer-register category line beneath it. */}
       <View>
         <Text style={styles.wordmark}>
           Kairos<Text style={styles.wordmarkDot}>.</Text>
         </Text>
         <Text style={styles.mastheadSub}>
-          tu práctica, <Text style={styles.mastheadSubAccent}>operada</Text>
+          tu práctica, <Text style={styles.mastheadSubAccent}>orquestada</Text>
         </Text>
       </View>
 
@@ -364,13 +302,10 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
         <Text style={styles.hero}>
           Tu entrenamiento,{'\n'}tu <Text style={styles.heroAccent}>espacio</Text>.
         </Text>
-        {/* One message per slot: the CTA hint already says "Kai piensa, tú
-            entrenas" — the subtitle doesn't repeat it. */}
         <Text style={styles.subtitle}>Tú llevas el control — sin adivinar, sin agobiarte.</Text>
 
         {/* El Glifo signs the hero — the Kai the copy names is present from
-            the first frame: calm, low, alive. Optical left-align: the calm
-            stroke starts at ~6% of the square canvas. */}
+            the first frame: calm, low, alive. */}
         <View style={styles.welcomeGlyph}>
           <KaiFace size={150} emotion="calm" showGlow={false} />
         </View>
@@ -386,102 +321,12 @@ function WelcomeStep({ onStart }: { onStart: () => void }) {
   );
 }
 
-function GoalStep({
-  value,
-  onSelect,
-}: {
-  value: OnboardingGoal | null;
-  onSelect: (id: OnboardingGoal) => void;
-}) {
-  return (
-    <View style={styles.centerFill}>
-      <Text style={styles.eyebrow}>PASO 1 · OBJETIVO</Text>
-      <Text style={styles.title}>
-        ¿Cuál es tu <Text style={styles.titleAccent}>objetivo</Text>?
-      </Text>
-      <View style={styles.grid}>
-        {GOALS.map((g) => {
-          const selected = value === g.id;
-          return (
-            <View key={g.id} style={styles.gridCell}>
-              <SoftCard
-                selected={selected}
-                accentColor={g.accent}
-                variant={selected ? 'warm' : 'surface'}
-                onPress={() => onSelect(g.id)}
-                accessibilityLabel={g.label}
-                style={styles.goalCard}
-              >
-                <View style={[styles.goalIconWrap, { backgroundColor: g.accent + '1A' }]}>
-                  <KIcon name={g.icon} size={26} color={g.accent} strokeWidth={1.9} />
-                </View>
-                <View style={styles.goalText}>
-                  <Text style={[styles.goalLabel, selected && { color: g.accent }]}>{g.label}</Text>
-                  <Text style={styles.goalDesc}>{g.desc}</Text>
-                </View>
-              </SoftCard>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-function EquipmentStep({
-  selected,
-  onToggle,
-  onFinish,
-}: {
-  selected: readonly string[];
-  onToggle: (id: string) => void;
-  onFinish: () => void;
-}) {
-  return (
-    <View style={styles.stepFill}>
-      {/* Centred like the goal step — a short question shouldn't sit
-          top-heavy over half a screen of empty ground. */}
-      <View style={styles.equipBody}>
-        <Text style={styles.eyebrow}>PASO 3 · MATERIAL</Text>
-        <Text style={styles.title}>
-          ¿Qué tienes <Text style={styles.titleAccent}>a mano</Text>?
-        </Text>
-        <Text style={styles.helper}>Opcional — si no eliges nada, asumimos peso corporal.</Text>
-        <View style={styles.pillWrap}>
-          {EQUIPMENT.map((e) => (
-            <PillChip
-              key={e.id}
-              label={e.label}
-              selected={selected.includes(e.id)}
-              onPress={() => onToggle(e.id)}
-            />
-          ))}
-        </View>
-      </View>
-      <View style={styles.fullWidth}>
-        <PrimaryCta label="Continuar" onPress={onFinish} />
-      </View>
-    </View>
-  );
-}
-
-function PrimaryCta({ label, onPress }: { label: string; onPress: () => void }) {
-  return <GoldButton label={label} onPress={onPress} style={styles.primaryCta} />;
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg.void },
   flex: { flex: 1 },
-  progressWrap: { paddingHorizontal: Spacing.screen.horizontal, paddingBottom: Spacing.lg },
   scroll: { paddingHorizontal: Spacing.screen.horizontal, flexGrow: 1 },
   stepBody: { flex: 1, paddingTop: Spacing.lg },
   fullWidth: { width: '100%' },
-  // Composition helpers: fill the viewport so the primary CTA anchors near the
-  // bottom (the studied apps compose the whole frame, never float in the top half).
-  stepFill: { flex: 1 },
-  equipBody: { flex: 1, justifyContent: 'center', paddingBottom: Spacing['2xl'] },
-  centerFill: { flex: 1, justifyContent: 'center', paddingBottom: Spacing['2xl'] },
-  spacer: { flex: 1, minHeight: Spacing['2xl'] },
 
   welcome: { flex: 1, paddingTop: Spacing.sm, paddingBottom: Spacing.lg },
   wordmark: { ...Type.titleSmall, color: Colors.ink.primary, letterSpacing: -0.4 },
@@ -497,42 +342,12 @@ const styles = StyleSheet.create({
   mastheadSubAccent: { fontFamily: Fonts.serifSemiBoldItalic, color: Colors.gold.deep },
   welcomeHero: { flex: 1, justifyContent: 'center', gap: Spacing.lg },
   welcomeCtas: { gap: Spacing.md, alignItems: 'center' },
-  // Negative margins re-center the stroke's visual mass (canvas is square,
-  // stroke lives in the middle band) against the text column.
+  // Negative margins re-center the stroke's visual mass against the text column.
   welcomeGlyph: { marginLeft: -9, marginTop: -Spacing.xl, marginBottom: -Spacing['2xl'] },
 
-  eyebrow: { ...Type.eyebrow, color: Colors.gold.deep, marginBottom: Spacing.sm },
   // Oversized editorial greeting — Fraunces Black, with the key word set in
   // Fraunces italic gold (heavy-upright + light-italic = the signature voice).
   hero: { ...Type.heroDisplay, color: Colors.ink.primary },
-  // Dedicated italic TTF — reference by family only (no fontStyle, which would
-  // synthetically double-skew an already-italic face on Android).
   heroAccent: { fontFamily: Fonts.serifSemiBoldItalic, color: Colors.gold.base },
-  title: { ...Type.title, color: Colors.ink.primary, marginBottom: Spacing['2xl'] },
-  // Italic accent word inside a serif title (inherits the title's size).
-  titleAccent: { fontFamily: Fonts.serifSemiBoldItalic, color: Colors.gold.base },
   subtitle: { ...Type.body, fontSize: 16, lineHeight: 24, color: Colors.ink.tertiary },
-  helper: { ...Type.caption, color: Colors.ink.muted, marginBottom: Spacing.xl },
-
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  gridCell: { width: '48%', marginBottom: Spacing.md },
-  goalCard: { height: 152, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
-  goalIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalText: { alignItems: 'center', gap: 3 },
-  goalLabel: { ...Type.subheading, color: Colors.ink.primary },
-  goalDesc: { ...Type.caption, color: Colors.ink.muted, textAlign: 'center' },
-
-  pillWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-
-  primaryCta: { marginTop: Spacing.lg },
 });

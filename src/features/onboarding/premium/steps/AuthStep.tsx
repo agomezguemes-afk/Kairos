@@ -1,9 +1,11 @@
-// KAIROS — AuthStep: the sign-in moment.
+// KAIROS — AuthStep: the "keep it" moment. Now AFTER the reveal.
 //
-// First screen after the brand welcome. Premium, low-friction account creation:
-// Apple / Google one-taps up top, email as the quiet third option. Presentational
-// — it calls onAuth(provider); the real Supabase/OAuth wiring lives in the app's
-// auth store and is connected when this flow is mounted for real.
+// The whole flow (manuscript → theatre → reveal) runs guest-first: by the time
+// the user reaches this screen, Kai has already built their week. So the ask is
+// reframed as saving something that already exists ("guarda lo que Kai acaba de
+// crearte") rather than a cold wall before value. A persistent "continuar sin
+// cuenta" keeps the guest path always open. Presentational — it calls
+// onAuth(provider) / onSkip; the real Supabase/OAuth wiring lives elsewhere.
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -16,9 +18,13 @@ export type AuthProvider = 'apple' | 'google' | 'email';
 
 interface AuthStepProps {
   onAuth: (provider: AuthProvider) => void;
+  /** Always-visible guest path — enter without an account. */
+  onSkip: () => void;
+  /** True while the host finishes wiring up the space after a choice. */
+  busy?: boolean;
 }
 
-export default function AuthStep({ onAuth }: AuthStepProps) {
+export default function AuthStep({ onAuth, onSkip, busy = false }: AuthStepProps) {
   return (
     <View style={styles.root}>
       <Text style={text.wordmark}>
@@ -26,12 +32,13 @@ export default function AuthStep({ onAuth }: AuthStepProps) {
       </Text>
 
       <View style={styles.hero}>
-        <Text style={text.eyebrow}>CREA TU CUENTA</Text>
+        <Text style={text.eyebrow}>GUARDA TU PLAN</Text>
         <Text style={text.title}>
-          Tu progreso,{'\n'}en cualquier <Text style={text.titleAccent}>sitio</Text>.
+          Guarda lo que Kai{'\n'}acaba de <Text style={text.titleAccent}>crearte</Text>.
         </Text>
         <Text style={text.subtitle}>
-          Crea tu cuenta para guardar tu espacio y sincronizar todos tus dispositivos.
+          Tu semana ya está montada. Crea tu cuenta para que no se pierda y te siga en todos tus
+          dispositivos.
         </Text>
       </View>
 
@@ -41,19 +48,37 @@ export default function AuthStep({ onAuth }: AuthStepProps) {
           label="Continuar con Apple"
           icon={<AppleGlyph size={18} color="#FFFFFF" />}
           onPress={() => onAuth('apple')}
+          disabled={busy}
         />
         <AuthButton
           variant="light"
           label="Continuar con Google"
           icon={<GoogleGlyph size={18} />}
           onPress={() => onAuth('google')}
+          disabled={busy}
         />
         <AuthButton
           variant="light"
           label="Continuar con correo"
           icon={<MailGlyph size={18} color={Colors.ink.secondary} />}
           onPress={() => onAuth('email')}
+          disabled={busy}
         />
+
+        {/* The guest path is never hidden — value first, account optional. */}
+        <PressableScale
+          haptic="light"
+          pressScale={0.98}
+          accessibilityRole="button"
+          accessibilityLabel="Entrar sin cuenta"
+          accessibilityHint="Empiezas ahora; puedes crear la cuenta más tarde"
+          accessibilityState={{ disabled: busy, busy }}
+          disabled={busy}
+          onPress={onSkip}
+          style={styles.skip}
+        >
+          <Text style={styles.skipText}>{busy ? 'Entrando…' : 'Entrar sin cuenta →'}</Text>
+        </PressableScale>
 
         <Text style={styles.fine}>
           Al continuar aceptas los <Text style={styles.fineStrong}>Términos</Text> y la{' '}
@@ -69,11 +94,13 @@ function AuthButton({
   icon,
   variant,
   onPress,
+  disabled,
 }: {
   label: string;
   icon: React.ReactNode;
   variant: 'dark' | 'light';
   onPress: () => void;
+  disabled?: boolean;
 }) {
   const dark = variant === 'dark';
   return (
@@ -82,8 +109,10 @@ function AuthButton({
       pressScale={0.97}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.btn, dark ? styles.btnDark : styles.btnLight]}
+      style={[styles.btn, dark ? styles.btnDark : styles.btnLight, disabled && styles.btnDisabled]}
     >
       <View style={styles.btnIcon}>{icon}</View>
       <Text style={[styles.btnLabel, dark ? styles.btnLabelDark : styles.btnLabelLight]}>
@@ -123,16 +152,20 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.hair.strong,
   },
+  btnDisabled: { opacity: 0.55 },
   btnIcon: { width: 24, alignItems: 'center' },
   btnLabel: { ...Type.subheading, flex: 1, textAlign: 'center' },
   btnLabelDark: { color: Colors.ink.inverse },
   btnLabelLight: { color: Colors.ink.primary },
 
+  skip: { alignSelf: 'center', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
+  skipText: { ...Type.bodyEmph, color: Colors.ink.tertiary },
+
   fine: {
     ...Type.caption,
     color: Colors.ink.muted,
     textAlign: 'center',
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
     paddingHorizontal: Spacing.lg,
   },
   fineStrong: { color: Colors.ink.tertiary, fontFamily: Type.bodyEmph.fontFamily },
