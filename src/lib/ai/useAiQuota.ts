@@ -9,12 +9,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../../store/useAuthStore';
+import { sharedSttUsageTracker, sttQuotaUnits } from './stt/quota';
 
 export interface AiQuotaSnapshot {
   tier: 'free' | 'pro';
+  /** Chat messages (server-counted) + STT calls converted to quota units. */
   usedToday: number;
   dailyCap: number;
   remaining: number;
+  /** Raw STT (voice) calls in the rolling window, tracked on-device. */
+  sttUsedToday: number;
   isLoading: boolean;
   /** Hard error from the RPC. UI can ignore — quota tracking is non-essential. */
   error: string | null;
@@ -35,15 +39,29 @@ export function useAiQuota(): AiQuotaSnapshot {
     usedToday: 0,
     dailyCap: CAP_BY_TIER.free,
     remaining: CAP_BY_TIER.free,
+    sttUsedToday: 0,
     isLoading: true,
     error: null,
   });
 
   const refresh = useCallback(async () => {
+    // STT is counted on-device until the ai-stt proxy records it
+    // server-side; folding it in here keeps the pill honest about voice.
+    const sttCalls = await sharedSttUsageTracker()
+      .count24h()
+      .catch(() => 0);
+    const sttUnits = sttQuotaUnits(sttCalls);
     const userId = session?.user.id;
     if (!userId) {
-      // No auth → no quota tracking. Keep defaults and stop loading.
-      setState((s) => ({ ...s, isLoading: false, error: null }));
+      // No auth → no server quota; STT (dev fallback path) still counts.
+      setState((s) => ({
+        ...s,
+        usedToday: sttUnits,
+        remaining: Math.max(0, s.dailyCap - sttUnits),
+        sttUsedToday: sttCalls,
+        isLoading: false,
+        error: null,
+      }));
       return;
     }
     setState((s) => ({ ...s, isLoading: true, error: null }));
@@ -65,12 +83,13 @@ export function useAiQuota(): AiQuotaSnapshot {
 
     const tier = (profileRes.data?.subscription_tier as 'free' | 'pro' | undefined) ?? 'free';
     const cap = CAP_BY_TIER[tier];
-    const used = Number(countRes.data ?? 0);
+    const used = Number(countRes.data ?? 0) + sttUnits;
     setState({
       tier,
       usedToday: used,
       dailyCap: cap,
       remaining: Math.max(0, cap - used),
+      sttUsedToday: sttCalls,
       isLoading: false,
       error: null,
     });
