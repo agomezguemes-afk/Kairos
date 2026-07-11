@@ -209,6 +209,12 @@ interface WorkoutState {
   ) => void;
   /** Cycle/set a block's widget size. Sprint 6. */
   setBlockSize: (blockId: string, size: 'small' | 'medium' | 'large') => void;
+  /**
+   * Append fully-formed blocks (preset seeding, CSV import). Re-keys user_id
+   * and sort_order so callers can build blocks off-store and hand them over
+   * without worrying about collisions. Returns the ids in insertion order.
+   */
+  addPreparedBlocks: (blocks: WorkoutBlock[]) => string[];
 
   addContentNode: (blockId: string, node: ContentNode) => void;
   insertContentNode: (blockId: string, node: ContentNode, position?: number) => void;
@@ -901,6 +907,18 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
       replaceAllBlocks: (blocks) => {
         set({ blocks });
+      },
+      addPreparedBlocks: (incoming) => {
+        const base = get().blocks.length;
+        const now = new Date().toISOString();
+        const prepared: WorkoutBlock[] = incoming.map((b, i) => ({
+          ...b,
+          user_id: MOCK_USER_ID,
+          sort_order: base + i,
+          updated_at: now,
+        }));
+        set((state) => ({ blocks: [...state.blocks, ...prepared] }));
+        return prepared.map((b) => b.id);
       },
 
       setBlockCanvasPosition: (blockId, position) => {
