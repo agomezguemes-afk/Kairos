@@ -18,6 +18,7 @@ export {
   BUILD_SESSION_TOOL,
 } from './brief';
 export { buildSessionBlockDeterministic, summarizeBlock } from './blockFromBrief';
+export { wantsHybridSession, buildHybridSession } from './hybridFastPath';
 export { CONVERSATION_SYSTEM_PROMPT, CONVERSATION_PROMPT_VERSION } from './prompts';
 export type {
   ConversationState,

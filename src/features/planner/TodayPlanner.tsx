@@ -12,6 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../theme/tokens';
 import PlannerHeader from './components/PlannerHeader';
 import FirstWorkoutCTA from './components/FirstWorkoutCTA';
+import KaiTodayEntry from '../conversation/KaiTodayEntry';
 import HomeHeroStats from './components/HomeHeroStats';
 import ReadinessRings from './components/ReadinessRings';
 import CalendarView from './components/CalendarView';
@@ -147,6 +148,10 @@ export default function TodayPlanner() {
     nav.navigate('AILabScreen');
   }, [nav]);
 
+  const handleOpenKai = useCallback(() => {
+    nav.navigate('KaiToday');
+  }, [nav]);
+
   const handleSignalAction = useCallback(
     (action: KaiSignal['action']) => {
       if (!action) return;
@@ -176,9 +181,16 @@ export default function TodayPlanner() {
       >
         <HomeHeroStats />
         <PlannerHeader />
+        {/* Honest home: one gold CTA. Day-0 keeps the first-workout hero and
+            Kai rides along quietly; afterwards the conversation takes the gold. */}
         {firstWorkoutBlock ? (
-          <FirstWorkoutCTA block={firstWorkoutBlock} onStart={(b) => handleStart(b, null)} />
-        ) : null}
+          <>
+            <FirstWorkoutCTA block={firstWorkoutBlock} onStart={(b) => handleStart(b, null)} />
+            <KaiTodayEntry variant="quiet" onPress={handleOpenKai} />
+          </>
+        ) : (
+          <KaiTodayEntry variant="hero" onPress={handleOpenKai} />
+        )}
         <ReadinessRings />
         <CalendarView selectedDate={selectedDate} onSelect={setSelectedDate} />
         <DayCard

@@ -27,6 +27,7 @@ import BadgesScreen from '../screens/BadgesScreen';
 import PRCardsScreen from '../screens/PRCardsScreen';
 import ProgressTreeScreen from '../screens/ProgressTreeScreen';
 import AIChatScreen from '../screens/AIChatScreen';
+import KaiConversationScreen from '../features/conversation/KaiConversationScreen';
 import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
 import KairosTabBar from '../components/KairosTabBar';
 import PremiumOnboardingScreen from '../screens/onboarding/PremiumOnboardingScreen';
@@ -108,6 +109,7 @@ export default function AppNavigator() {
               <Stack.Screen name="PRCards" component={PRCardsScreen} />
               <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
               <Stack.Screen name="AIChat" component={AIChatScreen} />
+              <Stack.Screen name="KaiToday" component={KaiConversationScreen} />
               <Stack.Screen
                 name="AILabScreen"
                 component={AILabScreen}
@@ -143,6 +145,7 @@ export default function AppNavigator() {
               <Stack.Screen name="PRCards" component={PRCardsScreen} />
               <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
               <Stack.Screen name="AIChat" component={AIChatScreen} />
+              <Stack.Screen name="KaiToday" component={KaiConversationScreen} />
               <Stack.Screen
                 name="AILabScreen"
                 component={AILabScreen}
@@ -211,6 +214,7 @@ export default function AppNavigator() {
             <Stack.Screen name="PRCards" component={PRCardsScreen} />
             <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
             <Stack.Screen name="AIChat" component={AIChatScreen} />
+            <Stack.Screen name="KaiToday" component={KaiConversationScreen} />
             <Stack.Screen
               name="AILabScreen"
               component={AILabScreen}

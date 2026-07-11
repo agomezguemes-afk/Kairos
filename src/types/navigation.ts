@@ -37,4 +37,6 @@ export type RootStackParamList = {
   ProgressTree: undefined;
   AIChat: undefined;
   AILabScreen: undefined;
+  /** "Hoy" conversational surface — Kai builds today's block from free text. */
+  KaiToday: undefined;
 };
