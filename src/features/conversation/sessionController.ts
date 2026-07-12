@@ -54,9 +54,10 @@ function msg(role: ConversationMessage['role'], text: string): ConversationMessa
   return { id: generateId(), role, text };
 }
 
-/** Kai's confirmation when the hybrid fast-path lands (voice: KAI_VOICE.md). */
+/** Kai's confirmation when the hybrid fast-path lands (voice: KAI_VOICE.md).
+ * Copy stays modality-agnostic: the preset decides the contents, not this line. */
 export function hybridClosingLine(blockName: string): string {
-  return `Hecho. «${blockName}»: erg, trineo, carrera y estaciones en un solo bloque. Cuando quieras, arrancamos.`;
+  return `Hecho. «${blockName}»: tu sesión híbrida completa, en un solo bloque. Cuando quieras, arrancamos.`;
 }
 
 export function createConversationSession(deps: SessionDeps): ConversationSession {

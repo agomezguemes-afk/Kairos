@@ -12,7 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import KaiOrb from '../onboarding/premium/KaiOrb';
-import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
+import { Animation, Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
 
 interface Props {
   variant: 'hero' | 'quiet';
@@ -30,10 +30,13 @@ function KaiTodayEntry({ variant, onPress }: Props) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Pedirle otra cosa a Kai"
+        accessibilityHint="Abre la conversación con Kai"
         onPress={handlePress}
         style={({ pressed }) => [styles.quietRow, pressed && { opacity: 0.8 }]}
       >
-        <KaiOrb size={20} />
+        <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+          <KaiOrb size={20} />
+        </View>
         <Text style={styles.quietText}>¿Otra cosa? Cuéntaselo a Kai.</Text>
         <Feather name="chevron-right" size={18} color={Colors.ink.muted} />
       </Pressable>
@@ -41,15 +44,18 @@ function KaiTodayEntry({ variant, onPress }: Props) {
   }
 
   return (
-    <Animated.View entering={FadeInDown.duration(400)}>
+    <Animated.View entering={FadeInDown.duration(Animation.duration.normal)}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Contarle a Kai qué hacemos hoy"
+        accessibilityHint="Abre la conversación con Kai"
         onPress={handlePress}
         style={({ pressed }) => [styles.heroCard, pressed && { opacity: 0.95 }]}
       >
         <View style={styles.heroTop}>
-          <KaiOrb size={38} />
+          <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+            <KaiOrb size={38} />
+          </View>
           <View style={styles.heroText}>
             <Text style={styles.eyebrow}>Hoy</Text>
             <Text style={styles.title}>¿Qué hacemos hoy?</Text>
@@ -58,7 +64,9 @@ function KaiTodayEntry({ variant, onPress }: Props) {
         </View>
         <View style={styles.cta}>
           <Feather name="message-circle" size={16} color={Colors.ink.primary} />
-          <Text style={styles.ctaText}>Cuéntaselo a Kai</Text>
+          <Text style={styles.ctaText} maxFontSizeMultiplier={1.5}>
+            Cuéntaselo a Kai
+          </Text>
         </View>
       </Pressable>
     </Animated.View>
@@ -110,6 +118,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
     ...Shadows.cardWarm,
   },
   ctaText: {

@@ -36,21 +36,32 @@ function BlockReadyCard({ session, onStart, onView, onAskAgain }: Props) {
         .stiffness(Animation.spring.gentle.stiffness)}
       style={styles.card}
     >
-      <Text style={styles.eyebrow}>Tu bloque de hoy</Text>
+      <Text style={styles.eyebrow} accessibilityRole="header">
+        Tu bloque de hoy
+      </Text>
       <View style={styles.titleRow}>
         <View style={[styles.accentBar, { backgroundColor: accent }]} />
-        <Text style={styles.title} numberOfLines={2}>
+        <Text style={styles.title} numberOfLines={3}>
           {session.blockName}
         </Text>
       </View>
 
       <View style={styles.exercises}>
         {session.exercises.map((ex, i) => (
-          <View key={`${i}-${ex.name}`} style={styles.exerciseRow}>
-            <Text style={styles.exerciseName} numberOfLines={1}>
+          <View
+            key={`${i}-${ex.name}`}
+            style={styles.exerciseRow}
+            accessible
+            accessibilityLabel={ex.detail.length > 0 ? `${ex.name}, ${ex.detail}` : ex.name}
+          >
+            <Text style={styles.exerciseName} numberOfLines={2}>
               {ex.name}
             </Text>
-            {ex.detail.length > 0 ? <Text style={styles.exerciseDetail}>{ex.detail}</Text> : null}
+            {ex.detail.length > 0 ? (
+              <Text style={styles.exerciseDetail} maxFontSizeMultiplier={1.6}>
+                {ex.detail}
+              </Text>
+            ) : null}
           </View>
         ))}
       </View>
@@ -58,18 +69,35 @@ function BlockReadyCard({ session, onStart, onView, onAskAgain }: Props) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Empezar ahora: ${session.blockName}`}
+        accessibilityHint="Abre el workout y empieza a registrar"
         onPress={onStart}
         style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
       >
         <KIcon name="zap" size={16} color={Colors.ink.primary} />
-        <Text style={styles.ctaText}>Empezar ahora</Text>
+        <Text style={styles.ctaText} maxFontSizeMultiplier={1.5}>
+          Empezar ahora
+        </Text>
       </Pressable>
 
       <View style={styles.secondaryRow}>
-        <Pressable accessibilityRole="button" onPress={onView} hitSlop={8}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ver bloque"
+          accessibilityHint="Abre el detalle del bloque sin empezar"
+          onPress={onView}
+          hitSlop={8}
+          style={styles.secondaryBtn}
+        >
           <Text style={styles.secondaryText}>Ver bloque</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={onAskAgain} hitSlop={8}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Pedir otra cosa"
+          accessibilityHint="Descarta este bloque y empieza otra conversación"
+          onPress={onAskAgain}
+          hitSlop={8}
+          style={styles.secondaryBtn}
+        >
           <Text style={styles.mutedText}>Pedir otra cosa</Text>
         </Pressable>
       </View>
@@ -87,7 +115,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.hair.gold,
     padding: Spacing.xl,
     marginTop: Spacing.sm,
-    gap: Spacing.sm,
     ...Shadows.card,
   },
   eyebrow: {
@@ -98,9 +125,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    marginTop: Spacing.sm,
   },
   accentBar: {
-    width: 4,
+    width: 4, // decorative discipline bar — sized in px, not a spacing rhythm
     height: 26,
     borderRadius: 2,
   },
@@ -110,12 +138,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   exercises: {
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
   },
+  // flex-start (not baseline) so a wrapped, Dynamic-Type-scaled name keeps its
+  // detail top-aligned instead of drifting off the baseline.
   exerciseRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.md,
   },
@@ -127,9 +157,10 @@ const styles = StyleSheet.create({
   exerciseDetail: {
     ...Type.caption,
     color: Colors.ink.muted,
+    flexShrink: 0,
   },
   cta: {
-    marginTop: Spacing.md,
+    marginTop: Spacing.xl,
     minHeight: 52,
     borderRadius: Radius.md,
     backgroundColor: Colors.gold.base,
@@ -137,6 +168,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
     ...Shadows.cardWarm,
   },
   ctaText: {
@@ -148,7 +181,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xs,
-    marginTop: Spacing.xs,
+    marginTop: Spacing.md,
+  },
+  secondaryBtn: {
+    paddingVertical: Spacing.sm,
   },
   secondaryText: {
     ...Type.caption,

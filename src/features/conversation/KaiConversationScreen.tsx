@@ -9,6 +9,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -22,8 +23,8 @@ import {
 import Animated, {
   FadeIn,
   FadeInRight,
-  FadeInUp,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -39,7 +40,7 @@ import * as Haptics from 'expo-haptics';
 import KaiOrb from '../onboarding/premium/KaiOrb';
 import type { ConversationPhase } from '../../lib/ai/conversation';
 import { useWorkoutStore } from '../../store/workoutStore';
-import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
+import { Animation, Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
 import type { RootStackParamList } from '../../types/navigation';
 import { todayISO } from '../planner/lib/dates';
 import BlockReadyCard from './BlockReadyCard';
@@ -70,16 +71,52 @@ export default function KaiConversationScreen() {
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
 
   const { state, send, retry, reset } = useConversationSession();
+  const reduceMotion = useReducedMotion();
   const [input, setInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
 
   const scrollToEnd = useCallback(() => {
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-  }, []);
+    // Defer past the layout pass so the freshly-mounted bubble is measured.
+    setTimeout(
+      () => scrollRef.current?.scrollToEnd({ animated: !reduceMotion }),
+      Animation.duration.instant,
+    );
+  }, [reduceMotion]);
 
   useEffect(() => {
     scrollToEnd();
   }, [state.messages.length, state.phase, scrollToEnd]);
+
+  // Keep the tail in view when the keyboard opens mid-conversation (iOS
+  // Messages behaviour) — otherwise the last bubble hides behind the input.
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', scrollToEnd);
+    return () => sub.remove();
+  }, [scrollToEnd]);
+
+  // Async state is otherwise silent for VoiceOver: announce each transition and
+  // fire the terminal error haptic. The block-ready announcement lives below so
+  // it can name the block.
+  const prevPhaseRef = useRef<ConversationPhase | null>(null);
+  useEffect(() => {
+    const phase = state.phase;
+    if (prevPhaseRef.current === phase) return;
+    prevPhaseRef.current = phase;
+    if (phase === 'thinking') {
+      AccessibilityInfo.announceForAccessibility('Kai está pensando.');
+    } else if (phase === 'building') {
+      AccessibilityInfo.announceForAccessibility('Montando tu bloque.');
+    } else if (phase === 'error') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      AccessibilityInfo.announceForAccessibility('Algo se ha torcido. Puedes reintentar.');
+    }
+  }, [state.phase]);
+
+  useEffect(() => {
+    if (state.result) {
+      AccessibilityInfo.announceForAccessibility(`Bloque listo: ${state.result.blockName}.`);
+    }
+  }, [state.result]);
 
   const handleSend = useCallback(
     (text?: string) => {
@@ -116,10 +153,16 @@ export default function KaiConversationScreen() {
     reset();
   }, [reset]);
 
+  const handleRetry = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    retry();
+  }, [retry]);
+
   const busyThinking = state.phase === 'thinking';
   const showStreaming = busyThinking && (state.streamingText?.length ?? 0) > 0;
   const showTyping = busyThinking && !showStreaming;
   const showSuggestions = state.messages.length === 0 && state.canSend;
+  const canSend = state.canSend && input.trim().length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -137,10 +180,14 @@ export default function KaiConversationScreen() {
         >
           <Feather name="arrow-left" size={22} color={Colors.ink.primary} />
         </Pressable>
-        <KaiOrb size={26} thinking={state.phase === 'thinking' || state.phase === 'building'} />
+        <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+          <KaiOrb size={26} thinking={state.phase === 'thinking' || state.phase === 'building'} />
+        </View>
         <View style={styles.headerText}>
           <Text style={styles.headerTitle}>Kai</Text>
-          <Text style={styles.headerSub}>{subtitleFor(state.phase)}</Text>
+          <Text style={styles.headerSub} accessibilityLiveRegion="polite">
+            {subtitleFor(state.phase)}
+          </Text>
         </View>
       </View>
 
@@ -151,6 +198,7 @@ export default function KaiConversationScreen() {
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
       >
         <KaiBubble text={GREETING} />
 
@@ -163,7 +211,7 @@ export default function KaiConversationScreen() {
         )}
 
         {showStreaming ? <KaiBubble text={state.streamingText ?? ''} /> : null}
-        {showTyping ? <TypingDots /> : null}
+        {showTyping ? <TypingDots reduce={reduceMotion} /> : null}
         {state.phase === 'building' ? <BuildingRow /> : null}
 
         {state.result ? (
@@ -178,10 +226,12 @@ export default function KaiConversationScreen() {
         {state.phase === 'error' ? (
           <Pressable
             accessibilityRole="button"
-            onPress={retry}
+            accessibilityLabel="Reintentar"
+            accessibilityHint="Vuelve a enviar tu último mensaje a Kai"
+            onPress={handleRetry}
             style={({ pressed }) => [styles.retryPill, pressed && { opacity: 0.7 }]}
           >
-            <Feather name="rotate-ccw" size={13} color={Colors.ink.secondary} />
+            <Feather name="rotate-ccw" size={14} color={Colors.ink.secondary} />
             <Text style={styles.retryText}>Reintentar</Text>
           </Pressable>
         ) : null}
@@ -194,6 +244,8 @@ export default function KaiConversationScreen() {
             <Pressable
               key={s}
               accessibilityRole="button"
+              accessibilityLabel={s}
+              accessibilityHint="Envía esta idea a Kai"
               onPress={() => handleSend(s)}
               style={({ pressed }) => [styles.suggestionChip, pressed && { opacity: 0.7 }]}
             >
@@ -210,6 +262,8 @@ export default function KaiConversationScreen() {
             style={styles.textInput}
             placeholder="Dile a Kai qué te apetece…"
             placeholderTextColor={Colors.ink.muted}
+            accessibilityLabel="Mensaje para Kai"
+            accessibilityHint="Describe en una frase qué te apetece entrenar hoy"
             value={input}
             onChangeText={setInput}
             onSubmitEditing={() => handleSend()}
@@ -220,20 +274,19 @@ export default function KaiConversationScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Enviar"
+            accessibilityState={{ disabled: !canSend }}
             onPress={() => handleSend()}
-            disabled={!state.canSend || input.trim().length === 0}
+            disabled={!canSend}
             style={({ pressed }) => [
               styles.sendBtn,
-              (!state.canSend || input.trim().length === 0) && styles.sendBtnDisabled,
+              !canSend && styles.sendBtnDisabled,
               pressed && { opacity: 0.8 },
             ]}
           >
             <Feather
               name="arrow-up"
               size={18}
-              color={
-                state.canSend && input.trim().length > 0 ? Colors.ink.primary : Colors.ink.muted
-              }
+              color={canSend ? Colors.ink.primary : Colors.ink.muted}
             />
           </Pressable>
         </View>
@@ -246,9 +299,11 @@ export default function KaiConversationScreen() {
 
 // ======================== BUBBLES ========================
 
+// Kai bubbles crossfade (opacity only) so a streamed reply settling into its
+// committed twin never jumps vertically — the text stays legible mid-read.
 const KaiBubble = React.memo(function KaiBubble({ text }: { text: string }) {
   return (
-    <Animated.View entering={FadeInUp.duration(220)} style={styles.kaiRow}>
+    <Animated.View entering={FadeIn.duration(Animation.duration.fast)} style={styles.kaiRow}>
       <View style={styles.kaiBubble}>
         <Text style={styles.kaiText}>{text}</Text>
       </View>
@@ -256,9 +311,10 @@ const KaiBubble = React.memo(function KaiBubble({ text }: { text: string }) {
   );
 });
 
+// User bubbles slide in from the right — they came from "your" side of the thread.
 const UserBubble = React.memo(function UserBubble({ text }: { text: string }) {
   return (
-    <Animated.View entering={FadeInRight.duration(220)} style={styles.userRow}>
+    <Animated.View entering={FadeInRight.duration(Animation.duration.fast)} style={styles.userRow}>
       <View style={styles.userBubble}>
         <Text style={styles.userText}>{text}</Text>
       </View>
@@ -268,40 +324,55 @@ const UserBubble = React.memo(function UserBubble({ text }: { text: string }) {
 
 // ======================== INDICATORS ========================
 
+const DOT_RISE = 4; // px a typing dot lifts at the peak of its bob
+
 function BuildingRow() {
   return (
-    <Animated.View entering={FadeIn.duration(200)} style={styles.buildingRow}>
+    <Animated.View
+      entering={FadeIn.duration(Animation.duration.fast)}
+      style={styles.buildingRow}
+      accessibilityLabel="Montando tu bloque"
+    >
       <KaiOrb size={18} thinking />
       <Text style={styles.buildingText}>Montando tu bloque…</Text>
     </Animated.View>
   );
 }
 
-function TypingDots() {
+function TypingDots({ reduce }: { reduce: boolean }) {
   return (
-    <Animated.View entering={FadeIn.duration(200)} style={styles.typingRow}>
+    <Animated.View
+      entering={FadeIn.duration(Animation.duration.fast)}
+      style={styles.typingRow}
+      accessibilityLabel="Kai está escribiendo"
+    >
       <View style={styles.typingBubble}>
-        <Dot delay={0} />
-        <Dot delay={150} />
-        <Dot delay={300} />
+        <Dot delay={0} reduce={reduce} />
+        <Dot delay={Animation.duration.fast} reduce={reduce} />
+        <Dot delay={Animation.duration.fast * 2} reduce={reduce} />
       </View>
     </Animated.View>
   );
 }
 
-function Dot({ delay }: { delay: number }) {
+function Dot({ delay, reduce }: { delay: number; reduce: boolean }) {
   const translateY = useSharedValue(0);
 
   useEffect(() => {
+    // Reduce Motion: hold three steady dots instead of a bouncing loop.
+    if (reduce) return;
     translateY.value = withDelay(
       delay,
       withRepeat(
-        withSequence(withTiming(-4, { duration: 250 }), withTiming(0, { duration: 250 })),
+        withSequence(
+          withTiming(-DOT_RISE, { duration: Animation.duration.normal }),
+          withTiming(0, { duration: Animation.duration.normal }),
+        ),
         -1,
         false,
       ),
     );
-  }, [delay, translateY]);
+  }, [delay, reduce, translateY]);
 
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
   return <Animated.View style={[styles.typingDot, style]} />;
@@ -349,7 +420,8 @@ const styles = StyleSheet.create({
 
   kaiRow: {
     marginBottom: Spacing.md,
-    paddingRight: 48,
+    // Opposite-side gutter so a bubble never spans full width (sender stays clear).
+    paddingRight: Spacing['2xl'] * 2,
   },
   kaiBubble: {
     alignSelf: 'flex-start',
@@ -370,7 +442,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginBottom: Spacing.md,
-    paddingLeft: 48,
+    paddingLeft: Spacing['2xl'] * 2,
   },
   userBubble: {
     backgroundColor: Colors.bg.elevated,
@@ -400,17 +472,19 @@ const styles = StyleSheet.create({
   },
   typingBubble: {
     flexDirection: 'row',
-    gap: 5,
+    alignItems: 'center',
+    gap: Spacing.xs,
     backgroundColor: Colors.bg.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.hair.base,
     borderRadius: Radius.lg,
+    borderTopLeftRadius: Radius.xs,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     ...Shadows.subtle,
   },
   typingDot: {
-    width: 7,
+    width: 7, // decorative dot glyph — sized in px, not a spacing rhythm
     height: 7,
     borderRadius: 3.5,
     backgroundColor: Colors.ink.muted,
@@ -420,8 +494,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
+    minHeight: 44, // HIG minimum tappable target
     backgroundColor: Colors.bg.elevated,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.hair.base,
     borderRadius: Radius.full,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
@@ -438,6 +515,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   suggestionChip: {
+    minHeight: 44, // HIG minimum tappable target
+    justifyContent: 'center',
     backgroundColor: Colors.bg.surface,
     borderWidth: 1,
     borderColor: Colors.hair.base,
@@ -471,9 +550,9 @@ const styles = StyleSheet.create({
     color: Colors.ink.primary,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44, // HIG minimum tappable target
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.gold.base,
     alignItems: 'center',
     justifyContent: 'center',
