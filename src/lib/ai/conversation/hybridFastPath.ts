@@ -11,7 +11,9 @@
 // Node-safe: stores + pure preset only. No transport imports.
 
 import { useScheduleStore } from '../../../store/scheduleStore';
+import { useWorkoutStore } from '../../../store/workoutStore';
 import { seedHybridPreset } from '../../routines/seedHybridPreset';
+import { applyProgression } from '../../progression';
 import { summarizeBlock } from './blockFromBrief';
 import type { BuiltSession } from './types';
 
@@ -63,6 +65,13 @@ export function buildHybridSession(opts: HybridSessionOpts = {}): BuiltSession {
     displayName: opts.displayName ?? null,
   });
   const block = result.blocks[0];
+
+  // Memoria que compone: carry forward last paces/weights into the seeded block.
+  const workoutStore = useWorkoutStore.getState();
+  const enriched = applyProgression(block, workoutStore.workoutHistory);
+  if (enriched !== block) {
+    workoutStore.updateBlock(block.id, { content: enriched.content });
+  }
 
   // The user asked for TODAY: if the seeded week skips today, pin a one-off.
   const today = mondayWeekday(now);

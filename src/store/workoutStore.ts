@@ -89,6 +89,15 @@ export interface ExerciseHistorySummary {
     rpe?: number;
     /** Per-set freeform note (may be empty). */
     notes?: string | null;
+    /**
+     * Full dynamic field map for this set (pace, distance, calories, custom
+     * metrics…). `weight`/`reps` above are the strength shortcut and stay for
+     * back-compat; this carries everything else the progression engine needs to
+     * carry forward endurance/hybrid work. Additive + optional: entries written
+     * before this field existed simply lack it, and readers fall back to
+     * `weight`/`reps`.
+     */
+    values?: Record<string, FieldValue>;
   }[];
 }
 
@@ -732,6 +741,7 @@ export const useWorkoutStore = create<WorkoutState>()(
                 kind: s.kind,
                 rpe: s.rpe,
                 notes: s.notes,
+                values: { ...s.values },
               });
               if (!s.completed) continue;
               setsDone += 1;

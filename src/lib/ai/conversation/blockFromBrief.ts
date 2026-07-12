@@ -12,6 +12,7 @@ import { useWorkoutStore } from '../../../store/workoutStore';
 import type { WorkoutBlock, ExerciseCard } from '../../../types/core';
 import { getBlockExercises } from '../../../types/core';
 import { buildStarterBlocks } from '../../routines/starterTemplates';
+import { applyProgression } from '../../progression';
 import { briefToStarterAnswers } from './brief';
 import type { BuiltSession, SessionBrief } from './types';
 
@@ -69,6 +70,9 @@ export function buildSessionBlockDeterministic(brief: SessionBrief): BuiltSessio
     is_favorite: true,
   };
 
-  store.replaceAllBlocks([...store.blocks, block]);
-  return summarize(block, 'template');
+  // Memoria que compone: pre-fill last weights/paces before the block lands.
+  const enriched = applyProgression(block, store.workoutHistory);
+
+  store.replaceAllBlocks([...store.blocks, enriched]);
+  return summarize(enriched, 'template');
 }

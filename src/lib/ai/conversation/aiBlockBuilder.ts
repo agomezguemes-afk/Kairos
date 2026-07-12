@@ -10,6 +10,7 @@ import { runAgent } from '../agent';
 import { isAIAvailable } from '../client';
 import { useWorkoutStore } from '../../../store/workoutStore';
 import type { WorkoutBlock } from '../../../types/core';
+import { applyProgression } from '../../progression';
 import { buildSessionBlockDeterministic, summarizeBlock } from './blockFromBrief';
 import type { BuiltSession, SessionBrief } from './types';
 
@@ -102,10 +103,15 @@ export async function buildSessionBlockViaAgent(
     const block = created[0];
     if (!isValidBlock(block)) throw new Error(`AI block invalid (${created.length} created)`);
 
+    // Memoria que compone: pre-fill last weights/paces into the AI-built block.
+    const enriched = applyProgression(block, useWorkoutStore.getState().workoutHistory);
+
     // Rename to the conversational title + mark favorite so it's the pick.
-    useWorkoutStore
-      .getState()
-      .updateBlock(block.id, { name: brief.title || block.name, is_favorite: true });
+    useWorkoutStore.getState().updateBlock(block.id, {
+      name: brief.title || block.name,
+      is_favorite: true,
+      content: enriched.content,
+    });
     const summary = summarizeBlock(block.id, 'ai');
     if (!summary) throw new Error('AI block disappeared after commit');
     return summary;
