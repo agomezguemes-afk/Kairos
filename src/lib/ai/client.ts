@@ -167,14 +167,19 @@ export function isGroqAvailable(): boolean {
  * authenticated may need to wait one tick for the session to land.
  */
 export function isAIAvailable(): boolean {
-  if (getProxyEndpoint() && hasCachedSession()) return true;
+  if (getProxyEndpoint() && hasActiveSession()) return true;
   return getGroqApiKey() !== null;
 }
 
-function hasCachedSession(): boolean {
-  // supabase-js v2 doesn't expose a synchronous session getter, so we
-  // mirror it ourselves via the onAuthStateChange listener below. The
-  // cache is seeded on cold start from AsyncStorage.
+/**
+ * Synchronous "is someone signed in" check, shared with the other AI
+ * surfaces (STT routes on it too — see stt/transcribe.ts). supabase-js
+ * v2 doesn't expose a synchronous session getter, so we mirror it
+ * ourselves via the onAuthStateChange listener below. The cache is
+ * seeded on cold start from AsyncStorage, so a just-authenticated user
+ * may lag one tick.
+ */
+export function hasActiveSession(): boolean {
   return cachedAccessToken !== null;
 }
 
@@ -190,7 +195,12 @@ supabase.auth.onAuthStateChange((_event, session) => {
   cachedAccessToken = session?.access_token ?? null;
 });
 
-async function getActiveAccessToken(): Promise<string | null> {
+/**
+ * The Supabase access token for proxy calls, or null when signed out.
+ * Prefers the listener-maintained cache; falls back to getSession() so
+ * a cold start (cache not yet seeded) still finds the stored session.
+ */
+export async function getActiveAccessToken(): Promise<string | null> {
   if (cachedAccessToken) return cachedAccessToken;
   const { data } = await supabase.auth.getSession();
   cachedAccessToken = data.session?.access_token ?? null;

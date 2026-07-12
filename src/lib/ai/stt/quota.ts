@@ -1,11 +1,13 @@
 // KAIROS — STT usage tracking against the AI quota.
 //
-// Server-side ai_quota only sees proxied chat completions; STT goes
-// direct to Groq (dev fallback) until the ai-stt Edge Function exists.
-// So voice calls are counted here, on-device, in the same rolling-24h
-// window the server uses, and useAiQuota folds them into the pill.
-// Tracking is best-effort by design: a storage failure must never break
-// the voice loop, only under-count it.
+// Server-side ai_quota only sees proxied chat completions — deliberately,
+// even now that the ai-stt Edge Function exists: ai_quota_reserve counts
+// every ledger row as one full chat unit (no per-model weighting), which
+// would contradict the 0.2-unit STT weighting below. So voice calls are
+// counted here, on-device, in the same rolling-24h window the server
+// uses, and useAiQuota folds them into the pill — on both transports
+// (proxy and dev-direct). Tracking is best-effort by design: a storage
+// failure must never break the voice loop, only under-count it.
 
 import type { KeyValueStorage } from '../../analytics/queue';
 import type { SttUsageTracker } from './types';

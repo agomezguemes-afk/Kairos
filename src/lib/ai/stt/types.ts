@@ -34,6 +34,21 @@ export interface TranscribeOptions {
   timeoutMs?: number;
   /** Injectable usage tracker (tests / custom wiring). Defaults to the shared one. */
   usageTracker?: SttUsageTracker;
+  /** Injectable session source (tests). Defaults to the app's Supabase session. */
+  auth?: SttSessionAuth;
+}
+
+/**
+ * The transcriber's view of the Supabase session, used to route between
+ * the ai-stt proxy (session present) and the dev-direct path. Kept as a
+ * two-method interface (not a token string) so isSttAvailable() stays
+ * synchronous while the actual call awaits a fresh token.
+ */
+export interface SttSessionAuth {
+  /** Synchronous cached check — safe in render code (mirrors client.ts). */
+  hasSession(): boolean;
+  /** The Supabase access token, or null when signed out. Must never throw. */
+  getToken(): Promise<string | null>;
 }
 
 export type SttErrorKind =
@@ -72,10 +87,12 @@ export interface TranscribeSuccess {
 export type TranscribeResult = TranscribeSuccess | { ok: false; error: SttError };
 
 /**
- * Rolling-24h on-device counter for STT calls. On-device because the
- * ai-chat proxy doesn't handle audio yet: server-side recording lands
- * with the future ai-stt Edge Function; until then this keeps the quota
- * pill honest about voice usage.
+ * Rolling-24h on-device counter for STT calls. Deliberately on-device
+ * even now that the ai-stt Edge Function exists: the server-side
+ * ai_quota ledger counts every row as one full chat unit (no per-model
+ * weighting), which would contradict the 0.2-unit STT weighting in
+ * quota.ts. Until a weighted STT ledger RPC lands server-side, this
+ * keeps the quota pill honest about voice usage on both transports.
  */
 export interface SttUsageTracker {
   /** Count one processed transcription. Must never throw. */

@@ -5,10 +5,14 @@ import {
   isSttAvailable,
   DEFAULT_STT_MODEL,
   GROQ_STT_ENDPOINT,
+  STT_PROXY_PATH,
 } from './transcribe';
-import type { SttUsageTracker, TranscribeInput } from './types';
+import type { SttSessionAuth, SttUsageTracker, TranscribeInput } from './types';
 
 const ENV_KEY = 'EXPO_PUBLIC_GROQ_API_KEY';
+const SUPABASE_URL_KEY = 'EXPO_PUBLIC_SUPABASE_URL';
+const SUPABASE_URL = 'https://proj.supabase.co';
+const PROXY_ENDPOINT = `${SUPABASE_URL}${STT_PROXY_PATH}`;
 
 // Same __DEV__ gymnastics as devFallback.test.ts: in node __DEV__ is
 // undefined (release-like), so tests opt in to the dev-build path.
@@ -32,6 +36,11 @@ function fakeTracker(): SttUsageTracker & { recorded: number } {
     },
   };
   return t;
+}
+
+// Injected session source: token !== null simula un usuario con sesión.
+function fakeAuth(token: string | null): SttSessionAuth {
+  return { hasSession: () => token !== null, getToken: async () => token };
 }
 
 const INPUT: TranscribeInput = {
@@ -64,6 +73,7 @@ beforeEach(() => {
 afterEach(() => {
   setDev(undefined);
   delete process.env[ENV_KEY];
+  delete process.env[SUPABASE_URL_KEY];
   vi.unstubAllGlobals();
 });
 
@@ -268,4 +278,132 @@ describe('transcribeAudio — respuestas raras del upstream', () => {
     const res = await transcribeAudio(INPUT, { usageTracker: broken });
     expect(res).toMatchObject({ ok: true, text: 'hola' });
   });
+});
+
+// ── M2b: matriz de enrutado proxy (ai-stt) / directo (clave dev) ─────
+
+describe('transcribeAudio — enrutado proxy/directo', () => {
+  it('con sesión → POST al proxy ai-stt con el JWT, aunque exista clave dev', async () => {
+    process.env[SUPABASE_URL_KEY] = SUPABASE_URL;
+    const mock = stubFetch(async () => jsonResponse({ text: 'hola', language: 'spanish' }));
+    const tracker = fakeTracker();
+
+    const res = await transcribeAudio(INPUT, { auth: fakeAuth('jwt_abc'), usageTracker: tracker });
+
+    expect(res).toMatchObject({ ok: true, text: 'hola', language: 'spanish' });
+    expect(mock).toHaveBeenCalledTimes(1);
+    const [url, init] = mock.mock.calls[0];
+    expect(url).toBe(PROXY_ENDPOINT);
+    expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer jwt_abc');
+    // Sin Content-Type manual también en el proxy: fetch pone el boundary.
+    expect((init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+    // Mismo wire format multipart en ambas rutas.
+    const form = formOf(init);
+    expect(form.get('model')).toBe(DEFAULT_STT_MODEL);
+    expect(form.get('language')).toBe('es');
+    expect(form.get('response_format')).toBe('verbose_json');
+    expect(form.get('file')).toBeTruthy();
+    // La cuota client-side sigue contando en la ruta proxy (el servidor
+    // no registra STT en ai_quota — ver quota.ts).
+    expect(tracker.recorded).toBe(1);
+  });
+
+  it('normaliza la barra final de EXPO_PUBLIC_SUPABASE_URL', async () => {
+    process.env[SUPABASE_URL_KEY] = `${SUPABASE_URL}/`;
+    const mock = stubFetch(async () => jsonResponse({ text: 'hola' }));
+    await transcribeAudio(INPUT, { auth: fakeAuth('jwt_abc'), usageTracker: fakeTracker() });
+    expect(mock.mock.calls[0][0]).toBe(PROXY_ENDPOINT);
+  });
+
+  it('sin sesión + clave dev → directo a Groq con la clave dev', async () => {
+    process.env[SUPABASE_URL_KEY] = SUPABASE_URL;
+    const mock = stubFetch(async () => jsonResponse({ text: 'hola' }));
+    await transcribeAudio(INPUT, { auth: fakeAuth(null), usageTracker: fakeTracker() });
+    const [url, init] = mock.mock.calls[0];
+    expect(url).toBe(GROQ_STT_ENDPOINT);
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer gsk_test_key');
+  });
+
+  it('sesión cacheada pero token evaporado → cae a la ruta directa dev', async () => {
+    process.env[SUPABASE_URL_KEY] = SUPABASE_URL;
+    const mock = stubFetch(async () => jsonResponse({ text: 'hola' }));
+    const staleAuth: SttSessionAuth = { hasSession: () => true, getToken: async () => null };
+    await transcribeAudio(INPUT, { auth: staleAuth, usageTracker: fakeTracker() });
+    expect(mock.mock.calls[0][0]).toBe(GROQ_STT_ENDPOINT);
+  });
+
+  it('sin sesión y sin clave dev → unavailable sin tocar la red', async () => {
+    process.env[SUPABASE_URL_KEY] = SUPABASE_URL;
+    setDev(undefined);
+    delete process.env[ENV_KEY];
+    const mock = stubFetch(async () => jsonResponse({ text: 'nope' }));
+    const res = await transcribeAudio(INPUT, { auth: fakeAuth(null) });
+    expect(res).toMatchObject({ ok: false, error: { kind: 'unavailable', retryable: false } });
+    expect(mock).not.toHaveBeenCalled();
+  });
+
+  it('sin URL de Supabase la sesión no habilita el proxy: manda la clave dev', async () => {
+    // beforeEach no setea la URL — con sesión pero sin endpoint proxy
+    // configurado, la ruta directa dev es la única.
+    const mock = stubFetch(async () => jsonResponse({ text: 'hola' }));
+    await transcribeAudio(INPUT, { auth: fakeAuth('jwt_abc'), usageTracker: fakeTracker() });
+    expect(mock.mock.calls[0][0]).toBe(GROQ_STT_ENDPOINT);
+  });
+});
+
+describe('isSttAvailable — enrutado', () => {
+  it('true con sesión + URL de proxy, sin clave dev', () => {
+    process.env[SUPABASE_URL_KEY] = SUPABASE_URL;
+    setDev(undefined);
+    delete process.env[ENV_KEY];
+    expect(isSttAvailable(fakeAuth('jwt_abc'))).toBe(true);
+  });
+
+  it('false con URL de proxy pero sin sesión ni clave dev', () => {
+    process.env[SUPABASE_URL_KEY] = SUPABASE_URL;
+    setDev(undefined);
+    delete process.env[ENV_KEY];
+    expect(isSttAvailable(fakeAuth(null))).toBe(false);
+  });
+
+  it('true sin sesión cuando hay clave dev (aunque haya URL de proxy)', () => {
+    process.env[SUPABASE_URL_KEY] = SUPABASE_URL;
+    expect(isSttAvailable(fakeAuth(null))).toBe(true);
+  });
+});
+
+describe('transcribeAudio — taxonomía HTTP vía proxy', () => {
+  // El proxy normaliza los errores upstream a estos statuses (ver
+  // supabase/functions/ai-stt/index.ts); el mapeo status→kind es el
+  // mismo que en la ruta directa.
+  const cases: { status: number; kind: string; retryable: boolean }[] = [
+    { status: 401, kind: 'auth', retryable: false }, // JWT inválido/caducado
+    { status: 400, kind: 'invalid_audio', retryable: false }, // audio rechazado
+    { status: 413, kind: 'invalid_audio', retryable: false }, // cap de 10MB
+    { status: 429, kind: 'rate_limited', retryable: true }, // rate limit passthrough
+    { status: 500, kind: 'server', retryable: true }, // server_misconfigured
+    { status: 502, kind: 'server', retryable: true }, // upstream_error
+    { status: 504, kind: 'server', retryable: true }, // upstream_unreachable
+  ];
+
+  for (const c of cases) {
+    it(`proxy ${c.status} → ${c.kind} (retryable: ${c.retryable}) sin contar cuota`, async () => {
+      process.env[SUPABASE_URL_KEY] = SUPABASE_URL;
+      const mock = stubFetch(async () => jsonResponse({ error: 'normalized_error' }, c.status));
+      const tracker = fakeTracker();
+
+      const res = await transcribeAudio(INPUT, {
+        auth: fakeAuth('jwt_abc'),
+        usageTracker: tracker,
+      });
+
+      expect(mock.mock.calls[0][0]).toBe(PROXY_ENDPOINT);
+      expect(res).toMatchObject({
+        ok: false,
+        error: { kind: c.kind, retryable: c.retryable, status: c.status },
+      });
+      expect(tracker.recorded).toBe(0);
+    });
+  }
 });
