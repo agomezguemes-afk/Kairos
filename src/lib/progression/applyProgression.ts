@@ -13,7 +13,33 @@ import type { WorkoutBlock, ExerciseCard, ExerciseSet } from '../../types/core';
 import type { ContentNode } from '../../types/content';
 import type { WorkoutHistoryEntry } from '../../store/workoutStore';
 import { readExerciseHistory } from './readExerciseHistory';
-import { suggestNextValues } from './suggestNextValues';
+import { suggestNextValues, WEIGHT_NUDGE_KG } from './suggestNextValues';
+import type { SuggestionBasis } from './types';
+
+/**
+ * The RPE nudge is a *working-set* prescription: it says "last working set felt
+ * easy/hard, so start 2.5 kg up/down". A warmup set should NOT inherit it — a
+ * warmup is a ramp to that working weight, not a rep-out at it. So warmup sets
+ * carry the last weight forward un-nudged. Only `weight` is ever nudged, so we
+ * reverse it by the fixed step the nudge added.
+ *
+ * NOTE: as of this pass no build path tags generated sets with kind='warmup'
+ * (starter templates, the hybrid preset and the AI builder all emit plain
+ * working sets), so this branch is a correct no-op today. It becomes load-
+ * bearing the moment warmup-tagging exists — leaving the uniform-fill bug fixed
+ * ahead of the UI rather than after it.
+ */
+function carryForwardValues(
+  suggested: Record<string, number>,
+  basis: Record<string, SuggestionBasis>,
+): Record<string, number> {
+  const weight = suggested['weight'];
+  if (typeof weight !== 'number') return suggested;
+  if (basis['weight'] === 'nudge-up')
+    return { ...suggested, weight: Math.max(0, weight - WEIGHT_NUDGE_KG) };
+  if (basis['weight'] === 'nudge-down') return { ...suggested, weight: weight + WEIGHT_NUDGE_KG };
+  return suggested;
+}
 
 /** Pre-fill one exercise's sets + goals from its suggestion. */
 function enrichExercise(exercise: ExerciseCard, history: WorkoutHistoryEntry[]): ExerciseCard {
@@ -25,9 +51,10 @@ function enrichExercise(exercise: ExerciseCard, history: WorkoutHistoryEntry[]):
   const suggested = suggestion.values;
   if (Object.keys(suggested).length === 0) return exercise;
 
+  const warmupValues = carryForwardValues(suggested, suggestion.basis);
   const sets: ExerciseSet[] = exercise.sets.map((s) => ({
     ...s,
-    values: { ...s.values, ...suggested },
+    values: { ...s.values, ...(s.kind === 'warmup' ? warmupValues : suggested) },
   }));
 
   const goalWeight =

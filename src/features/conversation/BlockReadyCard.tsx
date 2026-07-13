@@ -66,6 +66,21 @@ function BlockReadyCard({ session, onStart, onView, onAskAgain }: Props) {
         ))}
       </View>
 
+      {/* "Memoria que compone" cue — quiet, muted, never gold. Only shows when
+          history actually pre-filled the block; a first session shows nothing. */}
+      {session.enrichedFromHistory ? (
+        <View
+          style={styles.memoryCue}
+          accessible
+          accessibilityLabel="Rellenado con tus números de la última vez"
+        >
+          <KIcon name="clock" size={12} color={Colors.ink.muted} />
+          <Text style={styles.memoryCueText} maxFontSizeMultiplier={1.6}>
+            Con tus números de la última vez
+          </Text>
+        </View>
+      ) : null}
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Empezar ahora: ${session.blockName}`}
@@ -158,6 +173,19 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: Colors.ink.muted,
     flexShrink: 0,
+  },
+  // Quiet provenance line — eyebrow-level, muted ink, deliberately NOT gold so
+  // the single CTA stays the only accent in the card.
+  memoryCue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+  },
+  memoryCueText: {
+    ...Type.caption,
+    color: Colors.ink.muted,
+    flexShrink: 1,
   },
   cta: {
     marginTop: Spacing.xl,

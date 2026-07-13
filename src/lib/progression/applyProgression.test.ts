@@ -89,4 +89,50 @@ describe('applyProgression — pre-fills a freshly built block', () => {
     const out = enriched.content[0].type === 'exercise' ? enriched.content[0].data.exercise : null;
     expect(out!.sets[0].values['weight']).toBe(40);
   });
+
+  // The BlockReadyCard "memoria que compone" cue reads exactly this contract:
+  // a changed reference ⇒ enrichment happened ⇒ show the cue.
+  it('returns a NEW reference when it actually enriched (cue signal)', () => {
+    const squat = createExerciseCard('b', 0, 'strength', { name: 'Sentadilla' });
+    const block = blockWith([squat]);
+    const history = [entry([exSummary('Sentadilla', [pset({ weight: 90, reps: 5 })])])];
+    expect(applyProgression(block, history)).not.toBe(block);
+  });
+});
+
+describe('applyProgression — warmup sets skip the RPE nudge', () => {
+  function withWarmupFirst(ex: ExerciseCard): ExerciseCard {
+    return { ...ex, sets: ex.sets.map((s, i) => (i === 0 ? { ...s, kind: 'warmup' } : s)) };
+  }
+
+  it('carries the last weight forward on a warmup set, nudges only working sets', () => {
+    const squat = withWarmupFirst(createExerciseCard('b', 0, 'strength', { name: 'Sentadilla' }));
+    const block = blockWith([squat]);
+    // RPE 6 (easy) → working sets nudge 60 → 62.5; warmup holds at 60.
+    const history = [entry([exSummary('Sentadilla', [pset({ weight: 60, reps: 8 }, { rpe: 6 })])])];
+
+    const enriched = applyProgression(block, history);
+    const ex = enriched.content[0].type === 'exercise' ? enriched.content[0].data.exercise : null;
+    expect(ex!.sets[0].kind).toBe('warmup');
+    expect(ex!.sets[0].values['weight']).toBe(60);
+    for (let i = 1; i < ex!.sets.length; i++) {
+      expect(ex!.sets[i].values['weight']).toBe(62.5);
+    }
+    // The working goal still reflects the nudge.
+    expect(ex!.goalWeight).toBe(62.5);
+  });
+
+  it('reverses a nudge-down too (hard last set → working backs off, warmup holds)', () => {
+    const dead = withWarmupFirst(createExerciseCard('b', 0, 'strength', { name: 'Peso muerto' }));
+    const block = blockWith([dead]);
+    // RPE 10 (maxed) → working sets 100 → 97.5; warmup holds at 100.
+    const history = [
+      entry([exSummary('Peso muerto', [pset({ weight: 100, reps: 3 }, { rpe: 10 })])]),
+    ];
+
+    const enriched = applyProgression(block, history);
+    const ex = enriched.content[0].type === 'exercise' ? enriched.content[0].data.exercise : null;
+    expect(ex!.sets[0].values['weight']).toBe(100);
+    expect(ex!.sets[1].values['weight']).toBe(97.5);
+  });
 });

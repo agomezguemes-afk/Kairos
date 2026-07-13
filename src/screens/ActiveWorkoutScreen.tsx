@@ -5,7 +5,15 @@
 // Alert.alert preserved for exit confirmation (terminal destructive action).
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  AccessibilityInfo,
+} from 'react-native';
 import { useRoute, useNavigation, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +26,7 @@ import Animated, {
   Easing,
   FadeIn,
   FadeOut,
+  useReducedMotion,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -356,6 +365,7 @@ export default function ActiveWorkoutScreen() {
   // setId stamp prevents an old timer dismissing a freshly-detected PR.
   const [recentPR, setRecentPR] = useState<{ setId: string; pr: PRResult } | null>(null);
   const prTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reduceMotion = useReducedMotion();
   useEffect(() => {
     return () => {
       if (prTimerRef.current) clearTimeout(prTimerRef.current);
@@ -368,26 +378,20 @@ export default function ActiveWorkoutScreen() {
     // for the PR milestone below.
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
-    // Resolve weight/reps from the live draft (preferred) with fallback to the
-    // set's persisted values — preloaded goal weights and the "Repetir anterior"
-    // affordance both flow through values, so a user who taps "Complete" without
-    // touching the keypad still gets PR detection.
-    const w =
-      typeof draftValues['weight'] === 'number'
-        ? (draftValues['weight'] as number)
-        : typeof currentSet.values['weight'] === 'number'
-          ? (currentSet.values['weight'] as number)
-          : null;
-    const r =
-      typeof draftValues['reps'] === 'number'
-        ? (draftValues['reps'] as number)
-        : typeof currentSet.values['reps'] === 'number'
-          ? (currentSet.values['reps'] as number)
-          : null;
+    // Merge the live draft over the set's persisted values — preloaded goal
+    // weights and the "Repetir anterior" affordance both flow through values, so
+    // a user who taps "Complete" without touching the keypad still gets PR
+    // detection across every field (weight, reps, pace, distance, calories).
+    const completedValues = { ...currentSet.values, ...draftValues };
 
     const pr = detectPR({
-      exerciseId: exercise.id,
-      set: { weight: w, reps: r },
+      exercise: {
+        id: exercise.id,
+        name: exercise.name,
+        libraryId: exercise.libraryId,
+        fields: exercise.fields,
+      },
+      values: completedValues,
       history: workoutHistory,
     });
 
@@ -396,6 +400,10 @@ export default function ActiveWorkoutScreen() {
     if (pr) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setRecentPR({ setId: currentSet.id, pr });
+      // Politely voice the record — the badge is visual-only otherwise.
+      AccessibilityInfo.announceForAccessibility(
+        `Récord. ${PR_LABEL[pr.kind]}, ${formatPRDelta(pr)}.`,
+      );
       if (prTimerRef.current) clearTimeout(prTimerRef.current);
       prTimerRef.current = setTimeout(() => setRecentPR(null), 2500);
     }
@@ -690,8 +698,10 @@ export default function ActiveWorkoutScreen() {
           {recentPR ? (
             <Animated.View
               key={recentPR.setId}
-              entering={FadeIn.duration(200).easing(Easing.out(Easing.cubic))}
-              exiting={FadeOut.duration(200)}
+              entering={
+                reduceMotion ? undefined : FadeIn.duration(200).easing(Easing.out(Easing.cubic))
+              }
+              exiting={reduceMotion ? undefined : FadeOut.duration(200)}
               style={styles.prBadge}
               accessibilityRole="text"
               accessibilityLabel={`Récord: ${PR_LABEL[recentPR.pr.kind]} ${formatPRDelta(recentPR.pr)}`}

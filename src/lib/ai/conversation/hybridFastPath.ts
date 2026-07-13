@@ -67,9 +67,11 @@ export function buildHybridSession(opts: HybridSessionOpts = {}): BuiltSession {
   const block = result.blocks[0];
 
   // Memoria que compone: carry forward last paces/weights into the seeded block.
+  // A changed reference means history actually enriched it — the cue's source.
   const workoutStore = useWorkoutStore.getState();
   const enriched = applyProgression(block, workoutStore.workoutHistory);
-  if (enriched !== block) {
+  const enrichedFromHistory = enriched !== block;
+  if (enrichedFromHistory) {
     workoutStore.updateBlock(block.id, { content: enriched.content });
   }
 
@@ -79,7 +81,7 @@ export function buildHybridSession(opts: HybridSessionOpts = {}): BuiltSession {
     useScheduleStore.getState().assignOnce(localISODate(now), block.id);
   }
 
-  const summary = summarizeBlock(block.id, 'template');
+  const summary = summarizeBlock(block.id, 'template', enrichedFromHistory);
   if (!summary) throw new Error('Hybrid block missing after seed');
   return summary;
 }

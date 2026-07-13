@@ -24,7 +24,11 @@ function exerciseDetail(ex: ExerciseCard): string {
   return sets > 0 ? `${sets} ${sets === 1 ? 'serie' : 'series'}` : '';
 }
 
-function summarize(block: WorkoutBlock, source: 'ai' | 'template'): BuiltSession {
+function summarize(
+  block: WorkoutBlock,
+  source: 'ai' | 'template',
+  enrichedFromHistory: boolean,
+): BuiltSession {
   return {
     blockId: block.id,
     blockName: block.name,
@@ -33,13 +37,22 @@ function summarize(block: WorkoutBlock, source: 'ai' | 'template'): BuiltSession
       .slice(0, 6)
       .map((e) => ({ name: e.name, detail: exerciseDetail(e) })),
     source,
+    enrichedFromHistory,
   };
 }
 
-/** Build the summary view-model for an already-committed block id. */
-export function summarizeBlock(blockId: string, source: 'ai' | 'template'): BuiltSession | null {
+/**
+ * Build the summary view-model for an already-committed block id.
+ * `enrichedFromHistory` is decided by the caller (it holds the pre/post-
+ * progression blocks) — the store copy no longer carries that provenance.
+ */
+export function summarizeBlock(
+  blockId: string,
+  source: 'ai' | 'template',
+  enrichedFromHistory = false,
+): BuiltSession | null {
   const block = useWorkoutStore.getState().blocks.find((b) => b.id === blockId);
-  return block ? summarize(block, source) : null;
+  return block ? summarize(block, source, enrichedFromHistory) : null;
 }
 
 /**
@@ -71,8 +84,10 @@ export function buildSessionBlockDeterministic(brief: SessionBrief): BuiltSessio
   };
 
   // Memoria que compone: pre-fill last weights/paces before the block lands.
+  // A changed reference means history actually enriched it — the cue's source.
   const enriched = applyProgression(block, store.workoutHistory);
+  const enrichedFromHistory = enriched !== block;
 
   store.replaceAllBlocks([...store.blocks, enriched]);
-  return summarize(enriched, 'template');
+  return summarize(enriched, 'template', enrichedFromHistory);
 }

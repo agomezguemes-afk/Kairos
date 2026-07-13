@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { buildSessionBlockDeterministic } from './blockFromBrief';
 import { inferBriefFromText } from './brief';
 import { useWorkoutStore } from '../../../store/workoutStore';
+import { entry, exSummary, pset } from '../../progression/_fixtures';
 
 // AsyncStorage's web fallback assumes `window` (same stub as the store suite).
 (globalThis as { window?: unknown }).window = {
@@ -10,7 +11,7 @@ import { useWorkoutStore } from '../../../store/workoutStore';
 };
 
 beforeEach(() => {
-  useWorkoutStore.setState({ blocks: [] });
+  useWorkoutStore.setState({ blocks: [], workoutHistory: [] });
 });
 
 describe('buildSessionBlockDeterministic — commits a real session', () => {
@@ -56,5 +57,26 @@ describe('buildSessionBlockDeterministic — commits a real session', () => {
     expect(result.discipline).toBe(discipline);
     expect(result.exercises.length).toBeGreaterThanOrEqual(1);
     expect(useWorkoutStore.getState().blocks).toHaveLength(1);
+  });
+});
+
+describe('buildSessionBlockDeterministic — memoria que compone cue', () => {
+  it('enrichedFromHistory is false for a first-ever session (no history)', () => {
+    const result = buildSessionBlockDeterministic(inferBriefFromText('hoy piernas'));
+    expect(result.enrichedFromHistory).toBe(false);
+  });
+
+  it('enrichedFromHistory is true when history pre-fills a matching exercise', () => {
+    // Discover a concrete exercise name the template will emit for this brief.
+    const first = buildSessionBlockDeterministic(inferBriefFromText('hoy piernas'));
+    const exName = first.exercises[0].name;
+
+    // Seed history for that exercise, rebuild the identical brief from scratch.
+    useWorkoutStore.setState({
+      blocks: [],
+      workoutHistory: [entry([exSummary(exName, [pset({ weight: 50, reps: 8 })])])],
+    });
+    const second = buildSessionBlockDeterministic(inferBriefFromText('hoy piernas'));
+    expect(second.enrichedFromHistory).toBe(true);
   });
 });

@@ -104,7 +104,9 @@ export async function buildSessionBlockViaAgent(
     if (!isValidBlock(block)) throw new Error(`AI block invalid (${created.length} created)`);
 
     // Memoria que compone: pre-fill last weights/paces into the AI-built block.
+    // A changed reference means history actually enriched it — the cue's source.
     const enriched = applyProgression(block, useWorkoutStore.getState().workoutHistory);
+    const enrichedFromHistory = enriched !== block;
 
     // Rename to the conversational title + mark favorite so it's the pick.
     useWorkoutStore.getState().updateBlock(block.id, {
@@ -112,7 +114,7 @@ export async function buildSessionBlockViaAgent(
       is_favorite: true,
       content: enriched.content,
     });
-    const summary = summarizeBlock(block.id, 'ai');
+    const summary = summarizeBlock(block.id, 'ai', enrichedFromHistory);
     if (!summary) throw new Error('AI block disappeared after commit');
     return summary;
   } catch {

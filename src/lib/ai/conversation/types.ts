@@ -49,6 +49,13 @@ export interface BuiltSession {
   discipline: Discipline;
   exercises: { name: string; detail: string }[];
   source: 'ai' | 'template';
+  /**
+   * True when applyProgression actually pre-filled at least one exercise from
+   * the user's history (block reference changed). Drives the quiet "memoria que
+   * compone" cue on the ready card. Additive + optional: a first-ever session,
+   * or a build with no matching history, leaves it undefined → no cue, no fake.
+   */
+  enrichedFromHistory?: boolean;
 }
 
 /** A UI-facing bubble (system messages stay out of this list). */

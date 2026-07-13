@@ -114,7 +114,10 @@ export default function KaiConversationScreen() {
 
   useEffect(() => {
     if (state.result) {
-      AccessibilityInfo.announceForAccessibility(`Bloque listo: ${state.result.blockName}.`);
+      const memory = state.result.enrichedFromHistory ? ' Con tus números de la última vez.' : '';
+      AccessibilityInfo.announceForAccessibility(
+        `Bloque listo: ${state.result.blockName}.${memory}`,
+      );
     }
   }, [state.result]);
 

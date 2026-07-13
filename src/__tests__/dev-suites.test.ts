@@ -31,7 +31,8 @@ const DEV_SUITES: { name: string; path: string }[] = [
   { name: 'summaryCompare', path: 'src/components/workout/lib/summaryCompare.dev.ts' },
   { name: 'previousReference', path: 'src/components/workout/lib/previousReference.dev.ts' },
   { name: 'plates', path: 'src/components/workout/lib/plates.dev.ts' },
-  { name: 'prDetection', path: 'src/components/workout/lib/prDetection.dev.ts' },
+  // prDetection migrated to a proper Vitest suite (prDetection.test.ts) in the
+  // M4-UI consolidation — its .dev.ts smoke script was removed.
   { name: 'adherence', path: 'src/screens/tabs/progress/lib/adherence.dev.ts' },
   { name: 'oneRM', path: 'src/screens/tabs/progress/lib/oneRM.dev.ts' },
   { name: 'aggregations', path: 'src/screens/tabs/progress/lib/aggregations.dev.ts' },
