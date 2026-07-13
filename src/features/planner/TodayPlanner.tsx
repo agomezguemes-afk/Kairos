@@ -30,6 +30,7 @@ import { useDayCardState } from './hooks/useDayCardState';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { useScheduleStore } from '../../store/scheduleStore';
 import { useGamification } from '../../context/GamificationContext';
+import { isSurfaceVisible } from '../../config/wedge';
 import type { ISODate, ResolvedAssignment } from '../../types/schedule';
 import { getBlockExercises, type WorkoutBlock } from '../../types/core';
 import type { RootStackParamList, DashboardTabParamList } from '../../types/navigation';
@@ -145,6 +146,9 @@ export default function TodayPlanner() {
   );
 
   const handlePlanWeek = useCallback(() => {
+    // AI Lab is demoted out of the beta wedge (premise P3). Gate the only
+    // navigation wire to it; the screen stays registered for deep links/dev.
+    if (!isSurfaceVisible('aiLab')) return;
     nav.navigate('AILabScreen');
   }, [nav]);
 

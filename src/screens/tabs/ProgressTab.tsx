@@ -6,6 +6,7 @@ import { useWorkoutStore } from '../../store/workoutStore';
 import { useScheduleStore } from '../../store/scheduleStore';
 import { useGamification } from '../../context/GamificationContext';
 import { BADGE_DEFINITIONS } from '../../types/gamification';
+import { isSurfaceVisible } from '../../config/wedge';
 import {
   topExercisesByFrequency,
   maxWeightSeries,
@@ -184,32 +185,36 @@ export default function ProgressTab() {
         <MonthAdherenceGrid data={monthAdherence} />
       </Section>
 
-      {/* Logros */}
-      <Section eyebrow="LOGROS">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: Spacing.sm }}
-        >
-          {BADGE_DEFINITIONS.map((b) => {
-            const unlocked = unlockedIds.has(b.id);
-            return (
-              <View
-                key={b.id}
-                style={[styles.badgeChip, unlocked ? styles.badgeUnlocked : styles.badgeLocked]}
-              >
-                <Text
-                  style={[styles.badgeName, unlocked && { color: Colors.gold.deep }]}
-                  numberOfLines={1}
+      {/* Logros — gamification, demoted out of the beta wedge (premise P3).
+          The progression data above (volume, 1RM, adherence, constancia) is the
+          memory surface and stays; badges are the hedge that hides. */}
+      {isSurfaceVisible('gamification') && (
+        <Section eyebrow="LOGROS">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: Spacing.sm }}
+          >
+            {BADGE_DEFINITIONS.map((b) => {
+              const unlocked = unlockedIds.has(b.id);
+              return (
+                <View
+                  key={b.id}
+                  style={[styles.badgeChip, unlocked ? styles.badgeUnlocked : styles.badgeLocked]}
                 >
-                  {b.name}
-                </Text>
-              </View>
-            );
-          })}
-        </ScrollView>
-        {badges.length === 0 && <Text style={styles.empty}>Tus logros aparecerán aquí</Text>}
-      </Section>
+                  <Text
+                    style={[styles.badgeName, unlocked && { color: Colors.gold.deep }]}
+                    numberOfLines={1}
+                  >
+                    {b.name}
+                  </Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+          {badges.length === 0 && <Text style={styles.empty}>Tus logros aparecerán aquí</Text>}
+        </Section>
+      )}
     </ScrollView>
   );
 }
