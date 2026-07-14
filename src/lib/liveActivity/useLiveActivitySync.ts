@@ -17,7 +17,16 @@ import { useWorkoutStore } from '../../store/workoutStore';
 
 const WIDGET_EXTEND_SECONDS = 30;
 
-function deriveState(): LiveActivityWorkoutState | null {
+// Superset of the native contract: `nextExerciseName` is a forward-compatible
+// extra key. The Swift decoder (KairosLiveActivityModule.contentState) reads
+// known keys from the dict and ignores the rest, so shipping it today is a
+// no-op until ContentState + the widget UI consume it (native change described
+// in the Modo Sesión report — needs a rebuild, so it ships separately).
+interface KairosActivityState extends LiveActivityWorkoutState {
+  nextExerciseName: string | null;
+}
+
+function deriveState(): KairosActivityState | null {
   const s = useWorkoutStore.getState();
   const aw = s.activeWorkout;
   if (!aw) return null;
@@ -38,6 +47,7 @@ function deriveState(): LiveActivityWorkoutState | null {
     targetWeight: weight ?? exercise.goalWeight ?? null,
     targetReps: reps ?? exercise.goalReps ?? null,
     restEndsAt: aw.restTimer.active ? aw.restTimer.startTime + aw.restTimer.duration * 1000 : null,
+    nextExerciseName: aw.exercises[aw.currentExerciseIndex + 1]?.name ?? null,
   };
 }
 

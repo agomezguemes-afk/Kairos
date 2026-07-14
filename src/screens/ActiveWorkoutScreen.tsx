@@ -1,27 +1,17 @@
-// KAIROS — Active Workout Screen (swipe-to-navigate variant)
-// Spec §5.6 — migrated from dark chrome to warm off-white palette.
-// Gold tokens: Colors.gold.base (was Colors.gold[500]).
-// Dark surfaces (#0D1117) replaced with bg.void / bg.surface.
+// KAIROS — Modo Sesión (scoreboard). Spec: docs/INWORKOUT_GLANCE_MODE.md.
+// The screen is a glanceable marker, not a form: what to do NOW in giant type,
+// one thumb-sized HECHO, rest-as-the-screen with auto-advance, and the fine
+// editing (numpad + metadata) one layer down in SetCorrectionSheet.
+// State routing lives in features/workout/scoreboard/machine.ts (pure, tested).
 // Alert.alert preserved for exit confirmation (terminal destructive action).
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  AccessibilityInfo,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, AccessibilityInfo } from 'react-native';
 import { useRoute, useNavigation, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
   runOnJS,
   Easing,
   FadeIn,
@@ -32,26 +22,29 @@ import * as Haptics from 'expo-haptics';
 
 import KIcon from '../components/icons/KIcon';
 import WorkoutSpineProgress from '../components/workout/WorkoutSpineProgress';
-import RestTimer from '../components/workout/RestTimer';
-import SetInput from '../components/workout/SetInput';
+import RestScoreboard from '../components/workout/RestScoreboard';
+import GiantTarget from '../components/workout/GiantTarget';
+import SetCorrectionSheet from '../components/workout/SetCorrectionSheet';
+import SessionOverviewSheet from '../components/workout/SessionOverviewSheet';
 import WorkoutSummary from '../components/workout/WorkoutSummary';
 import PlateCalculator from '../components/workout/PlateCalculator';
-import SetActionSheet from '../components/workout/SetActionSheet';
 import AddExerciseSheet from '../features/blocks/components/AddExerciseSheet';
 import { useWorkoutStore, type WorkoutHistoryEntry } from '../store/workoutStore';
 import { useScheduleStore } from '../store/scheduleStore';
 import { useLiveActivitySync } from '../lib/liveActivity/useLiveActivitySync';
 import { todayISO } from '../features/planner/lib/dates';
 import type { RootStackParamList } from '../types/navigation';
-import type {
-  ExerciseCard,
-  ExerciseSet,
-  FieldValue,
-  FieldDefinition,
-  Discipline,
-} from '../types/core';
+import type { ExerciseCard, FieldValue, FieldDefinition, Discipline } from '../types/core';
 import { createExerciseCard } from '../types/core';
-import { Colors, Type, Spacing, Radius, Shadows } from '../theme/tokens';
+import { Colors, Type, Spacing, Radius, FontFamily } from '../theme/tokens';
+import { deriveScoreboardState, scoreboardStateKey } from '../features/workout/scoreboard/machine';
+import {
+  formatScoreboardTarget,
+  announceSetActive,
+  announceRest,
+  announceExerciseChange,
+  announceFinished,
+} from '../features/workout/scoreboard/format';
 import {
   findPreviousReference,
   formatReference,
@@ -67,6 +60,7 @@ import {
 type Route = RouteProp<RootStackParamList, 'ActiveWorkout'>;
 
 const SWIPE_THRESHOLD = 60;
+const EMPTY_ENTERED: ReadonlySet<number> = new Set();
 
 function fmtSessionTime(secs: number): string {
   const m = Math.floor(secs / 60);
@@ -74,22 +68,7 @@ function fmtSessionTime(secs: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-// Inline summary for completed set rows ("60 kg · 8 reps"). Walks numeric
-// fields in declared order, skips empties, appends unit when present.
-function formatSetSummary(set: ExerciseSet, fields: FieldDefinition[]): string {
-  const parts: string[] = [];
-  const sorted = [...fields].sort((a, b) => a.order - b.order);
-  for (const f of sorted) {
-    const v = set.values[f.id];
-    if (v == null || v === '') continue;
-    parts.push(f.unit ? `${v} ${f.unit}` : String(v));
-  }
-  return parts.join(' · ');
-}
-
-// "hace 3 días" / "hace 2 sem" / "hace 1 mes". Sober, Spanish, no fuzzy
-// "hoy" — if the user just did it today, the reference came from the
-// current session anyway and the date is suppressed by the caller.
+// "hace 3 días" / "hace 2 sem" / "hace 1 mes". Sober, Spanish.
 function formatRelativeAgo(ts: number): string {
   const diffMs = Date.now() - ts;
   if (diffMs < 0) return '';
@@ -106,48 +85,8 @@ function formatRelativeAgo(ts: number): string {
   return `hace ${months} meses`;
 }
 
-// Inline micro-badges for set metadata (kind/RPE/note). Rendered next to the
-// values text inside the set row — kept compact so the row stays one line.
-// We deliberately use single-letter pills (W/D/F) for set kind because the
-// user already knows what they tagged; full labels live in the action sheet.
-function SetMetadataBadges({ set }: { set: ExerciseSet }) {
-  const kind = set.kind ?? 'working';
-  const hasNote = !!(set.notes && set.notes.length > 0);
-  const hasRpe = set.rpe != null;
-  if (kind === 'working' && !hasNote && !hasRpe) return null;
-  return (
-    <View style={styles.badgeRow}>
-      {kind === 'warmup' ? (
-        <View style={styles.badge}>
-          <Text style={[styles.badgeText, { color: Colors.semantic.info }]}>W</Text>
-        </View>
-      ) : null}
-      {kind === 'drop' ? (
-        <View style={styles.badge}>
-          <Text style={[styles.badgeText, { color: Colors.semantic.warning }]}>D</Text>
-        </View>
-      ) : null}
-      {kind === 'failure' ? (
-        <View style={styles.badge}>
-          <Text style={[styles.badgeText, { color: Colors.semantic.error }]}>F</Text>
-        </View>
-      ) : null}
-      {hasRpe ? (
-        <View style={styles.badge}>
-          <Text style={[styles.badgeText, { color: Colors.gold.deep }]}>RPE {set.rpe}</Text>
-        </View>
-      ) : null}
-      {hasNote ? (
-        <View style={[styles.badge, styles.badgeIcon]}>
-          <KIcon name="note" size={11} color={Colors.ink.tertiary} />
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-// Sober "Última · 60 kg × 8 · hace 4 días" pill.
-// Hidden when no prior reference is available — never render a hollow shell.
+// Sober "Última · 60 kg × 8 · hace 4 días" pill — the reference the user
+// glances at to decide confirm-or-correct. Hidden when no prior data exists.
 function PreviousRefPill({ reference }: { reference: PreviousReference }) {
   const formatted = formatReference(reference);
   if (!formatted) return null;
@@ -178,6 +117,7 @@ export default function ActiveWorkoutScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { blockId, assignmentId, scheduledDate, source } = route.params;
+  const reduceMotion = useReducedMotion();
 
   const aw = useWorkoutStore((s) => s.activeWorkout);
   const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
@@ -204,7 +144,6 @@ export default function ActiveWorkoutScreen() {
   }, [aw, blockId, assignmentId, scheduledDate, source, startWorkout]);
 
   // Mirror the session to the Live Activity / ongoing notification.
-  // No-op until the native module is linked (see docs/LIVE_ACTIVITY_SETUP.md).
   useLiveActivitySync();
 
   // ===== session timer =====
@@ -221,21 +160,24 @@ export default function ActiveWorkoutScreen() {
     return () => clearInterval(id);
   }, [sessionStartTime]);
 
-  // ===== completion summary =====
+  // ===== layers =====
   const [summary, setSummary] = useState<WorkoutHistoryEntry | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-
-  // ===== plate calculator =====
-  // Opened by long-press on the weight chip in SetInput. Confirms back into
-  // draftValues['weight'] so the regular Complete Set flow handles persistence.
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [overviewOpen, setOverviewOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcTarget, setCalcTarget] = useState(60);
 
-  // ===== per-set action sheet (kind/RPE/notes) =====
-  // Opened by long-press on any set row. Targets a specific (exerciseId, setId).
-  const [actionTarget, setActionTarget] = useState<{ exerciseId: string; setId: string } | null>(
-    null,
-  );
+  // Exercises the user explicitly entered (tapped "Empezar" on the change
+  // interstitial). Scoped to the session by stamping startTime into the state
+  // value itself — a new session simply makes the old set unreachable, so no
+  // reset effect (and no setState-in-effect) is needed.
+  const [enteredMark, setEnteredMark] = useState<{
+    start: number | undefined;
+    ids: ReadonlySet<number>;
+  }>(() => ({ start: undefined, ids: EMPTY_ENTERED }));
+  const entered: ReadonlySet<number> =
+    enteredMark.start === sessionStartTime ? enteredMark.ids : EMPTY_ENTERED;
 
   // ===== current state =====
   const exercise: ExerciseCard | null = useMemo(() => {
@@ -248,10 +190,8 @@ export default function ActiveWorkoutScreen() {
     return exercise.sets[aw.currentSetIndex] ?? null;
   }, [aw, exercise]);
 
-  // Pick a "previous" value source for the SetInput repeat affordance:
-  //   1. nearest completed set earlier in this exercise (current session), then
-  //   2. the most recent performance of the same movement anywhere in history
-  //      (id > libraryId > normalized name — cross-block ghosting).
+  // Previous values for the correction sheet's "Repetir anterior" affordance:
+  // nearest completed earlier set in-session, else last performance in history.
   const previousValues = useMemo<Record<string, FieldValue> | undefined>(() => {
     if (!aw || !exercise) return undefined;
     const idx = aw.currentSetIndex;
@@ -274,9 +214,6 @@ export default function ActiveWorkoutScreen() {
     return undefined;
   }, [aw, exercise, workoutHistory]);
 
-  // "Last time you did this exercise" reference shown beneath the heading.
-  // Memo key tracks history length + completed-set count so the pill refreshes
-  // when a set is completed in-session without rebuilding on every keystroke.
   const completedInSession = useMemo(() => {
     if (!exercise) return 0;
     let n = 0;
@@ -296,33 +233,71 @@ export default function ActiveWorkoutScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercise?.id, workoutHistory.length, completedInSession]);
 
+  // Draft values — start as the progression prefill; the correction sheet
+  // writes over them. HECHO commits whatever is here (confirm-or-correct).
   const [draftValues, setDraftValues] = useState<Record<string, FieldValue>>({});
-
   useEffect(() => {
     if (!currentSet) {
       setDraftValues({});
       return;
     }
     setDraftValues({ ...currentSet.values });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on set IDENTITY only; reacting to currentSet.values would clobber in-progress typing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on set IDENTITY only; reacting to currentSet.values would clobber in-progress edits
   }, [currentSet?.id]);
 
-  // ===== fade transition between exercises =====
-  const fade = useSharedValue(1);
-  const fadedKey = useRef<string | null>(null);
-  useEffect(() => {
-    const key = `${aw?.currentExerciseIndex ?? -1}`;
-    if (fadedKey.current === key) return;
-    if (fadedKey.current === null) {
-      fadedKey.current = key;
-      return;
+  const allCompleted = useMemo(() => {
+    if (!aw) return false;
+    for (const ex of aw.exercises) {
+      for (const s of ex.sets) if (!s.completed) return false;
     }
-    fade.value = 0;
-    fade.value = withTiming(1, { duration: 150 });
-    fadedKey.current = key;
-  }, [aw?.currentExerciseIndex, fade]);
+    return true;
+  }, [aw]);
 
-  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+  // ===== scoreboard state (pure machine) =====
+  const currentExerciseIndex = aw?.currentExerciseIndex ?? 0;
+  const currentSetIndex = aw?.currentSetIndex ?? 0;
+  const sbState = deriveScoreboardState({
+    hasActiveWorkout: !!aw && !!exercise && !!currentSet,
+    allCompleted,
+    restActive: aw?.restTimer.active ?? false,
+    currentExerciseIndex,
+    currentSetIndex,
+    hasEnteredCurrentExercise: entered.has(currentExerciseIndex),
+  });
+  const stateKey = scoreboardStateKey(sbState, { currentExerciseIndex, currentSetIndex });
+
+  // The scoreboard's giant value — draft-aware so a correction shows instantly.
+  const target = useMemo(() => {
+    if (!exercise || !currentSet) return null;
+    return formatScoreboardTarget(exercise.fields, { ...currentSet.values, ...draftValues });
+  }, [exercise, currentSet, draftValues]);
+
+  // ===== VoiceOver: announce each state change exactly once =====
+  const lastAnnouncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!aw || !exercise || !currentSet) return;
+    if (lastAnnouncedRef.current === stateKey) return;
+    lastAnnouncedRef.current = stateKey;
+    let msg: string | null = null;
+    if (sbState.kind === 'set-active') {
+      msg = announceSetActive({
+        setIndex: currentSetIndex + 1,
+        setTotal: exercise.sets.length,
+        exerciseName: exercise.name,
+        target,
+      });
+    } else if (sbState.kind === 'resting') {
+      msg = announceRest(exercise.name);
+    } else if (sbState.kind === 'exercise-change') {
+      msg = announceExerciseChange(exercise.name, target);
+    }
+    if (msg) AccessibilityInfo.announceForAccessibility(msg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire per stateKey transition only
+  }, [stateKey]);
+
+  useEffect(() => {
+    if (summary) AccessibilityInfo.announceForAccessibility(announceFinished());
+  }, [summary]);
 
   // ===== handlers =====
   const handleExit = useCallback(() => {
@@ -343,9 +318,6 @@ export default function ActiveWorkoutScreen() {
     setDraftValues((prev) => ({ ...prev, [fieldId]: value }));
   }, []);
 
-  // Long-press on a numeric chip — open plate calculator if the field is
-  // a kg-based weight field. Gated upstream of the modal so non-weight
-  // fields silently ignore the gesture rather than opening an irrelevant UI.
   const handleLongPressField = useCallback((field: FieldDefinition, currentValue: number) => {
     const isWeightLike = field.id === 'weight' || field.unit === 'kg';
     if (!isWeightLike) return;
@@ -360,30 +332,23 @@ export default function ActiveWorkoutScreen() {
     [handleFieldChange],
   );
 
-  // ===== PR detection state =====
-  // Floats the PR badge above the bottom CTA for 2.5s after a qualifying set.
-  // setId stamp prevents an old timer dismissing a freshly-detected PR.
+  // ===== PR detection (M4-UI — preserved verbatim) =====
   const [recentPR, setRecentPR] = useState<{ setId: string; pr: PRResult } | null>(null);
   const prTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reduceMotion = useReducedMotion();
   useEffect(() => {
     return () => {
       if (prTimerRef.current) clearTimeout(prTimerRef.current);
     };
   }, []);
 
+  // HECHO — one thumb. Commits the pre-filled/corrected draft as-is.
   const handleCompleteSet = useCallback(() => {
     if (!aw || !exercise || !currentSet) return;
     // impactLight on snaps per motion spec — notificationSuccess is reserved
     // for the PR milestone below.
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
-    // Merge the live draft over the set's persisted values — preloaded goal
-    // weights and the "Repetir anterior" affordance both flow through values, so
-    // a user who taps "Complete" without touching the keypad still gets PR
-    // detection across every field (weight, reps, pace, distance, calories).
     const completedValues = { ...currentSet.values, ...draftValues };
-
     const pr = detectPR({
       exercise: {
         id: exercise.id,
@@ -400,7 +365,6 @@ export default function ActiveWorkoutScreen() {
     if (pr) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setRecentPR({ setId: currentSet.id, pr });
-      // Politely voice the record — the badge is visual-only otherwise.
       AccessibilityInfo.announceForAccessibility(
         `Récord. ${PR_LABEL[pr.kind]}, ${formatPRDelta(pr)}.`,
       );
@@ -409,10 +373,28 @@ export default function ActiveWorkoutScreen() {
     }
   }, [aw, exercise, currentSet, draftValues, completeSet, workoutHistory]);
 
+  // "Empezar" on the exercise-change interstitial — Medium = confirmation.
+  const handleEnterExercise = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setEnteredMark((prev) => {
+      const ids = new Set(prev.start === sessionStartTime ? prev.ids : EMPTY_ENTERED);
+      ids.add(currentExerciseIndex);
+      return { start: sessionStartTime, ids };
+    });
+  }, [currentExerciseIndex, sessionStartTime]);
+
+  const openCorrection = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setCorrectionOpen(true);
+  }, []);
+
+  const openOverview = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    setOverviewOpen(true);
+  }, []);
+
   // Mark the matching schedule occurrence as completed. Capture context BEFORE
   // finishWorkout() runs because that call clears activeWorkout.
-  // Prefer the assignment context the session was started with (precise);
-  // only fall back to the today/blockId search when started "free".
   const markScheduleComplete = useCallback(
     (ctx: {
       blockId: string | undefined;
@@ -434,31 +416,10 @@ export default function ActiveWorkoutScreen() {
     [],
   );
 
-  const handleFinish = useCallback(() => {
-    const ctx = {
-      blockId: aw?.blockId,
-      assignmentId: aw?.assignmentId,
-      scheduledDate: aw?.scheduledDate,
-    };
-    const s = finishWorkout();
-    if (s) {
-      markScheduleComplete(ctx);
-      setSummary(s);
-    }
-  }, [aw?.blockId, aw?.assignmentId, aw?.scheduledDate, finishWorkout, markScheduleComplete]);
-
   const handleCloseSummary = useCallback(() => {
     setSummary(null);
     nav.goBack();
   }, [nav]);
-
-  const allCompleted = useMemo(() => {
-    if (!aw) return false;
-    for (const ex of aw.exercises) {
-      for (const s of ex.sets) if (!s.completed) return false;
-    }
-    return true;
-  }, [aw]);
 
   useEffect(() => {
     if (allCompleted && aw && !summary) {
@@ -486,7 +447,7 @@ export default function ActiveWorkoutScreen() {
     [aw, blockId, appendActiveExercise],
   );
 
-  // ===== swipe gesture =====
+  // ===== swipe navigation (preserved) =====
   const onSwipeLeft = useCallback(() => {
     if (!aw || !exercise) return;
     const isLastSet = aw.currentSetIndex >= exercise.sets.length - 1;
@@ -526,11 +487,14 @@ export default function ActiveWorkoutScreen() {
     );
   }
 
-  const restActive = aw.restTimer.active;
+  const resting = sbState.kind === 'resting';
+  const changing = sbState.kind === 'exercise-change';
 
-  const accentColor = Colors.discipline[exercise.discipline] ?? Colors.gold.base;
-  const ctaLabel = allCompleted ? 'Finalizar sesión' : 'Completar set';
-  const ctaOnPress = allCompleted ? handleFinish : handleCompleteSet;
+  // "Siguiente" peek during rest — indices already point at what comes next.
+  const nextLabel =
+    currentSetIndex > 0
+      ? `${exercise.name} — set ${currentSetIndex + 1} de ${exercise.sets.length}`
+      : exercise.name;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -560,140 +524,75 @@ export default function ActiveWorkoutScreen() {
         </View>
       </View>
 
-      {/* Spine progress strip — horizontal variant of the editor's vertical
-          spine. Completed exercises fill solid gold, current pulses, future
-          stay hollow. Replaces the prior 1px hairline progress bar. */}
-      <View style={styles.spineWrap}>
-        <WorkoutSpineProgress exercises={aw.exercises} currentIndex={aw.currentExerciseIndex} />
-      </View>
+      {/* Spine progress — tap opens the full session list (one tap away). */}
+      <Pressable
+        onPress={openOverview}
+        accessibilityRole="button"
+        accessibilityLabel={`Progreso: ejercicio ${currentExerciseIndex + 1} de ${aw.exercises.length}`}
+        accessibilityHint="Toca para ver la lista completa de la sesión"
+        style={({ pressed }) => [styles.spineWrap, pressed && { opacity: 0.7 }]}
+      >
+        <WorkoutSpineProgress exercises={aw.exercises} currentIndex={currentExerciseIndex} />
+      </Pressable>
 
-      {/* Main */}
+      {/* Main scoreboard — crossfade between states (kept under reduce-motion). */}
       <GestureDetector gesture={swipe}>
-        <Animated.View style={[styles.main, fadeStyle]}>
-          {restActive ? (
-            <RestTimer
-              durationSec={aw.restTimer.duration}
-              startTime={aw.restTimer.startTime}
-              onSkip={skipRest}
-              onComplete={skipRest}
-              onExtend={extendRest}
-              currentRestSeconds={exercise.rest_seconds}
-              onChangeRestSeconds={setExerciseRestForCurrent}
-            />
-          ) : (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+        <View style={styles.main}>
+          {resting ? (
+            <Animated.View
+              key={stateKey}
+              entering={FadeIn.duration(180).easing(Easing.out(Easing.cubic))}
+              style={styles.stateFill}
             >
-              {/* Exercise heading — left-border accent in discipline color */}
-              <View style={[styles.exerciseHeader, { borderLeftColor: accentColor }]}>
-                <Text style={styles.exerciseMeta}>
-                  Ejercicio {aw.currentExerciseIndex + 1} de {aw.exercises.length}
+              <RestScoreboard
+                durationSec={aw.restTimer.duration}
+                startTime={aw.restTimer.startTime}
+                onSkip={skipRest}
+                onComplete={skipRest}
+                onExtend={extendRest}
+                nextLabel={nextLabel}
+                nextTarget={target}
+                currentRestSeconds={exercise.rest_seconds}
+                onChangeRestSeconds={setExerciseRestForCurrent}
+              />
+            </Animated.View>
+          ) : (
+            <Animated.View
+              key={stateKey}
+              entering={FadeIn.duration(180).easing(Easing.out(Easing.cubic))}
+              style={styles.stateFill}
+            >
+              <View style={styles.scoreboard}>
+                <Text style={styles.eyebrow} maxFontSizeMultiplier={1.6}>
+                  {changing
+                    ? 'Siguiente ejercicio'
+                    : `Set ${currentSetIndex + 1} de ${exercise.sets.length}`}
                 </Text>
-                <Text style={styles.exerciseName} numberOfLines={2}>
+                <Text
+                  style={styles.exerciseName}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  maxFontSizeMultiplier={1.4}
+                >
                   {exercise.name}
                 </Text>
                 {previousRef ? <PreviousRefPill reference={previousRef} /> : null}
-                {exercise.notes ? (
-                  <Text style={styles.exerciseNotes} numberOfLines={2}>
-                    {exercise.notes}
-                  </Text>
-                ) : null}
+                <View style={styles.targetZone}>
+                  <GiantTarget
+                    target={target}
+                    onPress={changing ? undefined : openCorrection}
+                    spokenLabel={target ? target.spoken : 'sin objetivo'}
+                  />
+                </View>
               </View>
-
-              {/* Set rows — leading dot + index, completed shows inline values,
-                  active row mounts the input panel beneath. Long-press opens
-                  the per-set action sheet (kind / RPE / note). */}
-              <View style={styles.setList}>
-                {exercise.sets.map((s, i) => {
-                  const isCurrent = i === aw.currentSetIndex;
-                  const summary = s.completed ? formatSetSummary(s, exercise.fields) : '';
-                  const kind = s.kind ?? 'working';
-                  const a11yMeta =
-                    (kind !== 'working' ? `, tipo ${kind}` : '') +
-                    (s.rpe != null ? `, RPE ${s.rpe}` : '') +
-                    (s.notes ? ', con nota' : '');
-                  const a11y =
-                    `Set ${i + 1}` +
-                    (s.completed
-                      ? `, completado${summary ? `, ${summary}` : ''}`
-                      : isCurrent
-                        ? ', activo'
-                        : '') +
-                    a11yMeta;
-                  const handleSetLongPress = () => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                    setActionTarget({ exerciseId: exercise.id, setId: s.id });
-                  };
-                  return (
-                    <View key={s.id}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={a11y}
-                        accessibilityHint="Mantén pulsado para añadir nota, RPE o tipo de set"
-                        onPress={() => goToSet(i)}
-                        onLongPress={handleSetLongPress}
-                        delayLongPress={350}
-                        style={({ pressed }) => [
-                          styles.setRow,
-                          isCurrent && styles.setRowActive,
-                          pressed && { opacity: 0.85 },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.setDot,
-                            s.completed && styles.setDotDone,
-                            !s.completed && isCurrent && styles.setDotActive,
-                          ]}
-                        />
-                        <Text
-                          style={[styles.setIndex, (s.completed || isCurrent) && styles.setIndexOn]}
-                        >
-                          {i + 1}
-                        </Text>
-                        {s.completed && summary ? (
-                          <Text style={styles.setSummary} numberOfLines={1}>
-                            {summary}
-                          </Text>
-                        ) : null}
-                        <SetMetadataBadges set={s} />
-                      </Pressable>
-                      {isCurrent && !s.completed && (
-                        <View style={styles.inputAttached}>
-                          <SetInput
-                            fields={exercise.fields}
-                            values={draftValues}
-                            onChange={handleFieldChange}
-                            previousValues={previousValues}
-                            onLongPressField={handleLongPressField}
-                          />
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Añadir ejercicio"
-                  onPress={() => setShowAdd(true)}
-                  style={({ pressed }) => [styles.addExRow, pressed && { opacity: 0.6 }]}
-                  hitSlop={6}
-                >
-                  <KIcon name="plus" size={14} color={Colors.gold.deep} />
-                  <Text style={styles.addExText}>Añadir ejercicio</Text>
-                </Pressable>
-              </View>
-            </ScrollView>
+            </Animated.View>
           )}
-        </Animated.View>
+        </View>
       </GestureDetector>
 
-      {/* Footer — single primary CTA that morphs when allCompleted */}
-      {!restActive && (
+      {/* Footer — the lower half belongs to ONE action. */}
+      {!resting ? (
         <View style={styles.footer}>
           {recentPR ? (
             <Animated.View
@@ -711,16 +610,78 @@ export default function ActiveWorkoutScreen() {
               <Text style={styles.prBadgeDelta}>{formatPRDelta(recentPR.pr)}</Text>
             </Animated.View>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={ctaLabel}
-            onPress={ctaOnPress}
-            style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
-          >
-            <Text style={styles.ctaText}>{ctaLabel}</Text>
-          </Pressable>
+          {changing ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Empezar ${exercise.name}`}
+                onPress={handleEnterExercise}
+                style={({ pressed }) => [styles.heroBtn, pressed && { opacity: 0.9 }]}
+              >
+                <Text style={styles.heroBtnText} maxFontSizeMultiplier={1.3}>
+                  Empezar
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Ver lista de la sesión"
+                onPress={openOverview}
+                style={({ pressed }) => [styles.ghostBtn, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={styles.ghostBtnText} maxFontSizeMultiplier={1.5}>
+                  Ver sesión
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Hecho: completar set ${currentSetIndex + 1} de ${exercise.sets.length}`}
+              accessibilityHint="Registra el set con el objetivo mostrado"
+              onPress={handleCompleteSet}
+              style={({ pressed }) => [styles.heroBtn, pressed && { opacity: 0.9 }]}
+            >
+              <Text style={styles.heroBtnText} maxFontSizeMultiplier={1.3}>
+                HECHO
+              </Text>
+            </Pressable>
+          )}
         </View>
-      )}
+      ) : null}
+
+      {/* ── Layers ── */}
+      <SetCorrectionSheet
+        visible={correctionOpen}
+        exerciseId={exercise.id}
+        setId={currentSet.id}
+        setIndex={currentSetIndex}
+        fields={exercise.fields}
+        values={draftValues}
+        onChange={handleFieldChange}
+        previousValues={previousValues}
+        onLongPressField={handleLongPressField}
+        accent={Colors.discipline[exercise.discipline] ?? Colors.ink.primary}
+        tint={Colors.tint[exercise.discipline] ?? Colors.bg.elevated}
+        onClose={() => setCorrectionOpen(false)}
+      >
+        <PlateCalculator
+          visible={calcOpen}
+          initialTarget={calcTarget}
+          onConfirm={handleCalcConfirm}
+          onClose={() => setCalcOpen(false)}
+        />
+      </SetCorrectionSheet>
+
+      <SessionOverviewSheet
+        visible={overviewOpen}
+        exercises={aw.exercises}
+        currentExerciseIndex={currentExerciseIndex}
+        onAddExercise={() => {
+          setOverviewOpen(false);
+          setShowAdd(true);
+        }}
+        onClose={() => setOverviewOpen(false)}
+      />
 
       <AddExerciseSheet
         visible={showAdd}
@@ -728,22 +689,6 @@ export default function ActiveWorkoutScreen() {
         onAdd={handleAddExercise}
         onClose={() => setShowAdd(false)}
       />
-
-      <PlateCalculator
-        visible={calcOpen}
-        initialTarget={calcTarget}
-        onConfirm={handleCalcConfirm}
-        onClose={() => setCalcOpen(false)}
-      />
-
-      {actionTarget ? (
-        <SetActionSheet
-          visible
-          exerciseId={actionTarget.exerciseId}
-          setId={actionTarget.setId}
-          onClose={() => setActionTarget(null)}
-        />
-      ) : null}
     </View>
   );
 }
@@ -781,7 +726,6 @@ const styles = StyleSheet.create({
     ...Type.subheading,
     color: Colors.ink.primary,
   },
-  // Tabular session time — sober monospace cadence, ink primary (no gold).
   sessionTimer: {
     ...Type.micro,
     color: Colors.ink.tertiary,
@@ -789,56 +733,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     letterSpacing: 0.5,
   },
-  // Spine progress strip — horizontal variant of the editor's vertical spine.
   spineWrap: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.xs,
     marginBottom: Spacing.sm,
+    minHeight: 44, // HIG tap target — the strip is now a button
+    justifyContent: 'center',
   },
   main: {
     flex: 1,
   },
-  scroll: {
+  stateFill: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl,
+  // The scoreboard proper — everything centered, generous air, zero scroll.
+  scoreboard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
   },
-  // 3px discipline-color stripe on the left, generous vertical padding.
-  exerciseHeader: {
-    paddingLeft: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderLeftWidth: 3,
-    gap: Spacing.xs,
-  },
-  exerciseMeta: {
-    ...Type.micro,
+  eyebrow: {
+    ...Type.eyebrow,
     color: Colors.ink.tertiary,
   },
+  // Fraunces headline — the exercise is the content, the content is the title.
   exerciseName: {
-    ...Type.titleSmall,
+    ...Type.title,
     color: Colors.ink.primary,
+    textAlign: 'center',
   },
-  exerciseNotes: {
-    ...Type.body,
-    color: Colors.ink.tertiary,
-    marginTop: Spacing.xs,
+  targetZone: {
+    marginTop: Spacing.lg,
   },
-  // Sober "Última · 60 kg × 8 · hace 4 días" pill anchored under the
-  // exercise name. Background is elevated warm-tinted so it reads as
-  // reference material, not interactive UI.
   refPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     backgroundColor: Colors.bg.elevated,
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
-    marginTop: Spacing.xs,
-    gap: 6,
+    paddingVertical: Spacing.xs,
+    gap: Spacing.gap.inline - 2,
   },
   refPillLabel: {
     ...Type.micro,
@@ -858,107 +794,12 @@ const styles = StyleSheet.create({
     ...Type.micro,
     color: Colors.ink.muted,
   },
-  // Vertical list of set rows. Each row = leading dot + index + summary.
-  setList: {
-    marginTop: Spacing.xl,
-    gap: Spacing.xs,
-  },
-  setRow: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.sm,
-    gap: Spacing.md,
-  },
-  setRowActive: {
-    backgroundColor: Colors.bg.warm,
-  },
-  setDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: Colors.hair.strong,
-    backgroundColor: 'transparent',
-  },
-  setDotActive: {
-    borderColor: Colors.gold.base,
-    borderWidth: 2,
-  },
-  setDotDone: {
-    backgroundColor: Colors.semantic.success,
-    borderColor: Colors.semantic.success,
-  },
-  setIndex: {
-    ...Type.numSmall,
-    color: Colors.ink.muted,
-    minWidth: 20,
-  },
-  setIndexOn: {
-    color: Colors.ink.primary,
-  },
-  setSummary: {
-    ...Type.caption,
-    color: Colors.ink.tertiary,
-    flex: 1,
-  },
-  // Inline metadata badges row inside a set row (W/D/F pills, RPE chip, note
-  // icon). Sits to the right of the values summary — micro-sized so the set
-  // row stays a single visual line.
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginLeft: 'auto',
-  },
-  badge: {
-    minHeight: 18,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.bg.elevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeIcon: {
-    paddingHorizontal: 4,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    ...Type.micro,
-    fontWeight: '700',
-    fontSize: 10,
-    lineHeight: 12,
-  },
-  // Input panel attaches to the active set row only — no longer a separate
-  // section below the pills.
-  inputAttached: {
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.md,
-  },
-  // Quiet "+" affordance, sober label.
-  addExRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  addExText: {
-    ...Type.micro,
-    color: Colors.gold.deep,
-    fontWeight: '600',
-  },
   footer: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
+    gap: Spacing.sm,
   },
-  // PR badge floats above the CTA after a qualifying set; auto-dismisses
-  // after 2.5s. Sober gold-on-warm, never any exclamation marks.
   prBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -966,9 +807,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gold.glow,
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    marginBottom: Spacing.sm,
-    gap: 6,
+    paddingVertical: Spacing.xs + 2,
+    gap: Spacing.gap.inline - 2,
   },
   prBadgeLabel: {
     ...Type.micro,
@@ -986,17 +826,31 @@ const styles = StyleSheet.create({
     color: Colors.gold.deep,
     opacity: 0.6,
   },
-  // Single gold CTA — morphs label between "Completar set" and "Finalizar sesión".
-  cta: {
-    height: 56,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.gold.base,
+  // HECHO / Empezar — ink pill (Design v2 primary; gold stays with Kai + PR),
+  // sized so a shaking post-set thumb cannot miss it.
+  heroBtn: {
+    minHeight: 112,
+    borderRadius: Radius['2xl'],
+    backgroundColor: Colors.ink.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadows.cardWarm,
   },
-  ctaText: {
-    ...Type.subheading,
-    color: Colors.ink.primary,
+  heroBtnText: {
+    fontFamily: FontFamily.sans,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: Colors.ink.inverse,
+  },
+  ghostBtn: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ghostBtnText: {
+    ...Type.caption,
+    color: Colors.ink.tertiary,
+    fontWeight: '600',
   },
 });
