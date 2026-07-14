@@ -30,3 +30,26 @@ export const CONVERSATION_SYSTEM_PROMPT = `Eres Kai, el copiloto de entrenamient
 - build_session: construye el bloque de hoy. Rellena lo que sepas e infiere el resto. Incluye 'closing': una frase breve y cálida confirmando lo que le montas (ej.: "Hecho. Piernas en casa, 40 min. Cuando quieras, arrancamos.").
 
 Recuerda: el éxito es que en 1-3 mensajes el usuario tenga un bloque que haría hoy sin retocar. Menos preguntas, mejor.`;
+
+// ======================== BLOCK BUILDER PROMPT FRAGMENTS ========================
+//
+// Shared additions injected into every LLM build path (aiBlockBuilder +
+// onboardingSpace). Both use the same runAgent + add_exercise engine, so the
+// vocabulary bias and coherence rule live here once and are appended to each
+// path's base system prompt.
+
+/** One tight rule: exercises must match the requested focus. */
+export const COHERENCE_RULE = `Coherencia obligatoria: cada ejercicio DEBE corresponder al foco pedido. En una sesión de pierna no incluyas press de banca, press militar ni otros ejercicios de tren superior; en una de tren superior no metas sentadillas ni peso muerto. Solo mezcla grupos si el usuario pide "cuerpo completo" o "full body".`;
+
+/**
+ * Format the compact preferred-vocabulary list. The model is told to reuse these
+ * exact names so the app's progression memory can match the block against the
+ * user's history — but novel exercises are explicitly allowed. Empty list → no
+ * instruction (keeps the prompt clean when there's nothing to bias with).
+ */
+export function buildVocabularyInstruction(names: string[]): string {
+  if (names.length === 0) return '';
+  return `Vocabulario de ejercicios preferente (usa EXACTAMENTE estos nombres cuando encajen con lo pedido, así la app reconoce tu historial y precarga tus números; si de verdad necesitas uno que no está, invéntalo con un nombre claro):\n${names
+    .map((n) => `- ${n}`)
+    .join('\n')}`;
+}

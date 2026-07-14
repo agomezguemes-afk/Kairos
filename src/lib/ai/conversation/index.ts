@@ -19,7 +19,18 @@ export {
 } from './brief';
 export { buildSessionBlockDeterministic, summarizeBlock } from './blockFromBrief';
 export { wantsHybridSession, buildHybridSession } from './hybridFastPath';
-export { CONVERSATION_SYSTEM_PROMPT, CONVERSATION_PROMPT_VERSION } from './prompts';
+export {
+  canonicalizeExerciseName,
+  canonicalizeBlock,
+  selectVocabularyForBrief,
+  type CanonicalName,
+} from './canonicalizeExercises';
+export {
+  CONVERSATION_SYSTEM_PROMPT,
+  CONVERSATION_PROMPT_VERSION,
+  COHERENCE_RULE,
+  buildVocabularyInstruction,
+} from './prompts';
 export type {
   ConversationState,
   ConversationMessage,

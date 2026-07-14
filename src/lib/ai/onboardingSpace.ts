@@ -14,6 +14,8 @@ import { applyStarterSpace, type StarterSpaceResult } from '../routines/generate
 import { STARTER_DISCIPLINES, type StarterAnswers } from '../routines/starterTemplates';
 import { computeWeekAssignments } from '../routines/weekAssignments';
 import { ANALYTICS_EVENTS, track } from '../analytics';
+import { canonicalizeBlock, selectVocabularyForBrief } from './conversation/canonicalizeExercises';
+import { buildVocabularyInstruction } from './conversation/prompts';
 import type { WorkoutBlock } from '../../types/core';
 
 const DEFAULT_TIMEOUT_MS = 9_000;
@@ -38,6 +40,17 @@ Reglas:
 - Nombres de bloques y ejercicios en español, concretos y sobrios (sin emojis).
 - Si el usuario no tiene material, usa solo ejercicios de peso corporal.
 - No hagas preguntas. No expliques. Cuando termines, responde con una sola frase corta de bienvenida.`;
+
+/** Base rules + the discipline-biased canonical vocabulary (name reuse → the
+ * progression memory can match these blocks against future history). */
+function systemPrompt(answers: StarterAnswers): string {
+  const coreDiscipline =
+    STARTER_DISCIPLINES.find((d) => d.id === answers.discipline)?.coreDiscipline ?? 'general';
+  const vocab = buildVocabularyInstruction(
+    selectVocabularyForBrief({ discipline: coreDiscipline, focus: null }),
+  );
+  return vocab.length > 0 ? `${SYSTEM_PROMPT}\n\n${vocab}` : SYSTEM_PROMPT;
+}
 
 function describeAnswers(answers: StarterAnswers, userName: string): string {
   const d = STARTER_DISCIPLINES.find((x) => x.id === answers.discipline);
@@ -92,7 +105,7 @@ export async function generateOnboardingSpace(
     await withHardCeiling(
       runAgent(
         [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt(answers) },
           { role: 'user', content: describeAnswers(answers, opts.userName ?? '') },
         ],
         { maxTurns: 10, temperature: 0.4, maxTokens: 1024, signal: controller.signal },
@@ -106,6 +119,12 @@ export async function generateOnboardingSpace(
     }
 
     const store = useWorkoutStore.getState();
+    // Speak the memory's vocabulary: canonical names + libraryIds mean this
+    // space's exercises correlate with all future history from day one.
+    for (const b of created) {
+      const canonical = canonicalizeBlock(b);
+      if (canonical !== b) store.updateBlock(b.id, { content: canonical.content });
+    }
     store.updateBlock(created[0].id, { is_favorite: true });
     const blockIds = created.map((b) => b.id);
     const idSet = new Set(blockIds);

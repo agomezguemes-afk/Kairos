@@ -12,12 +12,14 @@ import { useWorkoutStore } from '../../../store/workoutStore';
 import type { WorkoutBlock } from '../../../types/core';
 import { applyProgression } from '../../progression';
 import { buildSessionBlockDeterministic, summarizeBlock } from './blockFromBrief';
+import { canonicalizeBlock, selectVocabularyForBrief } from './canonicalizeExercises';
+import { COHERENCE_RULE, buildVocabularyInstruction } from './prompts';
 import type { BuiltSession, SessionBrief } from './types';
 
 const DEFAULT_TIMEOUT_MS = 9_000;
 const HARD_CEILING_EXTRA_MS = 3_000;
 
-const AGENT_SYSTEM_PROMPT = `Eres Kai, el copiloto de entrenamiento de KAIROS. Tu única tarea ahora es construir UN bloque de entrenamiento para HOY a partir del brief del usuario, usando las herramientas.
+const AGENT_SYSTEM_PROMPT_BASE = `Eres Kai, el copiloto de entrenamiento de KAIROS. Tu única tarea ahora es construir UN bloque de entrenamiento para HOY a partir del brief del usuario, usando las herramientas.
 
 Reglas:
 - Crea exactamente 1 bloque con create_block.
@@ -26,6 +28,14 @@ Reglas:
 - Respeta la intensidad: "suave" = menos volumen y ejercicios de recuperación/movilidad; "fuerte" = más series/intensidad.
 - Nombres de bloque y ejercicios en español, concretos y sobrios, sin emojis. Los ejercicios ya vienen con sets por defecto.
 - No hagas preguntas ni expliques. Cuando termines, responde con una sola frase corta.`;
+
+/** Base rules + the coherence nudge + the focus-biased canonical vocabulary. */
+function agentSystemPrompt(brief: SessionBrief): string {
+  const parts = [AGENT_SYSTEM_PROMPT_BASE, COHERENCE_RULE];
+  const vocab = buildVocabularyInstruction(selectVocabularyForBrief(brief));
+  if (vocab.length > 0) parts.push(vocab);
+  return parts.join('\n\n');
+}
 
 function describeBrief(brief: SessionBrief): string {
   const parts = [
@@ -91,7 +101,7 @@ export async function buildSessionBlockViaAgent(
     await withHardCeiling(
       runAgent(
         [
-          { role: 'system', content: AGENT_SYSTEM_PROMPT },
+          { role: 'system', content: agentSystemPrompt(brief) },
           { role: 'user', content: describeBrief(brief) },
         ],
         { maxTurns: 10, temperature: 0.4, maxTokens: 1024, signal: controller.signal },
@@ -103,10 +113,14 @@ export async function buildSessionBlockViaAgent(
     const block = created[0];
     if (!isValidBlock(block)) throw new Error(`AI block invalid (${created.length} created)`);
 
+    // Speak the memory's vocabulary: adopt canonical names + libraryIds BEFORE
+    // progression so enrichment can actually match the user's history.
+    const canonical = canonicalizeBlock(block);
+
     // Memoria que compone: pre-fill last weights/paces into the AI-built block.
     // A changed reference means history actually enriched it — the cue's source.
-    const enriched = applyProgression(block, useWorkoutStore.getState().workoutHistory);
-    const enrichedFromHistory = enriched !== block;
+    const enriched = applyProgression(canonical, useWorkoutStore.getState().workoutHistory);
+    const enrichedFromHistory = enriched !== canonical;
 
     // Rename to the conversational title + mark favorite so it's the pick.
     useWorkoutStore.getState().updateBlock(block.id, {
