@@ -392,8 +392,14 @@ export function canonicalizeBlock(block: WorkoutBlock): WorkoutBlock {
 
 // ======================== VOCABULARY BIAS (generation) ========================
 
-// Focus phrase → target muscle groups, used to bias the compact prompt list and
-// to enforce coherence (off-target moves never enter a focused session's list).
+// Focus phrase → target muscle groups. The ONE mapping from the user's words to
+// the data model's muscle groups: it biases the compact prompt list (LLM path),
+// enforces coherence (off-target moves never enter a focused session's list),
+// and drives the deterministic focus-aware composer (focusSession.ts).
+//
+// A phrase we don't recognise ("cuerpo completo", "hyrox", "lo que sea") yields
+// NO groups on purpose — the caller then keeps its unfocused, full-body default
+// instead of guessing.
 const FOCUS_MUSCLES: { keywords: string[]; groups: MuscleGroup[] }[] = [
   {
     keywords: [
@@ -419,9 +425,16 @@ const FOCUS_MUSCLES: { keywords: string[]; groups: MuscleGroup[] }[] = [
     keywords: ['tren superior', 'torso'],
     groups: ['chest', 'back', 'shoulders', 'biceps', 'triceps'],
   },
+  // Movement patterns: the gym vernacular for push/pull days.
+  { keywords: ['empuje', 'empujar', 'push'], groups: ['chest', 'shoulders', 'triceps'] },
+  { keywords: ['tiron', 'traccion', 'pull'], groups: ['back', 'biceps'] },
 ];
 
-function focusGroups(focus: string | null): MuscleGroup[] {
+/**
+ * The user's free-text focus ("espalda", "tren superior", "empuje") → the muscle
+ * groups it targets. Empty when the focus is absent or unrecognised.
+ */
+export function focusMuscleGroups(focus: string | null): MuscleGroup[] {
   if (!focus) return [];
   const f = stripAccents(focus.toLowerCase());
   const groups = new Set<MuscleGroup>();
@@ -454,7 +467,7 @@ export function selectVocabularyForBrief(
   brief: Pick<SessionBrief, 'discipline' | 'focus'>,
   limit = 60,
 ): string[] {
-  const groups = focusGroups(brief.focus);
+  const groups = focusMuscleGroups(brief.focus);
   const scored = vocabulary()
     .map((e) => ({ e, score: scoreForBrief(e, brief.discipline, groups) }))
     .filter((s) => s.score > 0)

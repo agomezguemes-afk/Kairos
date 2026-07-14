@@ -1,19 +1,30 @@
 // KAIROS — Deterministic block builder for the conversational loop.
 //
 // The always-works path: turn a SessionBrief into ONE fully-formed block for
-// today and commit it to the store, without touching the LLM. Reuses the
-// curated starter templates (buildStarterBlocks) so the fallback session is
-// real, coherent training — not a placeholder. This is both the LLM-down
-// fallback and the deterministic mock the unit tests assert against.
+// today and commit it to the store, without touching the LLM. This is both the
+// LLM-down fallback and the deterministic mock the unit tests assert against —
+// i.e. the honest default, so it has to answer what the user actually asked.
+//
+// Two ways to reach a block, in order:
+//   1. The brief names a focus we understand ("espalda", "piernas", "empuje")
+//      → buildFocusSessionTemplate composes a session from the curated catalog,
+//      filtered by the focus's muscle groups and the user's equipment.
+//   2. No focus, or one we can't map (running, "cuerpo completo", "lo que sea")
+//      → the curated starter template for the discipline. Unchanged default.
+//
+// Both paths go through the same card builder, so sets/reps/rest conventions
+// are identical; only the exercise selection differs.
 //
 // Node-safe: store + templates only. No transport imports.
 
 import { useWorkoutStore } from '../../../store/workoutStore';
 import type { WorkoutBlock, ExerciseCard } from '../../../types/core';
 import { calculateBlockStats, getBlockExercises } from '../../../types/core';
-import { buildStarterBlocks } from '../../routines/starterTemplates';
+import { buildBlockFromTemplate, buildStarterBlocks } from '../../routines/starterTemplates';
 import { applyProgression } from '../../progression';
 import { briefToStarterAnswers } from './brief';
+import { canonicalizeBlock } from './canonicalizeExercises';
+import { buildFocusSessionTemplate } from './focusSession';
 import type { BuiltSession, SessionBrief } from './types';
 
 const USER_ID = 'user_001'; // matches MOCK_USER_ID in workoutStore
@@ -64,8 +75,16 @@ export function summarizeBlock(
 export function buildSessionBlockDeterministic(brief: SessionBrief): BuiltSession {
   const store = useWorkoutStore.getState();
   const answers = briefToStarterAnswers(brief);
-  const built = buildStarterBlocks(answers, USER_ID, store.blocks.length);
-  const base = built[0];
+  const sortOrder = store.blocks.length;
+
+  // Focus-aware selection when the brief says what to train; the curated
+  // discipline template otherwise.
+  const focusTemplate = buildFocusSessionTemplate(brief, answers);
+  const base = focusTemplate
+    ? // Catalog names are already canonical; this attaches the library ids the
+      // progression memory matches on (tier-1) without touching any name.
+      canonicalizeBlock(buildBlockFromTemplate(focusTemplate, answers, USER_ID, sortOrder))
+    : buildStarterBlocks(answers, USER_ID, sortOrder)[0];
 
   const description = [
     brief.focus ? `Foco: ${brief.focus}.` : null,

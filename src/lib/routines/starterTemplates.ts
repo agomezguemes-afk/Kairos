@@ -51,17 +51,22 @@ export const STARTER_DISCIPLINES: {
   { id: 'hybrid', label: 'Híbrido', icon: 'zap', coreDiscipline: 'general' },
 ];
 
-// ======================== INTERNAL TEMPLATE MODEL ========================
+// ======================== TEMPLATE MODEL ========================
+//
+// Exported so other curated builders (e.g. the focus-aware session composer in
+// src/lib/ai/conversation/focusSession.ts) can assemble their own slot list and
+// reuse buildBlockFromTemplate — one card-construction path, one set of level
+// conventions.
 
-type PerLevel<T> = Record<FitnessLevel, T>;
+export type PerLevel<T> = Record<FitnessLevel, T>;
 
-interface ExerciseOption {
+export interface ExerciseOption {
   name: string;
   /** Include this option only when the user has at least one of these tags. Omit = always available. */
   needsAny?: EquipmentTag[];
 }
 
-interface ExerciseSlot {
+export interface ExerciseSlot {
   /** Ordered by preference — first satisfiable option wins. Last option must be ungated. */
   options: ExerciseOption[];
   /** Card discipline drives the field set (weight/reps vs distance vs duration). */
@@ -76,7 +81,7 @@ interface ExerciseSlot {
   notes?: string;
 }
 
-interface BlockTemplate {
+export interface BlockTemplate {
   name: string;
   description: string;
   slots: ExerciseSlot[];
@@ -89,7 +94,7 @@ interface DisciplineTemplate {
   dayB?: BlockTemplate;
 }
 
-const lv = <T>(beginner: T, intermediate: T, advanced: T): PerLevel<T> => ({
+export const lv = <T>(beginner: T, intermediate: T, advanced: T): PerLevel<T> => ({
   beginner,
   intermediate,
   advanced,
@@ -559,7 +564,12 @@ function buildExercise(
   };
 }
 
-function buildBlock(
+/**
+ * Slots → a fully-formed block, with every card built under the answers' level
+ * and equipment. The single card-construction path: the starter templates below
+ * and any other curated slot list (focus-aware sessions) go through here.
+ */
+export function buildBlockFromTemplate(
   template: BlockTemplate,
   answers: StarterAnswers,
   userId: string,
@@ -588,9 +598,9 @@ export function buildStarterBlocks(
   baseSortOrder = 0,
 ): WorkoutBlock[] {
   const tpl = TEMPLATES[answers.discipline];
-  const blocks: WorkoutBlock[] = [buildBlock(tpl.dayA, answers, userId, baseSortOrder)];
+  const blocks: WorkoutBlock[] = [buildBlockFromTemplate(tpl.dayA, answers, userId, baseSortOrder)];
   if (answers.frequency >= 4 && tpl.dayB) {
-    blocks.push(buildBlock(tpl.dayB, answers, userId, baseSortOrder + 1));
+    blocks.push(buildBlockFromTemplate(tpl.dayB, answers, userId, baseSortOrder + 1));
   }
   // First block is the "start your first workout" target.
   blocks[0] = { ...blocks[0], is_favorite: true };

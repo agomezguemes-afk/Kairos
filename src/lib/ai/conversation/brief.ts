@@ -148,7 +148,9 @@ const DISCIPLINE_KEYWORDS: Keyworded[] = [
     words: ['corr', 'run', 'rodaje', 'trote', 'sprint', 'km', 'kilómetr', 'series de'],
   },
   { discipline: 'cycling', words: ['bici', 'ciclis', 'pedal', 'rodillo', 'bike'] },
-  { discipline: 'swimming', words: ['nad', 'piscina', 'natac', 'brazada'] },
+  // NOT the bare stem "nad": it lives inside "domiNADas", which turned every
+  // pull-up session into a swim.
+  { discipline: 'swimming', words: ['nadar', 'nado', 'piscina', 'natac', 'brazada', 'crol'] },
   {
     discipline: 'mobility',
     words: ['movilidad', 'yoga', 'estir', 'flexibil', 'relaj', 'suave', 'recuper', 'descarga'],
@@ -210,6 +212,9 @@ const FOCUS_KEYWORDS: { focus: string; words: string[] }[] = [
   { focus: 'core', words: ['core', 'abdomin', 'plancha'] },
   { focus: 'tren superior', words: ['tren superior', 'torso'] },
   { focus: 'tren inferior', words: ['tren inferior'] },
+  // Movement-pattern days — the other way people name a session.
+  { focus: 'empuje', words: ['empuje', 'empujar', 'push'] },
+  { focus: 'tirón', words: ['tirón', 'tiron', 'tracción', 'traccion', 'pull'] },
   { focus: 'cuerpo completo', words: ['cuerpo completo', 'full body', 'todo el cuerpo'] },
 ];
 
@@ -293,18 +298,19 @@ function inferIntensity(text: string): SessionBrief['intensity'] {
 function inferEquipment(text: string): string[] {
   const t = normalize(text);
   const found: string[] = [];
-  const map: [string, string][] = [
-    ['mancuern', 'mancuernas'],
-    ['barra', 'barra'],
-    ['kettlebell', 'kettlebell'],
-    ['pesa rusa', 'kettlebell'],
-    ['banda', 'bandas'],
-    ['esterilla', 'esterilla'],
-    ['dominad', 'barra de dominadas'],
-    ['cuerda', 'cuerda de saltar'],
+  // Regex, not substring: a bare "barra" needle turns "barra de dominadas" into
+  // a barbell, and hands a home athlete a deadlift they can't do.
+  const map: [RegExp, string][] = [
+    [/mancuern/, 'mancuernas'],
+    [/dominad|barra fija/, 'barra de dominadas'],
+    [/\bbarra\b(?! de dominadas| fija)/, 'barra'],
+    [/kettlebell|pesa rusa/, 'kettlebell'],
+    [/banda/, 'bandas'],
+    [/esterilla/, 'esterilla'],
+    [/cuerda|comba/, 'cuerda de saltar'],
   ];
-  for (const [needle, label] of map) {
-    if (t.includes(needle) && !found.includes(label)) found.push(label);
+  for (const [pattern, label] of map) {
+    if (pattern.test(t) && !found.includes(label)) found.push(label);
   }
   return found;
 }
@@ -360,14 +366,16 @@ const CORE_TO_STARTER: Record<Discipline, StarterDiscipline> = {
   general: 'hybrid',
 };
 
-const EQUIPMENT_LABEL_TO_TAG: [string, EquipmentTag][] = [
-  ['mancuern', 'dumbbells'],
-  ['barra de dominadas', 'pull_up_bar'],
-  ['barra', 'barbell_plates'],
-  ['kettlebell', 'kettlebell'],
-  ['banda', 'resistance_bands'],
-  ['esterilla', 'yoga_mat'],
-  ['cuerda', 'jump_rope'],
+// Regex, not substring: "barra de dominadas" is a pull-up bar and NOT a
+// barbell — the bare "barra" needle used to hand a home athlete a barbell.
+const EQUIPMENT_LABEL_TO_TAG: [RegExp, EquipmentTag][] = [
+  [/mancuern/, 'dumbbells'],
+  [/barra de dominadas|barra fija|dominad/, 'pull_up_bar'],
+  [/\bbarra\b(?! de dominadas)/, 'barbell_plates'],
+  [/kettlebell|pesa rusa/, 'kettlebell'],
+  [/banda|goma/, 'resistance_bands'],
+  [/esterilla|mat\b/, 'yoga_mat'],
+  [/cuerda|comba/, 'jump_rope'],
 ];
 
 /**
@@ -385,8 +393,8 @@ export function briefToStarterAnswers(brief: SessionBrief): StarterAnswers {
   }
   for (const word of brief.equipment) {
     const w = word.toLowerCase();
-    for (const [needle, tag] of EQUIPMENT_LABEL_TO_TAG) {
-      if (w.includes(needle)) tags.add(tag);
+    for (const [pattern, tag] of EQUIPMENT_LABEL_TO_TAG) {
+      if (pattern.test(w)) tags.add(tag);
     }
   }
   if (tags.size === 0) tags.add('bodyweight');
