@@ -3,7 +3,7 @@
 // Pure function of state — no network, no time-of-day chat fluff.
 
 import type { WorkoutHistoryEntry } from '../../../store/workoutStore';
-import { todayISO, weekRange } from './dates';
+import { computeWeekStats } from '../../../lib/stats/weekStats';
 
 export function getGreeting(name?: string | null): string {
   const h = new Date().getHours();
@@ -18,15 +18,18 @@ export interface MomentumInputs {
   blocksCount: number;
 }
 
-export function getMomentumPhrase(i: MomentumInputs): string {
+export function getMomentumPhrase(i: MomentumInputs, nowMs: number = Date.now()): string {
   if (i.blocksCount === 0) return 'Sin bloques.';
 
-  const today = todayISO();
-  const { start } = weekRange(today);
-  const startMs = new Date(`${start}T00:00:00`).getTime();
-  const sessions = i.history.filter((h) => h.startedAt >= startMs).length;
+  // Single weekly-window source of truth: the exact rolling-7-day computation
+  // HomeHeroStats renders. Reading `sessionsThisWeek` from computeWeekStats
+  // guarantees this header sentence can never disagree with the hero figures —
+  // the bug was two windows (this used a Mon-reset calendar week, the stats a
+  // rolling 7 days), so on a Monday the header read "Semana sin sesiones aún"
+  // while the stats read "4 sesiones esta semana".
+  const { sessionsThisWeek } = computeWeekStats(i.history, nowMs);
 
-  if (sessions === 0) return 'Semana sin sesiones aún.';
-  if (sessions === 1) return '1 sesión esta semana.';
-  return `${sessions} sesiones esta semana.`;
+  if (sessionsThisWeek === 0) return 'Semana sin sesiones aún.';
+  if (sessionsThisWeek === 1) return '1 sesión esta semana.';
+  return `${sessionsThisWeek} sesiones esta semana.`;
 }

@@ -20,6 +20,7 @@ function builtFrom(brief: SessionBrief): BuiltSession {
     blockName: brief.title,
     discipline: brief.discipline,
     exercises: [{ name: 'Sentadilla', detail: '4 series' }],
+    durationMin: brief.durationMin ?? 0,
     source: 'ai',
   };
 }

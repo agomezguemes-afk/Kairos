@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import Animated, {
   FadeIn,
-  FadeInRight,
+  FadeInDown,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -178,12 +178,20 @@ export default function KaiConversationScreen() {
           accessibilityRole="button"
           accessibilityLabel="Volver"
           onPress={() => nav.goBack()}
-          hitSlop={12}
+          hitSlop={{ top: 12, bottom: 12, left: 16, right: 12 }}
           style={styles.backBtn}
         >
           <Feather name="arrow-left" size={22} color={Colors.ink.primary} />
         </Pressable>
-        <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+        {/* Decorative orb: its halo is 1.5× the glyph and sits next to the back
+            button — pointerEvents="none" so it can never intercept a back tap
+            (bug: the back button "resisted" taps because the halo overlapped it). */}
+        <View
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
+          pointerEvents="none"
+          style={styles.headerOrb}
+        >
           <KaiOrb size={26} thinking={state.phase === 'thinking' || state.phase === 'building'} />
         </View>
         <View style={styles.headerText}>
@@ -209,7 +217,7 @@ export default function KaiConversationScreen() {
           m.role === 'kai' ? (
             <KaiBubble key={m.id} text={m.text} />
           ) : (
-            <UserBubble key={m.id} text={m.text} />
+            <UserStatement key={m.id} text={m.text} />
           ),
         )}
 
@@ -289,7 +297,7 @@ export default function KaiConversationScreen() {
             <Feather
               name="arrow-up"
               size={18}
-              color={canSend ? Colors.ink.primary : Colors.ink.muted}
+              color={canSend ? Colors.ink.inverse : Colors.ink.muted}
             />
           </Pressable>
         </View>
@@ -314,13 +322,20 @@ const KaiBubble = React.memo(function KaiBubble({ text }: { text: string }) {
   );
 });
 
-// User bubbles slide in from the right — they came from "your" side of the thread.
-const UserBubble = React.memo(function UserBubble({ text }: { text: string }) {
+// The user's words are the content — so they render as a large editorial
+// statement (Fraunces, ink), not a chat bubble. Kai answers quietly below; the
+// person's intent is what the screen is about. Rises in from just below (it was
+// "sent" from the input at the bottom). Reanimated defaults to
+// ReduceMotion.System, so this softens to a crossfade under Reduce Motion.
+const UserStatement = React.memo(function UserStatement({ text }: { text: string }) {
   return (
-    <Animated.View entering={FadeInRight.duration(Animation.duration.fast)} style={styles.userRow}>
-      <View style={styles.userBubble}>
-        <Text style={styles.userText}>{text}</Text>
-      </View>
+    <Animated.View
+      entering={FadeInDown.duration(Animation.duration.normal)}
+      style={styles.userStatementRow}
+    >
+      <Text style={styles.userStatement} maxFontSizeMultiplier={1.4}>
+        {text}
+      </Text>
     </Animated.View>
   );
 });
@@ -392,14 +407,27 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.screen.horizontal,
     paddingBottom: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.hair.subtle,
+    zIndex: 10, // keep the header (and its back button) above the scroll content
   },
+  // Full 44pt target, pulled left so the glyph still hugs the screen edge.
   backBtn: {
-    marginRight: Spacing.xs,
+    width: 44,
+    height: 44,
+    marginLeft: -Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Boxed so the oversized orb halo is clipped and can't bleed onto the back button.
+  headerOrb: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerText: {
     flex: 1,
@@ -441,21 +469,14 @@ const styles = StyleSheet.create({
     ...Type.body,
     color: Colors.ink.primary,
   },
-  userRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: Spacing.md,
-    paddingLeft: Spacing['2xl'] * 2,
+  // The user's utterance as a headline: full-bleed editorial statement, extra
+  // air above so it reads as a new "chapter", not a reply.
+  userStatementRow: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
-  userBubble: {
-    backgroundColor: Colors.bg.elevated,
-    borderRadius: Radius.lg,
-    borderTopRightRadius: Radius.xs,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-  },
-  userText: {
-    ...Type.body,
+  userStatement: {
+    ...Type.title,
     color: Colors.ink.primary,
   },
 
@@ -556,7 +577,8 @@ const styles = StyleSheet.create({
     width: 44, // HIG minimum tappable target
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.gold.base,
+    // Ink, not gold: the single gold on this screen is the Kai orb in the header.
+    backgroundColor: Colors.ink.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

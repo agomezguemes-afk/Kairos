@@ -253,7 +253,7 @@ function VariantAssigned({ state, ...h }: Props & { state: DayCardState }) {
   const block = state.block;
   const resolved = state.resolved;
   return (
-    <CardShell stripeColor={disciplineColor(block.discipline)}>
+    <CardShell stripeColor={disciplineColor(block.discipline)} tintDiscipline={block.discipline}>
       <HeroSerif>{block.name}</HeroSerif>
       <StatPills block={block} />
       {resolved.isRecurring && (
@@ -291,7 +291,7 @@ function VariantInProgress({ state, ...h }: Props & { state: DayCardState }) {
     0,
   );
   return (
-    <CardShell stripeColor={disciplineColor(block.discipline)}>
+    <CardShell stripeColor={disciplineColor(block.discipline)} tintDiscipline={block.discipline}>
       <HeroSerif>{block.name}</HeroSerif>
       <View style={styles.pillsRow}>
         <View style={styles.pill}>
@@ -326,7 +326,7 @@ function VariantFuture({ state, ...h }: Props & { state: DayCardState }) {
   const block = state.block;
   const resolved = state.resolved;
   return (
-    <CardShell stripeColor={disciplineColor(block.discipline)}>
+    <CardShell stripeColor={disciplineColor(block.discipline)} tintDiscipline={block.discipline}>
       <HeroSerif>{block.name}</HeroSerif>
       <StatPills block={block} />
       {resolved.isRecurring && (
@@ -465,32 +465,42 @@ const styles = StyleSheet.create({
   ctaWrap: {
     marginTop: Spacing.lg,
   },
+  // Primary action = dark ink pill (Design v2 pattern 5). Gold is reserved for
+  // Kai; the day's key action speaks in ink, the card's colour in discipline tint.
   cta: {
-    backgroundColor: Colors.gold.base,
+    backgroundColor: Colors.ink.primary,
+    minHeight: 48,
     paddingVertical: 12,
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   ctaText: {
     ...Type.bodyEmph,
     color: Colors.ink.inverse,
   },
+  // Secondary action = outline pill (neutral hairline, ink text).
   ctaGhost: {
+    minHeight: 48,
     paddingVertical: 12,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.hair.strong,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   ctaGhostText: {
     ...Type.bodyEmph,
-    color: Colors.gold.deep,
+    color: Colors.ink.secondary,
   },
   ghostLink: {
     ...Type.micro,
-    color: Colors.gold.deep,
+    color: Colors.ink.secondary,
     paddingVertical: 6,
   },
   programmedLabel: {
     ...Type.bodyEmph,
-    color: Colors.gold.deep,
+    color: Colors.ink.tertiary,
     textAlign: 'center',
     paddingVertical: 12,
   },

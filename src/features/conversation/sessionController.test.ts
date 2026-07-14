@@ -36,6 +36,7 @@ function builtFrom(brief: SessionBrief): BuiltSession {
     blockName: brief.title,
     discipline: brief.discipline,
     exercises: [{ name: 'Sentadilla', detail: '4 series' }],
+    durationMin: brief.durationMin ?? 0,
     source: 'ai',
   };
 }
@@ -45,6 +46,7 @@ const HYBRID_BUILT: BuiltSession = {
   blockName: 'Carrera híbrida',
   discipline: 'general',
   exercises: [{ name: 'SkiErg', detail: '1 serie' }],
+  durationMin: 45,
   source: 'template',
 };
 

@@ -18,11 +18,13 @@ interface Props {
   onAction?: (action: KaiSignalType['action']) => void;
 }
 
+// Quiet ink insight (Design v2): gold stays reserved for the Kai orb, so the
+// signal dot speaks in neutral ink / semantic tones instead of gold.
 const TONE_COLOR: Record<KaiTone, string> = {
-  focus: Colors.gold.deep,
+  focus: Colors.ink.secondary,
   progress: Colors.semantic.success,
-  momentum: Colors.gold.base,
-  celebrate: Colors.gold.base,
+  momentum: Colors.ink.secondary,
+  celebrate: Colors.semantic.success,
 };
 
 export default function KaiSignal({ signal, onAction }: Props) {
@@ -83,7 +85,7 @@ const styles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3 },
   label: {
     ...Type.micro,
-    color: Colors.gold.deep,
+    color: Colors.ink.tertiary,
     fontSize: 9,
     letterSpacing: 1.5,
   },
@@ -98,7 +100,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     ...Type.micro,
-    color: Colors.gold.deep,
+    color: Colors.ink.primary,
     fontWeight: '600',
   },
 });

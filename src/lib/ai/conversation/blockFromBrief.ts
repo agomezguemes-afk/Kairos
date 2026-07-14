@@ -10,7 +10,7 @@
 
 import { useWorkoutStore } from '../../../store/workoutStore';
 import type { WorkoutBlock, ExerciseCard } from '../../../types/core';
-import { getBlockExercises } from '../../../types/core';
+import { calculateBlockStats, getBlockExercises } from '../../../types/core';
 import { buildStarterBlocks } from '../../routines/starterTemplates';
 import { applyProgression } from '../../progression';
 import { briefToStarterAnswers } from './brief';
@@ -36,6 +36,7 @@ function summarize(
     exercises: getBlockExercises(block)
       .slice(0, 6)
       .map((e) => ({ name: e.name, detail: exerciseDetail(e) })),
+    durationMin: calculateBlockStats(block).estimated_duration,
     source,
     enrichedFromHistory,
   };

@@ -48,6 +48,13 @@ export interface BuiltSession {
   blockName: string;
   discipline: Discipline;
   exercises: { name: string; detail: string }[];
+  /**
+   * Estimated block duration in minutes (0 when unknown). Feeds the duration
+   * chip on the block-ready card — the reference's "chip de duración". Derived
+   * from the committed block's stats, so it reflects the real session, not the
+   * loose brief number.
+   */
+  durationMin: number;
   source: 'ai' | 'template';
   /**
    * True when applyProgression actually pre-filled at least one exercise from

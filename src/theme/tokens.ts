@@ -47,6 +47,21 @@ export const Colors = {
     swimming: '#3B82F6',
     general: '#D4AF37',
   },
+  // WHY (Design v2, pattern 5 "tarjetas tintadas sin borde"): soft fills — the
+  // discipline hue at ~10% alpha — so a borderless card reads as "coloured" on
+  // the white canvas without a border or shadow. Keys mirror `discipline` 1:1
+  // so `Colors.tint[block.discipline]` always resolves. Never gold-as-accent:
+  // gold stays reserved for Kai; here it is only the 'general' content tint.
+  tint: {
+    strength: 'rgba(232,69,69,0.10)',
+    running: 'rgba(91,141,239,0.10)',
+    calisthenics: 'rgba(29,184,142,0.10)',
+    mobility: 'rgba(139,92,246,0.10)',
+    team_sport: 'rgba(240,160,48,0.12)',
+    cycling: 'rgba(6,182,212,0.10)',
+    swimming: 'rgba(59,130,246,0.10)',
+    general: 'rgba(212,175,55,0.10)',
+  },
   semantic: {
     success: '#1AA870',
     error: '#D94040',

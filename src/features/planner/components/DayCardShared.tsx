@@ -12,21 +12,31 @@
 import React, { ReactNode } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Colors, Spacing, Radius, Shadows } from '../../../theme/tokens';
+import type { Discipline } from '../../../types/core';
 
 interface Props {
   children: ReactNode;
   style?: ViewStyle;
   stripeColor?: string;
   tint?: 'warm';
+  /**
+   * Design v2 "tarjeta tintada sin borde": fills the card with the discipline
+   * tint and drops the shadow so hierarchy comes from the soft colour, not
+   * elevation. Wins over `tint="warm"` when both are set.
+   */
+  tintDiscipline?: Discipline;
   dim?: boolean;
 }
 
-export function CardShell({ children, style, stripeColor, tint, dim }: Props) {
+export function CardShell({ children, style, stripeColor, tint, tintDiscipline, dim }: Props) {
+  const tinted = tintDiscipline !== undefined;
   return (
     <View
       style={[
         styles.card,
         tint === 'warm' && { backgroundColor: Colors.bg.warm },
+        tinted && styles.cardTinted,
+        tinted && { backgroundColor: Colors.tint[tintDiscipline] },
         dim && { opacity: 0.6 },
         style,
       ]}
@@ -46,6 +56,12 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     overflow: 'hidden',
     ...Shadows.card,
+  },
+  // Borderless tinted hero card: generous radius, no shadow — the fill carries
+  // the weight. Radius['2xl'] matches the iOS sheet corner (tokens §3.4).
+  cardTinted: {
+    borderRadius: Radius['2xl'],
+    ...Shadows.none,
   },
   // WHY: 4pt stripe glued to left inside the rounded card. Apple Mail uses
   // a 3pt accent stripe for VIP threads — 4pt reads better with our radius.

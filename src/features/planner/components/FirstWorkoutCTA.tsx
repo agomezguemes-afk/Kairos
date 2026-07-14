@@ -39,7 +39,7 @@ function FirstWorkoutCTA({ block, onStart }: Props) {
         onPress={handlePress}
         style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
       >
-        <KIcon name="zap" size={16} color={Colors.ink.primary} />
+        <KIcon name="zap" size={16} color={Colors.ink.inverse} />
         <Text style={styles.ctaText}>Empezar ahora</Text>
       </Pressable>
     </Animated.View>
@@ -54,16 +54,14 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
     padding: Spacing['2xl'],
-    borderRadius: Radius.xl,
+    borderRadius: Radius['2xl'],
     backgroundColor: Colors.bg.warm,
-    borderWidth: 1,
-    borderColor: Colors.hair.gold,
     gap: Spacing.xs,
-    ...Shadows.card,
+    ...Shadows.none,
   },
   eyebrow: {
     ...Type.eyebrow,
-    color: Colors.gold.deep,
+    color: Colors.ink.tertiary,
   },
   title: {
     ...Type.titleSmall,
@@ -74,19 +72,19 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: Colors.ink.tertiary,
   },
+  // Primary action = dark ink pill (gold is reserved for the Kai orb).
   cta: {
     marginTop: Spacing.lg,
     minHeight: 52,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.gold.base,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.ink.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    ...Shadows.cardWarm,
   },
   ctaText: {
     ...Type.subheading,
-    color: Colors.ink.primary,
+    color: Colors.ink.inverse,
   },
 });

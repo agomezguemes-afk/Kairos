@@ -1,10 +1,12 @@
-// KAIROS — The block-ready moment of the "Hoy" conversation.
+// KAIROS — The block-ready moment of the "Hoy" conversation (Design v2).
 //
-// When Kai finishes building, the session materialises as a card inside the
-// chat: name, exercise preview, and ONE gold CTA ("Empezar ahora"). Secondary
-// paths (see the block / ask for something else) stay quiet so the moment has
-// a single obvious next step. Success haptic on mount — the block landing is
-// the payoff of the whole conversation.
+// When Kai finishes building, the session materialises as a borderless card
+// tinted by its discipline (pattern 5), with a duration chip, the exercise
+// preview, and the "memoria que compone" cue when history pre-filled it. The
+// primary action is a dark INK pill ("Empezar ahora") — gold is reserved for
+// the Kai orb in the header, so this card speaks in ink + discipline colour.
+// Secondary = an outline pill; the reset is a quiet ghost. Success haptic on
+// mount — the block landing is the payoff of the whole conversation.
 
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -13,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 
 import KIcon from '../../components/icons/KIcon';
 import type { BuiltSession } from '../../lib/ai/conversation';
-import { Animation, Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
+import { Animation, Colors, Radius, Spacing, Type } from '../../theme/tokens';
 
 interface Props {
   session: BuiltSession;
@@ -28,17 +30,33 @@ function BlockReadyCard({ session, onStart, onView, onAskAgain }: Props) {
   }, []);
 
   const accent = Colors.discipline[session.discipline] ?? Colors.gold.base;
+  const tint = Colors.tint[session.discipline] ?? Colors.bg.warm;
 
   return (
     <Animated.View
       entering={FadeInDown.springify()
         .damping(Animation.spring.gentle.damping)
         .stiffness(Animation.spring.gentle.stiffness)}
-      style={styles.card}
+      style={[styles.card, { backgroundColor: tint }]}
     >
-      <Text style={styles.eyebrow} accessibilityRole="header">
-        Tu bloque de hoy
-      </Text>
+      <View style={styles.headRow}>
+        <Text style={[styles.eyebrow, { color: accent }]} accessibilityRole="header">
+          Tu bloque de hoy
+        </Text>
+        {session.durationMin > 0 ? (
+          <View
+            style={styles.durationChip}
+            accessible
+            accessibilityLabel={`Duración aproximada ${session.durationMin} minutos`}
+          >
+            <KIcon name="clock" size={12} color={Colors.ink.tertiary} />
+            <Text style={styles.durationText} maxFontSizeMultiplier={1.5}>
+              {session.durationMin} min
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
       <View style={styles.titleRow}>
         <View style={[styles.accentBar, { backgroundColor: accent }]} />
         <Text style={styles.title} numberOfLines={3}>
@@ -81,6 +99,7 @@ function BlockReadyCard({ session, onStart, onView, onAskAgain }: Props) {
         </View>
       ) : null}
 
+      {/* Primary = dark ink pill. */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Empezar ahora: ${session.blockName}`}
@@ -88,22 +107,24 @@ function BlockReadyCard({ session, onStart, onView, onAskAgain }: Props) {
         onPress={onStart}
         style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
       >
-        <KIcon name="zap" size={16} color={Colors.ink.primary} />
+        <KIcon name="zap" size={16} color={Colors.ink.inverse} />
         <Text style={styles.ctaText} maxFontSizeMultiplier={1.5}>
           Empezar ahora
         </Text>
       </Pressable>
 
+      {/* Secondary = outline pill + a quiet reset ghost. */}
       <View style={styles.secondaryRow}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Ver bloque"
           accessibilityHint="Abre el detalle del bloque sin empezar"
           onPress={onView}
-          hitSlop={8}
-          style={styles.secondaryBtn}
+          style={({ pressed }) => [styles.outlinePill, pressed && { opacity: 0.7 }]}
         >
-          <Text style={styles.secondaryText}>Ver bloque</Text>
+          <Text style={styles.outlineText} maxFontSizeMultiplier={1.5}>
+            Ver bloque
+          </Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -111,9 +132,11 @@ function BlockReadyCard({ session, onStart, onView, onAskAgain }: Props) {
           accessibilityHint="Descarta este bloque y empieza otra conversación"
           onPress={onAskAgain}
           hitSlop={8}
-          style={styles.secondaryBtn}
+          style={({ pressed }) => [styles.ghostBtn, pressed && { opacity: 0.6 }]}
         >
-          <Text style={styles.mutedText}>Pedir otra cosa</Text>
+          <Text style={styles.ghostText} maxFontSizeMultiplier={1.5}>
+            Pedir otra cosa
+          </Text>
         </Pressable>
       </View>
     </Animated.View>
@@ -123,18 +146,35 @@ function BlockReadyCard({ session, onStart, onView, onAskAgain }: Props) {
 export default React.memo(BlockReadyCard);
 
 const styles = StyleSheet.create({
+  // Borderless, discipline-tinted, no shadow — the fill carries the weight.
   card: {
-    backgroundColor: Colors.bg.warm,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.hair.gold,
+    borderRadius: Radius['2xl'],
     padding: Spacing.xl,
     marginTop: Spacing.sm,
-    ...Shadows.card,
+  },
+  headRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
   },
   eyebrow: {
     ...Type.eyebrow,
-    color: Colors.gold.deep,
+    flexShrink: 1,
+  },
+  // Duration chip: a small surface pill that lifts off the tint for legibility.
+  durationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.bg.surface,
+  },
+  durationText: {
+    ...Type.numSmall,
+    color: Colors.ink.secondary,
   },
   titleRow: {
     flexDirection: 'row',
@@ -174,8 +214,6 @@ const styles = StyleSheet.create({
     color: Colors.ink.muted,
     flexShrink: 0,
   },
-  // Quiet provenance line — eyebrow-level, muted ink, deliberately NOT gold so
-  // the single CTA stays the only accent in the card.
   memoryCue: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -190,35 +228,44 @@ const styles = StyleSheet.create({
   cta: {
     marginTop: Spacing.xl,
     minHeight: 52,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.gold.base,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.ink.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    ...Shadows.cardWarm,
   },
   ctaText: {
     ...Type.subheading,
-    color: Colors.ink.primary,
+    color: Colors.ink.inverse,
   },
   secondaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xs,
+    gap: Spacing.md,
     marginTop: Spacing.md,
   },
-  secondaryBtn: {
-    paddingVertical: Spacing.sm,
+  outlinePill: {
+    minHeight: 44, // HIG minimum tappable target
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.hair.strong,
   },
-  secondaryText: {
-    ...Type.caption,
+  outlineText: {
+    ...Type.bodyEmph,
     color: Colors.ink.secondary,
   },
-  mutedText: {
+  ghostBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  ghostText: {
     ...Type.caption,
     color: Colors.ink.muted,
   },
