@@ -1,42 +1,66 @@
+// SetInput — the in-set numeric keypad. Field chips select which metric you're
+// editing; the pad writes into it. Two intentional states:
+//   • rest        → neutral elevated keys, ink text (calm, legible on white)
+//   • input-active → the selected field lifts to a discipline-tinted chip with
+//                    an accent border + accent value (context by colour, never
+//                    gold — gold stays reserved for Kai)
+// Was authored for the old dark chrome; the previous fills (~4–6% warm-white)
+// and inverse (white) text washed out to near-invisible on the white canvas.
+// Edit rules live in ./lib/numpad so they're unit-tested off-thread.
+
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import type { FieldDefinition, FieldValue } from '../../types/core';
-import { Colors, Type } from '../../theme/tokens';
+import { Colors, Type, Spacing, Radius } from '../../theme/tokens';
+import { applyNumpadKey, toFieldValue, applyDelta } from './lib/numpad';
 
 interface Props {
   fields: FieldDefinition[];
   values: Record<string, FieldValue>;
   onChange: (fieldId: string, value: FieldValue) => void;
   /**
-   * Optional snapshot of the previous set's values (immediately previous within
-   * this exercise, or the last completed historical set as a fallback). When
-   * provided AND it has at least one matching numeric field, a "Repetir anterior"
-   * affordance appears above the helper row and copies those values on tap.
+   * Snapshot of the previous set's values. When it holds at least one matching
+   * numeric field, a "Repetir anterior" affordance copies those values on tap.
    */
   previousValues?: Record<string, FieldValue>;
   /**
-   * Optional long-press handler on numeric field chips. Receives the field
-   * definition and the current numeric value (0 if unset). Parent decides
-   * what to do — e.g., open the plate calculator on the weight chip.
+   * Long-press handler on numeric field chips. Receives the field definition and
+   * the current numeric value (0 if unset). Parent decides what to do — e.g.
+   * open the plate calculator on the weight chip.
    */
   onLongPressField?: (field: FieldDefinition, currentValue: number) => void;
+  /**
+   * Discipline accent (solid) for the input-active state — border + value colour
+   * of the selected field. Defaults to ink so the component stays reusable and
+   * never leaks gold.
+   */
+  accent?: string;
+  /** Discipline tint (soft fill) for the selected field chip. Defaults to a
+   *  neutral lifted surface. */
+  tint?: string;
 }
 
-const KEYS: { label: string; value: string }[] = [
-  { label: '1', value: '1' },
-  { label: '2', value: '2' },
-  { label: '3', value: '3' },
-  { label: '4', value: '4' },
-  { label: '5', value: '5' },
-  { label: '6', value: '6' },
-  { label: '7', value: '7' },
-  { label: '8', value: '8' },
-  { label: '9', value: '9' },
-  { label: '.', value: '.' },
-  { label: '0', value: '0' },
-  { label: '⌫', value: 'back' },
+interface KeyDef {
+  label: string;
+  value: string;
+  a11y: string;
+}
+
+const KEYS: KeyDef[] = [
+  { label: '1', value: '1', a11y: 'Número 1' },
+  { label: '2', value: '2', a11y: 'Número 2' },
+  { label: '3', value: '3', a11y: 'Número 3' },
+  { label: '4', value: '4', a11y: 'Número 4' },
+  { label: '5', value: '5', a11y: 'Número 5' },
+  { label: '6', value: '6', a11y: 'Número 6' },
+  { label: '7', value: '7', a11y: 'Número 7' },
+  { label: '8', value: '8', a11y: 'Número 8' },
+  { label: '9', value: '9', a11y: 'Número 9' },
+  { label: '.', value: '.', a11y: 'Punto decimal' },
+  { label: '0', value: '0', a11y: 'Número 0' },
+  { label: '⌫', value: 'back', a11y: 'Borrar' },
 ];
 
 const HELPER_KEYS: { label: string; delta: number }[] = [
@@ -52,7 +76,12 @@ export default function SetInput({
   onChange,
   previousValues,
   onLongPressField,
+  accent,
+  tint,
 }: Props) {
+  const activeColor = accent ?? Colors.ink.primary;
+  const activeFill = tint ?? Colors.bg.surface;
+
   const numericFields = useMemo(
     () => fields.filter((f) => PRIMARY_NUMERIC_TYPES.has(f.type)).sort((a, b) => a.order - b.order),
     [fields],
@@ -66,8 +95,8 @@ export default function SetInput({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   }, []);
 
-  // Compute which numeric fields have a usable previous value to copy. Hide the
-  // affordance unless at least one numeric field intersects.
+  // Numeric fields that carry a usable previous value to copy. Hide the
+  // affordance unless at least one intersects.
   const repeatableFieldIds = useMemo(() => {
     if (!previousValues) return [] as string[];
     const ids: string[] = [];
@@ -92,16 +121,8 @@ export default function SetInput({
       if (!activeFieldId) return;
       const current = values[activeFieldId];
       const draft = current == null ? '' : String(current);
-      let next = draft;
-      if (key === 'back') {
-        next = draft.slice(0, -1);
-      } else if (key === '.') {
-        if (!draft.includes('.')) next = draft + '.';
-      } else {
-        next = draft + key;
-      }
-      const num = parseFloat(next);
-      onChange(activeFieldId, next === '' ? null : isNaN(num) ? next : num);
+      const next = applyNumpadKey(draft, key);
+      onChange(activeFieldId, toFieldValue(next));
     },
     [tap, activeFieldId, values, onChange],
   );
@@ -110,9 +131,7 @@ export default function SetInput({
     (delta: number) => {
       tap();
       if (!activeFieldId) return;
-      const current = values[activeFieldId];
-      const base = typeof current === 'number' ? current : 0;
-      onChange(activeFieldId, base + delta);
+      onChange(activeFieldId, applyDelta(values[activeFieldId], delta));
     },
     [tap, activeFieldId, values, onChange],
   );
@@ -124,9 +143,10 @@ export default function SetInput({
           const isActive = f.id === activeFieldId;
           const v = values[f.id];
           const display = v == null || v === '' ? '—' : String(v);
+          const spoken = v == null || v === '' ? 'vacío' : String(v);
           const isNumeric = PRIMARY_NUMERIC_TYPES.has(f.type);
-          // Forward long-press only for numeric fields — parent decides
-          // whether to act (e.g., open plate calc when the chip is `weight`).
+          // Forward long-press only for numeric fields — parent decides whether
+          // to act (e.g. open plate calc when the chip is `weight`).
           const longPress =
             isNumeric && onLongPressField
               ? () => {
@@ -138,19 +158,38 @@ export default function SetInput({
           return (
             <Pressable
               key={f.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={`${f.name}${f.unit ? ` en ${f.unit}` : ''}, ${spoken}${
+                isActive ? ', campo activo' : ''
+              }`}
+              accessibilityHint={
+                longPress ? 'Mantén pulsado para la calculadora de discos' : undefined
+              }
               onPress={() => {
                 tap();
                 setActiveFieldId(f.id);
               }}
               onLongPress={longPress}
               delayLongPress={longPress ? 350 : undefined}
-              style={[styles.fieldChip, isActive && styles.fieldChipActive]}
+              style={[
+                styles.fieldChip,
+                isActive && { backgroundColor: activeFill, borderColor: activeColor },
+              ]}
             >
-              <Text style={styles.fieldLabel}>
+              <Text
+                style={[styles.fieldLabel, isActive && { color: activeColor }]}
+                maxFontSizeMultiplier={1.4}
+                numberOfLines={1}
+              >
                 {f.name}
                 {f.unit ? ` (${f.unit})` : ''}
               </Text>
-              <Text style={[styles.fieldValue, isActive && styles.fieldValueActive]}>
+              <Text
+                style={[styles.fieldValue, isActive && { color: activeColor }]}
+                maxFontSizeMultiplier={1.4}
+                numberOfLines={1}
+              >
                 {display}
               </Text>
             </Pressable>
@@ -161,86 +200,108 @@ export default function SetInput({
       {repeatableFieldIds.length > 0 && (
         <Pressable
           onPress={handleRepeat}
-          style={styles.repeatBtn}
+          style={({ pressed }) => [styles.repeatBtn, pressed && { opacity: 0.6 }]}
           accessibilityRole="button"
           accessibilityLabel="Repetir valores del set anterior"
         >
-          <Text style={styles.repeatText}>↺ Repetir anterior</Text>
+          <Text style={styles.repeatText} maxFontSizeMultiplier={1.5}>
+            ↺ Repetir anterior
+          </Text>
         </Pressable>
       )}
 
       <View style={styles.helperRow}>
         {HELPER_KEYS.map((k) => (
-          <Pressable key={k.label} onPress={() => handleHelper(k.delta)} style={styles.helperKey}>
-            <Text style={styles.helperKeyText}>{k.label}</Text>
+          <Pressable
+            key={k.label}
+            onPress={() => handleHelper(k.delta)}
+            accessibilityRole="button"
+            accessibilityLabel={`Sumar ${k.label.replace('+', '')}`}
+            style={({ pressed }) => [styles.helperKey, pressed && styles.keyPressed]}
+          >
+            <Text style={styles.helperKeyText} maxFontSizeMultiplier={1.4}>
+              {k.label}
+            </Text>
           </Pressable>
         ))}
       </View>
 
       <View style={styles.pad}>
-        {KEYS.map((k) => (
-          <Pressable key={k.label} onPress={() => handleKey(k.value)} style={styles.padKey}>
-            <Text style={styles.padKeyText}>{k.label}</Text>
-          </Pressable>
-        ))}
+        {KEYS.map((k) => {
+          const isBack = k.value === 'back';
+          return (
+            <Pressable
+              key={k.label}
+              onPress={() => handleKey(k.value)}
+              accessibilityRole="button"
+              accessibilityLabel={k.a11y}
+              style={({ pressed }) => [styles.padKey, pressed && styles.keyPressed]}
+            >
+              <Text
+                style={[styles.padKeyText, isBack && styles.padKeyBack]}
+                maxFontSizeMultiplier={1.3}
+              >
+                {k.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
 }
 
-const KEY_GAP = 8;
+const KEY_GAP = Spacing.sm;
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 4,
-    gap: 12,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    gap: Spacing.md,
   },
   fieldRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
     flexWrap: 'wrap',
   },
+  // Rest state: a legible neutral chip on the white canvas.
   fieldChip: {
     flex: 1,
     minWidth: 72,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(245,240,232,0.16)',
-    backgroundColor: 'rgba(245,240,232,0.04)',
+    minHeight: 44, // HIG tap target
+    justifyContent: 'center',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.hair.base,
+    backgroundColor: Colors.bg.elevated,
     gap: 2,
   },
-  fieldChipActive: {
-    borderColor: Colors.gold.base,
-    backgroundColor: 'rgba(212,175,55,0.12)',
-  },
   fieldLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: 'rgba(245,240,232,0.6)',
+    ...Type.micro,
+    color: Colors.ink.tertiary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   fieldValue: {
+    ...Type.numMedium,
     fontSize: 22,
-    fontWeight: '600',
-    color: Colors.ink.inverse,
-    fontVariant: ['tabular-nums'],
-  },
-  fieldValueActive: {
-    color: Colors.gold.base,
+    lineHeight: 26,
+    color: Colors.ink.primary,
   },
   repeatBtn: {
     alignSelf: 'center',
+    minHeight: 32,
+    justifyContent: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.sm,
   },
   repeatText: {
-    ...Type.micro,
-    color: Colors.gold.deep,
+    ...Type.caption,
+    color: Colors.ink.tertiary,
+    fontWeight: '600',
   },
   helperRow: {
     flexDirection: 'row',
@@ -248,15 +309,15 @@ const styles = StyleSheet.create({
   },
   helperKey: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(212,175,55,0.18)',
+    minHeight: 44,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.bg.elevated,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   helperKeyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.gold.light,
+    ...Type.numMedium,
+    color: Colors.ink.secondary,
   },
   pad: {
     flexDirection: 'row',
@@ -267,14 +328,22 @@ const styles = StyleSheet.create({
     width: '31%',
     flexGrow: 1,
     minHeight: 56,
-    borderRadius: 14,
-    backgroundColor: 'rgba(245,240,232,0.06)',
+    borderRadius: Radius.md,
+    backgroundColor: Colors.bg.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Pressed state: darken via the ink-overlay hairline so the key reads as held.
+  keyPressed: {
+    backgroundColor: Colors.hair.strong,
+  },
   padKeyText: {
+    ...Type.numLarge,
     fontSize: 22,
-    fontWeight: '600',
-    color: Colors.ink.inverse,
+    lineHeight: 26,
+    color: Colors.ink.primary,
+  },
+  padKeyBack: {
+    color: Colors.ink.tertiary,
   },
 });

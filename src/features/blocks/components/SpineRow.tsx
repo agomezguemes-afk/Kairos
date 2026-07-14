@@ -39,10 +39,12 @@ interface Props {
   isActive?: boolean;
   onTap?: (row: SpineRowData) => void;
   onLongPress?: (row: SpineRowData) => void;
+  /** Discipline colour forwarded to the completed station node. */
+  accent?: string;
   children: React.ReactNode;
 }
 
-function SpineRowImpl({ row, drag, isActive, onTap, onLongPress, children }: Props) {
+function SpineRowImpl({ row, drag, isActive, onTap, onLongPress, accent, children }: Props) {
   const reduceMotion = useReducedMotion();
   const lift = useSharedValue(0);
 
@@ -96,7 +98,7 @@ function SpineRowImpl({ row, drag, isActive, onTap, onLongPress, children }: Pro
         }
         style={styles.rail}
       >
-        <StationNode kind={row.kind} state={row.state} />
+        <StationNode kind={row.kind} state={row.state} accent={accent} />
       </Pressable>
       <Animated.View style={[styles.tile, Shadows.subtle, tileStyle]}>{children}</Animated.View>
     </Animated.View>

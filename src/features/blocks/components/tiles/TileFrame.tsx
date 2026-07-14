@@ -9,8 +9,8 @@
 //                 (NoteTile, SectionHeaderTile).
 //
 // Press feedback animates via Reanimated: subtle scale-down and shadow
-// lift on touch. Respects useReducedMotion. Active state draws a gold
-// outline — reserved for drag/selection moments, not idle decoration.
+// lift on touch. Respects useReducedMotion. Active state draws an ink
+// outline for drag/selection moments (gold is reserved for Kai — Ola-2).
 
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -122,6 +122,6 @@ const styles = StyleSheet.create({
   },
   frameActive: {
     borderWidth: 1,
-    borderColor: Colors.gold.base,
+    borderColor: Colors.ink.primary,
   },
 });

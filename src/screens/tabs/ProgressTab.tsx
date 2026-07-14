@@ -54,9 +54,17 @@ export default function ProgressTab() {
 
   const headerInsight = useMemo(() => detectGap(history) ?? detectConsistent(history), [history]);
 
-  const chartW = SCREEN_W - Spacing.screen.horizontal * 2;
+  const chartW = SCREEN_W - Spacing.screen.horizontal * 2 - Spacing.lg * 2;
   const unlockedIds = new Set(badges.map((b) => b.id));
   const isEmpty = history.length === 0;
+
+  // Content-as-headline: the accumulated session count is the one dominant
+  // statement (Fraunces). Its subline is the momentum insight when there is
+  // one, otherwise the concrete total volume moved.
+  const sessionWord = summary.totalSessions === 1 ? 'sesión' : 'sesiones';
+  const heroSub = isEmpty
+    ? 'Aquí verás tu progreso cuando termines una sesión'
+    : (headerInsight?.label ?? `${Math.round(summary.totalVolume)} kg movidos en total`);
 
   return (
     <ScrollView
@@ -67,38 +75,36 @@ export default function ProgressTab() {
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>Progreso</Text>
-
-      {headerInsight && <Text style={styles.headerInsight}>{headerInsight.label}</Text>}
-
-      {/* Summary stats */}
-      <View style={styles.statRow}>
-        <Stat label="Sesiones" value={String(summary.totalSessions)} />
-        <Stat label="Volumen" value={`${Math.round(summary.totalVolume)} kg`} />
-        <Stat label="Esta sem" value={String(summary.thisWeekSessions)} />
-      </View>
-
-      {isEmpty && (
-        <View style={styles.emptyHint}>
-          <Text style={styles.emptyHintText}>
-            Aquí verás tu progreso cuando termines una sesión
+      {/* Hero statement — the one dominant number, in Fraunces. */}
+      <View style={styles.hero} accessible accessibilityRole="header">
+        <Text style={styles.heroEyebrow}>Progreso</Text>
+        <View style={styles.heroNumRow}>
+          <Text style={styles.heroNum} maxFontSizeMultiplier={1.3}>
+            {summary.totalSessions}
+          </Text>
+          <Text style={styles.heroUnit} maxFontSizeMultiplier={1.4}>
+            {sessionWord}
           </Text>
         </View>
-      )}
+        <Text style={styles.heroSub} maxFontSizeMultiplier={1.6}>
+          {heroSub}
+        </Text>
+      </View>
 
       {/* Esta semana */}
-      <Section eyebrow="ESTA SEMANA">
+      <Card eyebrow="ESTA SEMANA">
         <KVRow label="Volumen" value={`${Math.round(summary.thisWeekVolume)} kg`} />
         <KVRow label="Sesiones" value={String(summary.thisWeekSessions)} />
-      </Section>
+        <KVRow label="Días activos" value={String(streak.current)} />
+      </Card>
 
       {/* Volumen 12 semanas */}
-      <Section eyebrow="VOLUMEN 12 SEMANAS">
+      <Card eyebrow="VOLUMEN · 12 SEMANAS">
         <VolumeBarChart data={weekly} width={chartW} height={100} />
-      </Section>
+      </Card>
 
       {/* 1RM estimado */}
-      <Section eyebrow="1RM ESTIMADO">
+      <Card eyebrow="1RM ESTIMADO">
         {top1RM.length === 0 ? (
           <Text style={styles.empty}>Sin sesiones registradas aún</Text>
         ) : (
@@ -127,7 +133,7 @@ export default function ProgressTab() {
                   points={series.map((p) => ({ x: p.date, y: p.oneRM }))}
                   width={chartW}
                   height={40}
-                  stroke={Colors.gold.deep}
+                  stroke={Colors.ink.secondary}
                   showLastDot
                 />
                 {exInsight && <Text style={styles.exerciseInsight}>{exInsight.label}</Text>}
@@ -135,10 +141,10 @@ export default function ProgressTab() {
             );
           })
         )}
-      </Section>
+      </Card>
 
       {/* Peso máximo */}
-      <Section eyebrow="PESO MÁXIMO POR EJERCICIO">
+      <Card eyebrow="PESO MÁXIMO POR EJERCICIO">
         {top.length === 0 ? (
           <Text style={styles.empty}>Sin sesiones registradas aún</Text>
         ) : (
@@ -165,15 +171,10 @@ export default function ProgressTab() {
             );
           })
         )}
-      </Section>
-
-      {/* Constancia */}
-      <Section eyebrow="CONSTANCIA">
-        <KVRow label="Días activos" value={String(streak.current)} />
-      </Section>
+      </Card>
 
       {/* Adherencia */}
-      <Section eyebrow="ADHERENCIA">
+      <Card eyebrow="ADHERENCIA">
         <View style={styles.statRow}>
           <Stat
             label="Adherencia"
@@ -183,13 +184,13 @@ export default function ProgressTab() {
           <Stat label="Extra" value={String(monthAdherence.unplanned)} />
         </View>
         <MonthAdherenceGrid data={monthAdherence} />
-      </Section>
+      </Card>
 
       {/* Logros — gamification, demoted out of the beta wedge (premise P3).
           The progression data above (volume, 1RM, adherence, constancia) is the
           memory surface and stays; badges are the hedge that hides. */}
       {isSurfaceVisible('gamification') && (
-        <Section eyebrow="LOGROS">
+        <Card eyebrow="LOGROS">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -213,7 +214,7 @@ export default function ProgressTab() {
             })}
           </ScrollView>
           {badges.length === 0 && <Text style={styles.empty}>Tus logros aparecerán aquí</Text>}
-        </Section>
+        </Card>
       )}
     </ScrollView>
   );
@@ -222,15 +223,21 @@ export default function ProgressTab() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.statBox}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue} maxFontSizeMultiplier={1.4}>
+        {value}
+      </Text>
+      <Text style={styles.statLabel} maxFontSizeMultiplier={1.4}>
+        {label}
+      </Text>
     </View>
   );
 }
 
-function Section({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
+// Borderless neutral-tinted card (Ola-2 pattern 5). Progress is cross-
+// discipline, so the fill is a warm neutral rather than a discipline hue.
+function Card({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
   return (
-    <View style={styles.section}>
+    <View style={styles.card}>
       <Text style={styles.eyebrow}>{eyebrow}</Text>
       {children}
     </View>
@@ -267,42 +274,60 @@ function trendStyle(pct: number | null) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.bg.void },
   content: { paddingHorizontal: Spacing.screen.horizontal },
-  title: {
-    ...Type.title,
-    fontSize: 28,
-    lineHeight: 32,
+
+  // Hero statement — the single dominant number, Fraunces.
+  hero: {
+    marginBottom: Spacing['2xl'],
+  },
+  heroEyebrow: {
+    ...Type.eyebrow,
+    color: Colors.ink.muted,
+    marginBottom: Spacing.sm,
+  },
+  heroNumRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  heroNum: {
+    ...Type.numHero,
     color: Colors.ink.primary,
-    marginBottom: Spacing.lg,
+  },
+  heroUnit: {
+    ...Type.titleSmall,
+    color: Colors.ink.tertiary,
+  },
+  heroSub: {
+    ...Type.body,
+    color: Colors.ink.tertiary,
+    marginTop: Spacing.sm,
   },
 
-  statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
+  // Borderless neutral-tinted card.
+  card: {
+    backgroundColor: Colors.bg.warm,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  eyebrow: {
+    ...Type.eyebrow,
+    color: Colors.ink.tertiary,
+    marginBottom: Spacing.md,
+  },
+
+  statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   statBox: {
     flex: 1,
-    backgroundColor: Colors.bg.elevated,
+    backgroundColor: Colors.bg.surface,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
   },
-  statValue: { ...Type.bodyEmph, color: Colors.ink.primary, fontSize: 18 },
+  statValue: { ...Type.numMedium, color: Colors.ink.primary, fontSize: 18 },
   statLabel: { ...Type.micro, color: Colors.ink.tertiary, marginTop: 2 },
-
-  emptyHint: {
-    backgroundColor: Colors.bg.elevated,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-  },
-  emptyHintText: { ...Type.caption, color: Colors.ink.muted },
-
-  section: { marginBottom: Spacing.lg },
-  eyebrow: {
-    ...Type.micro,
-    color: Colors.ink.tertiary,
-    letterSpacing: 1.2,
-    marginBottom: Spacing.sm,
-  },
 
   kvRow: {
     flexDirection: 'row',

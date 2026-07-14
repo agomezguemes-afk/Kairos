@@ -65,7 +65,7 @@ import {
 } from '../../types/content';
 import { buildSpineRows, type SpineRow as SpineRowData } from './lib/spineLayout';
 import type { RootStackParamList } from '../../types/navigation';
-import { Colors, Typography, Spacing, Shadows } from '../../theme/index';
+import { Colors, Typography, Type, Spacing, Radius, Shadows } from '../../theme/index';
 
 import { useBlockEditor } from './hooks/useBlockEditor';
 
@@ -778,6 +778,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
         renderRow={renderRowTile}
         onRowTap={handleRowTap}
         onReorder={handleReorder}
+        accent={disciplineColor}
       />
     );
   };
@@ -801,31 +802,44 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
           <View style={styles.stickyHeaderHairline} />
         </Animated.View>
 
+        {/* Apple 3-zone nav bar: leading (back) · centred title · trailing
+            (actions). The title lives in its own flex:1 zone, so it truncates
+            between the two zones instead of overlapping them — fixing the
+            scrolled-title collision with the Atrás row / action cluster. */}
         <View style={styles.stickyHeaderRow}>
           <Pressable
             onPress={() => nav.goBack()}
             hitSlop={12}
             style={styles.backButton}
+            accessibilityRole="button"
             accessibilityLabel="Volver"
           >
             <Feather name="chevron-left" size={22} color={Colors.ink.primary} />
-            <Text style={styles.backLabel}>Atrás</Text>
+            <Text style={styles.backLabel} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+              Atrás
+            </Text>
           </Pressable>
 
           <Animated.Text
             style={[styles.stickyTitle, headerTitleStyle]}
             numberOfLines={1}
+            maxFontSizeMultiplier={1.3}
             pointerEvents="none"
           >
             {block.name}
           </Animated.Text>
 
           <View style={styles.stickyActions}>
-            <Pressable onPress={handleToggleFavorite} hitSlop={8}>
+            <Pressable
+              onPress={handleToggleFavorite}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={block.is_favorite ? 'Quitar de favoritos' : 'Marcar favorito'}
+            >
               <Feather
                 name="star"
                 size={18}
-                color={block.is_favorite ? Colors.gold.base : Colors.ink.tertiary}
+                color={block.is_favorite ? Colors.ink.primary : Colors.ink.tertiary}
               />
             </Pressable>
             <Pressable
@@ -834,16 +848,27 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
                 setShowLibrary(true);
               }}
               hitSlop={8}
+              accessibilityRole="button"
               accessibilityLabel="Añadir desde librería"
             >
               <Feather name="book-open" size={18} color={Colors.ink.secondary} />
             </Pressable>
-            <Pressable onPress={() => handleOpenPalette(null, 0)} hitSlop={8}>
+            <Pressable
+              onPress={() => handleOpenPalette(null, 0)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Añadir elemento"
+            >
               <View style={styles.topBarPlus}>
-                <Feather name="plus" size={16} color={Colors.gold.base} />
+                <Feather name="plus" size={16} color={Colors.ink.primary} />
               </View>
             </Pressable>
-            <Pressable onPress={handleDeleteBlock} hitSlop={8}>
+            <Pressable
+              onPress={handleDeleteBlock}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Eliminar bloque"
+            >
               <Feather name="trash-2" size={18} color={Colors.ink.tertiary} />
             </Pressable>
           </View>
@@ -874,7 +899,7 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
           {/* Block name */}
           {editingName ? (
             <TextInput
-              style={styles.nameInput}
+              style={[styles.nameInput, { borderBottomColor: disciplineColor }]}
               value={nameDraft}
               onChangeText={setNameDraft}
               onBlur={handleNameSubmit}
@@ -884,9 +909,45 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
               returnKeyType="done"
             />
           ) : (
-            <Pressable onPress={handleNameEdit}>
+            <Pressable
+              onPress={handleNameEdit}
+              accessibilityRole="button"
+              accessibilityLabel={`Bloque ${block.name}. Toca para renombrar`}
+            >
               <Text style={styles.blockName}>{block.name}</Text>
             </Pressable>
+          )}
+
+          {/* Meta chips — exercise count + estimated duration in Ola-2 chip
+              language (surface pill + glyph). Series/completion live in the
+              progress bar below, so these add the two facts it doesn't show. */}
+          {stats && stats.total_exercises > 0 && (
+            <View style={styles.metaChips}>
+              <View
+                style={styles.metaChip}
+                accessible
+                accessibilityLabel={`${stats.total_exercises} ${
+                  stats.total_exercises === 1 ? 'ejercicio' : 'ejercicios'
+                }`}
+              >
+                <Feather name="layers" size={12} color={Colors.ink.tertiary} />
+                <Text style={styles.metaChipText} maxFontSizeMultiplier={1.4}>
+                  {stats.total_exercises} {stats.total_exercises === 1 ? 'ejercicio' : 'ejercicios'}
+                </Text>
+              </View>
+              {stats.estimated_duration > 0 && (
+                <View
+                  style={styles.metaChip}
+                  accessible
+                  accessibilityLabel={`Duración estimada ${stats.estimated_duration} minutos`}
+                >
+                  <Feather name="clock" size={12} color={Colors.ink.tertiary} />
+                  <Text style={styles.metaChipText} maxFontSizeMultiplier={1.4}>
+                    ~{stats.estimated_duration} min
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
 
           {/* Progress bar */}
@@ -972,8 +1033,10 @@ export default function BlockEditorScreen({ route, navigation: nav }: any) {
             setShowAI(true);
           }}
           style={[styles.aiFab, { bottom: insets.bottom + 20 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir asistente Kai"
         >
-          <Feather name="zap" size={20} color={Colors.text.inverse} />
+          <Feather name="zap" size={20} color={Colors.ink.inverse} />
         </Pressable>
       )}
 
@@ -1039,10 +1102,10 @@ const styles = StyleSheet.create({
     height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: Spacing.screen.horizontal,
   },
   backButton: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
@@ -1053,18 +1116,19 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weight.regular,
     color: Colors.ink.primary,
   },
+  // Middle zone of the 3-zone bar — flexes to fill and truncates within its
+  // own space, so it can never overlap the leading/trailing clusters.
   stickyTitle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+    flex: 1,
     textAlign: 'center',
+    marginHorizontal: Spacing.sm,
     fontSize: Typography.size.subheading,
     fontWeight: Typography.weight.semibold,
     color: Colors.ink.primary,
     letterSpacing: Typography.tracking.tight,
-    paddingHorizontal: 88,
   },
   stickyActions: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.lg,
@@ -1074,7 +1138,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: Colors.gold.base,
+    borderColor: Colors.ink.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1140,15 +1204,37 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
   },
 
+  // The single gold moment of the block editor — gold = Kai (Ola-2).
   aiFab: {
     position: 'absolute',
     right: Spacing.xl,
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.accent.primary,
+    backgroundColor: Colors.gold.base,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.elevated,
+  },
+  metaChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 28,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.bg.elevated,
+  },
+  metaChipText: {
+    ...Type.caption,
+    color: Colors.ink.secondary,
   },
 });

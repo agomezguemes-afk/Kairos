@@ -43,7 +43,7 @@ export default function VolumeBarChart({ data, width, height }: Props) {
               width={barW}
               height={Math.max(h, 2)}
               rx={2}
-              fill={isCurrent ? Colors.gold.base : Colors.hair.strong}
+              fill={isCurrent ? Colors.ink.primary : Colors.hair.strong}
             />
           );
         })}
@@ -66,5 +66,5 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   weekLabel: { ...Type.micro, color: Colors.ink.tertiary },
-  weekLabelBold: { ...Type.micro, color: Colors.gold.deep, fontWeight: '600' },
+  weekLabelBold: { ...Type.micro, color: Colors.ink.primary, fontWeight: '600' },
 });

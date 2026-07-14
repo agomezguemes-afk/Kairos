@@ -26,9 +26,11 @@ interface Props {
   onRowTap?: (row: SpineRowData) => void;
   onRowLongPress?: (row: SpineRowData) => void;
   onReorder?: (orderedIds: string[]) => void;
+  /** Discipline colour for completed stations (Ola-2 "gold = Kai only"). */
+  accent?: string;
 }
 
-function SpineImpl({ rows, renderRow, onRowTap, onRowLongPress, onReorder }: Props) {
+function SpineImpl({ rows, renderRow, onRowTap, onRowLongPress, onReorder, accent }: Props) {
   const renderItem = useCallback(
     ({ item, drag, isActive }: RenderItemParams<SpineRowData>) => (
       <SpineRow
@@ -37,11 +39,12 @@ function SpineImpl({ rows, renderRow, onRowTap, onRowLongPress, onReorder }: Pro
         isActive={isActive}
         onTap={onRowTap}
         onLongPress={onRowLongPress}
+        accent={accent}
       >
         {renderRow(item)}
       </SpineRow>
     ),
-    [renderRow, onRowTap, onRowLongPress, onReorder],
+    [renderRow, onRowTap, onRowLongPress, onReorder, accent],
   );
 
   const handleDragEnd = useCallback(

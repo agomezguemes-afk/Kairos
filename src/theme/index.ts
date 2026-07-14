@@ -1,6 +1,7 @@
 export {
   Colors,
   Typography,
+  Type,
   Spacing,
   Radius,
   Shadows,

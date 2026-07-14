@@ -33,6 +33,9 @@ export const STATION_SIZE = 14;
 interface Props {
   kind: StationKind;
   state: StationState;
+  /** Discipline colour for the completed node. Defaults to gold if a caller
+   *  hasn't adopted the Ola-2 "gold = Kai only" rule yet. */
+  accent?: string;
 }
 
 function ariaLabel(kind: StationKind, state: StationState): string {
@@ -52,7 +55,7 @@ function ariaLabel(kind: StationKind, state: StationState): string {
   }
 }
 
-function StationNodeImpl({ kind, state }: Props) {
+function StationNodeImpl({ kind, state, accent }: Props) {
   if (kind === 'divider') {
     return <View style={styles.dividerBar} accessibilityLabel={ariaLabel(kind, state)} />;
   }
@@ -82,7 +85,11 @@ function StationNodeImpl({ kind, state }: Props) {
   if (state === 'completed') {
     return (
       <View
-        style={[styles.circleBase, styles.circleCompleted]}
+        style={[
+          styles.circleBase,
+          styles.circleCompleted,
+          accent ? { backgroundColor: accent, shadowColor: accent } : null,
+        ]}
         accessibilityLabel={ariaLabel(kind, state)}
       >
         <Feather name="check" size={9} color={Colors.ink.inverse} />

@@ -35,7 +35,8 @@ export default function Sparkline({
     );
   }
 
-  const strokeColor = stroke ?? Colors.gold.base;
+  // Default line is ink (charts aren't Kai). Callers may override per series.
+  const strokeColor = stroke ?? Colors.ink.secondary;
   const pad = 4;
   const innerW = width - pad * 2;
   const innerH = height - pad * 2;
