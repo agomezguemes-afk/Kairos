@@ -56,6 +56,19 @@ describe('formatScoreboardTarget', () => {
     expect(t!.spoken).toBe('60 kilos por 8');
   });
 
+  it('names a lone unit-less field so the giant target is never a bare number', () => {
+    // No weight logged yet (fresh exercise, no history): reps alone must read
+    // "6 reps", not an ambiguous "6", or it is unreadable across the gym.
+    const t = formatScoreboardTarget(strengthFields, { reps: 6 });
+    expect(t!.segments).toEqual([{ value: '6', unit: 'reps' }]);
+    expect(t!.spoken).toBe('6 reps');
+  });
+
+  it('keeps the unit-less reps segment when paired with weight (× disambiguates)', () => {
+    const t = formatScoreboardTarget(strengthFields, { weight: 60, reps: 6 });
+    expect(t!.segments[1]).toEqual({ value: '6', unit: null });
+  });
+
   it('uses the · separator for non-strength pairs', () => {
     const t = formatScoreboardTarget(runningFields, { distance: 5, duration: 30 });
     expect(t!.separator).toBe('·');
@@ -73,7 +86,8 @@ describe('formatScoreboardTarget', () => {
 
   it('skips empty leading fields', () => {
     const t = formatScoreboardTarget(strengthFields, { reps: 10 });
-    expect(t!.segments).toEqual([{ value: '10', unit: null }]);
+    // Alone, the field names itself (see the lone-field case above).
+    expect(t!.segments).toEqual([{ value: '10', unit: 'reps' }]);
     // Single field is not the weight×reps idiom → falls back to ·.
     expect(t!.separator).toBe('·');
   });

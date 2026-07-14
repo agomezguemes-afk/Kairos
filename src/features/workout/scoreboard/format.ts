@@ -73,9 +73,17 @@ export function formatScoreboardTarget(
   const separator: '×' | '·' = isWeightReps ? '×' : '·';
 
   const segments: TargetSegment[] = picked.map((p) => ({ value: p.value, unit: p.field.unit }));
+
+  // A lone unit-less number is unreadable at two metres: "6" — reps? kilos?
+  // minutes? Paired with a weight the × idiom disambiguates it ("60 kg × 6"),
+  // but alone it must name itself, so fall back to the field's own label.
+  if (segments.length === 1 && !segments[0].unit) {
+    segments[0] = { ...segments[0], unit: picked[0].field.name.toLowerCase() };
+  }
+
   const spoken = picked
-    .map((p) => {
-      const u = spokenUnit(p.field.unit);
+    .map((p, i) => {
+      const u = spokenUnit(segments[i].unit);
       return u ? `${p.value} ${u}` : p.value;
     })
     .join(separator === '×' ? ' por ' : ', ');
