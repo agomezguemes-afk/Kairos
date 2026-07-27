@@ -107,27 +107,22 @@ class KairosLiveActivityModule : Module() {
     )
   }
 
+  // Same payload contract as iOS (see modules/kairos-live-activity/index.ts):
+  // `targetLine` arrives pre-formatted by the JS scoreboard formatter, so no
+  // weight/reps assumption survives here either.
   private fun postNotification(state: Map<String, Any?>) {
     val exerciseName = state["exerciseName"] as? String ?: ""
     val setIndex = (state["setIndex"] as? Number)?.toInt() ?: 1
     val setTotal = (state["setTotal"] as? Number)?.toInt() ?: 1
-    val targetWeight = (state["targetWeight"] as? Number)?.toDouble()
-    val targetReps = (state["targetReps"] as? Number)?.toInt()
+    val targetLine = (state["targetLine"] as? String)?.takeIf { it.isNotBlank() }
+    val nextUp = (state["nextUp"] as? String)?.takeIf { it.isNotBlank() }
     val restEndsAt = (state["restEndsAt"] as? Number)?.toLong()
-
-    val target = buildString {
-      if (targetWeight != null) append("${trim(targetWeight)} kg")
-      if (targetReps != null) {
-        if (isNotEmpty()) append(" × ")
-        append("$targetReps")
-      }
-    }
 
     val resting = restEndsAt != null && restEndsAt > System.currentTimeMillis()
     val title = if (resting) "Descanso · $exerciseName" else exerciseName
     val text = buildString {
       append("Serie $setIndex de $setTotal")
-      if (target.isNotEmpty()) append(" · $target")
+      if (targetLine != null) append(" · $targetLine")
     }
 
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -138,7 +133,10 @@ class KairosLiveActivityModule : Module() {
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_WORKOUT)
       .setPriority(NotificationCompat.PRIORITY_LOW)
-      .addAction(0, "Completar serie", actionIntent("completeSet", 1))
+
+    if (nextUp != null) {
+      builder.setSubText("Siguiente · $nextUp")
+    }
 
     if (resting && restEndsAt != null) {
       builder
@@ -146,15 +144,15 @@ class KairosLiveActivityModule : Module() {
         .setUsesChronometer(true)
         .setChronometerCountDown(true)
         .addAction(0, "+30 s", actionIntent("extendRest", 2))
+        .addAction(0, "Saltar", actionIntent("skipRest", 3))
+    } else {
+      builder.addAction(0, "HECHO", actionIntent("completeSet", 1))
     }
 
     // POST_NOTIFICATIONS may be denied on 13+; posting then throws a
     // SecurityException — treat as a silent no-op like iOS does.
     runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build()) }
   }
-
-  private fun trim(value: Double): String =
-    if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
 }
 
 // Loops notification action taps back into the module's event stream. The

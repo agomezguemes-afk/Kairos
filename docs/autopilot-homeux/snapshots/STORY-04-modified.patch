@@ -1,0 +1,171 @@
+diff --git a/src/features/planner/TodayPlanner.tsx b/src/features/planner/TodayPlanner.tsx
+index 7439ff6..f816c53 100644
+--- a/src/features/planner/TodayPlanner.tsx
++++ b/src/features/planner/TodayPlanner.tsx
+@@ -15,10 +15,11 @@ import HomeHero from './components/HomeHero';
+ import FirstWorkoutCTA from './components/FirstWorkoutCTA';
+ import AmbientKaiBar from '../conversation/AmbientKaiBar';
+ import HomeHeroStats from './components/HomeHeroStats';
+-import ReadinessRings from './components/ReadinessRings';
++import ReadinessLine from './components/ReadinessLine';
+ import CalendarView from './components/CalendarView';
+ import DayCard from './components/DayCard';
+ import KaiSignalCard from './components/KaiSignal';
++import HomeFolder from './components/HomeFolder';
+ import AssignBlockSheet from './components/AssignBlockSheet';
+ import RecurrenceEditorSheet from './components/RecurrenceEditorSheet';
+ import MovePicker from './components/MovePicker';
+@@ -27,11 +28,14 @@ import TemplatePickerSheet from '../blocks/components/TemplatePickerSheet';
+ 
+ import { todayISO } from './lib/dates';
+ import { kaiSignal, type KaiSignal } from './lib/kaiSignal';
++import { foldSummary } from './lib/foldSummary';
+ import { useDayCardState } from './hooks/useDayCardState';
+ import { useWorkoutStore } from '../../store/workoutStore';
+ import { useScheduleStore } from '../../store/scheduleStore';
+ import { useGamification } from '../../context/GamificationContext';
+ import { isSurfaceVisible } from '../../config/wedge';
++import { computeWeekStats } from '../../lib/stats/weekStats';
++import { computeReadiness } from '../../lib/readiness/readiness';
+ import type { ISODate, ResolvedAssignment } from '../../types/schedule';
+ import { getBlockExercises, type WorkoutBlock } from '../../types/core';
+ import type { RootStackParamList, DashboardTabParamList } from '../../types/navigation';
+@@ -103,6 +107,20 @@ export default function TodayPlanner() {
+     [selectedDate, dayState, streak, blocks.length, activeWorkout, lastSession],
+   );
+ 
++  // Teaser for the demoted-zone folder handle (STORY-01) — preview of the
++  // most useful thing inside, by priority (sessions > readiness > fallback).
++  const weekStats = useMemo(() => computeWeekStats(history), [history]);
++  const readiness = useMemo(() => computeReadiness(history), [history]);
++  const folder = useMemo(
++    () =>
++      foldSummary({
++        sessionsThisWeek: weekStats.sessionsThisWeek,
++        readinessCalibrating: readiness.signals.daysSinceLastWorkout === null,
++        readinessHeadline: readiness.headline,
++      }),
++    [weekStats, readiness],
++  );
++
+   // First-workout hero: only until the first session lands in history.
+   const firstWorkoutBlock = useMemo(() => {
+     if (history.length > 0 || activeWorkout || blocks.length === 0) return null;
+@@ -225,12 +243,19 @@ export default function TodayPlanner() {
+           onPlanWeek={handlePlanWeek}
+         />
+ 
+-        {/* Demoted zone — quieter, below the fold. Calendar sits closest to the
+-            card it drives; weekly stats / readiness / señal recede further. */}
+-        <CalendarView selectedDate={selectedDate} onSelect={handleSelectDate} />
+-        <ReadinessRings />
+-        <HomeHeroStats />
+-        <KaiSignalCard signal={signal} onAction={handleSignalAction} />
++        {/* Demoted zone (STORY-01) — everything that isn't "today" lives inside
++            a collapsible folder so HomeHero + DayCard own the fold. Calendar
++            sits closest to the card it drives; weekly stats / readiness /
++            señal recede further, all inside the same opt-in reveal. */}
++        <HomeFolder eyebrow={folder.eyebrow} summary={folder.summary}>
++          <CalendarView selectedDate={selectedDate} onSelect={handleSelectDate} />
++          <ReadinessLine />
++          <HomeHeroStats />
++          {/* Passed conditionally so HomeFolder's per-child section wrapper
++              (STORY-04) never renders an empty section + dangling hairline on
++              the very common no-signal case (any non-today day selected). */}
++          {signal ? <KaiSignalCard signal={signal} onAction={handleSignalAction} /> : null}
++        </HomeFolder>
+       </ScrollView>
+ 
+       <AmbientKaiBar onPress={handleOpenKai} />
+@@ -274,6 +299,6 @@ export default function TodayPlanner() {
+ }
+ 
+ const styles = StyleSheet.create({
+-  screen: { flex: 1, backgroundColor: Colors.bg.void },
++  screen: { flex: 1, backgroundColor: Colors.paper.base },
+   content: {},
+ });
+diff --git a/src/features/planner/components/HomeHeroStats.tsx b/src/features/planner/components/HomeHeroStats.tsx
+index b0b7f09..5870fd5 100644
+--- a/src/features/planner/components/HomeHeroStats.tsx
++++ b/src/features/planner/components/HomeHeroStats.tsx
+@@ -110,11 +110,9 @@ function formatVolumeDelta(delta: number): string | null {
+ }
+ 
+ const styles = StyleSheet.create({
+-  container: {
+-    paddingHorizontal: Spacing.screen.horizontal,
+-    paddingTop: Spacing.sm,
+-    paddingBottom: Spacing.lg,
+-  },
++  // Flush inside its HomeFolder section (STORY-04) — the section owns the
++  // gutter and vertical rhythm; the hero figures carry the moment alone.
++  container: {},
+   eyebrow: {
+     ...Type.eyebrow,
+     color: Colors.ink.muted,
+diff --git a/src/features/planner/components/KaiSignal.tsx b/src/features/planner/components/KaiSignal.tsx
+index 2a468bb..1b4e1fe 100644
+--- a/src/features/planner/components/KaiSignal.tsx
++++ b/src/features/planner/components/KaiSignal.tsx
+@@ -10,7 +10,7 @@ import React from 'react';
+ import { View, Text, StyleSheet, Pressable } from 'react-native';
+ import Animated, { FadeIn, Easing } from 'react-native-reanimated';
+ import * as Haptics from 'expo-haptics';
+-import { Colors, Type, Spacing, Radius } from '../../../theme/tokens';
++import { Colors, Type, Spacing } from '../../../theme/tokens';
+ import type { KaiSignal as KaiSignalType, KaiTone } from '../lib/kaiSignal';
+ 
+ interface Props {
+@@ -64,16 +64,13 @@ export default function KaiSignal({ signal, onAction }: Props) {
+ }
+ 
+ const styles = StyleSheet.create({
++  // A flat section inside HomeFolder (STORY-04), not a nested card: the box is
++  // already paper.warm (same #F4EFE5 the card used), so dropping bg/radius/
++  // margins just formalises what already blended. The section owns the gutter.
+   card: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     gap: Spacing.md,
+-    backgroundColor: Colors.bg.warm,
+-    borderRadius: Radius.md,
+-    paddingHorizontal: Spacing.lg,
+-    paddingVertical: Spacing.md,
+-    marginHorizontal: Spacing.screen.horizontal,
+-    marginTop: Spacing.lg,
+   },
+   body: { flex: 1 },
+   // Dot + KAI label in a single row so the dot anchors to the eyebrow line.
+diff --git a/src/features/planner/components/MonthGrid.tsx b/src/features/planner/components/MonthGrid.tsx
+index 8ca10ae..e7bebd7 100644
+--- a/src/features/planner/components/MonthGrid.tsx
++++ b/src/features/planner/components/MonthGrid.tsx
+@@ -105,7 +105,8 @@ const styles = StyleSheet.create({
+     flexDirection: 'row',
+     alignItems: 'center',
+     justifyContent: 'space-between',
+-    paddingHorizontal: Spacing.screen.horizontal,
++    // WHY (STORY-04): gutter now comes from the HomeFolder section, not here.
++    paddingHorizontal: 0,
+     paddingBottom: Spacing.xs,
+   },
+   arrow: {
+@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
+   },
+   weekdayHeader: {
+     flexDirection: 'row',
+-    paddingHorizontal: Spacing.screen.horizontal,
++    paddingHorizontal: 0,
+     paddingBottom: Spacing.xs,
+   },
+   weekdayHeaderText: {
+@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
+   grid: {
+     flexDirection: 'row',
+     flexWrap: 'wrap',
+-    paddingHorizontal: Spacing.screen.horizontal,
++    paddingHorizontal: 0,
+   },
+   cell: {
+     width: `${100 / 7}%`,

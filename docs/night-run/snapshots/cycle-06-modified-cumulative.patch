@@ -1,0 +1,606 @@
+diff --git a/src/components/workout/RestScoreboard.tsx b/src/components/workout/RestScoreboard.tsx
+index 3285486..2188be1 100644
+--- a/src/components/workout/RestScoreboard.tsx
++++ b/src/components/workout/RestScoreboard.tsx
+@@ -30,6 +30,16 @@ interface Props {
+   /** Rest target for the current exercise — powers the −15/+15 tuning row. */
+   currentRestSeconds?: number;
+   onChangeRestSeconds?: (newRestSeconds: number) => void;
++  /**
++   * Echo of the just-completed set — "Hecho · 60 kg × 8 · Corregir". Sober
++   * (no gold: the gold is the ring's); tapping opens the correction sheet
++   * for THAT set without restarting the countdown.
++   */
++  justCompleted?: {
++    label: string;
++    target: FormattedTarget | null;
++    onCorrect: () => void;
++  };
+ }
+ 
+ const TICK_MS = 250;
+@@ -51,6 +61,7 @@ function RestScoreboardImpl({
+   nextTarget,
+   currentRestSeconds,
+   onChangeRestSeconds,
++  justCompleted,
+ }: Props) {
+   const reduceMotion = useReducedMotion();
+   const [now, setNow] = useState(() => Date.now());
+@@ -106,6 +117,13 @@ function RestScoreboardImpl({
+           .join(` ${nextTarget.separator} `)
+       : null;
+ 
++  const doneTargetLine =
++    justCompleted?.target != null
++      ? justCompleted.target.segments
++          .map((s) => (s.unit ? `${s.value} ${s.unit}` : s.value))
++          .join(` ${justCompleted.target.separator} `)
++      : null;
++
+   return (
+     <View style={styles.wrap}>
+       <Text style={styles.label} accessibilityRole="text">
+@@ -173,6 +191,24 @@ function RestScoreboardImpl({
+         </View>
+       ) : null}
+ 
++      {/* Echo of the just-completed set — the fix-it-when-you-notice-it row.
++          Sober ink on elevated bg; no gold (the ring owns the gold moment). */}
++      {justCompleted ? (
++        <Pressable
++          onPress={justCompleted.onCorrect}
++          accessibilityRole="button"
++          accessibilityLabel={`Corregir la serie recién hecha: ${justCompleted.label}${
++            justCompleted.target ? ` ${justCompleted.target.spoken}` : ''
++          }`}
++          style={({ pressed }) => [styles.doneRow, pressed && { opacity: 0.6 }]}
++        >
++          <Text style={styles.doneText} numberOfLines={1} maxFontSizeMultiplier={1.6}>
++            Hecho{doneTargetLine ? ` · ${doneTargetLine}` : ''} ·{' '}
++            <Text style={styles.doneCorrect}>Corregir</Text>
++          </Text>
++        </Pressable>
++      ) : null}
++
+       <View style={styles.actionsRow}>
+         <Pressable
+           onPress={handleExtend}
+@@ -284,6 +320,21 @@ const styles = StyleSheet.create({
+     ...Type.numMedium,
+     color: Colors.ink.tertiary,
+   },
++  doneRow: {
++    minHeight: 44,
++    justifyContent: 'center',
++    paddingVertical: Spacing.xs,
++    paddingHorizontal: Spacing.md,
++  },
++  doneText: {
++    ...Type.micro,
++    color: Colors.ink.tertiary,
++    fontVariant: ['tabular-nums'],
++  },
++  doneCorrect: {
++    color: Colors.ink.secondary,
++    fontWeight: '600',
++  },
+   actionsRow: {
+     flexDirection: 'row',
+     alignItems: 'center',
+diff --git a/src/components/workout/SetCorrectionSheet.tsx b/src/components/workout/SetCorrectionSheet.tsx
+index cb8501a..8da71f1 100644
+--- a/src/components/workout/SetCorrectionSheet.tsx
++++ b/src/components/workout/SetCorrectionSheet.tsx
+@@ -4,11 +4,11 @@
+ // main scoreboard. Same Modal + Reanimated sheet pattern as SetActionSheet —
+ // @gorhom/bottom-sheet isn't installed and adding it needs a native rebuild.
+ //
+-// Edits flow through the parent's draftValues (onChange) so closing the sheet
+-// and pressing HECHO commits exactly what the user saw. Metadata writes go
++// Edits flow through the parent's draftValues (onChange) so HECHO — here or on
++// the scoreboard — commits exactly what the user saw. Metadata writes go
+ // straight to the store (updateSetMetadata), mirroring SetActionSheet.
+ 
+-import React, { useCallback, useEffect, useState } from 'react';
++import React, { useCallback, useMemo, useState } from 'react';
+ import {
+   KeyboardAvoidingView,
+   Modal,
+@@ -32,6 +32,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ import * as Haptics from 'expo-haptics';
+ 
+ import SetInput from './SetInput';
++import { resolveSheetCommit } from '../../features/workout/scoreboard/commit';
++import { parseSpokenSet } from '../../features/workout/scoreboard/parseSpokenSet';
+ import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
+ import { useWorkoutStore } from '../../store/workoutStore';
+ import type { FieldDefinition, FieldValue, SetKind } from '../../types/core';
+@@ -49,6 +51,8 @@ interface Props {
+   accent: string;
+   tint: string;
+   onClose: () => void;
++  /** HECHO from the sheet: commit the draft + advance to rest (≤2 taps/set). */
++  onCommit: () => void;
+   /**
+    * Nested modal slot (PlateCalculator). iOS can't present two sibling RN
+    * Modals at once — nesting the inner Modal inside this one is the pattern
+@@ -80,6 +84,7 @@ function SetCorrectionSheetImpl({
+   accent,
+   tint,
+   onClose,
++  onCommit,
+   children,
+ }: Props) {
+   const insets = useSafeAreaInsets();
+@@ -96,14 +101,16 @@ function SetCorrectionSheetImpl({
+   // Per-open UI state, keyed by the target set instead of synced via effect:
+   // when the key doesn't match (fresh open / different set) the derived values
+   // fall back to defaults, so no reset effect is needed.
+-  const [ui, setUi] = useState<{ key: string | null; note: string; showMeta: boolean }>({
+-    key: null,
+-    note: '',
+-    showMeta: false,
+-  });
++  const [ui, setUi] = useState<{
++    key: string | null;
++    note: string;
++    showMeta: boolean;
++    quick: string;
++  }>({ key: null, note: '', showMeta: false, quick: '' });
+   const isCurrentUi = visible && ui.key === setId;
+   const noteDraft = isCurrentUi ? ui.note : (set?.notes ?? '');
+   const showMeta = isCurrentUi ? ui.showMeta : false;
++  const quick = isCurrentUi ? ui.quick : '';
+ 
+   const setNoteDraft = useCallback(
+     (text: string) => {
+@@ -111,14 +118,50 @@ function SetCorrectionSheetImpl({
+         key: setId,
+         note: text,
+         showMeta: prev.key === setId ? prev.showMeta : false,
++        quick: prev.key === setId ? prev.quick : '',
+       }));
+     },
+     [setId],
+   );
+ 
++  const storedNote = set?.notes ?? '';
++  const setQuick = useCallback(
++    (text: string) => {
++      setUi((prev) =>
++        prev.key === setId
++          ? { ...prev, quick: text }
++          : { key: setId, note: storedNote, showMeta: false, quick: text },
++      );
++    },
++    [setId, storedNote],
++  );
++
+   const kind: SetKind = set?.kind ?? 'working';
+   const rpe = set?.rpe;
+ 
++  // Quick entry → same pipeline as the numpad: values feed the parent's
++  // draftValues (onChange), so the giant target and HECHO already reflect what
++  // was dictated. RPE/nota go straight to the store like the pills below.
++  const handleQuickSubmit = useCallback(() => {
++    const parsed = parseSpokenSet(quick, fields);
++    if (!parsed.matched) {
++      // Soft "didn't get that" — keep the text so the user can fix a typo.
++      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
++      return;
++    }
++    Object.entries(parsed.values).forEach(([id, v]) => onChange(id, v));
++    if (parsed.rpe != null) updateSetMetadata(exerciseId, setId, { rpe: parsed.rpe });
++    if (parsed.note) updateSetMetadata(exerciseId, setId, { notes: parsed.note });
++    Haptics.selectionAsync().catch(() => {});
++    // Mirror the note into the draft so a later flushNote doesn't undo it.
++    setUi((prev) => ({
++      key: setId,
++      note: parsed.note ?? (prev.key === setId ? prev.note : storedNote),
++      showMeta: prev.key === setId ? prev.showMeta : false,
++      quick: '',
++    }));
++  }, [quick, fields, onChange, exerciseId, setId, updateSetMetadata, storedNote]);
++
+   const handleKind = useCallback(
+     (next: SetKind) => {
+       Haptics.selectionAsync().catch(() => {});
+@@ -147,10 +190,27 @@ function SetCorrectionSheetImpl({
+     onClose();
+   }, [flushNote, onClose]);
+ 
++  const handleCommit = useCallback(() => {
++    flushNote();
++    onCommit();
++  }, [flushNote, onCommit]);
++
++  // What HECHO will actually log — spoken so VoiceOver's hint matches the record.
++  const commitTarget = useMemo(
++    () => resolveSheetCommit({}, values, fields).target,
++    [values, fields],
++  );
++
+   const toggleMeta = useCallback(() => {
+     Haptics.selectionAsync().catch(() => {});
+-    setUi((prev) => ({ ...prev, showMeta: !prev.showMeta }));
+-  }, []);
++    // Key the state on first interaction — with a stale key the toggle would
++    // flip a value the render never reads (isCurrentUi is false).
++    setUi((prev) =>
++      prev.key === setId
++        ? { ...prev, showMeta: !prev.showMeta }
++        : { key: setId, note: storedNote, showMeta: true, quick: '' },
++    );
++  }, [setId, storedNote]);
+ 
+   const metaSummary =
+     (kind !== 'working' ? 1 : 0) + (rpe != null ? 1 : 0) + (noteDraft.length > 0 ? 1 : 0);
+@@ -190,6 +250,26 @@ function SetCorrectionSheetImpl({
+               showsVerticalScrollIndicator={false}
+               contentContainerStyle={styles.body}
+             >
++              {/* Quick entry — type (or, soon, dictate) the whole set in one
++                  line; parseSpokenSet routes it into the same draft the
++                  numpad edits. Optional: no autofocus, the numpad keeps the
++                  spotlight. */}
++              <View style={styles.quickWrap}>
++                <TextInput
++                  value={quick}
++                  onChangeText={setQuick}
++                  onSubmitEditing={handleQuickSubmit}
++                  returnKeyType="done"
++                  blurOnSubmit
++                  placeholder="Escribe la serie: 62.5 por 8"
++                  placeholderTextColor={Colors.ink.muted}
++                  autoCorrect={false}
++                  style={styles.quickInput}
++                  accessibilityLabel="Dictar o escribir la serie en lenguaje natural"
++                  accessibilityHint="Ejemplo: 62.5 por 8, rpe 9. Los valores rellenan los campos del set"
++                />
++              </View>
++
+               {/* The numpad, exactly as it exists — field chips + keys. */}
+               <SetInput
+                 fields={fields}
+@@ -298,15 +378,35 @@ function SetCorrectionSheetImpl({
+               ) : null}
+             </ScrollView>
+ 
+-            {/* Ink pill — Design v2 primary. Gold stays out of this sheet. */}
++            {/* Ink pill — Design v2 primary. Gold stays out of this sheet.
++                HECHO here commits the corrected draft in the same gesture,
++                collapsing corregir+completar from 3 taps to 2. */}
+             <Pressable
+-              onPress={handleClose}
++              onPress={handleCommit}
+               accessibilityRole="button"
+-              accessibilityLabel="Listo, volver al marcador"
++              accessibilityLabel="Guardar y completar la serie"
++              accessibilityHint={
++                commitTarget
++                  ? `Registra ${commitTarget.spoken} y pasa al descanso`
++                  : 'Registra la serie y pasa al descanso'
++              }
+               style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
+             >
+               <Text style={styles.ctaText} maxFontSizeMultiplier={1.4}>
+-                Listo
++                HECHO
++              </Text>
++            </Pressable>
++
++            {/* Escape hatch: open the sheet just to peek at RPE/nota without
++                logging the set. Scrim and handle cancel the same way. */}
++            <Pressable
++              onPress={handleClose}
++              accessibilityRole="button"
++              accessibilityLabel="Cerrar sin guardar la serie"
++              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.6 }]}
++            >
++              <Text style={styles.ghostText} maxFontSizeMultiplier={1.6}>
++                Cerrar sin guardar
+               </Text>
+             </Pressable>
+           </Animated.View>
+@@ -351,6 +451,18 @@ const styles = StyleSheet.create({
+   body: {
+     paddingBottom: Spacing.md,
+   },
++  quickWrap: {
++    backgroundColor: Colors.bg.elevated,
++    borderRadius: Radius.md,
++    paddingHorizontal: Spacing.md,
++    marginBottom: Spacing.sm,
++  },
++  quickInput: {
++    ...Type.body,
++    color: Colors.ink.primary,
++    minHeight: 44,
++    padding: 0,
++  },
+   metaToggle: {
+     minHeight: 44,
+     justifyContent: 'center',
+@@ -447,4 +559,16 @@ const styles = StyleSheet.create({
+     ...Type.subheading,
+     color: Colors.ink.inverse,
+   },
++  ghost: {
++    minHeight: 44,
++    justifyContent: 'center',
++    alignSelf: 'center',
++    paddingHorizontal: Spacing.md,
++    marginTop: Spacing.xs,
++  },
++  ghostText: {
++    ...Type.caption,
++    color: Colors.ink.tertiary,
++    fontWeight: '600',
++  },
+ });
+diff --git a/src/screens/ActiveWorkoutScreen.tsx b/src/screens/ActiveWorkoutScreen.tsx
+index e244503..e8e3614 100644
+--- a/src/screens/ActiveWorkoutScreen.tsx
++++ b/src/screens/ActiveWorkoutScreen.tsx
+@@ -37,7 +37,12 @@ import type { RootStackParamList } from '../types/navigation';
+ import type { ExerciseCard, FieldValue, FieldDefinition, Discipline } from '../types/core';
+ import { createExerciseCard } from '../types/core';
+ import { Colors, Type, Spacing, Radius, FontFamily } from '../theme/tokens';
++import PaperGrain from '../theme/Paper';
+ import { deriveScoreboardState, scoreboardStateKey } from '../features/workout/scoreboard/machine';
++import {
++  resolveJustCompleted,
++  type JustCompletedRef,
++} from '../features/workout/scoreboard/justCompleted';
+ import {
+   formatScoreboardTarget,
+   announceSetActive,
+@@ -123,6 +128,7 @@ export default function ActiveWorkoutScreen() {
+   const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
+   const startWorkout = useWorkoutStore((s) => s.startWorkout);
+   const completeSet = useWorkoutStore((s) => s.completeSet);
++  const editCompletedSetValues = useWorkoutStore((s) => s.editCompletedSetValues);
+   const skipRest = useWorkoutStore((s) => s.skipRest);
+   const extendRest = useWorkoutStore((s) => s.extendRest);
+   const setExerciseRestForCurrent = useWorkoutStore((s) => s.setExerciseRestForCurrent);
+@@ -143,9 +149,6 @@ export default function ActiveWorkoutScreen() {
+     }
+   }, [aw, blockId, assignmentId, scheduledDate, source, startWorkout]);
+ 
+-  // Mirror the session to the Live Activity / ongoing notification.
+-  useLiveActivitySync();
+-
+   // ===== session timer =====
+   // Keyed on startTime alone — keying on `aw` would tear the interval down
+   // on every store mutation (each set completion).
+@@ -165,6 +168,14 @@ export default function ActiveWorkoutScreen() {
+   const [showAdd, setShowAdd] = useState(false);
+   const [correctionOpen, setCorrectionOpen] = useState(false);
+   const [overviewOpen, setOverviewOpen] = useState(false);
++  // Rest-state correction of the JUST-completed set (BRIEF-03). Its own draft
++  // and its own sheet instance — mutually exclusive with the set-active sheet,
++  // so the two modals can never coexist.
++  const [restCorrection, setRestCorrection] = useState<{
++    exerciseId: string;
++    setId: string;
++  } | null>(null);
++  const [editDraft, setEditDraft] = useState<Record<string, FieldValue>>({});
+   const [calcOpen, setCalcOpen] = useState(false);
+   const [calcTarget, setCalcTarget] = useState(60);
+ 
+@@ -265,6 +276,19 @@ export default function ActiveWorkoutScreen() {
+     hasEnteredCurrentExercise: entered.has(currentExerciseIndex),
+   });
+   const stateKey = scoreboardStateKey(sbState, { currentExerciseIndex, currentSetIndex });
++  const resting = sbState.kind === 'resting';
++
++  // The set the user JUST finished — derived (most recent completed_at), never
++  // stored, so it survives exercise boundaries and needs no migration.
++  const awExercises = aw?.exercises;
++  const jc = useMemo(
++    () => (resting && awExercises ? resolveJustCompleted(awExercises) : null),
++    [resting, awExercises],
++  );
++
++  // Mirror the session onto the lock screen / Dynamic Island. Same machine, same
++  // formatter — the phone face-up on the bench IS the scoreboard.
++  useLiveActivitySync({ hasEnteredCurrentExercise: entered.has(currentExerciseIndex) });
+ 
+   // The scoreboard's giant value — draft-aware so a correction shows instantly.
+   const target = useMemo(() => {
+@@ -388,6 +412,30 @@ export default function ActiveWorkoutScreen() {
+     setCorrectionOpen(true);
+   }, []);
+ 
++  // ===== rest-state correction of the just-completed set =====
++  const openRestCorrection = useCallback((ref: JustCompletedRef) => {
++    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
++    setEditDraft({ ...ref.values });
++    setRestCorrection({ exerciseId: ref.exerciseId, setId: ref.setId });
++  }, []);
++
++  const handleEditDraftChange = useCallback((fieldId: string, value: FieldValue) => {
++    setEditDraft((prev) => ({ ...prev, [fieldId]: value }));
++  }, []);
++
++  const closeRestCorrection = useCallback(() => {
++    setRestCorrection(null);
++  }, []);
++
++  // Patch ONLY the values of the target set — completed/completed_at stay put,
++  // the rest countdown keeps running and the pointer doesn't move.
++  const commitRestCorrection = useCallback(() => {
++    if (!restCorrection) return;
++    editCompletedSetValues(restCorrection.exerciseId, restCorrection.setId, editDraft);
++    setRestCorrection(null);
++    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
++  }, [restCorrection, editDraft, editCompletedSetValues]);
++
+   const openOverview = useCallback(() => {
+     Haptics.selectionAsync().catch(() => {});
+     setOverviewOpen(true);
+@@ -487,9 +535,18 @@ export default function ActiveWorkoutScreen() {
+     );
+   }
+ 
+-  const resting = sbState.kind === 'resting';
+   const changing = sbState.kind === 'exercise-change';
+ 
++  // Live lookups for the rest-correction sheet — resolved from the store copy
++  // so the numpad + metadata target the exercise the ref points at, even when
++  // the pointer already moved to the next exercise.
++  const restCorrectionExercise = restCorrection
++    ? (aw.exercises.find((e) => e.id === restCorrection.exerciseId) ?? null)
++    : null;
++  const restCorrectionSetIndex = restCorrectionExercise
++    ? restCorrectionExercise.sets.findIndex((s) => s.id === restCorrection?.setId)
++    : -1;
++
+   // "Siguiente" peek during rest — indices already point at what comes next.
+   const nextLabel =
+     currentSetIndex > 0
+@@ -554,6 +611,15 @@ export default function ActiveWorkoutScreen() {
+                 nextTarget={target}
+                 currentRestSeconds={exercise.rest_seconds}
+                 onChangeRestSeconds={setExerciseRestForCurrent}
++                justCompleted={
++                  jc
++                    ? {
++                        label: jc.exerciseName,
++                        target: formatScoreboardTarget(jc.fields, jc.values),
++                        onCorrect: () => openRestCorrection(jc),
++                      }
++                    : undefined
++                }
+               />
+             </Animated.View>
+           ) : (
+@@ -649,6 +715,12 @@ export default function ActiveWorkoutScreen() {
+         </View>
+       ) : null}
+ 
++      {/* Paper fibre. Modo Sesión is presented as a fullScreenModal — iOS gives it
++          its own view controller ABOVE the navigator's PaperRoot, so it needs its
++          own grain or it would be the one screen printed on glass. Sheets render
++          after this node, so they stay crisp. */}
++      <PaperGrain />
++
+       {/* ── Layers ── */}
+       <SetCorrectionSheet
+         visible={correctionOpen}
+@@ -663,6 +735,12 @@ export default function ActiveWorkoutScreen() {
+         accent={Colors.discipline[exercise.discipline] ?? Colors.ink.primary}
+         tint={Colors.tint[exercise.discipline] ?? Colors.bg.elevated}
+         onClose={() => setCorrectionOpen(false)}
++        onCommit={() => {
++          // Same commit path as the scoreboard HECHO — merge, PR, rest.
++          handleCompleteSet();
++          setCorrectionOpen(false);
++          setCalcOpen(false);
++        }}
+       >
+         <PlateCalculator
+           visible={calcOpen}
+@@ -672,6 +750,32 @@ export default function ActiveWorkoutScreen() {
+         />
+       </SetCorrectionSheet>
+ 
++      {/* Second, dedicated correction sheet — patches the JUST-completed set
++          during rest via editCompletedSetValues (no completed_at, no restTimer,
++          no pointer moves). Mutually exclusive with the sheet above, so iOS
++          never sees two sibling modals. No PlateCalculator in this flow. */}
++      <SetCorrectionSheet
++        visible={restCorrection != null}
++        exerciseId={restCorrection?.exerciseId ?? ''}
++        setId={restCorrection?.setId ?? ''}
++        setIndex={Math.max(0, restCorrectionSetIndex)}
++        fields={restCorrectionExercise?.fields ?? []}
++        values={editDraft}
++        onChange={handleEditDraftChange}
++        accent={
++          restCorrectionExercise
++            ? (Colors.discipline[restCorrectionExercise.discipline] ?? Colors.ink.primary)
++            : Colors.ink.primary
++        }
++        tint={
++          restCorrectionExercise
++            ? (Colors.tint[restCorrectionExercise.discipline] ?? Colors.bg.elevated)
++            : Colors.bg.elevated
++        }
++        onClose={closeRestCorrection}
++        onCommit={commitRestCorrection}
++      />
++
+       <SessionOverviewSheet
+         visible={overviewOpen}
+         exercises={aw.exercises}
+@@ -694,9 +798,11 @@ export default function ActiveWorkoutScreen() {
+ }
+ 
+ const styles = StyleSheet.create({
++  // Warm paper, not lab white — and still legible at 2 m: the grain costs 0.1%
++  // of luminance, ink.primary on paper.base is 15.5:1 (§5.3).
+   screen: {
+     flex: 1,
+-    backgroundColor: Colors.bg.void,
++    backgroundColor: Colors.paper.base,
+   },
+   center: {
+     alignItems: 'center',
+diff --git a/src/store/workoutStore.ts b/src/store/workoutStore.ts
+index 009426a..b624d39 100644
+--- a/src/store/workoutStore.ts
++++ b/src/store/workoutStore.ts
+@@ -177,6 +177,16 @@ interface WorkoutState {
+     exerciseId: string,
+     goal: { goalWeight?: number; goalReps?: number },
+   ) => void;
++  /**
++   * Merge values onto an already-completed set (rest-state correction). Does
++   * NOT touch `completed`, `completed_at`, `restTimer` or the current indices —
++   * the rest countdown keeps running and the pointer stays put.
++   */
++  editCompletedSetValues: (
++    exerciseId: string,
++    setId: string,
++    values: Record<string, FieldValue>,
++  ) => void;
+   /**
+    * Patch metadata on a set inside the active workout (kind, rpe, notes).
+    * Passing `null` for `rpe` clears it; omitting a field leaves it unchanged.
+@@ -693,6 +703,22 @@ export const useWorkoutStore = create<WorkoutState>()(
+         });
+       },
+ 
++      editCompletedSetValues: (exerciseId, setId, values) => {
++        set((state) => {
++          if (!state.activeWorkout) return state;
++          const exercises = state.activeWorkout.exercises.map((ex) => {
++            if (ex.id !== exerciseId) return ex;
++            return {
++              ...ex,
++              sets: ex.sets.map((s) =>
++                s.id === setId ? { ...s, values: { ...s.values, ...values } } : s,
++              ),
++            };
++          });
++          return { activeWorkout: { ...state.activeWorkout, exercises } };
++        });
++      },
++
+       updateSetMetadata: (exerciseId, setId, patch) => {
+         set((state) => {
+           if (!state.activeWorkout) return state;
+diff --git a/tsconfig.json b/tsconfig.json
+index 06da3a0..ae099e8 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -15,6 +15,7 @@
+     ".expo",
+     "dist",
+     "build",
++    "docs",
+     "supabase/functions/**"
+   ]
+ }

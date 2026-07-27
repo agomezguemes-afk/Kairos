@@ -547,7 +547,7 @@ export default function FieldConfigSheet({
 
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: Colors.paper.scrim },
   sheet: {
     backgroundColor: Colors.background.surface,
     borderTopLeftRadius: Radius.xl,

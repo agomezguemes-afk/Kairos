@@ -6,6 +6,12 @@
 //   - endurance (pace/distance/calories) & everything else: carry forward the
 //     last value, no nudge.
 //
+// Extended (Phase 1 adaptive readiness, see docs/superpowers/specs/
+// 2026-07-23-adaptive-readiness-design.md): an optional AdaptationSignal can
+// scale/cap the RPE nudge — it never replaces it, never invents a nudge the
+// RPE data didn't produce, and is still pure deterministic arithmetic (no
+// ML). The RPE nudge itself is unchanged.
+//
 // The reference is the LAST completed set of the MOST RECENT session that has
 // completed data (mirrors the active-workout "última vez" resolver). Every
 // numeric field on that set that the exercise still defines is carried forward;
@@ -13,6 +19,7 @@
 
 import type { FieldDefinition } from '../../types/core';
 import { classifyModality } from './modality';
+import type { AdaptationSignal } from '../readiness/adaptiveEngine';
 import type { ExerciseHistory, HistoricalSet, SuggestedValues, SuggestionBasis } from './types';
 
 /** ±2.5 kg — the barbell's smallest honest jump; matches the strength step. */
@@ -38,6 +45,17 @@ function referenceSet(history: ExerciseHistory): HistoricalSet | null {
 }
 
 /**
+ * Adaptation can only dampen or block an RPE-driven increase when recovery
+ * is poor — it never invents an increase the RPE data didn't already
+ * support. See docs/superpowers/specs/2026-07-23-adaptive-readiness-design.md §6.2.
+ */
+export function applyAdaptationToNudge(nudgeKg: number, adaptation?: AdaptationSignal): number {
+  if (!adaptation) return nudgeKg;
+  if (nudgeKg > 0 && adaptation.value <= -0.5) return 0;
+  return nudgeKg;
+}
+
+/**
  * Suggest pre-fill values for one exercise from its history. Returns empty
  * `values`/`basis` (but a resolved `modality`) when there's no usable history —
  * the first-ever session has nothing to carry, and that's the honest answer.
@@ -45,6 +63,7 @@ function referenceSet(history: ExerciseHistory): HistoricalSet | null {
 export function suggestNextValues(
   fields: FieldDefinition[],
   history: ExerciseHistory,
+  adaptation?: AdaptationSignal,
 ): SuggestedValues {
   const modality = classifyModality(fields);
   const ref = referenceSet(history);
@@ -63,7 +82,7 @@ export function suggestNextValues(
     if (typeof last !== 'number') continue; // no history for this field
 
     if (field.id === 'weight' && nudgesWeight) {
-      const nudge = rpeNudgeKg(ref.rpe);
+      const nudge = applyAdaptationToNudge(rpeNudgeKg(ref.rpe), adaptation);
       const next = Math.max(0, last + nudge);
       values[field.id] = next;
       basis[field.id] = nudge > 0 ? 'nudge-up' : nudge < 0 ? 'nudge-down' : 'carry-forward';

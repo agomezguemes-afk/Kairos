@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, Type } from '../../../theme/tokens';
+import { springs } from '../../../theme/animations';
 import { Fonts } from '../../../theme/fonts';
 import KaiFace from '../premium/KaiFace';
 import {
@@ -384,7 +385,9 @@ export default function ManuscriptStep({
   const rule = useSharedValue(0);
   useEffect(() => {
     const target = pageH * (settledCount / SENTENCES.length);
-    rule.value = reduce ? target : withSpring(target, { damping: 22, stiffness: 120 });
+    // springs.ink: this rule IS ink running down the margin — it must not bounce
+    // (v3 §3e). Also retires an inline magic-number spring.
+    rule.value = reduce ? target : withSpring(target, springs.ink);
   }, [settledCount, pageH, rule, reduce]);
   const ruleStyle = useAnimatedStyle(() => ({ height: rule.value }));
 

@@ -95,7 +95,7 @@ export default function ChangeBlockPicker({ visible, assignmentId, date, onClose
 const styles = StyleSheet.create({
   scrim: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.32)',
+    backgroundColor: Colors.paper.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {

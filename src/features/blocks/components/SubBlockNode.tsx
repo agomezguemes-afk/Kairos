@@ -64,12 +64,11 @@ function SubBlockNodeInner({ node, onNavigate, onDelete }: SubBlockNodeProps) {
 export default React.memo(SubBlockNodeInner);
 
 const styles = StyleSheet.create({
+  // No border: white on warm paper (v3 §3a).
   card: {
     flexDirection: 'row',
-    backgroundColor: Colors.background.surface,
+    backgroundColor: Colors.paper.raised,
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border.warm,
     overflow: 'hidden',
     minWidth: 0,
     ...Shadows.subtle,

@@ -13,10 +13,11 @@
 import * as v from 'valibot';
 
 import type { Discipline } from '../../../types/core';
-import type { EquipmentTag, FitnessLevel } from '../../../types/profile';
+import type { FitnessLevel } from '../../../types/profile';
 import type { StarterAnswers, StarterDiscipline } from '../../routines/starterTemplates';
 // Type-only — see types.ts rationale.
 import type { GroqToolDefinition } from '../client';
+import { inferEquipmentMentions, resolveEquipment } from './equipment';
 import type { SessionBrief } from './types';
 
 // ======================== VALIBOT SCHEMA (boundary) ========================
@@ -83,7 +84,8 @@ export const BUILD_SESSION_TOOL: GroqToolDefinition = {
         equipment: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Material mencionado por el usuario (mancuernas, barra, esterilla…).',
+          description:
+            'Material que el usuario menciona tener o querer usar (mancuernas, barra, máquinas, bandas…). Solo lo que él diga; no inventes ni completes el material típico de un gimnasio.',
         },
         notes: { type: ['string', 'null'], description: 'Cualquier detalle extra relevante.' },
         closing: {
@@ -127,6 +129,12 @@ export function parseBriefArgs(
     location: raw.location ?? inferred.location,
     intensity: raw.intensity ?? inferred.intensity,
     equipment: raw.equipment && raw.equipment.length > 0 ? raw.equipment : inferred.equipment,
+    // The RESTRICTION always comes from the user's own words, never from the
+    // model's `equipment` array: a model that helpfully lists the kit of a
+    // typical gym would otherwise invent a restriction the user never asked for.
+    // Its words still ADD material (see resolveEquipment) — they just can't
+    // silence the barbell rack on their own.
+    equipmentPolicy: inferred.equipmentPolicy,
     notes: raw.notes ?? inferred.notes,
     title: '',
   };
@@ -295,26 +303,6 @@ function inferIntensity(text: string): SessionBrief['intensity'] {
   return 'normal';
 }
 
-function inferEquipment(text: string): string[] {
-  const t = normalize(text);
-  const found: string[] = [];
-  // Regex, not substring: a bare "barra" needle turns "barra de dominadas" into
-  // a barbell, and hands a home athlete a deadlift they can't do.
-  const map: [RegExp, string][] = [
-    [/mancuern/, 'mancuernas'],
-    [/dominad|barra fija/, 'barra de dominadas'],
-    [/\bbarra\b(?! de dominadas| fija)/, 'barra'],
-    [/kettlebell|pesa rusa/, 'kettlebell'],
-    [/banda/, 'bandas'],
-    [/esterilla/, 'esterilla'],
-    [/cuerda|comba/, 'cuerda de saltar'],
-  ];
-  for (const [pattern, label] of map) {
-    if (pattern.test(t) && !found.includes(label)) found.push(label);
-  }
-  return found;
-}
-
 /** Build a title from the inferred fields when the model gives none. */
 function deriveTitle(brief: SessionBrief): string {
   const DISCIPLINE_LABEL: Record<Discipline, string> = {
@@ -339,6 +327,9 @@ function deriveTitle(brief: SessionBrief): string {
 /** Deterministic brief from raw user text. Always returns a usable session. */
 export function inferBriefFromText(text: string): SessionBrief {
   const discipline = inferDiscipline(text);
+  // Material and its negations are read once, here: the words the user said are
+  // the only thing allowed to restrict the session (see equipment.ts).
+  const { policy, labels } = inferEquipmentMentions(text);
   const brief: SessionBrief = {
     title: '',
     discipline,
@@ -346,7 +337,8 @@ export function inferBriefFromText(text: string): SessionBrief {
     durationMin: inferDuration(text),
     location: inferLocation(text),
     intensity: inferIntensity(text),
-    equipment: inferEquipment(text),
+    equipment: labels,
+    equipmentPolicy: policy,
     notes: null,
   };
   brief.title = deriveTitle(brief);
@@ -366,38 +358,21 @@ const CORE_TO_STARTER: Record<Discipline, StarterDiscipline> = {
   general: 'hybrid',
 };
 
-// Regex, not substring: "barra de dominadas" is a pull-up bar and NOT a
-// barbell — the bare "barra" needle used to hand a home athlete a barbell.
-const EQUIPMENT_LABEL_TO_TAG: [RegExp, EquipmentTag][] = [
-  [/mancuern/, 'dumbbells'],
-  [/barra de dominadas|barra fija|dominad/, 'pull_up_bar'],
-  [/\bbarra\b(?! de dominadas)/, 'barbell_plates'],
-  [/kettlebell|pesa rusa/, 'kettlebell'],
-  [/banda|goma/, 'resistance_bands'],
-  [/esterilla|mat\b/, 'yoga_mat'],
-  [/cuerda|comba/, 'jump_rope'],
-];
-
 /**
- * Map a brief onto the curated-template inputs. Location drives the baseline
- * equipment set (a gym unlocks machines/barbell), then any explicit words the
- * user mentioned are layered on. Intensity nudges the level so a "suave"
- * session isn't over-prescribed and a "fuerte" one gets real volume.
+ * Map a brief onto the curated-template inputs. Equipment is resolved by the
+ * one rule that governs the whole loop (equipment.ts): the words the user said
+ * restrict; the location baseline only fills the silence. Intensity nudges the
+ * level so a "suave" session isn't over-prescribed and a "fuerte" one gets real
+ * volume.
+ *
+ * The starter templates degrade honestly under a restriction with no extra
+ * work: every gated option they carry is skipped when its tag is missing, and
+ * the last option of every slot is ungated — so a machines-only brief lands on
+ * prensa/press en máquina/remo en polea, and never on a barbell the user just
+ * ruled out.
  */
 export function briefToStarterAnswers(brief: SessionBrief): StarterAnswers {
-  const tags = new Set<EquipmentTag>();
-  if (brief.location === 'gym') {
-    tags.add('machines_full_gym');
-    tags.add('barbell_plates');
-    tags.add('dumbbells');
-  }
-  for (const word of brief.equipment) {
-    const w = word.toLowerCase();
-    for (const [pattern, tag] of EQUIPMENT_LABEL_TO_TAG) {
-      if (pattern.test(w)) tags.add(tag);
-    }
-  }
-  if (tags.size === 0) tags.add('bodyweight');
+  const { tags } = resolveEquipment(brief);
 
   const level: FitnessLevel =
     brief.intensity === 'suave'
@@ -410,6 +385,6 @@ export function briefToStarterAnswers(brief: SessionBrief): StarterAnswers {
     discipline: CORE_TO_STARTER[brief.discipline],
     level,
     frequency: 1, // one session for today — never the A/B split
-    equipment: [...tags],
+    equipment: tags,
   };
 }

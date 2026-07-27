@@ -28,6 +28,14 @@ export interface KaiInputs {
   hasActiveWorkout: boolean;
   /** Last matching session for the resolved block, if any. */
   lastSession: { setCount: number; targetSetCount: number } | null;
+  /** From the readiness engine's fused signal. Optional — undefined/null
+   *  when no biometric context is available, in which case this rule
+   *  never fires and every existing rule is unaffected. */
+  adaptation?: {
+    value: number;
+    confidence: 'low' | 'medium' | 'high';
+    dominant: 'recovery' | 'load' | 'adherence' | 'neutral';
+  } | null;
 }
 
 export function kaiSignal(i: KaiInputs): KaiSignal | null {
@@ -54,6 +62,20 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
       id: 'done',
       tone: 'celebrate',
       message: 'Sesión completada.',
+    };
+  }
+
+  if (
+    i.isToday &&
+    i.adaptation &&
+    i.adaptation.confidence !== 'low' &&
+    Math.abs(i.adaptation.value) > 0.5
+  ) {
+    const isLow = i.adaptation.value < 0;
+    return {
+      id: 'recovery-adjust',
+      tone: isLow ? 'focus' : 'progress',
+      message: recoveryAdjustMessage(i.adaptation.dominant, isLow ? 'low' : 'high'),
     };
   }
 
@@ -115,4 +137,17 @@ export function kaiSignal(i: KaiInputs): KaiSignal | null {
   }
 
   return null;
+}
+
+function recoveryAdjustMessage(
+  dominant: 'recovery' | 'load' | 'adherence' | 'neutral',
+  direction: 'low' | 'high',
+): string {
+  if (direction === 'low') {
+    if (dominant === 'recovery') return 'Tu recuperación real está baja. Hoy toca ir más suave.';
+    if (dominant === 'adherence') return 'Llevas unos días irregulares. Retoma con calma.';
+    return 'Carga acumulada alta. Considera bajar intensidad hoy.';
+  }
+  if (dominant === 'recovery') return 'Buena recuperación real. Hoy puedes exigirte.';
+  return 'Buen momento para empujar un poco más.';
 }

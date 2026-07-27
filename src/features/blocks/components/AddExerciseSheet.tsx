@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   },
   backdropOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: Colors.paper.scrim,
   },
   kav: {
     justifyContent: 'flex-end',

@@ -103,22 +103,22 @@ const styles = StyleSheet.create({
   frame: {
     overflow: 'hidden',
   },
+  // No border: white on warm paper already reads as a raised card (v3 §3a).
   frameStandard: {
-    backgroundColor: Colors.bg.surface,
+    backgroundColor: Colors.paper.raised,
     borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.hair.base,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     ...Shadows.subtle,
   },
+  // The shadow comes from Shadows.card — which is now warm (#4A3B28). The old
+  // local override (#1C1C1E, blue-black) is exactly the "digital" tell (§3f).
   frameHero: {
-    backgroundColor: Colors.bg.warm,
+    backgroundColor: Colors.paper.warm,
     borderRadius: Radius.xl,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
     ...Shadows.card,
-    shadowColor: '#1C1C1E',
   },
   frameActive: {
     borderWidth: 1,

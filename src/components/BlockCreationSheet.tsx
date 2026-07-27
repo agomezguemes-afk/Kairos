@@ -26,6 +26,7 @@ import { Colors, Typography, Spacing, Radius } from '../theme/index';
 import type { Discipline, BlockCover } from '../types/core';
 import { DISCIPLINE_CONFIGS } from '../types/core';
 import KairosIcon, { ICON_PICKER_OPTIONS } from './KairosIcon';
+import PressableScale from './PressableScale';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_H * 0.88;
@@ -403,15 +404,15 @@ export default function BlockCreationSheet({
               </View>
 
               {/* Create button */}
-              <Pressable
+              <PressableScale
                 onPress={handleCreate}
-                style={({ pressed }) => [
-                  styles.createBtn,
-                  { backgroundColor: color, opacity: pressed ? 0.85 : 1 },
-                ]}
+                haptic="success"
+                accessibilityRole="button"
+                accessibilityLabel="Crear bloque"
+                style={[styles.createBtn, { backgroundColor: color }]}
               >
                 <Text style={styles.createBtnText}>Crear bloque</Text>
-              </Pressable>
+              </PressableScale>
 
               <View style={{ height: 40 }} />
             </ScrollView>
@@ -427,7 +428,7 @@ export default function BlockCreationSheet({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: Colors.paper.scrimDeep,
   },
   sheet: {
     position: 'absolute',

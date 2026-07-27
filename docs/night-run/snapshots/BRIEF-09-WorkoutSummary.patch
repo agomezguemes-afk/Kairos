@@ -1,0 +1,202 @@
+diff --git a/src/components/workout/WorkoutSummary.tsx b/src/components/workout/WorkoutSummary.tsx
+index e0c19b4..9360a38 100644
+--- a/src/components/workout/WorkoutSummary.tsx
++++ b/src/components/workout/WorkoutSummary.tsx
+@@ -23,18 +23,19 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+ import { Feather } from '@expo/vector-icons';
+ 
+ import type { WorkoutHistoryEntry } from '../../store/workoutStore';
+-import { Colors, Type, Spacing, Radius } from '../../theme/tokens';
++import { Colors, Type, Spacing, Radius, Shadows, FontFamily } from '../../theme/tokens';
+ import {
+   compareToPrevious,
+   nextActionSuggestion,
+   type ComparisonResult,
+ } from './lib/summaryCompare';
+ import {
+-  detectPr,
+-  estimateOneRepMax,
+-  type ExerciseSessionPoint,
+-  type PrResult,
+-} from '../../lib/history/exerciseHistory';
++  fmtDuration,
++  signedDelta,
++  prDeltaLabel,
++  buildSessionPrs,
++  type SummaryPr,
++} from './lib/workoutSummaryModel';
+ import { useExerciseHistoryIndex } from '../../lib/history/useExerciseHistoryIndex';
+ import { lookupExerciseHistory } from '../../lib/history/exerciseHistory';
+ import { formatVolume } from '../../lib/stats/weekStats';
+@@ -46,27 +47,6 @@ interface Props {
+   onClose: () => void;
+ }
+ 
+-interface PrEntry {
+-  name: string;
+-  delta: number;
+-  kind: PrResult['kind'];
+-}
+-
+-function fmtDuration(sec: number): string {
+-  const m = Math.floor(sec / 60);
+-  const s = sec % 60;
+-  if (m === 0) return `${s}s`;
+-  if (s === 0) return `${m}m`;
+-  return `${m}m ${s.toString().padStart(2, '0')}s`;
+-}
+-
+-function signed(n: number, suffix: string): string {
+-  const rounded = Math.round(n);
+-  if (rounded > 0) return `+${rounded}${suffix}`;
+-  if (rounded < 0) return `−${Math.abs(rounded)}${suffix}`;
+-  return `0${suffix}`;
+-}
+-
+ // Color rule per spec: success when positive, muted when zero/negative.
+ function colorForDelta(n: number): string {
+   return n > 0.001 ? Colors.semantic.success : Colors.ink.muted;
+@@ -78,21 +58,6 @@ function colorForAdherence(a: number): string {
+   return Colors.ink.muted;
+ }
+ 
+-function prDeltaLabel(pr: PrEntry): string {
+-  const abs = formatVolume(Math.abs(pr.delta));
+-  const sign = pr.delta > 0 ? '+' : '−';
+-  switch (pr.kind) {
+-    case 'weight':
+-      return `${sign}${abs} kg`;
+-    case 'oneRm':
+-      return `${sign}${abs} kg 1RM`;
+-    case 'volume':
+-      return `${sign}${abs} kg vol.`;
+-    default:
+-      return '';
+-  }
+-}
+-
+ interface DeltaRowProps {
+   label: string;
+   value: string;
+@@ -116,50 +81,13 @@ export default function WorkoutSummary({ entry, history = [], onClose }: Props)
+   const suggestion = useMemo(() => nextActionSuggestion(comparison), [comparison]);
+   const historyIndex = useExerciseHistoryIndex();
+ 
+-  // PR detection across every exercise of the just-finished session.
+-  // The current entry is already in the index (finishWorkout persisted
+-  // before this render), so we filter it out by `at` to compare candidate
+-  // vs prior history — detectPr handles the same-at case defensively.
+-  const prs: PrEntry[] = useMemo(() => {
+-    const out: PrEntry[] = [];
+-    for (const ex of entry.exercises) {
+-      const performed = ex.performedSets ?? [];
+-      let topWeight: number | null = null;
+-      let topReps: number | null = null;
+-      let volume = 0;
+-      for (const s of performed) {
+-        if (!s.completed) continue;
+-        const w = s.weight ?? 0;
+-        const r = s.reps ?? 0;
+-        volume += w * r;
+-        if (s.weight != null && (topWeight == null || s.weight > topWeight)) {
+-          topWeight = s.weight;
+-          topReps = s.reps;
+-        }
+-      }
+-      if (topWeight == null && volume === 0) continue;
+-
+-      const candidate: ExerciseSessionPoint = {
+-        at: entry.endedAt,
+-        date: new Date(entry.endedAt).toISOString().slice(0, 10),
+-        topWeight,
+-        topReps,
+-        volume,
+-        setsCompleted: ex.setsCompleted,
+-        estimatedOneRm: estimateOneRepMax(topWeight, topReps),
+-        libraryId: ex.libraryId,
+-      };
+-      const exHistory = lookupExerciseHistory(
+-        { libraryId: ex.libraryId, name: ex.name },
+-        historyIndex,
+-      );
+-      const pr = detectPr(candidate, exHistory);
+-      if (pr.isPr && pr.kind && pr.delta > 0) {
+-        out.push({ name: ex.name, delta: pr.delta, kind: pr.kind });
+-      }
+-    }
+-    return out;
+-  }, [entry, historyIndex]);
++  // PR detection across every exercise of the just-finished session. The
++  // current entry is already in the index (finishWorkout persisted before this
++  // render), so detectPr filters it out by `at` — see buildSessionPrs.
++  const prs: SummaryPr[] = useMemo(
++    () => buildSessionPrs(entry, (ref) => lookupExerciseHistory(ref, historyIndex)),
++    [entry, historyIndex],
++  );
+ 
+   const showComparison = !!comparison.previous && !!comparison.delta;
+   const showAdherence = comparison.adherence != null;
+@@ -230,19 +158,19 @@ export default function WorkoutSummary({ entry, history = [], onClose }: Props)
+           <View style={styles.sectionCard}>
+             <DeltaRow
+               label="Volumen"
+-              value={signed(comparison.delta.volume, ' kg')}
++              value={signedDelta(comparison.delta.volume, ' kg')}
+               color={colorForDelta(comparison.delta.volume)}
+             />
+             <View style={styles.divider} />
+             <DeltaRow
+               label="Series completadas"
+-              value={signed(comparison.delta.sets, '')}
++              value={signedDelta(comparison.delta.sets, '')}
+               color={colorForDelta(comparison.delta.sets)}
+             />
+             <View style={styles.divider} />
+             <DeltaRow
+               label="Carga máx."
+-              value={signed(comparison.delta.maxWeight, ' kg')}
++              value={signedDelta(comparison.delta.maxWeight, ' kg')}
+               color={colorForDelta(comparison.delta.maxWeight)}
+             />
+           </View>
+@@ -296,7 +224,9 @@ function CellDivider() {
+ const styles = StyleSheet.create({
+   scroll: {
+     flex: 1,
+-    backgroundColor: Colors.bg.void,
++    // BRIEF-09 recommendation (Álvaro to approve/revert): was Colors.bg.void,
++    // a deprecated alias of paper.base — same hex (#FBF9F5), zero visual change.
++    backgroundColor: Colors.paper.base,
+   },
+   content: {
+     paddingHorizontal: Spacing.lg,
+@@ -309,8 +239,12 @@ const styles = StyleSheet.create({
+     color: Colors.gold.deep,
+     marginBottom: 6,
+   },
++  // Fraunces block name — echoes the serif marker of the session it closes.
+   title: {
+-    ...Type.heading,
++    fontFamily: FontFamily.serif,
++    fontSize: 26,
++    lineHeight: 30,
++    fontWeight: '600',
+     color: Colors.ink.primary,
+     marginBottom: Spacing.xl,
+   },
+@@ -433,12 +367,12 @@ const styles = StyleSheet.create({
+     color: Colors.ink.muted,
+     marginBottom: Spacing.xs,
+   },
++  // No border: white card on warm paper (v3 §3a). The shadow does the lifting.
+   sectionCard: {
+-    backgroundColor: Colors.bg.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.md,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
+     paddingHorizontal: Spacing.lg,
++    ...Shadows.subtle,
+   },
+   deltaRow: {
+     flexDirection: 'row',

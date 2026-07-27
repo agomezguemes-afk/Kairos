@@ -38,7 +38,10 @@ function PresentationStep({ name, reveal, onEnter }: PresentationStepProps) {
   // is the single moment in the flow that earns a notification-grade cue.
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    rise.value = reduce ? withTiming(1, { duration: 160 }) : withSpring(1, springs.celebrate);
+    // springs.paper, not springs.celebrate: this rise carries a card full of TEXT,
+    // and text that boings reads as a toy (v3 §3e). Paper lands with one soft
+    // bounce and settles — the weight of a page, not a spring toy.
+    rise.value = reduce ? withTiming(1, { duration: 160 }) : withSpring(1, springs.paper);
   }, [reduce, rise]);
 
   const cardStyle = useAnimatedStyle(() => ({

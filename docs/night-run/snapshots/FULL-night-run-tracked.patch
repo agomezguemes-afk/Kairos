@@ -1,0 +1,4391 @@
+diff --git a/App.tsx b/App.tsx
+index a6dab07..86a7794 100644
+--- a/App.tsx
++++ b/App.tsx
+@@ -9,6 +9,7 @@ import { GamificationProvider } from './src/context/GamificationContext';
+ import { TreeProvider } from './src/context/TreeContext';
+ import { MissionBridge } from './src/context/MissionBridge';
+ import { useAuthStore, startAuthListener } from './src/store/useAuthStore';
++import { seedSyntheticData } from './src/dev/seedSyntheticData';
+ import { ThemeProvider } from './src/theme/ThemeContext';
+ import FontGate from './src/theme/FontGate';
+ 
+@@ -20,6 +21,8 @@ function AppContent() {
+   useEffect(() => {
+     // Restore existing Supabase session from AsyncStorage and load profile
+     initialize();
++    // DEV demo data (no-op in release / when SEED_SYNTHETIC is off)
++    seedSyntheticData();
+     // Listen for auth state changes (sign-in, sign-out, token refresh)
+     const unsubscribe = startAuthListener();
+     return unsubscribe;
+diff --git a/app.config.ts b/app.config.ts
+index 548ac8a..2de44c6 100644
+--- a/app.config.ts
++++ b/app.config.ts
+@@ -94,6 +94,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
+       supportsTablet: true,
+       bundleIdentifier: variant.iosBundleId,
+       jsEngine: 'hermes',
++      infoPlist: {
++        // Without this key ActivityAuthorizationInfo().areActivitiesEnabled is
++        // false and Activity.request() throws — the Live Activity (the primary
++        // in-workout display: phone face-up on the bench, no unlocking) is dark.
++        // Only applied by `expo prebuild`; the checked-in ios/ project needs the
++        // same key added by hand. See docs/LIVE_ACTIVITY_SETUP.md.
++        NSSupportsLiveActivities: true,
++      },
+     },
+     android: {
+       adaptiveIcon: {
+diff --git a/assets/fonts/Fraunces_400Regular.ttf b/assets/fonts/Fraunces_400Regular.ttf
+index 50ef320..11c0f2b 100644
+Binary files a/assets/fonts/Fraunces_400Regular.ttf and b/assets/fonts/Fraunces_400Regular.ttf differ
+diff --git a/assets/fonts/Fraunces_400Regular_Italic.ttf b/assets/fonts/Fraunces_400Regular_Italic.ttf
+index aecc638..064dccc 100644
+Binary files a/assets/fonts/Fraunces_400Regular_Italic.ttf and b/assets/fonts/Fraunces_400Regular_Italic.ttf differ
+diff --git a/assets/fonts/Fraunces_500Medium.ttf b/assets/fonts/Fraunces_500Medium.ttf
+index 3cbf9a3..c25c926 100644
+Binary files a/assets/fonts/Fraunces_500Medium.ttf and b/assets/fonts/Fraunces_500Medium.ttf differ
+diff --git a/assets/fonts/Fraunces_600SemiBold.ttf b/assets/fonts/Fraunces_600SemiBold.ttf
+index 213795b..93343ab 100644
+Binary files a/assets/fonts/Fraunces_600SemiBold.ttf and b/assets/fonts/Fraunces_600SemiBold.ttf differ
+diff --git a/assets/fonts/Fraunces_600SemiBold_Italic.ttf b/assets/fonts/Fraunces_600SemiBold_Italic.ttf
+index 34009cc..205261c 100644
+Binary files a/assets/fonts/Fraunces_600SemiBold_Italic.ttf and b/assets/fonts/Fraunces_600SemiBold_Italic.ttf differ
+diff --git a/assets/fonts/Fraunces_700Bold.ttf b/assets/fonts/Fraunces_700Bold.ttf
+index 2db569e..7af8abc 100644
+Binary files a/assets/fonts/Fraunces_700Bold.ttf and b/assets/fonts/Fraunces_700Bold.ttf differ
+diff --git a/assets/fonts/Fraunces_900Black.ttf b/assets/fonts/Fraunces_900Black.ttf
+index 1a11d71..beb0cb5 100644
+Binary files a/assets/fonts/Fraunces_900Black.ttf and b/assets/fonts/Fraunces_900Black.ttf differ
+diff --git a/docs/LIVE_ACTIVITY_SETUP.md b/docs/LIVE_ACTIVITY_SETUP.md
+index 5c5a990..9f8c791 100644
+--- a/docs/LIVE_ACTIVITY_SETUP.md
++++ b/docs/LIVE_ACTIVITY_SETUP.md
+@@ -1,25 +1,40 @@
+ # Live Activity / Dynamic Island — manual setup steps
+ 
+-Everything that could be written without a device build is in the repo and
+-wired into the app. The JS side is a guaranteed no-op until the native module
+-links, so the app keeps building/running exactly as before until you do this.
++The Live Activity is the PRIMARY in-workout display (docs/INWORKOUT_GLANCE_MODE.md
++§5): the phone lies face-up on the bench, locked, and IS the scoreboard. All the
++code exists in the repo. The JS side is a guaranteed no-op until the native
++target links, so the app keeps building/running exactly as before until you do
++the steps below.
++
++**Status check (2026-07-14):** the widget extension target does **not** exist in
++`ios/Kairos.xcodeproj` yet (`grep -c WorkoutActivity ios/Kairos.xcodeproj/project.pbxproj`
++→ 0) and `NSSupportsLiveActivities` is not in `ios/Kairos/Info.plist`. Until both
++land, `isSupported()` returns false and every call is a silent no-op. Nothing has
++ever rendered on device.
+ 
+ ## What already exists
+ 
+ | Piece | Path | Status |
+ |---|---|---|
+-| Expo local module (iOS bridge, ActivityKit) | `modules/kairos-live-activity/ios/` | Autolinks on next `pod install` |
++| Pure payload derivation (snapshot → what the lock screen shows) | `src/lib/liveActivity/payload.ts` | Done, unit-tested |
++| Widget button → store (HECHO / +30 s / saltar) | `src/lib/liveActivity/widgetActions.ts` | Done, unit-tested |
++| Process-lifetime action bridge (survives an unmounted screen) | `src/lib/liveActivity/widgetBridge.ts` | Done |
++| Session → activity sync hook | `src/lib/liveActivity/useLiveActivitySync.ts` | Done, mounted in ActiveWorkoutScreen |
++| Expo local module (iOS bridge, ActivityKit + pending-tap queue) | `modules/kairos-live-activity/ios/` | Autolinks on next `pod install` |
+ | Expo local module (Android ongoing notification) | `modules/kairos-live-activity/android/` | Autolinks on next android build |
+ | Shared `ActivityAttributes` | `modules/kairos-live-activity/ios/WorkoutActivityAttributes.swift` | Needs widget target membership too |
+-| Widget extension UI (Island + Lock Screen) | `targets/WorkoutActivity/WorkoutLiveActivity.swift` | Needs the extension target |
+-| App Intents (Complete set / +30 s) | `targets/WorkoutActivity/WorkoutActivityIntents.swift` | Needs BOTH target memberships |
+-| JS API + workout sync hook | `modules/kairos-live-activity/index.ts`, `src/lib/liveActivity/useLiveActivitySync.ts` | Done, mounted in ActiveWorkoutScreen |
++| Widget extension UI (Lock Screen + Island) | `targets/WorkoutActivity/WorkoutLiveActivity.swift` | **Needs the extension target** |
++| App Intents (HECHO / +30 s / Saltar) | `targets/WorkoutActivity/WorkoutActivityIntents.swift` | **Needs BOTH target memberships** |
+ 
+-## iOS — steps (~20 min)
++## iOS — steps (~20 min, once)
+ 
+-1. **Link the local module** (no config needed — Expo SDK 54 autolinks `modules/`):
++`ios/` is checked in **and currently dirty with demo artifacts**, so
++`npx expo prebuild` (which would regenerate the project) is the wrong tool right
++now. Do it in Xcode.
++
++1. **Link the local module** (Expo SDK 54 autolinks `modules/`):
+    ```bash
+-   npx pod-install   # or: npx expo prebuild -p ios (if you regenerate ios/)
++   npx pod-install
+    ```
+ 
+ 2. **Enable Live Activities in the app's Info.plist** (`ios/Kairos/Info.plist`):
+@@ -27,65 +42,75 @@ links, so the app keeps building/running exactly as before until you do this.
+    <key>NSSupportsLiveActivities</key>
+    <true/>
+    ```
+-   (With prebuild/CNG instead: add `"infoPlist": { "NSSupportsLiveActivities": true }` under `ios` in app.json.)
+-
+-3. **Create the widget extension target** — two options:
++   (Already declared in `app.config.ts` under `ios.infoPlist`, so a future
++   `expo prebuild` writes it for you. The checked-in project needs it by hand.)
+ 
+-   **Option A (recommended): @bacons/apple-targets**
+-   ```bash
+-   npm i -D @bacons/apple-targets
+-   # app.json → "plugins": [ ..., "@bacons/apple-targets" ]
+-   npx expo prebuild -p ios
+-   ```
+-   The plugin reads `targets/WorkoutActivity/expo-target.config.js` and
+-   generates the target with the Swift sources in that folder.
+-
+-   **Option B: manual Xcode**
+-   - Xcode → File → New → Target… → *Widget Extension*, name `WorkoutActivity`,
+-     UNCHECK "Include Configuration App Intent". Deployment target **16.2**.
++3. **Create the widget extension target** — Xcode → File → New → Target… →
++   *Widget Extension*, name `WorkoutActivity`, **uncheck** "Include Configuration
++   App Intent", **check** "Include Live Activity". Deployment target **16.2**.
+    - Delete the template Swift files Xcode generated.
+    - Add `targets/WorkoutActivity/WorkoutLiveActivity.swift` and
+      `targets/WorkoutActivity/WorkoutActivityIntents.swift` to the extension.
+    - Replace the extension's Info.plist content with `targets/WorkoutActivity/Info.plist`.
+ 
+-4. **Fix target memberships** (File Inspector → Target Membership):
+-   - `WorkoutActivityAttributes.swift` (lives in the pod) → ALSO add to `WorkoutActivity`.
+-     Simplest: drag the file from `modules/kairos-live-activity/ios/` into the
+-     extension group with "Copy items" OFF and tick the extension target.
+-   - `WorkoutActivityIntents.swift` → tick BOTH `Kairos` and `WorkoutActivity`.
+-     (LiveActivityIntent runs in the app process — the app target must compile it.)
+-
+-5. **Build to the iPhone 12 Pro** (Dynamic Island requires 14 Pro+, but the
+-   Lock Screen Live Activity works on the 12 Pro):
++4. **Fix target memberships** (File Inspector → Target Membership) — this is where
++   it usually goes wrong:
++   - `WorkoutActivityAttributes.swift` lives in the **Pods** project, and target
++     membership can't cross projects. Drag it from
++     `modules/kairos-live-activity/ios/` into the extension's group in
++     `Kairos.xcodeproj` with **"Copy items" OFF**, and tick **only** the
++     `WorkoutActivity` target. The same source file is then compiled twice (pod +
++     extension) — that is intended: ActivityKit matches the activity to the UI by
++     the shape of `ContentState`, not by linkage.
++   - `WorkoutActivityIntents.swift` → tick **BOTH** `Kairos` and `WorkoutActivity`.
++     `LiveActivityIntent.perform()` runs in the APP process — that is precisely
++     what lets a lock-screen tap reach the Zustand store without unlocking, so the
++     app target must compile it.
++
++5. **Build to the iPhone 12 Pro.** The 12 Pro has **no Dynamic Island** — the Lock
++   Screen banner is the surface you'll see (and it's the one the mandate cares
++   about: phone face-up, locked).
+    ```bash
+    xcodebuild -workspace ios/Kairos.xcworkspace -scheme Kairos \
+      -configuration Release -destination 'id=00008101-00051D4C3C51003A' \
+      CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=FH6BYZT9F3
+    ```
+-
+-6. **Verify**: start a workout → lock the phone → Live Activity shows the
+-   exercise + set; complete a set in-app → rest countdown ticks without the
+-   app; tap "Completar serie" on the activity (iOS 17+) → the set logs.
++   Xcode will also want a signing identity for the new `WorkoutActivity` target
++   (bundle id `com.alvaro.kairos.dev.WorkoutActivity` — it must be a child of the
++   app's). Automatic signing handles it; no new entitlement is required (the
++   pending-tap queue deliberately uses the app's own `UserDefaults.standard`, not
++   an App Group, because the intents run in the app process).
++
++6. **Verify on device**:
++   - Start a session → lock the phone → the banner shows exercise, the giant
++     target ("60 kg × 6"), SERIE 2/4 and "Siguiente · …".
++   - Tap **HECHO** on the lock screen → the set logs, the rest countdown starts
++     and ticks **natively** (no app in front, screen still locked).
++   - Tap **+30 s** / **Saltar** during rest → the countdown reacts.
++   - When the rest expires with the app suspended, the banner flips by itself to
++     the next set's target (via `staleDate`) — no JS ran.
+ 
+ ## Android — steps (~5 min)
+ 
+-1. `npx expo prebuild -p android` (or just build — module autolinks).
+-2. Android 13+: the app must hold `POST_NOTIFICATIONS` runtime permission.
+-   The module's manifest declares it; request it from Profile → notifications
+-   toggle (already wired to `setNotificationsEnabled`) or accept the system
+-   prompt when the first notification posts.
+-3. Verify: start workout → ongoing silent notification with set counter;
+-   complete set → chronometer counts the rest down; the two action buttons
+-   work with the app in background.
+-
+-## Known limitations (deliberate tonight)
+-
+-- **No push-token updates**: the activity updates only while the app process
+-  is alive. Fine for workouts; remote updates need `pushType: .token` later.
+-- **Android is an app-posted notification, not a foreground Service** — it
+-  dies with the process. Upgrade path: move `postNotification` into a
+-  `Service` with `startForeground()` + `FOREGROUND_SERVICE_TYPE_HEALTH`
+-  (manifest: `android:foregroundServiceType="health"`).
++1. `npx expo prebuild -p android` (or just build — the module autolinks).
++2. Android 13+: the app must hold `POST_NOTIFICATIONS`. The module's manifest
++   declares it; grant it from Profile → notifications, or accept the system prompt.
++3. Verify: start workout → ongoing silent notification with the exercise, set
++   counter and target; during rest the chronometer counts down and the actions are
++   **+30 s** / **Saltar**; while lifting the action is **HECHO**.
++
++## Known limitations (deliberate)
++
++- **No push-token updates**: the activity updates only while the app process is
++  alive. Fine for workouts; remote updates need `pushType: .token` later.
++- **A tap can outlive the JS runtime.** iOS may relaunch a killed app to run the
++  intent, so the tap is queued in `UserDefaults` and flushed to JS the moment a
++  listener attaches (`OnStartObserving`) — after the store hydrates. Taps older
++  than 2 minutes (`MAX_WIDGET_ACTION_AGE_MS`) are discarded rather than applied,
++  because silently logging a set the user pressed long ago would corrupt the log.
++- **Android is an app-posted notification, not a foreground Service** — it dies
++  with the process. Upgrade path: `startForeground()` +
++  `FOREGROUND_SERVICE_TYPE_HEALTH`.
+ - **Rest-end alert while backgrounded** still depends on expo-notifications
+-  (adapter is stubbed in `src/lib/notifications/adapter.ts`); the Live
+-  Activity countdown covers the visual case meanwhile.
++  (`src/lib/notifications/adapter.ts`); the Live Activity countdown covers the
++  visual case meanwhile.
+diff --git a/ios/Kairos.xcodeproj/project.pbxproj b/ios/Kairos.xcodeproj/project.pbxproj
+index b7d5fce..db32d48 100644
+--- a/ios/Kairos.xcodeproj/project.pbxproj
++++ b/ios/Kairos.xcodeproj/project.pbxproj
+@@ -361,8 +361,8 @@
+ 					"-lc++",
+ 				);
+ 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+-				PRODUCT_BUNDLE_IDENTIFIER = "com.alvaro.kairos.dev";
+-				PRODUCT_NAME = "KairosDev";
++				PRODUCT_BUNDLE_IDENTIFIER = com.alvaro.kairos.dev;
++				PRODUCT_NAME = KairosDev;
+ 				SWIFT_OBJC_BRIDGING_HEADER = "Kairos/Kairos-Bridging-Header.h";
+ 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+ 				SWIFT_VERSION = 5.0;
+@@ -394,8 +394,8 @@
+ 					"-lc++",
+ 				);
+ 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+-				PRODUCT_BUNDLE_IDENTIFIER = "com.alvaro.kairos.dev";
+-				PRODUCT_NAME = "KairosDev";
++				PRODUCT_BUNDLE_IDENTIFIER = com.alvaro.kairos.dev;
++				PRODUCT_NAME = KairosDev;
+ 				SWIFT_OBJC_BRIDGING_HEADER = "Kairos/Kairos-Bridging-Header.h";
+ 				SWIFT_VERSION = 5.0;
+ 				TARGETED_DEVICE_FAMILY = "1,2";
+diff --git a/ios/Podfile.lock b/ios/Podfile.lock
+index 140d695..d7734e9 100644
+--- a/ios/Podfile.lock
++++ b/ios/Podfile.lock
+@@ -68,10 +68,14 @@ PODS:
+     - ReactCommon/turbomodule/core
+     - ReactNativeDependencies
+     - Yoga
++  - ExpoSecureStore (15.0.8):
++    - ExpoModulesCore
+   - FBLazyVector (0.81.5)
+   - hermes-engine (0.81.5):
+     - hermes-engine/Pre-built (= 0.81.5)
+   - hermes-engine/Pre-built (0.81.5)
++  - KairosLiveActivity (1.0.0):
++    - ExpoModulesCore
+   - RCTDeprecation (0.81.5)
+   - RCTRequired (0.81.5)
+   - RCTTypeSafety (0.81.5):
+@@ -2178,8 +2182,10 @@ DEPENDENCIES:
+   - ExpoKeepAwake (from `../node_modules/expo/node_modules/expo-keep-awake/ios`)
+   - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
+   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
++  - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
+   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
+   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
++  - KairosLiveActivity (from `../modules/kairos-live-activity/ios`)
+   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
+   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
+   - RCTTypeSafety (from `../node_modules/react-native/Libraries/TypeSafety`)
+@@ -2282,11 +2288,15 @@ EXTERNAL SOURCES:
+     :path: "../node_modules/expo-linear-gradient/ios"
+   ExpoModulesCore:
+     :path: "../node_modules/expo-modules-core"
++  ExpoSecureStore:
++    :path: "../node_modules/expo-secure-store/ios"
+   FBLazyVector:
+     :path: "../node_modules/react-native/Libraries/FBLazyVector"
+   hermes-engine:
+     :podspec: "../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
+     :tag: hermes-2025-07-07-RNv0.81.0-e0fc67142ec0763c6b6153ca2bf96df815539782
++  KairosLiveActivity:
++    :path: "../modules/kairos-live-activity/ios"
+   RCTDeprecation:
+     :path: "../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation"
+   RCTRequired:
+@@ -2451,8 +2461,10 @@ SPEC CHECKSUMS:
+   ExpoKeepAwake: 55f75eca6499bb9e4231ebad6f3e9cb8f99c0296
+   ExpoLinearGradient: 809102bdb979f590083af49f7fa4805cd931bd58
+   ExpoModulesCore: f3da4f1ab5a8375d0beafab763739dbee8446583
++  ExpoSecureStore: d32f751874a2ceb5aaeebeb3578e165c1ba2b24a
+   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12
+   hermes-engine: 9f4dfe93326146a1c99eb535b1cb0b857a3cd172
++  KairosLiveActivity: 7424b4a828aedfe070110d62699babf4418d2a91
+   RCTDeprecation: 943572d4be82d480a48f4884f670135ae30bf990
+   RCTRequired: 8f3cfc90cc25cf6e420ddb3e7caaaabc57df6043
+   RCTTypeSafety: 16a4144ca3f959583ab019b57d5633df10b5e97c
+diff --git a/modules/kairos-live-activity/android/src/main/java/expo/modules/kairosliveactivity/KairosLiveActivityModule.kt b/modules/kairos-live-activity/android/src/main/java/expo/modules/kairosliveactivity/KairosLiveActivityModule.kt
+index 605bbac..056a460 100644
+--- a/modules/kairos-live-activity/android/src/main/java/expo/modules/kairosliveactivity/KairosLiveActivityModule.kt
++++ b/modules/kairos-live-activity/android/src/main/java/expo/modules/kairosliveactivity/KairosLiveActivityModule.kt
+@@ -107,27 +107,22 @@ class KairosLiveActivityModule : Module() {
+     )
+   }
+ 
++  // Same payload contract as iOS (see modules/kairos-live-activity/index.ts):
++  // `targetLine` arrives pre-formatted by the JS scoreboard formatter, so no
++  // weight/reps assumption survives here either.
+   private fun postNotification(state: Map<String, Any?>) {
+     val exerciseName = state["exerciseName"] as? String ?: ""
+     val setIndex = (state["setIndex"] as? Number)?.toInt() ?: 1
+     val setTotal = (state["setTotal"] as? Number)?.toInt() ?: 1
+-    val targetWeight = (state["targetWeight"] as? Number)?.toDouble()
+-    val targetReps = (state["targetReps"] as? Number)?.toInt()
++    val targetLine = (state["targetLine"] as? String)?.takeIf { it.isNotBlank() }
++    val nextUp = (state["nextUp"] as? String)?.takeIf { it.isNotBlank() }
+     val restEndsAt = (state["restEndsAt"] as? Number)?.toLong()
+ 
+-    val target = buildString {
+-      if (targetWeight != null) append("${trim(targetWeight)} kg")
+-      if (targetReps != null) {
+-        if (isNotEmpty()) append(" × ")
+-        append("$targetReps")
+-      }
+-    }
+-
+     val resting = restEndsAt != null && restEndsAt > System.currentTimeMillis()
+     val title = if (resting) "Descanso · $exerciseName" else exerciseName
+     val text = buildString {
+       append("Serie $setIndex de $setTotal")
+-      if (target.isNotEmpty()) append(" · $target")
++      if (targetLine != null) append(" · $targetLine")
+     }
+ 
+     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+@@ -138,7 +133,10 @@ class KairosLiveActivityModule : Module() {
+       .setOnlyAlertOnce(true)
+       .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+       .setPriority(NotificationCompat.PRIORITY_LOW)
+-      .addAction(0, "Completar serie", actionIntent("completeSet", 1))
++
++    if (nextUp != null) {
++      builder.setSubText("Siguiente · $nextUp")
++    }
+ 
+     if (resting && restEndsAt != null) {
+       builder
+@@ -146,15 +144,15 @@ class KairosLiveActivityModule : Module() {
+         .setUsesChronometer(true)
+         .setChronometerCountDown(true)
+         .addAction(0, "+30 s", actionIntent("extendRest", 2))
++        .addAction(0, "Saltar", actionIntent("skipRest", 3))
++    } else {
++      builder.addAction(0, "HECHO", actionIntent("completeSet", 1))
+     }
+ 
+     // POST_NOTIFICATIONS may be denied on 13+; posting then throws a
+     // SecurityException — treat as a silent no-op like iOS does.
+     runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build()) }
+   }
+-
+-  private fun trim(value: Double): String =
+-    if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+ }
+ 
+ // Loops notification action taps back into the module's event stream. The
+diff --git a/modules/kairos-live-activity/index.ts b/modules/kairos-live-activity/index.ts
+index 87d437c..930b583 100644
+--- a/modules/kairos-live-activity/index.ts
++++ b/modules/kairos-live-activity/index.ts
+@@ -1,27 +1,45 @@
+ // JS API for the Kairos Live Activity native module.
+ //
+-// The native side is OPTIONAL by design: until the owner runs prebuild (and,
+-// for the Dynamic Island UI, adds the widget extension target) every call is
+-// a silent no-op. The app must never crash because the module isn't linked.
++// The native side is OPTIONAL by design: until the owner runs the native build
++// (and adds the widget extension target) every call is a silent no-op. The app
++// must never crash — or throw across this boundary — because the module isn't
++// linked, the user disabled Live Activities, or ActivityKit ran out of budget.
++//
++// The state shape here is the SAME contract as WorkoutActivityAttributes
++// .ContentState (Swift) and postNotification() (Kotlin). Change one, change all
++// three — ActivityKit matches the widget UI to the activity by the encoded
++// shape of ContentState.
+ 
+ import { requireOptionalNativeModule, NativeModule } from 'expo-modules-core';
+ 
+ export interface LiveActivityWorkoutState {
+   blockName: string;
+   exerciseName: string;
++  /** Pre-formatted giant target: "60 kg × 6", "5 km · 5:30 min/km". Null = none. */
++  targetLine: string | null;
+   /** 1-based index of the current set. */
+   setIndex: number;
+   setTotal: number;
+-  targetWeight: number | null;
+-  targetReps: number | null;
+-  /** Epoch ms when the running rest ends; null = not resting. */
++  /** Epoch ms. Both null unless a rest is actually running. */
++  restStartedAt: number | null;
+   restEndsAt: number | null;
++  /** "Siguiente" peek — next exercise, or the upcoming set during rest. */
++  nextUp: string | null;
++  /** Mirrors the scoreboard machine so the widget renders the same state. */
++  phase: 'set' | 'rest' | 'change';
+ }
+ 
+-export type WidgetAction = 'completeSet' | 'extendRest';
++export type WidgetAction = 'completeSet' | 'extendRest' | 'skipRest';
+ 
+ export interface WidgetActionEvent {
+   action: WidgetAction;
++  /**
++   * Epoch ms the button was tapped (iOS). The tap can outlive the JS runtime —
++   * an intent may relaunch a killed app — so the consumer drops stale actions
++   * instead of logging a set the user pressed 40 minutes ago. Absent on
++   * Android, where the broadcast only lands in a live process.
++   */
++  ts?: number;
+ }
+ 
+ type LiveActivityEvents = {
+@@ -50,8 +68,9 @@ export async function startWorkoutActivity(state: LiveActivityWorkoutState): Pro
+   try {
+     await native.startActivity(state);
+   } catch {
+-    // ActivityKit refusals (user disabled Live Activities, low power…) are
+-    // non-events for the workout flow.
++    // ActivityKit refusals (user disabled Live Activities, low power, budget
++    // exhausted…) are non-events for the workout flow: the phone screen keeps
++    // working. Never let the OS surface break the session.
+   }
+ }
+ 
+@@ -59,17 +78,37 @@ export async function updateWorkoutActivity(state: LiveActivityWorkoutState): Pr
+   if (!native) return;
+   try {
+     await native.updateActivity(state);
+-  } catch {}
++  } catch {
++    // Same contract as startWorkoutActivity: the mirror is best-effort.
++  }
+ }
+ 
+ export async function endWorkoutActivity(): Promise<void> {
+   if (!native) return;
+   try {
+     await native.endActivity();
+-  } catch {}
++  } catch {
++    // A stray activity that outlives the session is ended on the next start().
++  }
++}
++
++const WIDGET_ACTIONS: ReadonlySet<string> = new Set([
++  'completeSet',
++  'extendRest',
++  'skipRest',
++] satisfies WidgetAction[]);
++
++export function isWidgetAction(value: unknown): value is WidgetAction {
++  return typeof value === 'string' && WIDGET_ACTIONS.has(value);
+ }
+ 
+-/** Subscribe to taps on the Live Activity / notification action buttons. */
++/**
++ * Subscribe to taps on the Live Activity / notification buttons.
++ *
++ * iOS: the module flushes any actions queued while JS was absent as soon as the
++ * first listener attaches (OnStartObserving), so a tap that relaunched the app
++ * is delivered here — with its original `ts`.
++ */
+ export function addWidgetActionListener(listener: (e: WidgetActionEvent) => void): {
+   remove: () => void;
+ } {
+diff --git a/modules/kairos-live-activity/ios/KairosLiveActivityModule.swift b/modules/kairos-live-activity/ios/KairosLiveActivityModule.swift
+index c11577b..10ab203 100644
+--- a/modules/kairos-live-activity/ios/KairosLiveActivityModule.swift
++++ b/modules/kairos-live-activity/ios/KairosLiveActivityModule.swift
+@@ -1,9 +1,14 @@
+ // Expo module bridging the workout Live Activity.
+ //
+ // start/update/end are called from the RN workout flow. Widget App Intents
+-// (LiveActivityIntent runs IN the app process on iOS 17+) post
+-// `kairosWidgetAction` on NotificationCenter; we forward it to JS as the
+-// `onWidgetAction` event.
++// (LiveActivityIntent runs IN the app process on iOS 17+) enqueue the tap in
++// UserDefaults and post `KairosLiveActivityWidgetAction` on NotificationCenter;
++// we drain that queue and forward each tap to JS as `onWidgetAction`.
++//
++// Why a queue and not a bare notification: iOS may LAUNCH the app in the
++// background to run the intent. The notification would then fire before the JS
++// runtime has any listener, and the tap — the user's "HECHO" — would vanish.
++// The queue survives that: we flush it the moment JS starts observing.
+ 
+ import ExpoModulesCore
+ 
+@@ -11,10 +16,17 @@ import ExpoModulesCore
+ import ActivityKit
+ #endif
+ 
+-let kairosWidgetActionNotification = Notification.Name("KairosLiveActivityWidgetAction")
++// Contract shared with WorkoutActivityIntents.swift. NOT a shared symbol on
++// purpose: that file is compiled into the app target + the widget extension,
++// while this one is compiled into the KairosLiveActivity pod — three separate
++// Swift modules. They agree on a notification name and a UserDefaults key, the
++// same way WorkoutActivityAttributes agrees by shape rather than by linkage.
++private let kairosWidgetActionNotification = Notification.Name("KairosLiveActivityWidgetAction")
++private let kairosPendingActionsKey = "kairos.liveActivity.pendingActions"
+ 
+ public class KairosLiveActivityModule: Module {
+   private var observer: NSObjectProtocol?
++  private var isObservedByJS = false
+ 
+   public func definition() -> ModuleDefinition {
+     Name("KairosLiveActivity")
+@@ -26,12 +38,23 @@ public class KairosLiveActivityModule: Module {
+         forName: kairosWidgetActionNotification,
+         object: nil,
+         queue: .main
+-      ) { [weak self] note in
+-        guard let action = note.userInfo?["action"] as? String else { return }
+-        self?.sendEvent("onWidgetAction", ["action": action])
++      ) { [weak self] _ in
++        // The notification is a "wake up, there's something queued" ping; the
++        // queue is the single source of truth so a tap is delivered exactly
++        // once whether or not JS was listening when it happened.
++        self?.flushPendingActions()
+       }
+     }
+ 
++    OnStartObserving {
++      self.isObservedByJS = true
++      self.flushPendingActions()
++    }
++
++    OnStopObserving {
++      self.isObservedByJS = false
++    }
++
+     OnDestroy {
+       if let observer = self.observer {
+         NotificationCenter.default.removeObserver(observer)
+@@ -58,11 +81,11 @@ public class KairosLiveActivityModule: Module {
+         let attributes = WorkoutActivityAttributes(
+           blockName: state["blockName"] as? String ?? "Entrenamiento"
+         )
+-        let content = ActivityContent(
+-          state: Self.contentState(from: state),
+-          staleDate: nil
++        _ = try Activity.request(
++          attributes: attributes,
++          content: Self.content(from: state),
++          pushType: nil
+         )
+-        _ = try Activity.request(attributes: attributes, content: content, pushType: nil)
+       }
+       #endif
+     }
+@@ -70,10 +93,7 @@ public class KairosLiveActivityModule: Module {
+     AsyncFunction("updateActivity") { (state: [String: Any?]) in
+       #if canImport(ActivityKit)
+       if #available(iOS 16.2, *) {
+-        let content = ActivityContent(
+-          state: Self.contentState(from: state),
+-          staleDate: nil
+-        )
++        let content = Self.content(from: state)
+         for activity in Activity<WorkoutActivityAttributes>.activities {
+           await activity.update(content)
+         }
+@@ -92,23 +112,67 @@ public class KairosLiveActivityModule: Module {
+     }
+   }
+ 
++  /// Drain the durable queue written by the App Intents and hand each tap to JS.
++  /// No-op while JS has no listener — the taps stay queued for the next launch.
++  ///
++  /// The intents run in THIS process (LiveActivityIntent), so `.standard` is the
++  /// same defaults store they wrote to; no App Group entitlement is needed.
++  private func flushPendingActions() {
++    guard isObservedByJS else { return }
++    let defaults = UserDefaults.standard
++    guard
++      let queued = defaults.array(forKey: kairosPendingActionsKey) as? [[String: Any]],
++      !queued.isEmpty
++    else { return }
++    // Clear BEFORE dispatching: a tap must be delivered exactly once, and a
++    // crash mid-dispatch is better than a set logged twice.
++    defaults.removeObject(forKey: kairosPendingActionsKey)
++
++    for tap in queued {
++      guard let action = tap["action"] as? String else { continue }
++      var payload: [String: Any] = ["action": action]
++      if let ts = tap["ts"] as? Double { payload["ts"] = ts }
++      sendEvent("onWidgetAction", payload)
++    }
++  }
++
+   #if canImport(ActivityKit)
++  @available(iOS 16.2, *)
++  private static func content(
++    from state: [String: Any?]
++  ) -> ActivityContent<WorkoutActivityAttributes.ContentState> {
++    let contentState = Self.contentState(from: state)
++    // Rest end = the moment the displayed data stops being true. Handing it to
++    // ActivityKit as `staleDate` makes the system re-render the widget exactly
++    // then, so the countdown flips to the next set's target with the app
++    // suspended and no JS running.
++    return ActivityContent(state: contentState, staleDate: contentState.restEndsAt)
++  }
++
+   @available(iOS 16.2, *)
+   private static func contentState(
+     from state: [String: Any?]
+   ) -> WorkoutActivityAttributes.ContentState {
+-    var restEndsAt: Date?
+-    if let ms = state["restEndsAt"] as? Double, ms > 0 {
+-      restEndsAt = Date(timeIntervalSince1970: ms / 1000.0)
+-    }
++    let phase = WorkoutActivityAttributes.Phase(
++      rawValue: state["phase"] as? String ?? "set"
++    ) ?? .set
++
+     return WorkoutActivityAttributes.ContentState(
+       exerciseName: state["exerciseName"] as? String ?? "",
++      targetLine: state["targetLine"] as? String,
+       setIndex: state["setIndex"] as? Int ?? 1,
+       setTotal: state["setTotal"] as? Int ?? 1,
+-      targetWeight: state["targetWeight"] as? Double,
+-      targetReps: state["targetReps"] as? Int,
+-      restEndsAt: restEndsAt
++      restStartedAt: Self.date(from: state["restStartedAt"] ?? nil),
++      restEndsAt: Self.date(from: state["restEndsAt"] ?? nil),
++      nextUp: state["nextUp"] as? String,
++      phase: phase
+     )
+   }
++
++  /// Epoch milliseconds (JS `Date.now()`) → Date. Nil/0/negative = absent.
++  private static func date(from value: Any?) -> Date? {
++    guard let ms = (value as? NSNumber)?.doubleValue, ms > 0 else { return nil }
++    return Date(timeIntervalSince1970: ms / 1000.0)
++  }
+   #endif
+ }
+diff --git a/modules/kairos-live-activity/ios/WorkoutActivityAttributes.swift b/modules/kairos-live-activity/ios/WorkoutActivityAttributes.swift
+index fe6d741..f1d6048 100644
+--- a/modules/kairos-live-activity/ios/WorkoutActivityAttributes.swift
++++ b/modules/kairos-live-activity/ios/WorkoutActivityAttributes.swift
+@@ -7,6 +7,11 @@
+ // config's `sources` glob). ActivityKit matches the activity to the widget
+ // UI by this type's name and the encoded shape of ContentState, so the two
+ // targets must agree byte-for-byte.
++//
++// The state is a MIRROR of the JS scoreboard payload (src/lib/liveActivity/
++// payload.ts). Deliberately dumb: no weight/reps, no units, no formatting —
++// `targetLine` arrives pre-composed by the same formatter the phone screen
++// uses, so running/mobility/hybrid sessions render as correctly as strength.
+ 
+ import Foundation
+ 
+@@ -15,33 +20,60 @@ import ActivityKit
+ 
+ @available(iOS 16.2, *)
+ public struct WorkoutActivityAttributes: ActivityAttributes {
++  /// Scoreboard state, mirrored from features/workout/scoreboard/machine.ts.
++  public enum Phase: String, Codable, Hashable {
++    case set
++    case rest
++    case change
++  }
++
+   public struct ContentState: Codable, Hashable {
+     /// Current exercise display name.
+     public var exerciseName: String
++    /// The giant line: "60 kg × 6", "5 km · 5:30 min/km". Nil = no target.
++    public var targetLine: String?
+     /// 1-based current set.
+     public var setIndex: Int
+     public var setTotal: Int
+-    /// Planned weight for the current set (kg). Nil = bodyweight / no target.
+-    public var targetWeight: Double?
+-    public var targetReps: Int?
+-    /// When the active rest finishes. Nil = lifting, not resting.
++    /// Rest window. Both nil unless a rest is actually running — the pair lets
++    /// ProgressView(timerInterval:) draw the bar without JS ticking it.
++    public var restStartedAt: Date?
+     public var restEndsAt: Date?
++    /// "Siguiente" peek: next exercise, or the upcoming set during rest.
++    public var nextUp: String?
++    public var phase: Phase
+ 
+     public init(
+       exerciseName: String,
++      targetLine: String?,
+       setIndex: Int,
+       setTotal: Int,
+-      targetWeight: Double?,
+-      targetReps: Int?,
+-      restEndsAt: Date?
++      restStartedAt: Date?,
++      restEndsAt: Date?,
++      nextUp: String?,
++      phase: Phase
+     ) {
+       self.exerciseName = exerciseName
++      self.targetLine = targetLine
+       self.setIndex = setIndex
+       self.setTotal = setTotal
+-      self.targetWeight = targetWeight
+-      self.targetReps = targetReps
++      self.restStartedAt = restStartedAt
+       self.restEndsAt = restEndsAt
++      self.nextUp = nextUp
++      self.phase = phase
+     }
++
++    /// The rest window, when one is running and still in the future. Everything
++    /// in the UI keys off this: `nil` means "lifting", and it turns nil on its
++    /// own the moment the countdown expires — no JS round-trip required.
++    public var restInterval: ClosedRange<Date>? {
++      guard let start = restStartedAt, let end = restEndsAt, end > .now, start < end else {
++        return nil
++      }
++      return start...end
++    }
++
++    public var isResting: Bool { restInterval != nil }
+   }
+ 
+   /// Immutable for the lifetime of the session.
+diff --git a/src/Buttons/AnimatedButton.tsx b/src/Buttons/AnimatedButton.tsx
+index d74a16d..fbc0a52 100644
+--- a/src/Buttons/AnimatedButton.tsx
++++ b/src/Buttons/AnimatedButton.tsx
+@@ -9,7 +9,7 @@ import {
+   ActivityIndicator,
+   View,
+ } from 'react-native';
+-import { Colors, Typography, Radius } from '../theme/index';
++import { Colors, Typography, Radius, Shadows } from '../theme/index';
+ 
+ interface AnimatedButtonProps {
+   title: string;
+@@ -169,11 +169,8 @@ const styles = StyleSheet.create({
+     justifyContent: 'center',
+     flexDirection: 'row',
+     borderWidth: 1.5,
+-    shadowColor: '#000',
+-    shadowOffset: { width: 0, height: 2 },
+-    shadowOpacity: 0.06,
+-    shadowRadius: 4,
+-    elevation: 2,
++    // Warm shadow from the tokens — a black shadow on warm paper reads digital (§3f).
++    ...Shadows.subtle,
+   },
+   optionButton: {
+     paddingVertical: 16,
+diff --git a/src/components/BlockCreationSheet.tsx b/src/components/BlockCreationSheet.tsx
+index dbb1d63..6b59c38 100644
+--- a/src/components/BlockCreationSheet.tsx
++++ b/src/components/BlockCreationSheet.tsx
+@@ -427,7 +427,7 @@ export default function BlockCreationSheet({
+ const styles = StyleSheet.create({
+   backdrop: {
+     ...StyleSheet.absoluteFillObject,
+-    backgroundColor: 'rgba(0,0,0,0.72)',
++    backgroundColor: Colors.paper.scrimDeep,
+   },
+   sheet: {
+     position: 'absolute',
+diff --git a/src/components/CompletionCelebration.tsx b/src/components/CompletionCelebration.tsx
+index 5607196..a99af6a 100644
+--- a/src/components/CompletionCelebration.tsx
++++ b/src/components/CompletionCelebration.tsx
+@@ -70,7 +70,9 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
+   useEffect(() => {
+     if (!block) return;
+     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+-    cardScale.value = withSpring(1, springs.bouncy);
++    // Matter bounces once (springs.paper); the confetti carries the joy. The old
++    // springs.bouncy made the summary NUMBERS wobble — that's the toy tell (§3e).
++    cardScale.value = withSpring(1, springs.paper);
+     cardOpacity.value = withTiming(1, { duration: 280 });
+     const t = setTimeout(() => confettiRef.current?.burst(), 180);
+     return () => clearTimeout(t);
+@@ -319,7 +321,7 @@ function currentSessionFor(ex: ExerciseCard): {
+ const styles = StyleSheet.create({
+   backdrop: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.5)',
++    backgroundColor: Colors.paper.scrimDeep,
+     alignItems: 'center',
+     justifyContent: 'center',
+   },
+@@ -353,8 +355,10 @@ const styles = StyleSheet.create({
+     alignItems: 'baseline',
+     gap: 6,
+   },
++  // The number you earned, pressed into the warm card (§3f — ≥22pt only).
+   heroValue: {
+     ...Type.numHero,
++    ...Type.letterpress,
+     fontSize: 64,
+     lineHeight: 68,
+     color: Colors.ink.primary,
+diff --git a/src/components/ImportDataSheet.tsx b/src/components/ImportDataSheet.tsx
+index b00929c..d8ad02b 100644
+--- a/src/components/ImportDataSheet.tsx
++++ b/src/components/ImportDataSheet.tsx
+@@ -239,7 +239,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.38)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   kav: { justifyContent: 'flex-end' },
+diff --git a/src/components/KairosTabBar.tsx b/src/components/KairosTabBar.tsx
+index 1007916..bdc97c0 100644
+--- a/src/components/KairosTabBar.tsx
++++ b/src/components/KairosTabBar.tsx
+@@ -214,8 +214,11 @@ const styles = StyleSheet.create({
+     borderColor: Colors.hair.base,
+     ...Shadows.elevated,
+   },
++  // The capsule KEEPS its hairline: it floats over scrolling content, and a
++  // white card passing underneath would otherwise erase its edge (§3f allows a
++  // rim on floating chrome — what we killed are card PERIMETERS).
+   warmOverlay: {
+-    backgroundColor: 'rgba(255,255,255,0.72)',
++    backgroundColor: Colors.paper.veil,
+     borderRadius: Radius['3xl'],
+   },
+   pill: {
+diff --git a/src/components/QuotaExceededSheet.tsx b/src/components/QuotaExceededSheet.tsx
+index 9d2576a..600f106 100644
+--- a/src/components/QuotaExceededSheet.tsx
++++ b/src/components/QuotaExceededSheet.tsx
+@@ -180,7 +180,7 @@ function BulletRow({ icon, text }: { icon: keyof typeof Feather.glyphMap; text:
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.38)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   sheet: {
+diff --git a/src/components/workout/PlateCalculator.tsx b/src/components/workout/PlateCalculator.tsx
+index 650c7eb..88fde05 100644
+--- a/src/components/workout/PlateCalculator.tsx
++++ b/src/components/workout/PlateCalculator.tsx
+@@ -312,7 +312,7 @@ function stripZero(n: number): string {
+ // ─── Styles ─────────────────────────────────────────────────────────────
+ 
+ const styles = StyleSheet.create({
+-  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.32)', justifyContent: 'flex-end' },
++  scrim: { flex: 1, backgroundColor: Colors.paper.scrim, justifyContent: 'flex-end' },
+   sheet: {
+     backgroundColor: Colors.bg.surface,
+     borderTopLeftRadius: Radius['2xl'],
+diff --git a/src/components/workout/RestScoreboard.tsx b/src/components/workout/RestScoreboard.tsx
+index 3285486..2188be1 100644
+--- a/src/components/workout/RestScoreboard.tsx
++++ b/src/components/workout/RestScoreboard.tsx
+@@ -30,6 +30,16 @@ interface Props {
+   /** Rest target for the current exercise — powers the −15/+15 tuning row. */
+   currentRestSeconds?: number;
+   onChangeRestSeconds?: (newRestSeconds: number) => void;
++  /**
++   * Echo of the just-completed set — "Hecho · 60 kg × 8 · Corregir". Sober
++   * (no gold: the gold is the ring's); tapping opens the correction sheet
++   * for THAT set without restarting the countdown.
++   */
++  justCompleted?: {
++    label: string;
++    target: FormattedTarget | null;
++    onCorrect: () => void;
++  };
+ }
+ 
+ const TICK_MS = 250;
+@@ -51,6 +61,7 @@ function RestScoreboardImpl({
+   nextTarget,
+   currentRestSeconds,
+   onChangeRestSeconds,
++  justCompleted,
+ }: Props) {
+   const reduceMotion = useReducedMotion();
+   const [now, setNow] = useState(() => Date.now());
+@@ -106,6 +117,13 @@ function RestScoreboardImpl({
+           .join(` ${nextTarget.separator} `)
+       : null;
+ 
++  const doneTargetLine =
++    justCompleted?.target != null
++      ? justCompleted.target.segments
++          .map((s) => (s.unit ? `${s.value} ${s.unit}` : s.value))
++          .join(` ${justCompleted.target.separator} `)
++      : null;
++
+   return (
+     <View style={styles.wrap}>
+       <Text style={styles.label} accessibilityRole="text">
+@@ -173,6 +191,24 @@ function RestScoreboardImpl({
+         </View>
+       ) : null}
+ 
++      {/* Echo of the just-completed set — the fix-it-when-you-notice-it row.
++          Sober ink on elevated bg; no gold (the ring owns the gold moment). */}
++      {justCompleted ? (
++        <Pressable
++          onPress={justCompleted.onCorrect}
++          accessibilityRole="button"
++          accessibilityLabel={`Corregir la serie recién hecha: ${justCompleted.label}${
++            justCompleted.target ? ` ${justCompleted.target.spoken}` : ''
++          }`}
++          style={({ pressed }) => [styles.doneRow, pressed && { opacity: 0.6 }]}
++        >
++          <Text style={styles.doneText} numberOfLines={1} maxFontSizeMultiplier={1.6}>
++            Hecho{doneTargetLine ? ` · ${doneTargetLine}` : ''} ·{' '}
++            <Text style={styles.doneCorrect}>Corregir</Text>
++          </Text>
++        </Pressable>
++      ) : null}
++
+       <View style={styles.actionsRow}>
+         <Pressable
+           onPress={handleExtend}
+@@ -284,6 +320,21 @@ const styles = StyleSheet.create({
+     ...Type.numMedium,
+     color: Colors.ink.tertiary,
+   },
++  doneRow: {
++    minHeight: 44,
++    justifyContent: 'center',
++    paddingVertical: Spacing.xs,
++    paddingHorizontal: Spacing.md,
++  },
++  doneText: {
++    ...Type.micro,
++    color: Colors.ink.tertiary,
++    fontVariant: ['tabular-nums'],
++  },
++  doneCorrect: {
++    color: Colors.ink.secondary,
++    fontWeight: '600',
++  },
+   actionsRow: {
+     flexDirection: 'row',
+     alignItems: 'center',
+diff --git a/src/components/workout/SetActionSheet.tsx b/src/components/workout/SetActionSheet.tsx
+index 4aace98..1b40195 100644
+--- a/src/components/workout/SetActionSheet.tsx
++++ b/src/components/workout/SetActionSheet.tsx
+@@ -267,7 +267,7 @@ export default function SetActionSheet({ visible, exerciseId, setId, onClose }:
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.32)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   sheet: {
+diff --git a/src/components/workout/SetCorrectionSheet.tsx b/src/components/workout/SetCorrectionSheet.tsx
+index cb8501a..8da71f1 100644
+--- a/src/components/workout/SetCorrectionSheet.tsx
++++ b/src/components/workout/SetCorrectionSheet.tsx
+@@ -4,11 +4,11 @@
+ // main scoreboard. Same Modal + Reanimated sheet pattern as SetActionSheet —
+ // @gorhom/bottom-sheet isn't installed and adding it needs a native rebuild.
+ //
+-// Edits flow through the parent's draftValues (onChange) so closing the sheet
+-// and pressing HECHO commits exactly what the user saw. Metadata writes go
++// Edits flow through the parent's draftValues (onChange) so HECHO — here or on
++// the scoreboard — commits exactly what the user saw. Metadata writes go
+ // straight to the store (updateSetMetadata), mirroring SetActionSheet.
+ 
+-import React, { useCallback, useEffect, useState } from 'react';
++import React, { useCallback, useMemo, useState } from 'react';
+ import {
+   KeyboardAvoidingView,
+   Modal,
+@@ -32,6 +32,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ import * as Haptics from 'expo-haptics';
+ 
+ import SetInput from './SetInput';
++import { resolveSheetCommit } from '../../features/workout/scoreboard/commit';
++import { parseSpokenSet } from '../../features/workout/scoreboard/parseSpokenSet';
+ import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
+ import { useWorkoutStore } from '../../store/workoutStore';
+ import type { FieldDefinition, FieldValue, SetKind } from '../../types/core';
+@@ -49,6 +51,8 @@ interface Props {
+   accent: string;
+   tint: string;
+   onClose: () => void;
++  /** HECHO from the sheet: commit the draft + advance to rest (≤2 taps/set). */
++  onCommit: () => void;
+   /**
+    * Nested modal slot (PlateCalculator). iOS can't present two sibling RN
+    * Modals at once — nesting the inner Modal inside this one is the pattern
+@@ -80,6 +84,7 @@ function SetCorrectionSheetImpl({
+   accent,
+   tint,
+   onClose,
++  onCommit,
+   children,
+ }: Props) {
+   const insets = useSafeAreaInsets();
+@@ -96,14 +101,16 @@ function SetCorrectionSheetImpl({
+   // Per-open UI state, keyed by the target set instead of synced via effect:
+   // when the key doesn't match (fresh open / different set) the derived values
+   // fall back to defaults, so no reset effect is needed.
+-  const [ui, setUi] = useState<{ key: string | null; note: string; showMeta: boolean }>({
+-    key: null,
+-    note: '',
+-    showMeta: false,
+-  });
++  const [ui, setUi] = useState<{
++    key: string | null;
++    note: string;
++    showMeta: boolean;
++    quick: string;
++  }>({ key: null, note: '', showMeta: false, quick: '' });
+   const isCurrentUi = visible && ui.key === setId;
+   const noteDraft = isCurrentUi ? ui.note : (set?.notes ?? '');
+   const showMeta = isCurrentUi ? ui.showMeta : false;
++  const quick = isCurrentUi ? ui.quick : '';
+ 
+   const setNoteDraft = useCallback(
+     (text: string) => {
+@@ -111,14 +118,50 @@ function SetCorrectionSheetImpl({
+         key: setId,
+         note: text,
+         showMeta: prev.key === setId ? prev.showMeta : false,
++        quick: prev.key === setId ? prev.quick : '',
+       }));
+     },
+     [setId],
+   );
+ 
++  const storedNote = set?.notes ?? '';
++  const setQuick = useCallback(
++    (text: string) => {
++      setUi((prev) =>
++        prev.key === setId
++          ? { ...prev, quick: text }
++          : { key: setId, note: storedNote, showMeta: false, quick: text },
++      );
++    },
++    [setId, storedNote],
++  );
++
+   const kind: SetKind = set?.kind ?? 'working';
+   const rpe = set?.rpe;
+ 
++  // Quick entry → same pipeline as the numpad: values feed the parent's
++  // draftValues (onChange), so the giant target and HECHO already reflect what
++  // was dictated. RPE/nota go straight to the store like the pills below.
++  const handleQuickSubmit = useCallback(() => {
++    const parsed = parseSpokenSet(quick, fields);
++    if (!parsed.matched) {
++      // Soft "didn't get that" — keep the text so the user can fix a typo.
++      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
++      return;
++    }
++    Object.entries(parsed.values).forEach(([id, v]) => onChange(id, v));
++    if (parsed.rpe != null) updateSetMetadata(exerciseId, setId, { rpe: parsed.rpe });
++    if (parsed.note) updateSetMetadata(exerciseId, setId, { notes: parsed.note });
++    Haptics.selectionAsync().catch(() => {});
++    // Mirror the note into the draft so a later flushNote doesn't undo it.
++    setUi((prev) => ({
++      key: setId,
++      note: parsed.note ?? (prev.key === setId ? prev.note : storedNote),
++      showMeta: prev.key === setId ? prev.showMeta : false,
++      quick: '',
++    }));
++  }, [quick, fields, onChange, exerciseId, setId, updateSetMetadata, storedNote]);
++
+   const handleKind = useCallback(
+     (next: SetKind) => {
+       Haptics.selectionAsync().catch(() => {});
+@@ -147,10 +190,27 @@ function SetCorrectionSheetImpl({
+     onClose();
+   }, [flushNote, onClose]);
+ 
++  const handleCommit = useCallback(() => {
++    flushNote();
++    onCommit();
++  }, [flushNote, onCommit]);
++
++  // What HECHO will actually log — spoken so VoiceOver's hint matches the record.
++  const commitTarget = useMemo(
++    () => resolveSheetCommit({}, values, fields).target,
++    [values, fields],
++  );
++
+   const toggleMeta = useCallback(() => {
+     Haptics.selectionAsync().catch(() => {});
+-    setUi((prev) => ({ ...prev, showMeta: !prev.showMeta }));
+-  }, []);
++    // Key the state on first interaction — with a stale key the toggle would
++    // flip a value the render never reads (isCurrentUi is false).
++    setUi((prev) =>
++      prev.key === setId
++        ? { ...prev, showMeta: !prev.showMeta }
++        : { key: setId, note: storedNote, showMeta: true, quick: '' },
++    );
++  }, [setId, storedNote]);
+ 
+   const metaSummary =
+     (kind !== 'working' ? 1 : 0) + (rpe != null ? 1 : 0) + (noteDraft.length > 0 ? 1 : 0);
+@@ -190,6 +250,26 @@ function SetCorrectionSheetImpl({
+               showsVerticalScrollIndicator={false}
+               contentContainerStyle={styles.body}
+             >
++              {/* Quick entry — type (or, soon, dictate) the whole set in one
++                  line; parseSpokenSet routes it into the same draft the
++                  numpad edits. Optional: no autofocus, the numpad keeps the
++                  spotlight. */}
++              <View style={styles.quickWrap}>
++                <TextInput
++                  value={quick}
++                  onChangeText={setQuick}
++                  onSubmitEditing={handleQuickSubmit}
++                  returnKeyType="done"
++                  blurOnSubmit
++                  placeholder="Escribe la serie: 62.5 por 8"
++                  placeholderTextColor={Colors.ink.muted}
++                  autoCorrect={false}
++                  style={styles.quickInput}
++                  accessibilityLabel="Dictar o escribir la serie en lenguaje natural"
++                  accessibilityHint="Ejemplo: 62.5 por 8, rpe 9. Los valores rellenan los campos del set"
++                />
++              </View>
++
+               {/* The numpad, exactly as it exists — field chips + keys. */}
+               <SetInput
+                 fields={fields}
+@@ -298,15 +378,35 @@ function SetCorrectionSheetImpl({
+               ) : null}
+             </ScrollView>
+ 
+-            {/* Ink pill — Design v2 primary. Gold stays out of this sheet. */}
++            {/* Ink pill — Design v2 primary. Gold stays out of this sheet.
++                HECHO here commits the corrected draft in the same gesture,
++                collapsing corregir+completar from 3 taps to 2. */}
+             <Pressable
+-              onPress={handleClose}
++              onPress={handleCommit}
+               accessibilityRole="button"
+-              accessibilityLabel="Listo, volver al marcador"
++              accessibilityLabel="Guardar y completar la serie"
++              accessibilityHint={
++                commitTarget
++                  ? `Registra ${commitTarget.spoken} y pasa al descanso`
++                  : 'Registra la serie y pasa al descanso'
++              }
+               style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
+             >
+               <Text style={styles.ctaText} maxFontSizeMultiplier={1.4}>
+-                Listo
++                HECHO
++              </Text>
++            </Pressable>
++
++            {/* Escape hatch: open the sheet just to peek at RPE/nota without
++                logging the set. Scrim and handle cancel the same way. */}
++            <Pressable
++              onPress={handleClose}
++              accessibilityRole="button"
++              accessibilityLabel="Cerrar sin guardar la serie"
++              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.6 }]}
++            >
++              <Text style={styles.ghostText} maxFontSizeMultiplier={1.6}>
++                Cerrar sin guardar
+               </Text>
+             </Pressable>
+           </Animated.View>
+@@ -351,6 +451,18 @@ const styles = StyleSheet.create({
+   body: {
+     paddingBottom: Spacing.md,
+   },
++  quickWrap: {
++    backgroundColor: Colors.bg.elevated,
++    borderRadius: Radius.md,
++    paddingHorizontal: Spacing.md,
++    marginBottom: Spacing.sm,
++  },
++  quickInput: {
++    ...Type.body,
++    color: Colors.ink.primary,
++    minHeight: 44,
++    padding: 0,
++  },
+   metaToggle: {
+     minHeight: 44,
+     justifyContent: 'center',
+@@ -447,4 +559,16 @@ const styles = StyleSheet.create({
+     ...Type.subheading,
+     color: Colors.ink.inverse,
+   },
++  ghost: {
++    minHeight: 44,
++    justifyContent: 'center',
++    alignSelf: 'center',
++    paddingHorizontal: Spacing.md,
++    marginTop: Spacing.xs,
++  },
++  ghostText: {
++    ...Type.caption,
++    color: Colors.ink.tertiary,
++    fontWeight: '600',
++  },
+ });
+diff --git a/src/components/workout/WorkoutSummary.tsx b/src/components/workout/WorkoutSummary.tsx
+index e0c19b4..63488a5 100644
+--- a/src/components/workout/WorkoutSummary.tsx
++++ b/src/components/workout/WorkoutSummary.tsx
+@@ -23,7 +23,7 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+ import { Feather } from '@expo/vector-icons';
+ 
+ import type { WorkoutHistoryEntry } from '../../store/workoutStore';
+-import { Colors, Type, Spacing, Radius } from '../../theme/tokens';
++import { Colors, Type, Spacing, Radius, Shadows } from '../../theme/tokens';
+ import {
+   compareToPrevious,
+   nextActionSuggestion,
+@@ -433,12 +433,12 @@ const styles = StyleSheet.create({
+     color: Colors.ink.muted,
+     marginBottom: Spacing.xs,
+   },
++  // No border: white card on warm paper (v3 §3a). The shadow does the lifting.
+   sectionCard: {
+-    backgroundColor: Colors.bg.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.md,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
+     paddingHorizontal: Spacing.lg,
++    ...Shadows.subtle,
+   },
+   deltaRow: {
+     flexDirection: 'row',
+diff --git a/src/features/blocks/BlocksScreen.tsx b/src/features/blocks/BlocksScreen.tsx
+index 5a73419..b30a795 100644
+--- a/src/features/blocks/BlocksScreen.tsx
++++ b/src/features/blocks/BlocksScreen.tsx
+@@ -317,7 +317,9 @@ export default function BlocksScreen({ route }: any) {
+               fabScale.value = withSpring(0.88, springs.tap);
+             }}
+             onPressOut={() => {
+-              fabScale.value = withSpring(1, springs.bouncy);
++              // Matter: one soft bounce and it settles (v3 §3e). springs.bouncy
++              // overshot twice — a button, not a trampoline.
++              fabScale.value = withSpring(1, springs.paper);
+             }}
+             onPress={handleQuickCreate}
+             onLongPress={() => {
+diff --git a/src/features/blocks/components/AddExerciseSheet.tsx b/src/features/blocks/components/AddExerciseSheet.tsx
+index 09c5134..d1f5fc3 100644
+--- a/src/features/blocks/components/AddExerciseSheet.tsx
++++ b/src/features/blocks/components/AddExerciseSheet.tsx
+@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
+   },
+   backdropOverlay: {
+     ...StyleSheet.absoluteFillObject,
+-    backgroundColor: 'rgba(0,0,0,0.35)',
++    backgroundColor: Colors.paper.scrim,
+   },
+   kav: {
+     justifyContent: 'flex-end',
+diff --git a/src/features/blocks/components/BlockAISheet.tsx b/src/features/blocks/components/BlockAISheet.tsx
+index ea9a48e..3ced626 100644
+--- a/src/features/blocks/components/BlockAISheet.tsx
++++ b/src/features/blocks/components/BlockAISheet.tsx
+@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
+   },
+   backdrop: {
+     ...StyleSheet.absoluteFillObject,
+-    backgroundColor: 'rgba(0,0,0,0.35)',
++    backgroundColor: Colors.paper.scrim,
+   },
+   sheet: {
+     backgroundColor: Colors.background.surface,
+diff --git a/src/features/blocks/components/BlockActionSheet.tsx b/src/features/blocks/components/BlockActionSheet.tsx
+index e0f9c35..65db82d 100644
+--- a/src/features/blocks/components/BlockActionSheet.tsx
++++ b/src/features/blocks/components/BlockActionSheet.tsx
+@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
+   },
+   backdrop: {
+     ...StyleSheet.absoluteFillObject,
+-    backgroundColor: 'rgba(0,0,0,0.35)',
++    backgroundColor: Colors.paper.scrim,
+   },
+   sheet: {
+     backgroundColor: Colors.background.surface,
+diff --git a/src/features/blocks/components/CanvasWidget.tsx b/src/features/blocks/components/CanvasWidget.tsx
+index fedad78..7395ab0 100644
+--- a/src/features/blocks/components/CanvasWidget.tsx
++++ b/src/features/blocks/components/CanvasWidget.tsx
+@@ -133,12 +133,11 @@ function CanvasWidgetInner({ block, size }: CanvasWidgetProps) {
+ export default React.memo(CanvasWidgetInner);
+ 
+ const styles = StyleSheet.create({
++  // No border: white on warm paper is its own edge (v3 §3a).
+   shell: {
+     flex: 1,
+-    backgroundColor: Colors.bg.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.lg,
+-    borderWidth: 0.5,
+-    borderColor: Colors.hair.base,
+     overflow: 'hidden',
+     ...Shadows.card,
+   },
+diff --git a/src/features/blocks/components/ComponentPalette.tsx b/src/features/blocks/components/ComponentPalette.tsx
+index d09065b..6d0252c 100644
+--- a/src/features/blocks/components/ComponentPalette.tsx
++++ b/src/features/blocks/components/ComponentPalette.tsx
+@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
+   },
+   backdrop: {
+     ...StyleSheet.absoluteFillObject,
+-    backgroundColor: 'rgba(0,0,0,0.35)',
++    backgroundColor: Colors.paper.scrim,
+   },
+   sheet: {
+     backgroundColor: Colors.background.surface,
+diff --git a/src/features/blocks/components/DashboardNode.tsx b/src/features/blocks/components/DashboardNode.tsx
+index 21db127..d2aea7b 100644
+--- a/src/features/blocks/components/DashboardNode.tsx
++++ b/src/features/blocks/components/DashboardNode.tsx
+@@ -483,11 +483,10 @@ function renderViz(
+ export default React.memo(DashboardNodeInner);
+ 
+ const styles = StyleSheet.create({
++  // No border: white on warm paper is its own edge (v3 §3a).
+   card: {
+-    backgroundColor: Colors.bg.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.md,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
+     padding: Spacing.md,
+     minWidth: 0,
+     overflow: 'hidden',
+@@ -670,7 +669,7 @@ const styles = StyleSheet.create({
+   },
+   configBackdropOverlay: {
+     ...StyleSheet.absoluteFillObject,
+-    backgroundColor: 'rgba(0,0,0,0.35)',
++    backgroundColor: Colors.paper.scrim,
+   },
+   configSheet: {
+     backgroundColor: Colors.bg.surface,
+diff --git a/src/features/blocks/components/ExerciseLibrarySheet.tsx b/src/features/blocks/components/ExerciseLibrarySheet.tsx
+index 8762864..dc37ffc 100644
+--- a/src/features/blocks/components/ExerciseLibrarySheet.tsx
++++ b/src/features/blocks/components/ExerciseLibrarySheet.tsx
+@@ -219,7 +219,7 @@ const ExerciseRow = React.memo(function ExerciseRow({ entry, onPress }: RowProps
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.32)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   sheet: {
+diff --git a/src/features/blocks/components/ExerciseRow.tsx b/src/features/blocks/components/ExerciseRow.tsx
+index e53bc03..17abd31 100644
+--- a/src/features/blocks/components/ExerciseRow.tsx
++++ b/src/features/blocks/components/ExerciseRow.tsx
+@@ -434,11 +434,10 @@ function areExerciseRowPropsEqual(prev: ExerciseRowProps, next: ExerciseRowProps
+ export default React.memo(ExerciseRowInner, areExerciseRowPropsEqual);
+ 
+ const styles = StyleSheet.create({
++  // No border: white on warm paper (v3 §3a).
+   container: {
+-    backgroundColor: Colors.background.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.md,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.border.warm,
+     overflow: 'hidden',
+     ...Shadows.subtle,
+   },
+diff --git a/src/features/blocks/components/FieldConfigSheet.tsx b/src/features/blocks/components/FieldConfigSheet.tsx
+index e5cad8a..df5adea 100644
+--- a/src/features/blocks/components/FieldConfigSheet.tsx
++++ b/src/features/blocks/components/FieldConfigSheet.tsx
+@@ -547,7 +547,7 @@ export default function FieldConfigSheet({
+ 
+ const styles = StyleSheet.create({
+   root: { flex: 1, justifyContent: 'flex-end' },
+-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
++  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: Colors.paper.scrim },
+   sheet: {
+     backgroundColor: Colors.background.surface,
+     borderTopLeftRadius: Radius.xl,
+diff --git a/src/features/blocks/components/ImageNode.tsx b/src/features/blocks/components/ImageNode.tsx
+index 51a9e0a..40830f2 100644
+--- a/src/features/blocks/components/ImageNode.tsx
++++ b/src/features/blocks/components/ImageNode.tsx
+@@ -136,11 +136,10 @@ function ImageNodeInner({ node, onUpdate, onDelete, compact }: ImageNodeProps) {
+ export default React.memo(ImageNodeInner);
+ 
+ const styles = StyleSheet.create({
++  // No border: white on warm paper (v3 §3a).
+   container: {
+-    backgroundColor: Colors.background.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.md,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.border.warm,
+     overflow: 'hidden',
+     ...Shadows.subtle,
+   },
+diff --git a/src/features/blocks/components/SubBlockNode.tsx b/src/features/blocks/components/SubBlockNode.tsx
+index 853098c..702fe4d 100644
+--- a/src/features/blocks/components/SubBlockNode.tsx
++++ b/src/features/blocks/components/SubBlockNode.tsx
+@@ -64,12 +64,11 @@ function SubBlockNodeInner({ node, onNavigate, onDelete }: SubBlockNodeProps) {
+ export default React.memo(SubBlockNodeInner);
+ 
+ const styles = StyleSheet.create({
++  // No border: white on warm paper (v3 §3a).
+   card: {
+     flexDirection: 'row',
+-    backgroundColor: Colors.background.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.md,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.border.warm,
+     overflow: 'hidden',
+     minWidth: 0,
+     ...Shadows.subtle,
+diff --git a/src/features/blocks/components/TemplatePickerSheet.tsx b/src/features/blocks/components/TemplatePickerSheet.tsx
+index 314327c..cf213a4 100644
+--- a/src/features/blocks/components/TemplatePickerSheet.tsx
++++ b/src/features/blocks/components/TemplatePickerSheet.tsx
+@@ -110,7 +110,7 @@ const TemplateCard = React.memo(function TemplateCard({ template, onPress }: Car
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.32)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   sheet: {
+diff --git a/src/features/blocks/components/TimerNode.tsx b/src/features/blocks/components/TimerNode.tsx
+index 5f608a2..e4651c1 100644
+--- a/src/features/blocks/components/TimerNode.tsx
++++ b/src/features/blocks/components/TimerNode.tsx
+@@ -248,11 +248,10 @@ function TimerNodeInner({ node, onUpdate, onDelete, compact }: TimerNodeProps) {
+ export default React.memo(TimerNodeInner);
+ 
+ const styles = StyleSheet.create({
++  // No border: white on warm paper (v3 §3a).
+   container: {
+-    backgroundColor: Colors.background.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.md,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.border.warm,
+     overflow: 'hidden',
+     ...Shadows.subtle,
+   },
+diff --git a/src/features/blocks/components/tiles/TileFrame.tsx b/src/features/blocks/components/tiles/TileFrame.tsx
+index eb6b2b7..dd13f74 100644
+--- a/src/features/blocks/components/tiles/TileFrame.tsx
++++ b/src/features/blocks/components/tiles/TileFrame.tsx
+@@ -103,22 +103,22 @@ const styles = StyleSheet.create({
+   frame: {
+     overflow: 'hidden',
+   },
++  // No border: white on warm paper already reads as a raised card (v3 §3a).
+   frameStandard: {
+-    backgroundColor: Colors.bg.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.lg,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
+     paddingHorizontal: Spacing.md,
+     paddingVertical: Spacing.md,
+     ...Shadows.subtle,
+   },
++  // The shadow comes from Shadows.card — which is now warm (#4A3B28). The old
++  // local override (#1C1C1E, blue-black) is exactly the "digital" tell (§3f).
+   frameHero: {
+-    backgroundColor: Colors.bg.warm,
++    backgroundColor: Colors.paper.warm,
+     borderRadius: Radius.xl,
+     paddingHorizontal: Spacing.lg,
+     paddingVertical: Spacing.lg,
+     ...Shadows.card,
+-    shadowColor: '#1C1C1E',
+   },
+   frameActive: {
+     borderWidth: 1,
+diff --git a/src/features/conversation/AmbientKaiBar.tsx b/src/features/conversation/AmbientKaiBar.tsx
+index 34e0dd4..e0a953c 100644
+--- a/src/features/conversation/AmbientKaiBar.tsx
++++ b/src/features/conversation/AmbientKaiBar.tsx
+@@ -108,10 +108,8 @@ const styles = StyleSheet.create({
+     paddingVertical: Spacing.sm,
+     paddingLeft: Spacing.md,
+     paddingRight: Spacing.sm,
+-    backgroundColor: Colors.bg.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius['3xl'],
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
+     ...Shadows.elevated,
+   },
+   barPressed: {
+diff --git a/src/features/conversation/KaiConversationScreen.tsx b/src/features/conversation/KaiConversationScreen.tsx
+index 7a72643..7d59f39 100644
+--- a/src/features/conversation/KaiConversationScreen.tsx
++++ b/src/features/conversation/KaiConversationScreen.tsx
+@@ -454,11 +454,10 @@ const styles = StyleSheet.create({
+     // Opposite-side gutter so a bubble never spans full width (sender stays clear).
+     paddingRight: Spacing['2xl'] * 2,
+   },
++  // No border: white on warm paper (v3 §3a). Kai's voice is a card that lifts.
+   kaiBubble: {
+     alignSelf: 'flex-start',
+-    backgroundColor: Colors.bg.surface,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.lg,
+     borderTopLeftRadius: Radius.xs,
+     paddingVertical: Spacing.md,
+@@ -498,9 +497,7 @@ const styles = StyleSheet.create({
+     flexDirection: 'row',
+     alignItems: 'center',
+     gap: Spacing.xs,
+-    backgroundColor: Colors.bg.surface,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.lg,
+     borderTopLeftRadius: Radius.xs,
+     paddingVertical: Spacing.md,
+diff --git a/src/features/kai/KaiHome.tsx b/src/features/kai/KaiHome.tsx
+index 1bed5e0..e1b3fe7 100644
+--- a/src/features/kai/KaiHome.tsx
++++ b/src/features/kai/KaiHome.tsx
+@@ -201,10 +201,8 @@ const styles = StyleSheet.create({
+     flexDirection: 'row',
+     alignItems: 'center',
+     gap: Spacing.md,
+-    backgroundColor: Colors.bg.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.lg,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
+     paddingVertical: Spacing.md,
+     paddingHorizontal: Spacing.lg,
+     ...Shadows.subtle,
+diff --git a/src/features/onboarding/manuscript/ManuscriptStep.tsx b/src/features/onboarding/manuscript/ManuscriptStep.tsx
+index c151dff..0dcc917 100644
+--- a/src/features/onboarding/manuscript/ManuscriptStep.tsx
++++ b/src/features/onboarding/manuscript/ManuscriptStep.tsx
+@@ -21,6 +21,7 @@ import Animated, {
+ } from 'react-native-reanimated';
+ import * as Haptics from 'expo-haptics';
+ import { Colors, Spacing, Type } from '../../../theme/tokens';
++import { springs } from '../../../theme/animations';
+ import { Fonts } from '../../../theme/fonts';
+ import KaiFace from '../premium/KaiFace';
+ import {
+@@ -384,7 +385,9 @@ export default function ManuscriptStep({
+   const rule = useSharedValue(0);
+   useEffect(() => {
+     const target = pageH * (settledCount / SENTENCES.length);
+-    rule.value = reduce ? target : withSpring(target, { damping: 22, stiffness: 120 });
++    // springs.ink: this rule IS ink running down the margin — it must not bounce
++    // (v3 §3e). Also retires an inline magic-number spring.
++    rule.value = reduce ? target : withSpring(target, springs.ink);
+   }, [settledCount, pageH, rule, reduce]);
+   const ruleStyle = useAnimatedStyle(() => ({ height: rule.value }));
+ 
+diff --git a/src/features/onboarding/premium/steps/AuthStep.tsx b/src/features/onboarding/premium/steps/AuthStep.tsx
+index 7c2c987..7cd114c 100644
+--- a/src/features/onboarding/premium/steps/AuthStep.tsx
++++ b/src/features/onboarding/premium/steps/AuthStep.tsx
+@@ -9,7 +9,7 @@
+ 
+ import React from 'react';
+ import { StyleSheet, Text, View } from 'react-native';
+-import { Colors, Spacing, Type } from '../../../../theme/tokens';
++import { Colors, Spacing, Type, Shadows } from '../../../../theme/tokens';
+ import { text } from '../textStyles';
+ import PressableScale from '../motion/PressableScale';
+ import { AppleGlyph, GoogleGlyph, MailGlyph } from './BrandGlyphs';
+@@ -141,11 +141,8 @@ const styles = StyleSheet.create({
+   },
+   btnDark: {
+     backgroundColor: Colors.ink.primary,
+-    shadowColor: '#000000',
+-    shadowOffset: { width: 0, height: 2 },
+-    shadowOpacity: 0.12,
+-    shadowRadius: 4,
+-    elevation: 2,
++    // Warm shadow from the tokens (§3f) — was a pure-black #000000 literal.
++    ...Shadows.subtle,
+   },
+   btnLight: {
+     backgroundColor: Colors.bg.surface,
+diff --git a/src/features/onboarding/premium/steps/PresentationStep.tsx b/src/features/onboarding/premium/steps/PresentationStep.tsx
+index 275f73f..d9dee36 100644
+--- a/src/features/onboarding/premium/steps/PresentationStep.tsx
++++ b/src/features/onboarding/premium/steps/PresentationStep.tsx
+@@ -38,7 +38,10 @@ function PresentationStep({ name, reveal, onEnter }: PresentationStepProps) {
+   // is the single moment in the flow that earns a notification-grade cue.
+   useEffect(() => {
+     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+-    rise.value = reduce ? withTiming(1, { duration: 160 }) : withSpring(1, springs.celebrate);
++    // springs.paper, not springs.celebrate: this rise carries a card full of TEXT,
++    // and text that boings reads as a toy (v3 §3e). Paper lands with one soft
++    // bounce and settles — the weight of a page, not a spring toy.
++    rise.value = reduce ? withTiming(1, { duration: 160 }) : withSpring(1, springs.paper);
+   }, [reduce, rise]);
+ 
+   const cardStyle = useAnimatedStyle(() => ({
+diff --git a/src/features/planner/TodayPlanner.tsx b/src/features/planner/TodayPlanner.tsx
+index 7439ff6..6da5065 100644
+--- a/src/features/planner/TodayPlanner.tsx
++++ b/src/features/planner/TodayPlanner.tsx
+@@ -15,7 +15,7 @@ import HomeHero from './components/HomeHero';
+ import FirstWorkoutCTA from './components/FirstWorkoutCTA';
+ import AmbientKaiBar from '../conversation/AmbientKaiBar';
+ import HomeHeroStats from './components/HomeHeroStats';
+-import ReadinessRings from './components/ReadinessRings';
++import ReadinessLine from './components/ReadinessLine';
+ import CalendarView from './components/CalendarView';
+ import DayCard from './components/DayCard';
+ import KaiSignalCard from './components/KaiSignal';
+@@ -228,7 +228,7 @@ export default function TodayPlanner() {
+         {/* Demoted zone — quieter, below the fold. Calendar sits closest to the
+             card it drives; weekly stats / readiness / señal recede further. */}
+         <CalendarView selectedDate={selectedDate} onSelect={handleSelectDate} />
+-        <ReadinessRings />
++        <ReadinessLine />
+         <HomeHeroStats />
+         <KaiSignalCard signal={signal} onAction={handleSignalAction} />
+       </ScrollView>
+@@ -274,6 +274,6 @@ export default function TodayPlanner() {
+ }
+ 
+ const styles = StyleSheet.create({
+-  screen: { flex: 1, backgroundColor: Colors.bg.void },
++  screen: { flex: 1, backgroundColor: Colors.paper.base },
+   content: {},
+ });
+diff --git a/src/features/planner/components/AssignBlockSheet.tsx b/src/features/planner/components/AssignBlockSheet.tsx
+index 1a2aaf6..273b909 100644
+--- a/src/features/planner/components/AssignBlockSheet.tsx
++++ b/src/features/planner/components/AssignBlockSheet.tsx
+@@ -208,7 +208,7 @@ function EmptyHint() {
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.32)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   sheet: {
+diff --git a/src/features/planner/components/ChangeBlockPicker.tsx b/src/features/planner/components/ChangeBlockPicker.tsx
+index 28f54e7..3fbc026 100644
+--- a/src/features/planner/components/ChangeBlockPicker.tsx
++++ b/src/features/planner/components/ChangeBlockPicker.tsx
+@@ -95,7 +95,7 @@ export default function ChangeBlockPicker({ visible, assignmentId, date, onClose
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.32)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   sheet: {
+diff --git a/src/features/planner/components/FirstWorkoutCTA.tsx b/src/features/planner/components/FirstWorkoutCTA.tsx
+index b442b56..8307f9c 100644
+--- a/src/features/planner/components/FirstWorkoutCTA.tsx
++++ b/src/features/planner/components/FirstWorkoutCTA.tsx
+@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
+     marginBottom: Spacing.sm,
+     padding: Spacing['2xl'],
+     borderRadius: Radius['2xl'],
+-    backgroundColor: Colors.bg.warm,
++    backgroundColor: Colors.paper.warm,
+     gap: Spacing.xs,
+     ...Shadows.none,
+   },
+@@ -63,8 +63,11 @@ const styles = StyleSheet.create({
+     ...Type.eyebrow,
+     color: Colors.ink.tertiary,
+   },
++  // Letterpress: on a warm surface the title sinks into the fibre (§3f). Only
++  // valid ≥22pt — titleSmall is exactly 22.
+   title: {
+     ...Type.titleSmall,
++    ...Type.letterpress,
+     color: Colors.ink.primary,
+     marginTop: 2,
+   },
+diff --git a/src/features/planner/components/MovePicker.tsx b/src/features/planner/components/MovePicker.tsx
+index 994f011..b8f373a 100644
+--- a/src/features/planner/components/MovePicker.tsx
++++ b/src/features/planner/components/MovePicker.tsx
+@@ -120,7 +120,7 @@ export default function MovePicker({ visible, assignmentId, fromDate, onClose }:
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.32)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   sheet: {
+diff --git a/src/features/planner/components/ReadinessRings.tsx b/src/features/planner/components/ReadinessRings.tsx
+deleted file mode 100644
+index 531ef27..0000000
+--- a/src/features/planner/components/ReadinessRings.tsx
++++ /dev/null
+@@ -1,223 +0,0 @@
+-// ReadinessRings — three concentric mini-rings, the daily ritual hook.
+-//
+-// Apple Fitness-style: three independent scores that can be cross-
+-// referenced at a glance ("Energía verde, Recuperación roja → sesión
+-// ligera hoy"). One serif numeral + one eyebrow label per ring.
+-//
+-// Animation: each ring sweeps in from 0 to its score on mount and on
+-// score change. Spring physics from theme/animations so it matches the
+-// rest of the app's motion vocabulary.
+-
+-import React, { useEffect, useMemo } from 'react';
+-import { View, Text, StyleSheet, Pressable } from 'react-native';
+-import Svg, { Circle } from 'react-native-svg';
+-import Animated, {
+-  useSharedValue,
+-  useAnimatedProps,
+-  useAnimatedStyle,
+-  withSpring,
+-  withTiming,
+-  Easing,
+-} from 'react-native-reanimated';
+-import * as Haptics from 'expo-haptics';
+-
+-import { Colors, Type, Spacing, Radius, Shadows } from '../../../theme/tokens';
+-import { springs } from '../../../theme/animations';
+-import { useWorkoutStore } from '../../../store/workoutStore';
+-import { computeReadiness } from '../../../lib/readiness/readiness';
+-
+-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+-
+-interface Props {
+-  onPress?: () => void;
+-}
+-
+-export default function ReadinessRings({ onPress }: Props) {
+-  const history = useWorkoutStore((s) => s.workoutHistory);
+-  const snapshot = useMemo(() => computeReadiness(history), [history]);
+-
+-  // Day 0: no sessions yet → no data to score. Never fabricate 90/70/100.
+-  // Show a single-accent "por calibrar" state until the first session lands.
+-  const calibrating = snapshot.signals.daysSinceLastWorkout === null;
+-  const headline = calibrating ? 'Se calibra con tu primer entrenamiento.' : snapshot.headline;
+-
+-  return (
+-    <Pressable
+-      onPress={() => {
+-        Haptics.selectionAsync();
+-        onPress?.();
+-      }}
+-      accessibilityRole="button"
+-      accessibilityLabel={
+-        calibrating ? 'Tu estado: por calibrar' : `Tu estado: ${snapshot.headline}`
+-      }
+-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+-    >
+-      <Text style={styles.eyebrow}>Tu estado hoy</Text>
+-      <View style={styles.row}>
+-        {/* Single accent (gold) while calibrating — the three data hues only
+-            appear once there are real numbers to cross-reference. */}
+-        <RingCell
+-          label="Energía"
+-          score={snapshot.energia}
+-          hue={Colors.gold.base}
+-          calibrating={calibrating}
+-        />
+-        <RingCell
+-          label="Fuerza"
+-          score={snapshot.fuerza}
+-          hue={calibrating ? Colors.gold.base : Colors.semantic.info}
+-          calibrating={calibrating}
+-        />
+-        <RingCell
+-          label="Recuperación"
+-          score={snapshot.recuperacion}
+-          hue={calibrating ? Colors.gold.base : Colors.semantic.success}
+-          calibrating={calibrating}
+-        />
+-      </View>
+-      <Text style={styles.headline}>{headline}</Text>
+-    </Pressable>
+-  );
+-}
+-
+-// ── Ring cell ──────────────────────────────────────────────────────
+-
+-const RING_SIZE = 72;
+-const STROKE = 7;
+-const RADIUS = (RING_SIZE - STROKE) / 2;
+-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+-
+-function RingCell({
+-  label,
+-  score,
+-  hue,
+-  calibrating = false,
+-}: {
+-  label: string;
+-  score: number;
+-  hue: string;
+-  calibrating?: boolean;
+-}) {
+-  const progress = useSharedValue(0);
+-  const numberOpacity = useSharedValue(0);
+-
+-  // Animate sweep on mount + whenever score changes. Numerals fade in
+-  // slightly behind the sweep for a sequenced reveal. While calibrating there
+-  // is no data → the ring stays empty (track only) and the centre shows "—".
+-  useEffect(() => {
+-    progress.value = calibrating ? 0 : withSpring(score / 100, springs.gentle);
+-    numberOpacity.value = withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) });
+-  }, [score, calibrating, progress, numberOpacity]);
+-
+-  const animatedProps = useAnimatedProps(() => ({
+-    strokeDashoffset: CIRCUMFERENCE * (1 - progress.value),
+-  }));
+-
+-  const numberStyle = useAnimatedStyle(() => ({
+-    opacity: numberOpacity.value,
+-  }));
+-
+-  return (
+-    <View style={styles.cell}>
+-      <View style={styles.ringWrap}>
+-        <Svg width={RING_SIZE} height={RING_SIZE}>
+-          {/* Track */}
+-          <Circle
+-            cx={RING_SIZE / 2}
+-            cy={RING_SIZE / 2}
+-            r={RADIUS}
+-            stroke={Colors.hair.base}
+-            strokeWidth={STROKE}
+-            fill="none"
+-          />
+-          {/* Progress sweep — starts at 12 o'clock (-90deg) */}
+-          <AnimatedCircle
+-            cx={RING_SIZE / 2}
+-            cy={RING_SIZE / 2}
+-            r={RADIUS}
+-            stroke={hue}
+-            strokeWidth={STROKE}
+-            strokeLinecap="round"
+-            fill="none"
+-            strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+-            animatedProps={animatedProps}
+-            transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+-          />
+-        </Svg>
+-        <Animated.View style={[styles.numberCenter, numberStyle]}>
+-          <Text style={[styles.number, calibrating && styles.numberCalibrating]}>
+-            {calibrating ? '—' : score}
+-          </Text>
+-        </Animated.View>
+-      </View>
+-      <Text style={styles.cellLabel}>{label}</Text>
+-    </View>
+-  );
+-}
+-
+-const styles = StyleSheet.create({
+-  container: {
+-    marginHorizontal: Spacing.screen.horizontal,
+-    marginBottom: Spacing.lg,
+-    paddingVertical: Spacing.lg,
+-    paddingHorizontal: Spacing.lg,
+-    borderRadius: Radius.lg,
+-    backgroundColor: Colors.bg.surface,
+-    borderWidth: StyleSheet.hairlineWidth,
+-    borderColor: Colors.hair.base,
+-    ...Shadows.subtle,
+-  },
+-  pressed: {
+-    opacity: 0.92,
+-  },
+-  eyebrow: {
+-    ...Type.eyebrow,
+-    color: Colors.ink.muted,
+-    marginBottom: Spacing.md,
+-  },
+-  row: {
+-    flexDirection: 'row',
+-    justifyContent: 'space-around',
+-    alignItems: 'flex-start',
+-    marginBottom: Spacing.md,
+-  },
+-  cell: {
+-    alignItems: 'center',
+-    gap: 6,
+-  },
+-  ringWrap: {
+-    width: RING_SIZE,
+-    height: RING_SIZE,
+-    alignItems: 'center',
+-    justifyContent: 'center',
+-  },
+-  numberCenter: {
+-    position: 'absolute',
+-    top: 0,
+-    left: 0,
+-    right: 0,
+-    bottom: 0,
+-    alignItems: 'center',
+-    justifyContent: 'center',
+-  },
+-  number: {
+-    ...Type.numMedium,
+-    fontFamily: Type.title.fontFamily, // serif — brand voice on stat numerals
+-    fontSize: 20,
+-    color: Colors.ink.primary,
+-    letterSpacing: -0.3,
+-  },
+-  numberCalibrating: { color: Colors.ink.muted },
+-  cellLabel: {
+-    ...Type.micro,
+-    color: Colors.ink.tertiary,
+-    fontWeight: '600',
+-  },
+-  headline: {
+-    ...Type.caption,
+-    color: Colors.ink.secondary,
+-    textAlign: 'center',
+-    lineHeight: 18,
+-  },
+-});
+diff --git a/src/features/planner/components/RecurrenceEditorSheet.tsx b/src/features/planner/components/RecurrenceEditorSheet.tsx
+index 3ad5c5d..483421b 100644
+--- a/src/features/planner/components/RecurrenceEditorSheet.tsx
++++ b/src/features/planner/components/RecurrenceEditorSheet.tsx
+@@ -356,7 +356,7 @@ export default function RecurrenceEditorSheet({
+ const styles = StyleSheet.create({
+   scrim: {
+     flex: 1,
+-    backgroundColor: 'rgba(0,0,0,0.32)',
++    backgroundColor: Colors.paper.scrim,
+     justifyContent: 'flex-end',
+   },
+   sheet: {
+diff --git a/src/features/planner/components/RecurrenceOverlay.tsx b/src/features/planner/components/RecurrenceOverlay.tsx
+index 27b677f..b2f6f41 100644
+--- a/src/features/planner/components/RecurrenceOverlay.tsx
++++ b/src/features/planner/components/RecurrenceOverlay.tsx
+@@ -333,7 +333,7 @@ function AdvancedView({
+ const styles = StyleSheet.create({
+   backdrop: {
+     ...StyleSheet.absoluteFillObject,
+-    backgroundColor: 'rgba(0,0,0,0.18)',
++    backgroundColor: Colors.paper.scrimSoft,
+   },
+   // Inline panel pinned at the bottom of the parent sheet so it feels like
+   // the same surface, just deepened. Same paddings as the parent.
+diff --git a/src/lib/ai/conversation/brief.ts b/src/lib/ai/conversation/brief.ts
+index 437d42e..48f4eec 100644
+--- a/src/lib/ai/conversation/brief.ts
++++ b/src/lib/ai/conversation/brief.ts
+@@ -13,10 +13,11 @@
+ import * as v from 'valibot';
+ 
+ import type { Discipline } from '../../../types/core';
+-import type { EquipmentTag, FitnessLevel } from '../../../types/profile';
++import type { FitnessLevel } from '../../../types/profile';
+ import type { StarterAnswers, StarterDiscipline } from '../../routines/starterTemplates';
+ // Type-only — see types.ts rationale.
+ import type { GroqToolDefinition } from '../client';
++import { inferEquipmentMentions, resolveEquipment } from './equipment';
+ import type { SessionBrief } from './types';
+ 
+ // ======================== VALIBOT SCHEMA (boundary) ========================
+@@ -83,7 +84,8 @@ export const BUILD_SESSION_TOOL: GroqToolDefinition = {
+         equipment: {
+           type: 'array',
+           items: { type: 'string' },
+-          description: 'Material mencionado por el usuario (mancuernas, barra, esterilla…).',
++          description:
++            'Material que el usuario menciona tener o querer usar (mancuernas, barra, máquinas, bandas…). Solo lo que él diga; no inventes ni completes el material típico de un gimnasio.',
+         },
+         notes: { type: ['string', 'null'], description: 'Cualquier detalle extra relevante.' },
+         closing: {
+@@ -127,6 +129,12 @@ export function parseBriefArgs(
+     location: raw.location ?? inferred.location,
+     intensity: raw.intensity ?? inferred.intensity,
+     equipment: raw.equipment && raw.equipment.length > 0 ? raw.equipment : inferred.equipment,
++    // The RESTRICTION always comes from the user's own words, never from the
++    // model's `equipment` array: a model that helpfully lists the kit of a
++    // typical gym would otherwise invent a restriction the user never asked for.
++    // Its words still ADD material (see resolveEquipment) — they just can't
++    // silence the barbell rack on their own.
++    equipmentPolicy: inferred.equipmentPolicy,
+     notes: raw.notes ?? inferred.notes,
+     title: '',
+   };
+@@ -295,26 +303,6 @@ function inferIntensity(text: string): SessionBrief['intensity'] {
+   return 'normal';
+ }
+ 
+-function inferEquipment(text: string): string[] {
+-  const t = normalize(text);
+-  const found: string[] = [];
+-  // Regex, not substring: a bare "barra" needle turns "barra de dominadas" into
+-  // a barbell, and hands a home athlete a deadlift they can't do.
+-  const map: [RegExp, string][] = [
+-    [/mancuern/, 'mancuernas'],
+-    [/dominad|barra fija/, 'barra de dominadas'],
+-    [/\bbarra\b(?! de dominadas| fija)/, 'barra'],
+-    [/kettlebell|pesa rusa/, 'kettlebell'],
+-    [/banda/, 'bandas'],
+-    [/esterilla/, 'esterilla'],
+-    [/cuerda|comba/, 'cuerda de saltar'],
+-  ];
+-  for (const [pattern, label] of map) {
+-    if (pattern.test(t) && !found.includes(label)) found.push(label);
+-  }
+-  return found;
+-}
+-
+ /** Build a title from the inferred fields when the model gives none. */
+ function deriveTitle(brief: SessionBrief): string {
+   const DISCIPLINE_LABEL: Record<Discipline, string> = {
+@@ -339,6 +327,9 @@ function deriveTitle(brief: SessionBrief): string {
+ /** Deterministic brief from raw user text. Always returns a usable session. */
+ export function inferBriefFromText(text: string): SessionBrief {
+   const discipline = inferDiscipline(text);
++  // Material and its negations are read once, here: the words the user said are
++  // the only thing allowed to restrict the session (see equipment.ts).
++  const { policy, labels } = inferEquipmentMentions(text);
+   const brief: SessionBrief = {
+     title: '',
+     discipline,
+@@ -346,7 +337,8 @@ export function inferBriefFromText(text: string): SessionBrief {
+     durationMin: inferDuration(text),
+     location: inferLocation(text),
+     intensity: inferIntensity(text),
+-    equipment: inferEquipment(text),
++    equipment: labels,
++    equipmentPolicy: policy,
+     notes: null,
+   };
+   brief.title = deriveTitle(brief);
+@@ -366,38 +358,21 @@ const CORE_TO_STARTER: Record<Discipline, StarterDiscipline> = {
+   general: 'hybrid',
+ };
+ 
+-// Regex, not substring: "barra de dominadas" is a pull-up bar and NOT a
+-// barbell — the bare "barra" needle used to hand a home athlete a barbell.
+-const EQUIPMENT_LABEL_TO_TAG: [RegExp, EquipmentTag][] = [
+-  [/mancuern/, 'dumbbells'],
+-  [/barra de dominadas|barra fija|dominad/, 'pull_up_bar'],
+-  [/\bbarra\b(?! de dominadas)/, 'barbell_plates'],
+-  [/kettlebell|pesa rusa/, 'kettlebell'],
+-  [/banda|goma/, 'resistance_bands'],
+-  [/esterilla|mat\b/, 'yoga_mat'],
+-  [/cuerda|comba/, 'jump_rope'],
+-];
+-
+ /**
+- * Map a brief onto the curated-template inputs. Location drives the baseline
+- * equipment set (a gym unlocks machines/barbell), then any explicit words the
+- * user mentioned are layered on. Intensity nudges the level so a "suave"
+- * session isn't over-prescribed and a "fuerte" one gets real volume.
++ * Map a brief onto the curated-template inputs. Equipment is resolved by the
++ * one rule that governs the whole loop (equipment.ts): the words the user said
++ * restrict; the location baseline only fills the silence. Intensity nudges the
++ * level so a "suave" session isn't over-prescribed and a "fuerte" one gets real
++ * volume.
++ *
++ * The starter templates degrade honestly under a restriction with no extra
++ * work: every gated option they carry is skipped when its tag is missing, and
++ * the last option of every slot is ungated — so a machines-only brief lands on
++ * prensa/press en máquina/remo en polea, and never on a barbell the user just
++ * ruled out.
+  */
+ export function briefToStarterAnswers(brief: SessionBrief): StarterAnswers {
+-  const tags = new Set<EquipmentTag>();
+-  if (brief.location === 'gym') {
+-    tags.add('machines_full_gym');
+-    tags.add('barbell_plates');
+-    tags.add('dumbbells');
+-  }
+-  for (const word of brief.equipment) {
+-    const w = word.toLowerCase();
+-    for (const [pattern, tag] of EQUIPMENT_LABEL_TO_TAG) {
+-      if (pattern.test(w)) tags.add(tag);
+-    }
+-  }
+-  if (tags.size === 0) tags.add('bodyweight');
++  const { tags } = resolveEquipment(brief);
+ 
+   const level: FitnessLevel =
+     brief.intensity === 'suave'
+@@ -410,6 +385,6 @@ export function briefToStarterAnswers(brief: SessionBrief): StarterAnswers {
+     discipline: CORE_TO_STARTER[brief.discipline],
+     level,
+     frequency: 1, // one session for today — never the A/B split
+-    equipment: [...tags],
++    equipment: tags,
+   };
+ }
+diff --git a/src/lib/ai/conversation/canonicalizeExercises.ts b/src/lib/ai/conversation/canonicalizeExercises.ts
+index 3193fcf..3d9a047 100644
+--- a/src/lib/ai/conversation/canonicalizeExercises.ts
++++ b/src/lib/ai/conversation/canonicalizeExercises.ts
+@@ -45,6 +45,9 @@ import { buildStarterBlocks, STARTER_DISCIPLINES } from '../../routines/starterT
+ import type { StarterDiscipline } from '../../routines/starterTemplates';
+ import { buildHybridRaceBlock } from '../../routines/hybridPreset';
+ import { normalizeExerciseName } from '../../progression/modality';
++import { allowedEquipmentSet, resolveEquipment } from './equipment';
++import type { EquipmentContext } from './equipment';
++import { catalogVocabulary } from './exerciseCatalog';
+ import type { SessionBrief } from './types';
+ 
+ // ======================== TOKENIZATION ========================
+@@ -189,8 +192,13 @@ function implementAffinity(a: Set<string>, b: Set<string>): number {
+ // Display-name priority on viewKey collisions: builder names first — template
+ // history matches by exact name, so the builder spelling is the load-bearing
+ // one. The library id is merged in regardless (see dedup).
+-type VocabSource = 'starter' | 'preset' | 'library';
+-const SOURCE_PRIORITY: Record<VocabSource, number> = { starter: 0, preset: 1, library: 2 };
++type VocabSource = 'starter' | 'catalog' | 'preset' | 'library';
++const SOURCE_PRIORITY: Record<VocabSource, number> = {
++  starter: 0,
++  catalog: 1,
++  preset: 2,
++  library: 3,
++};
+ 
+ interface VocabEntry {
+   name: string;
+@@ -199,6 +207,13 @@ interface VocabEntry {
+   libraryId?: string;
+   discipline?: Discipline;
+   muscleGroups?: MuscleGroup[];
++  /**
++   * What it takes to do the movement. EXACT where the source knows it (a
++   * template/catalog option carries its own `needsAny`; an ungated option is
++   * bodyweight and says so); inferred from the name only for library entries,
++   * which carry no equipment field. Drives the restriction-aware prompt bias.
++   */
++  equipment?: EquipmentTag[];
+ }
+ 
+ // Singleton equipment profiles surface every gated template option: the first
+@@ -220,13 +235,27 @@ interface HarvestedName {
+   name: string;
+   discipline: Discipline;
+   source: VocabSource;
++  equipment?: EquipmentTag[];
+ }
+ 
+ // Harvest option/station names from the read-only routine builders without
+ // touching them: build across discipline × equipment permutations (frequency 4
+ // unlocks day B) and read the emitted cards' name + discipline.
++//
++// The singleton probe profiles double as the equipment gate. A name that
++// surfaces under the EMPTY profile is its slot's ungated option — it needs
++// nothing, so it is bodyweight, full stop. A name that never surfaces there is
++// gated, and its gate is exactly the set of singleton profiles that DID surface
++// it: that is the option's `needsAny`, recovered without exporting the
++// templates' internals.
+ function harvestFromBuilders(): HarvestedName[] {
+-  const out: HarvestedName[] = [];
++  interface Probe {
++    discipline: Discipline;
++    ungated: boolean;
++    tags: Set<EquipmentTag>;
++  }
++  const probes = new Map<string, Probe>();
++
+   for (const discipline of STARTER_DISCIPLINE_IDS) {
+     for (const equipment of EQUIP_PROFILES) {
+       const blocks = buildStarterBlocks(
+@@ -236,11 +265,28 @@ function harvestFromBuilders(): HarvestedName[] {
+       );
+       for (const b of blocks) {
+         for (const ex of getBlockExercises(b)) {
+-          out.push({ name: ex.name, discipline: ex.discipline, source: 'starter' });
++          const probe = probes.get(ex.name) ?? {
++            discipline: ex.discipline,
++            ungated: false,
++            tags: new Set<EquipmentTag>(),
++          };
++          if (equipment.length === 0) probe.ungated = true;
++          else for (const tag of equipment) probe.tags.add(tag);
++          probes.set(ex.name, probe);
+         }
+       }
+     }
+   }
++
++  const out: HarvestedName[] = [];
++  for (const [name, probe] of probes) {
++    out.push({
++      name,
++      discipline: probe.discipline,
++      source: 'starter',
++      equipment: probe.ungated ? ['bodyweight'] : [...probe.tags],
++    });
++  }
+   for (const ex of getBlockExercises(buildHybridRaceBlock())) {
+     out.push({ name: ex.name, discipline: ex.discipline, source: 'preset' });
+   }
+@@ -252,8 +298,9 @@ function viewKey(view: TokenView): string {
+ }
+ 
+ // Collapse entries with the same movement+implement identity, keeping the
+-// highest-priority source's display name while merging libraryId/muscleGroups
+-// from every collapsed sibling.
++// highest-priority source's display name while merging libraryId/muscleGroups/
++// equipment from every collapsed sibling. Same movement + same implement = same
++// gate, so unioning the equipment of two spellings of one row is sound.
+ function dedup(entries: VocabEntry[]): VocabEntry[] {
+   const byKey = new Map<string, VocabEntry>();
+   for (const e of entries) {
+@@ -265,15 +312,68 @@ function dedup(entries: VocabEntry[]): VocabEntry[] {
+     }
+     const winner = SOURCE_PRIORITY[e.source] < SOURCE_PRIORITY[existing.source] ? e : existing;
+     const loser = winner === e ? existing : e;
++    const equipment =
++      winner.equipment || loser.equipment
++        ? [...new Set([...(winner.equipment ?? []), ...(loser.equipment ?? [])])]
++        : undefined;
+     byKey.set(key, {
+       ...winner,
+       libraryId: winner.libraryId ?? loser.libraryId,
+       muscleGroups: winner.muscleGroups ?? loser.muscleGroups,
++      equipment,
+     });
+   }
+   return [...byKey.values()];
+ }
+ 
++// Movement tokens that name their own hardware. The library carries no
++// equipment field, so a library-only entry ("Prensa", "Jalón al pecho") is read
++// off its name — the same convention the matcher already uses for implements.
++const MACHINE_MOVEMENTS = new Set(['polea', 'maquina', 'prensa', 'jalon', 'femoral']);
++const BAR_MOVEMENTS = new Set(['dominada', 'colgado', 'colgada']);
++// Unmarked-strength-means-barbell (see DEFAULT_IMPLEMENT) has exceptions: these
++// movements are bodyweight even when the library files them under strength.
++const BODYWEIGHT_MOVEMENTS = new Set([
++  'flexion',
++  'fondo',
++  'plancha',
++  'hollow',
++  'burpee',
++  'rueda',
++  'superman',
++  'pike',
++  'puente',
++  'comba',
++]);
++
++/**
++ * What a name says it needs. Exact information (template/catalog gates) always
++ * wins; this only fills the gap for library entries.
++ */
++function inferEquipmentFromName(view: TokenView, discipline: Discipline | undefined): EquipmentTag[] {
++  const tags = new Set<EquipmentTag>();
++  if (view.implement.has('mancuerna')) tags.add('dumbbells');
++  if (view.implement.has('goblet')) {
++    tags.add('dumbbells');
++    tags.add('kettlebell');
++  }
++  if (view.implement.has('kettlebell')) tags.add('kettlebell');
++  if (view.implement.has('banda') || view.implement.has('goma')) tags.add('resistance_bands');
++  if (view.implement.has('barra')) tags.add('barbell_plates');
++  if (view.implement.has('pesocorporal') || view.implement.has('toalla')) tags.add('bodyweight');
++  for (const m of view.movement) {
++    if (MACHINE_MOVEMENTS.has(m)) tags.add('machines_full_gym');
++    if (BAR_MOVEMENTS.has(m)) tags.add('pull_up_bar');
++  }
++  if (tags.size > 0) return [...tags];
++
++  const bodyweight = [...view.movement].some((m) => BODYWEIGHT_MOVEMENTS.has(m));
++  if (bodyweight || discipline !== 'strength') return ['bodyweight'];
++  // An unmarked strength name conventionally means barbell — the same rule the
++  // canonical matcher applies ("Press militar" IS the barbell press).
++  return ['barbell_plates'];
++}
++
+ function buildVocabulary(): VocabEntry[] {
+   const raw: VocabEntry[] = [];
+   for (const e of EXERCISE_LIBRARY) {
+@@ -291,7 +391,27 @@ function buildVocabulary(): VocabEntry[] {
+   for (const h of harvestFromBuilders()) {
+     const view = tokenView(h.name);
+     if (view.movement.size === 0) continue;
+-    raw.push({ name: h.name, source: h.source, view, discipline: h.discipline });
++    raw.push({
++      name: h.name,
++      source: h.source,
++      view,
++      discipline: h.discipline,
++      equipment: h.equipment,
++    });
++  }
++  // The focus catalog: the only source that knows both the muscle groups AND the
++  // exact gate of a movement the library never heard of ("Remo en polea").
++  for (const c of catalogVocabulary()) {
++    const view = tokenView(c.name);
++    if (view.movement.size === 0) continue;
++    raw.push({
++      name: c.name,
++      source: 'catalog',
++      view,
++      discipline: c.discipline,
++      muscleGroups: c.groups,
++      equipment: c.equipment,
++    });
+   }
+ 
+   const deduped = dedup(raw);
+@@ -300,9 +420,10 @@ function buildVocabulary(): VocabEntry[] {
+   // "Sentadilla con barra" inherits quads/glutes.
+   const withGroups = deduped.filter((e) => e.muscleGroups && e.muscleGroups.length > 0);
+   return deduped.map((e) => {
+-    if (e.muscleGroups && e.muscleGroups.length > 0) return e;
++    const equipment = e.equipment ?? inferEquipmentFromName(e.view, e.discipline);
++    if (e.muscleGroups && e.muscleGroups.length > 0) return { ...e, equipment };
+     const sibling = withGroups.find((l) => setsEqual(l.view.movement, e.view.movement));
+-    return sibling ? { ...e, muscleGroups: sibling.muscleGroups } : e;
++    return sibling ? { ...e, muscleGroups: sibling.muscleGroups, equipment } : { ...e, equipment };
+   });
+ }
+ 
+diff --git a/src/lib/ai/conversation/focusSession.ts b/src/lib/ai/conversation/focusSession.ts
+index 8bff31b..7def161 100644
+--- a/src/lib/ai/conversation/focusSession.ts
++++ b/src/lib/ai/conversation/focusSession.ts
+@@ -1,18 +1,24 @@
+ // KAIROS — Focus-aware session composer (the deterministic path's ears).
+ //
+-// The bug this fixes (observed on-device, 2026-07): "entreno de espalda, 40
+-// minutos, full máquinas" returned Sentadilla + Press banca + Remo + Press
+-// militar — a generic full-body skeleton. Reason: SessionBrief.focus never
+-// reached the builder. briefToStarterAnswers only carries {discipline, level,
+-// frequency, equipment}, so EVERY strength brief resolved to the same
+-// STRENGTH.dayA template regardless of what the user asked for.
++// The bug this fixed first (observed on-device, 2026-07): "entreno de espalda,
++// 40 minutos, full máquinas" returned Sentadilla + Press banca + Remo + Press
++// militar — a generic full-body skeleton, because SessionBrief.focus never
++// reached the builder. The composer below is the selection layer that fixed it:
++// a catalog of curated slots (see exerciseCatalog.ts) tagged with the muscle
++// groups they train, filtered by the brief's focus, gated by the user's
++// equipment, and assembled with the starter templates' own card builder.
+ //
+-// The fix is a selection layer, not a new template system: a catalog of curated
+-// exercise slots tagged with the muscle groups they train, filtered by the
+-// brief's focus (mapped through focusMuscleGroups — the SAME mapping the LLM
+-// vocabulary bias uses), gated by the user's equipment exactly like the starter
+-// templates, and assembled with the starter templates' own card builder
+-// (buildBlockFromTemplate). Curated slot lists in, coherent block out.
++// The bug it fixes NOW: the same sentence still led with Remo con barra + Peso
++// muerto, because "full máquinas" only ever ADDED tags to the gym baseline — it
++// could not restrict it. Equipment intent is now resolved once, in equipment.ts,
++// and this composer honours two things it returns:
++//
++//   · `tags` — the allowed equipment. Any option gated behind something else is
++//     skipped. Never substituted for a movement the user can't do.
++//   · `bodyweightAllowed` — false when the user named a non-bodyweight set. On a
++//     "full máquinas" day an ungated movement (towel row, push-up) is NOT a
++//     legitimate pick; it is a last resort, unlocked only if the restriction
++//     would otherwise starve the session. Degrade honestly, never fake.
+ //
+ // Contract:
+ //   · No focus, unrecognised focus, or a discipline where muscle groups are
+@@ -21,416 +27,24 @@
+ //   · Every option name is canonical vocabulary (see canonicalizeExercises), so
+ //     the progression memory keeps matching — by libraryId where the library
+ //     knows the movement, by stable name otherwise.
+-//   · An option whose equipment gate isn't satisfied is skipped, never
+-//     substituted for something the user can't do: a home session simply drops
+-//     the machine slots. If fewer than MIN_EXERCISES survive, we return null
+-//     rather than ship a two-line session.
++//   · If fewer than MIN_VIABLE movements survive even after degradation, we
++//     return null rather than ship a two-line session.
+ //
+ // Node-safe: pure. No store, no transport.
+ 
+ import type { MuscleGroup } from '../../../types/core';
+-import type { EquipmentTag } from '../../../types/profile';
+ import type {
+   BlockTemplate,
+   ExerciseOption,
+   ExerciseSlot,
+-  PerLevel,
+   StarterAnswers,
+ } from '../../routines/starterTemplates';
+-import { lv } from '../../routines/starterTemplates';
+ import { canonicalizeExerciseName, focusMuscleGroups } from './canonicalizeExercises';
++import { resolveEquipment } from './equipment';
++import type { FocusSlot } from './exerciseCatalog';
++import { FOCUS_CATALOG } from './exerciseCatalog';
+ import type { SessionBrief } from './types';
+ 
+-// ======================== CATALOG MODEL ========================
+-
+-/** Compound → accessory → finisher. Drives both ranking and block order. */
+-type Tier = 0 | 1 | 2;
+-
+-interface FocusSlot {
+-  /**
+-   * The groups this movement is a legitimate CHOICE for — its training purpose,
+-   * not every muscle it touches. Bench press brushes the front delts, but a
+-   * shoulder day led by bench press is exactly the incoherence we're fixing, so
+-   * its groups are ['chest']. A deadlift, by contrast, IS a back exercise, so it
+-   * carries 'back' and can headline a pull day.
+-   */
+-  groups: MuscleGroup[];
+-  /** The group it's chosen FOR. A slot whose primary is on-target outranks a spillover. */
+-  primary: MuscleGroup;
+-  tier: Tier;
+-  /**
+-   * Only used when the equipment leaves too little to build a session — a
+-   * towel row belongs in a bodyweight pull day, never in a full gym.
+-   */
+-  fallbackOnly?: boolean;
+-  slot: Omit<ExerciseSlot, 'options'> & { options: ExerciseOption[] };
+-}
+-
+-const fallback = (fs: FocusSlot): FocusSlot => ({ ...fs, fallbackOnly: true });
+-
+-const strengthSlot = (
+-  groups: MuscleGroup[],
+-  primary: MuscleGroup,
+-  tier: Tier,
+-  options: ExerciseOption[],
+-  sets: PerLevel<number>,
+-  reps: PerLevel<number>,
+-  rest: PerLevel<number>,
+-): FocusSlot => ({
+-  groups,
+-  primary,
+-  tier,
+-  slot: { options, cardDiscipline: 'strength', sets, reps, rest },
+-});
+-
+-const holdSlot = (
+-  primary: MuscleGroup,
+-  options: ExerciseOption[],
+-  sets: PerLevel<number>,
+-  duration: PerLevel<number>,
+-  rest: PerLevel<number>,
+-): FocusSlot => ({
+-  groups: ['core'],
+-  primary,
+-  tier: 2,
+-  // Calisthenics cards hold SECONDS in `duration` (the "Hold time" field).
+-  slot: { options, cardDiscipline: 'calisthenics', sets, duration, rest },
+-});
+-
+-const BARBELL: EquipmentTag[] = ['barbell_plates'];
+-const FREE_WEIGHT: EquipmentTag[] = ['dumbbells', 'kettlebell'];
+-const MACHINES: EquipmentTag[] = ['machines_full_gym'];
+-const BANDS: EquipmentTag[] = ['resistance_bands'];
+-
+-/**
+- * The curated pool. Option lists mirror the starter templates' gating idiom
+- * (heaviest first, bodyweight last) and reuse their exact spellings, so history
+- * recorded from a template block and from a focused block are the same rows.
+- */
+-const CATALOG: FocusSlot[] = [
+-  // ── Legs ──
+-  strengthSlot(
+-    ['quads', 'glutes'],
+-    'quads',
+-    0,
+-    [
+-      { name: 'Sentadilla con barra', needsAny: BARBELL },
+-      { name: 'Sentadilla goblet', needsAny: FREE_WEIGHT },
+-      { name: 'Prensa de pierna', needsAny: MACHINES },
+-      { name: 'Sentadilla peso corporal' },
+-    ],
+-    lv(3, 4, 5),
+-    lv(8, 6, 5),
+-    lv(120, 150, 180),
+-  ),
+-  // Loaded hip hinge: the library counts it as back work too, so it can headline
+-  // a pull day. Gated on purpose — its unloaded cousin (Puente de glúteo, below)
+-  // is a glute exercise, NOT a back one, and must never inherit that role.
+-  strengthSlot(
+-    ['hamstrings', 'glutes', 'back'],
+-    'hamstrings',
+-    0,
+-    [
+-      { name: 'Peso muerto', needsAny: BARBELL },
+-      { name: 'Peso muerto rumano con mancuernas', needsAny: FREE_WEIGHT },
+-    ],
+-    lv(3, 4, 4),
+-    lv(8, 6, 6),
+-    lv(150, 180, 180),
+-  ),
+-  strengthSlot(
+-    ['quads', 'glutes'],
+-    'quads',
+-    1,
+-    [{ name: 'Zancadas con mancuernas', needsAny: FREE_WEIGHT }, { name: 'Zancadas' }],
+-    lv(3, 3, 4),
+-    lv(10, 10, 12),
+-    lv(90, 90, 120),
+-  ),
+-  strengthSlot(
+-    ['glutes', 'hamstrings'],
+-    'glutes',
+-    1,
+-    [
+-      { name: 'Hip thrust', needsAny: [...BARBELL, ...FREE_WEIGHT, ...MACHINES] },
+-      { name: 'Puente de glúteo' },
+-    ],
+-    lv(3, 3, 4),
+-    lv(12, 10, 10),
+-    lv(90, 90, 90),
+-  ),
+-  strengthSlot(
+-    ['hamstrings'],
+-    'hamstrings',
+-    1,
+-    [{ name: 'Curl femoral', needsAny: MACHINES }],
+-    lv(3, 3, 4),
+-    lv(12, 12, 10),
+-    lv(60, 60, 90),
+-  ),
+-  strengthSlot(
+-    ['quads'],
+-    'quads',
+-    1,
+-    [{ name: 'Extensiones de cuádriceps', needsAny: MACHINES }],
+-    lv(3, 3, 4),
+-    lv(12, 12, 10),
+-    lv(60, 60, 90),
+-  ),
+-  strengthSlot(
+-    ['calves'],
+-    'calves',
+-    1,
+-    [{ name: 'Elevaciones gemelos' }],
+-    lv(3, 4, 4),
+-    lv(15, 15, 20),
+-    lv(45, 45, 60),
+-  ),
+-
+-  // ── Back ──
+-  strengthSlot(
+-    ['back'],
+-    'back',
+-    0,
+-    [
+-      { name: 'Remo con barra', needsAny: BARBELL },
+-      { name: 'Remo con mancuerna', needsAny: FREE_WEIGHT },
+-      { name: 'Remo en polea', needsAny: MACHINES },
+-      { name: 'Remo con banda', needsAny: BANDS },
+-      { name: 'Remo invertido' },
+-    ],
+-    lv(3, 4, 4),
+-    lv(10, 8, 8),
+-    lv(90, 120, 120),
+-  ),
+-  strengthSlot(
+-    ['back'],
+-    'back',
+-    0,
+-    [
+-      { name: 'Dominadas', needsAny: ['pull_up_bar'] },
+-      { name: 'Jalón al pecho', needsAny: MACHINES },
+-      { name: 'Pull-down con banda', needsAny: BANDS },
+-      { name: 'Superman + remo toalla' },
+-    ],
+-    lv(3, 4, 4),
+-    lv(6, 8, 8),
+-    lv(120, 120, 150),
+-  ),
+-  strengthSlot(
+-    ['back'],
+-    'back',
+-    1,
+-    [
+-      { name: 'Jalón al pecho', needsAny: MACHINES },
+-      { name: 'Remo con mancuerna', needsAny: FREE_WEIGHT },
+-      { name: 'Remo con banda', needsAny: BANDS },
+-      { name: 'Remo invertido' },
+-    ],
+-    lv(3, 3, 4),
+-    lv(10, 10, 12),
+-    lv(90, 90, 90),
+-  ),
+-  strengthSlot(
+-    ['back', 'shoulders'],
+-    'back',
+-    2,
+-    [
+-      { name: 'Face pull', needsAny: [...MACHINES, ...BANDS] },
+-      { name: 'Pájaros', needsAny: FREE_WEIGHT },
+-    ],
+-    lv(3, 3, 3),
+-    lv(15, 15, 15),
+-    lv(60, 60, 60),
+-  ),
+-  // The one back movement that needs nothing at all — keeps a bodyweight pull
+-  // day from being two exercises long, and stays out of everyone else's.
+-  fallback(
+-    strengthSlot(
+-      ['back'],
+-      'back',
+-      2,
+-      [{ name: 'Superman + remo toalla' }],
+-      lv(3, 3, 3),
+-      lv(12, 15, 15),
+-      lv(60, 60, 60),
+-    ),
+-  ),
+-
+-  // ── Chest ──
+-  strengthSlot(
+-    ['chest'],
+-    'chest',
+-    0,
+-    [
+-      { name: 'Press banca', needsAny: BARBELL },
+-      { name: 'Press banca mancuernas', needsAny: ['dumbbells'] },
+-      { name: 'Press en máquina', needsAny: MACHINES },
+-      { name: 'Flexiones' },
+-    ],
+-    lv(3, 4, 5),
+-    lv(8, 6, 5),
+-    lv(120, 150, 180),
+-  ),
+-  strengthSlot(
+-    ['chest'],
+-    'chest',
+-    0,
+-    [
+-      { name: 'Press inclinado', needsAny: BARBELL },
+-      { name: 'Press mancuernas', needsAny: ['dumbbells'] },
+-      { name: 'Press en máquina', needsAny: MACHINES },
+-      { name: 'Flexiones declinadas' },
+-    ],
+-    lv(3, 3, 4),
+-    lv(10, 8, 8),
+-    lv(90, 120, 120),
+-  ),
+-  strengthSlot(
+-    ['chest'],
+-    'chest',
+-    1,
+-    [
+-      { name: 'Aperturas mancuernas', needsAny: ['dumbbells'] },
+-      { name: 'Aperturas con banda', needsAny: BANDS },
+-    ],
+-    lv(3, 3, 3),
+-    lv(12, 12, 15),
+-    lv(60, 60, 60),
+-  ),
+-  strengthSlot(
+-    ['chest', 'triceps'],
+-    'chest',
+-    1,
+-    [{ name: 'Fondos' }],
+-    lv(3, 3, 4),
+-    lv(8, 10, 12),
+-    lv(90, 90, 90),
+-  ),
+-
+-  // ── Shoulders ──
+-  strengthSlot(
+-    ['shoulders'],
+-    'shoulders',
+-    0,
+-    [
+-      { name: 'Press militar', needsAny: ['barbell_plates', 'dumbbells'] },
+-      { name: 'Press de hombro en máquina', needsAny: MACHINES },
+-      { name: 'Pike push-ups' },
+-    ],
+-    lv(3, 3, 4),
+-    lv(10, 8, 8),
+-    lv(90, 90, 120),
+-  ),
+-  strengthSlot(
+-    ['shoulders'],
+-    'shoulders',
+-    1,
+-    [{ name: 'Elevaciones laterales', needsAny: ['dumbbells', 'resistance_bands', 'kettlebell'] }],
+-    lv(3, 3, 4),
+-    lv(15, 12, 12),
+-    lv(45, 60, 60),
+-  ),
+-  strengthSlot(
+-    ['shoulders'],
+-    'shoulders',
+-    1,
+-    [
+-      { name: 'Pájaros', needsAny: ['dumbbells', 'resistance_bands'] },
+-      { name: 'Face pull', needsAny: MACHINES },
+-    ],
+-    lv(3, 3, 3),
+-    lv(15, 15, 15),
+-    lv(45, 60, 60),
+-  ),
+-
+-  // ── Arms ──
+-  strengthSlot(
+-    ['biceps'],
+-    'biceps',
+-    1,
+-    [
+-      { name: 'Curl con barra', needsAny: BARBELL },
+-      { name: 'Curl mancuernas', needsAny: FREE_WEIGHT },
+-      { name: 'Curl con banda', needsAny: BANDS },
+-    ],
+-    lv(3, 3, 4),
+-    lv(12, 10, 10),
+-    lv(60, 60, 90),
+-  ),
+-  strengthSlot(
+-    ['biceps', 'forearms'],
+-    'biceps',
+-    1,
+-    [{ name: 'Curl martillo', needsAny: FREE_WEIGHT }],
+-    lv(3, 3, 3),
+-    lv(12, 10, 10),
+-    lv(60, 60, 60),
+-  ),
+-  strengthSlot(
+-    ['triceps'],
+-    'triceps',
+-    1,
+-    [{ name: 'Extensiones tríceps polea', needsAny: [...MACHINES, ...BANDS] }],
+-    lv(3, 3, 4),
+-    lv(12, 12, 10),
+-    lv(60, 60, 60),
+-  ),
+-  strengthSlot(
+-    ['triceps'],
+-    'triceps',
+-    1,
+-    [{ name: 'Press francés', needsAny: ['barbell_plates', 'dumbbells'] }],
+-    lv(3, 3, 4),
+-    lv(12, 10, 10),
+-    lv(60, 90, 90),
+-  ),
+-  strengthSlot(
+-    ['triceps'],
+-    'triceps',
+-    1,
+-    [{ name: 'Fondos de tríceps en banco' }],
+-    lv(3, 3, 4),
+-    lv(10, 12, 15),
+-    lv(60, 60, 90),
+-  ),
+-  strengthSlot(
+-    ['triceps'],
+-    'triceps',
+-    2,
+-    [{ name: 'Flexiones diamante' }],
+-    lv(3, 3, 3),
+-    lv(8, 10, 12),
+-    lv(60, 60, 60),
+-  ),
+-
+-  // ── Core ──
+-  holdSlot('core', [{ name: 'Plancha' }], lv(3, 3, 4), lv(30, 45, 60), lv(45, 60, 60)),
+-  holdSlot('core', [{ name: 'Hollow hold' }], lv(3, 3, 4), lv(20, 30, 45), lv(45, 60, 60)),
+-  {
+-    groups: ['core'],
+-    primary: 'core',
+-    tier: 2,
+-    slot: {
+-      options: [
+-        { name: 'Elevaciones piernas colgado', needsAny: ['pull_up_bar'] },
+-        { name: 'Elevaciones de piernas' },
+-      ],
+-      cardDiscipline: 'calisthenics',
+-      sets: lv(3, 3, 4),
+-      reps: lv(10, 12, 15),
+-      rest: lv(60, 60, 60),
+-    },
+-  },
+-  holdSlot(
+-    'core',
+-    [{ name: 'Core anti-rotación (plancha lateral)' }],
+-    lv(2, 3, 3),
+-    lv(20, 30, 40),
+-    lv(45, 45, 60),
+-  ),
+-];
+-
+ // ======================== SELECTION ========================
+ 
+ /** Muscle-group focus only means something for these. A "rodaje suave" has no lats. */
+@@ -473,30 +87,43 @@ function rank(a: FocusSlot, ai: number, b: FocusSlot, bi: number, targets: Muscl
+   return ai - bi;
+ }
+ 
++/**
++ * Is this option within reach? An ungated option is a bodyweight movement: it is
++ * always physically possible, but on a day the user restricted to machines (or
++ * to dumbbells) it is not what they asked for — `bodyweightAllowed` is how the
++ * strict pass says so.
++ */
++function optionAllowed(
++  opt: ExerciseOption,
++  answers: StarterAnswers,
++  bodyweightAllowed: boolean,
++): boolean {
++  if (!opt.needsAny) return bodyweightAllowed;
++  return opt.needsAny.some((tag) => answers.equipment.includes(tag));
++}
++
+ /**
+  * Resolve each on-target slot to the best option the user can actually do,
+  * skipping any movement already taken (a gym user gets "Remo con barra" then
+  * "Jalón al pecho", never the same row twice) and dropping slots whose every
+  * option is gated behind equipment the user doesn't have.
+  */
+-function resolveCandidates(
+-  targets: MuscleGroup[],
++function collect(
++  ordered: FocusSlot[],
+   answers: StarterAnswers,
+-  onTarget: (slot: FocusSlot) => boolean,
++  bodyweightAllowed: boolean,
+ ): Candidate[] {
+-  const ordered = CATALOG.map((focusSlot, i) => ({ focusSlot, i }))
+-    .filter(({ focusSlot }) => onTarget(focusSlot))
+-    .sort((a, b) => rank(a.focusSlot, a.i, b.focusSlot, b.i, targets));
+-
+   const used = new Set<string>();
+-  const resolve = (which: boolean): Candidate[] => {
++
++  const pass = (fallbackOnly: boolean): Candidate[] => {
+     const out: Candidate[] = [];
+-    for (const { focusSlot } of ordered) {
+-      if ((focusSlot.fallbackOnly ?? false) !== which) continue;
+-      const option = focusSlot.slot.options.find((opt) => {
+-        const available = !opt.needsAny || opt.needsAny.some((t) => answers.equipment.includes(t));
+-        return available && !used.has(canonicalizeExerciseName(opt.name).name);
+-      });
++    for (const focusSlot of ordered) {
++      if ((focusSlot.fallbackOnly ?? false) !== fallbackOnly) continue;
++      const option = focusSlot.slot.options.find(
++        (opt) =>
++          optionAllowed(opt, answers, bodyweightAllowed) &&
++          !used.has(canonicalizeExerciseName(opt.name).name),
++      );
+       if (!option) continue;
+       used.add(canonicalizeExerciseName(option.name).name);
+       out.push({ focusSlot, option, minutes: estimatedMinutes(focusSlot.slot, answers.level) });
+@@ -506,8 +133,33 @@ function resolveCandidates(
+ 
+   // Real movements first; the bodyweight stand-ins only if the equipment left
+   // us short. A gym back day never has to reach for a towel row.
+-  const main = resolve(false);
+-  return main.length >= MIN_DECENT ? main : [...main, ...resolve(true)];
++  const main = pass(false);
++  return main.length >= MIN_DECENT ? main : [...main, ...pass(true)];
++}
++
++/**
++ * The strict pool, and — only when a restriction starved it — an honest
++ * degradation: re-open the ungated movements the restriction had demoted, and
++ * take that pool if it is genuinely bigger. Nothing outside the user's allowed
++ * equipment ever comes back: a machines-only day that runs short gets bodyweight
++ * accessories, never the barbell it just refused.
++ */
++function resolveCandidates(
++  targets: MuscleGroup[],
++  answers: StarterAnswers,
++  bodyweightAllowed: boolean,
++  onTarget: (slot: FocusSlot) => boolean,
++): Candidate[] {
++  const ordered = FOCUS_CATALOG.map((focusSlot, i) => ({ focusSlot, i }))
++    .filter(({ focusSlot }) => onTarget(focusSlot))
++    .sort((a, b) => rank(a.focusSlot, a.i, b.focusSlot, b.i, targets))
++    .map(({ focusSlot }) => focusSlot);
++
++  const strict = collect(ordered, answers, bodyweightAllowed);
++  if (bodyweightAllowed || strict.length >= MIN_DECENT) return strict;
++
++  const degraded = collect(ordered, answers, true);
++  return degraded.length > strict.length ? degraded : strict;
+ }
+ 
+ /**
+@@ -579,8 +231,9 @@ export function buildFocusSessionTemplate(
+   const targets = focusMuscleGroups(brief.focus);
+   if (targets.length === 0) return null;
+ 
++  const { bodyweightAllowed } = resolveEquipment(brief);
+   const onTarget = (fs: FocusSlot): boolean => fs.groups.some((g) => targets.includes(g));
+-  const candidates = resolveCandidates(targets, answers, onTarget);
++  const candidates = resolveCandidates(targets, answers, bodyweightAllowed, onTarget);
+   const chosen = select(candidates, targets, brief.durationMin);
+   if (chosen.length < MIN_VIABLE) return null;
+ 
+diff --git a/src/lib/ai/conversation/types.ts b/src/lib/ai/conversation/types.ts
+index 58311c0..ae24f99 100644
+--- a/src/lib/ai/conversation/types.ts
++++ b/src/lib/ai/conversation/types.ts
+@@ -11,6 +11,7 @@ import type { Discipline } from '../../../types/core';
+ // Type-only: erased at runtime, so node tests that import the engine never pull
+ // the Groq client (and its supabase side effects) into the graph.
+ import type { GroqMessage } from '../client';
++import type { EquipmentPolicy } from './equipment';
+ 
+ /** Where the conversation is right now. Drives the UI's status affordances. */
+ export type ConversationPhase =
+@@ -36,8 +37,15 @@ export interface SessionBrief {
+   durationMin: number | null;
+   location: 'casa' | 'gym' | 'aire_libre' | null;
+   intensity: 'suave' | 'normal' | 'fuerte';
+-  /** Free-form equipment words the user mentioned. */
++  /** Free-form equipment words the user mentioned, affirmatively. */
+   equipment: string[];
++  /**
++   * The user's equipment intent as tags: what they NAMED (which becomes the
++   * allowed set, replacing the location baseline) and what they NEGATED ("sin
++   * barra"). Absent = they said nothing → the location baseline stands. Derived
++   * deterministically from their own words; see equipment.ts for the semantics.
++   */
++  equipmentPolicy?: EquipmentPolicy;
+   /** Anything else worth carrying into generation. */
+   notes: string | null;
+ }
+diff --git a/src/lib/liveActivity/useLiveActivitySync.ts b/src/lib/liveActivity/useLiveActivitySync.ts
+index d1e1430..60db584 100644
+--- a/src/lib/liveActivity/useLiveActivitySync.ts
++++ b/src/lib/liveActivity/useLiveActivitySync.ts
+@@ -1,7 +1,11 @@
+ // Keeps the OS surface (iOS Live Activity / Android ongoing notification)
+-// mirroring the active workout, and applies widget button actions back onto
+-// the store. Mount once inside ActiveWorkoutScreen — the activity lives and
+-// dies with the session, not the screen focus.
++// mirroring the active workout. Mount once inside ActiveWorkoutScreen — the
++// activity lives and dies with the SESSION, not with the screen's focus.
++//
++// The payload is derived by a pure function (payload.ts) from the same machine
++// + formatter the phone scoreboard uses, so the lock screen and the phone can
++// never disagree. The button→store bridge lives in widgetBridge.ts because it
++// must outlive this hook.
+ 
+ import { useEffect, useMemo, useRef } from 'react';
+ 
+@@ -9,116 +13,86 @@ import {
+   startWorkoutActivity,
+   updateWorkoutActivity,
+   endWorkoutActivity,
+-  addWidgetActionListener,
+   isLiveActivitySupported,
+   type LiveActivityWorkoutState,
+ } from '../../../modules/kairos-live-activity';
+ import { useWorkoutStore } from '../../store/workoutStore';
+ 
+-const WIDGET_EXTEND_SECONDS = 30;
++import { buildLiveActivityPayload, type LiveActivityPayload } from './payload';
++import { installWidgetActionBridge } from './widgetBridge';
+ 
+-// Superset of the native contract: `nextExerciseName` is a forward-compatible
+-// extra key. The Swift decoder (KairosLiveActivityModule.contentState) reads
+-// known keys from the dict and ignores the rest, so shipping it today is a
+-// no-op until ContentState + the widget UI consume it (native change described
+-// in the Modo Sesión report — needs a rebuild, so it ships separately).
+-interface KairosActivityState extends LiveActivityWorkoutState {
+-  nextExerciseName: string | null;
+-}
+-
+-function deriveState(): KairosActivityState | null {
+-  const s = useWorkoutStore.getState();
+-  const aw = s.activeWorkout;
+-  if (!aw) return null;
+-  const exercise = aw.exercises[aw.currentExerciseIndex];
+-  if (!exercise) return null;
+-  const set = exercise.sets[aw.currentSetIndex];
+-  const block = s.blocks.find((b) => b.id === aw.blockId);
++// Installed at import time (module scope), not on mount: iOS can relaunch a
++// killed app in the background to run the App Intent, and the tap must be
++// applied even though no screen ever mounts in that launch.
++installWidgetActionBridge();
+ 
+-  const weight =
+-    typeof set?.values['weight'] === 'number' ? (set.values['weight'] as number) : null;
+-  const reps = typeof set?.values['reps'] === 'number' ? (set.values['reps'] as number) : null;
++export interface LiveActivitySyncOptions {
++  /** The screen's "has the user tapped Empezar on this exercise" bit. */
++  hasEnteredCurrentExercise: boolean;
++}
+ 
+-  return {
+-    blockName: block?.name ?? 'Entrenamiento',
+-    exerciseName: exercise.name,
+-    setIndex: Math.min(aw.currentSetIndex + 1, exercise.sets.length),
+-    setTotal: exercise.sets.length,
+-    targetWeight: weight ?? exercise.goalWeight ?? null,
+-    targetReps: reps ?? exercise.goalReps ?? null,
+-    restEndsAt: aw.restTimer.active ? aw.restTimer.startTime + aw.restTimer.duration * 1000 : null,
+-    nextExerciseName: aw.exercises[aw.currentExerciseIndex + 1]?.name ?? null,
+-  };
++function toNativeState(payload: LiveActivityPayload): LiveActivityWorkoutState {
++  return { ...payload };
+ }
+ 
+-export function useLiveActivitySync(): void {
++export function useLiveActivitySync({ hasEnteredCurrentExercise }: LiveActivitySyncOptions): void {
+   const aw = useWorkoutStore((s) => s.activeWorkout);
+-  const startedRef = useRef(false);
++  const blocks = useWorkoutStore((s) => s.blocks);
+ 
+-  // Single signature string so the effect only fires on meaningful changes,
+-  // not on every draft keystroke re-render.
+-  const signature = useMemo(() => {
++  const payload = useMemo(() => {
+     if (!aw) return null;
+-    const ex = aw.exercises[aw.currentExerciseIndex];
+-    return [
+-      aw.blockId,
+-      aw.currentExerciseIndex,
+-      aw.currentSetIndex,
+-      ex?.sets.length ?? 0,
+-      aw.restTimer.active ? aw.restTimer.startTime + aw.restTimer.duration * 1000 : 0,
+-    ].join('|');
+-  }, [aw]);
++    const block = blocks.find((b) => b.id === aw.blockId);
++    return buildLiveActivityPayload({
++      blockName: block?.name ?? 'Entrenamiento',
++      currentExerciseIndex: aw.currentExerciseIndex,
++      currentSetIndex: aw.currentSetIndex,
++      exercises: aw.exercises,
++      restTimer: aw.restTimer,
++      hasEnteredCurrentExercise,
++    });
++  }, [aw, blocks, hasEnteredCurrentExercise]);
++
++  // One string per meaningful payload change. ActivityKit's update budget is
++  // finite, so the surface is only pushed when what it SHOWS actually changes —
++  // not on every store mutation that leaves the scoreboard identical.
++  const signature = payload ? JSON.stringify(payload) : null;
++
++  const sentRef = useRef<string | null>(null);
++  const startedRef = useRef(false);
+ 
+   useEffect(() => {
+-    if (!signature) {
++    if (!payload || !signature) {
+       if (startedRef.current) {
+         startedRef.current = false;
+-        endWorkoutActivity();
++        sentRef.current = null;
++        void endWorkoutActivity();
+       }
+       return;
+     }
++    if (sentRef.current === signature) return;
+     if (!isLiveActivitySupported()) return;
+-    const state = deriveState();
+-    if (!state) return;
++
++    sentRef.current = signature;
++    const state = toNativeState(payload);
+     if (!startedRef.current) {
+       startedRef.current = true;
+-      startWorkoutActivity(state);
++      void startWorkoutActivity(state);
+     } else {
+-      updateWorkoutActivity(state);
++      void updateWorkoutActivity(state);
+     }
+-  }, [signature]);
++  }, [payload, signature]);
+ 
+-  // End the activity when the session screen unmounts with no active workout
+-  // left behind (finish/cancel paths set activeWorkout = null first).
++  // On unmount: end the activity only if the SESSION is over. Finish/cancel null
++  // out activeWorkout (the effect above already ended it), so this is normally a
++  // no-op. If a session is somehow still live when the screen goes away, the
++  // lock-screen scoreboard must survive — the whole point is that it works with
++  // the app out of the picture, and widgetBridge still applies its taps.
+   useEffect(() => {
+     return () => {
+-      if (startedRef.current) {
+-        startedRef.current = false;
+-        endWorkoutActivity();
+-      }
++      if (!startedRef.current) return;
++      if (useWorkoutStore.getState().activeWorkout) return;
++      startedRef.current = false;
++      void endWorkoutActivity();
+     };
+   }, []);
+-
+-  // Widget buttons → store actions. Uses getState() at event time: the
+-  // listener outlives any particular render.
+-  useEffect(() => {
+-    const sub = addWidgetActionListener(({ action }) => {
+-      const s = useWorkoutStore.getState();
+-      const current = s.activeWorkout;
+-      if (!current) return;
+-      if (action === 'extendRest') {
+-        s.extendRest(WIDGET_EXTEND_SECONDS);
+-        return;
+-      }
+-      if (action === 'completeSet') {
+-        const exercise = current.exercises[current.currentExerciseIndex];
+-        const set = exercise?.sets[current.currentSetIndex];
+-        if (!exercise || !set || set.completed) return;
+-        // Complete with whatever values the set already carries (goal
+-        // prefills / ghost values) — the widget has no keypad by design.
+-        s.completeSet(exercise.id, set.id, set.values);
+-      }
+-    });
+-    return () => sub.remove();
+-  }, []);
+ }
+diff --git a/src/navigation/AppNavigator.tsx b/src/navigation/AppNavigator.tsx
+index a44cbf8..81eefdf 100644
+--- a/src/navigation/AppNavigator.tsx
++++ b/src/navigation/AppNavigator.tsx
+@@ -36,11 +36,28 @@ import { useAuthStore } from '../store/useAuthStore';
+ import { useUserProfile } from '../context/UserProfileContext';
+ import { useWorkoutStore } from '../store/workoutStore';
+ import { Colors } from '../theme/index';
++import PaperGrain from '../theme/Paper';
+ import { SKIP_AUTH } from '../config/constants';
+ 
+ const Stack = createNativeStackNavigator<RootStackParamList>();
+ const Tab = createBottomTabNavigator<DashboardTabParamList>();
+ 
++// ======================== PAPER ROOT ========================
++
++// The canvas the whole app is printed on: warm paper + one tiled grain layer,
++// mounted once (§3a). Screens keep their own background colour, so the grain
++// only ever adds fibre on top — it never fights a screen for the base tone.
++// ActiveWorkoutScreen mounts its own copy: iOS presents fullScreenModal in a
++// separate view controller, above this view.
++function PaperRoot({ children }: { children: React.ReactNode }) {
++  return (
++    <View style={paperStyles.root}>
++      {children}
++      <PaperGrain />
++    </View>
++  );
++}
++
+ // ======================== DASHBOARD TABS ========================
+ 
+ function DashboardTabs() {
+@@ -79,7 +96,7 @@ export default function AppNavigator() {
+   // ── SKIP_AUTH mode: jump straight to the dashboard ──────────────
+   if (SKIP_AUTH) {
+     return (
+-      <>
++      <PaperRoot>
+         <NavigationContainer>
+           {onboarded ? (
+             <Stack.Navigator screenOptions={{ headerShown: false }}>
+@@ -157,80 +174,86 @@ export default function AppNavigator() {
+ 
+         {/* Splash sits on top of everything and fades itself out */}
+         {splashVisible && <SplashScreen onDone={() => setSplashVisible(false)} />}
+-      </>
++      </PaperRoot>
+     );
+   }
+ 
+   // ── Auth mode: wait for Supabase init ────────────────────────────
+   if (!isInitialized || profileLoading) {
+     return (
+-      <>
++      <PaperRoot>
+         <View style={loadingStyles.container}>
+           <AnimatedKairosLogo size={72} />
+           <Text style={loadingStyles.caption}>Preparando tu espacio</Text>
+         </View>
+         {splashVisible && <SplashScreen onDone={() => setSplashVisible(false)} />}
+-      </>
++      </PaperRoot>
+     );
+   }
+ 
+   return (
+-    <NavigationContainer>
+-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+-        {!session ? (
+-          <>
+-            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+-            <Stack.Screen name="Auth" component={AuthScreen} />
+-          </>
+-        ) : !onboarded ? (
+-          <>
+-            <Stack.Screen name="Onboarding" component={PremiumOnboardingScreen} />
+-            <Stack.Screen name="Dashboard" component={DashboardTabs} />
+-            <Stack.Screen
+-              name="BlockDetail"
+-              component={BlockEditorScreen}
+-              options={{ animation: 'slide_from_right' }}
+-            />
+-            <Stack.Screen
+-              name="ActiveWorkout"
+-              component={ActiveWorkoutScreen}
+-              options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+-            />
+-          </>
+-        ) : (
+-          <>
+-            <Stack.Screen name="Dashboard" component={DashboardTabs} />
+-            <Stack.Screen
+-              name="BlockDetail"
+-              component={BlockEditorScreen}
+-              options={{ animation: 'slide_from_right' }}
+-            />
+-            <Stack.Screen
+-              name="ActiveWorkout"
+-              component={ActiveWorkoutScreen}
+-              options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+-            />
+-            <Stack.Screen name="Badges" component={BadgesScreen} />
+-            <Stack.Screen name="PRCards" component={PRCardsScreen} />
+-            <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
+-            <Stack.Screen name="AIChat" component={AIChatScreen} />
+-            <Stack.Screen name="KaiToday" component={KaiConversationScreen} />
+-            <Stack.Screen
+-              name="AILabScreen"
+-              component={AILabScreen}
+-              options={{ presentation: 'modal' }}
+-            />
+-          </>
+-        )}
+-      </Stack.Navigator>
+-    </NavigationContainer>
++    <PaperRoot>
++      <NavigationContainer>
++        <Stack.Navigator screenOptions={{ headerShown: false }}>
++          {!session ? (
++            <>
++              <Stack.Screen name="Welcome" component={WelcomeScreen} />
++              <Stack.Screen name="Auth" component={AuthScreen} />
++            </>
++          ) : !onboarded ? (
++            <>
++              <Stack.Screen name="Onboarding" component={PremiumOnboardingScreen} />
++              <Stack.Screen name="Dashboard" component={DashboardTabs} />
++              <Stack.Screen
++                name="BlockDetail"
++                component={BlockEditorScreen}
++                options={{ animation: 'slide_from_right' }}
++              />
++              <Stack.Screen
++                name="ActiveWorkout"
++                component={ActiveWorkoutScreen}
++                options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
++              />
++            </>
++          ) : (
++            <>
++              <Stack.Screen name="Dashboard" component={DashboardTabs} />
++              <Stack.Screen
++                name="BlockDetail"
++                component={BlockEditorScreen}
++                options={{ animation: 'slide_from_right' }}
++              />
++              <Stack.Screen
++                name="ActiveWorkout"
++                component={ActiveWorkoutScreen}
++                options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
++              />
++              <Stack.Screen name="Badges" component={BadgesScreen} />
++              <Stack.Screen name="PRCards" component={PRCardsScreen} />
++              <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
++              <Stack.Screen name="AIChat" component={AIChatScreen} />
++              <Stack.Screen name="KaiToday" component={KaiConversationScreen} />
++              <Stack.Screen
++                name="AILabScreen"
++                component={AILabScreen}
++                options={{ presentation: 'modal' }}
++              />
++            </>
++          )}
++        </Stack.Navigator>
++      </NavigationContainer>
++    </PaperRoot>
+   );
+ }
+ 
++const paperStyles = StyleSheet.create({
++  root: { flex: 1, backgroundColor: Colors.paper.base },
++});
++
+ const loadingStyles = StyleSheet.create({
+   container: {
+     flex: 1,
+-    backgroundColor: Colors.bg.void,
++    backgroundColor: Colors.paper.base,
+     alignItems: 'center',
+     justifyContent: 'center',
+     gap: Spacing.lg,
+diff --git a/src/screens/ActiveWorkoutScreen.tsx b/src/screens/ActiveWorkoutScreen.tsx
+index e244503..d08e0cb 100644
+--- a/src/screens/ActiveWorkoutScreen.tsx
++++ b/src/screens/ActiveWorkoutScreen.tsx
+@@ -37,7 +37,12 @@ import type { RootStackParamList } from '../types/navigation';
+ import type { ExerciseCard, FieldValue, FieldDefinition, Discipline } from '../types/core';
+ import { createExerciseCard } from '../types/core';
+ import { Colors, Type, Spacing, Radius, FontFamily } from '../theme/tokens';
++import PaperGrain from '../theme/Paper';
+ import { deriveScoreboardState, scoreboardStateKey } from '../features/workout/scoreboard/machine';
++import {
++  resolveJustCompleted,
++  type JustCompletedRef,
++} from '../features/workout/scoreboard/justCompleted';
+ import {
+   formatScoreboardTarget,
+   announceSetActive,
+@@ -50,6 +55,10 @@ import {
+   formatReference,
+   type PreviousReference,
+ } from '../components/workout/lib/previousReference';
++import {
++  computeProgressionDelta,
++  progressionCaption,
++} from '../features/workout/scoreboard/progressionDelta';
+ import {
+   detectPR,
+   formatPRDelta,
+@@ -68,6 +77,17 @@ function fmtSessionTime(secs: number): string {
+   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+ }
+ 
++// Shallow equality over the union of keys — "did the user actually change the
++// suggested target?". Trivial on purpose; lives here, not in a module.
++function shallowEqualValues(
++  base: Record<string, FieldValue>,
++  draft: Record<string, FieldValue>,
++): boolean {
++  for (const k in base) if (base[k] !== draft[k]) return false;
++  for (const k in draft) if (base[k] !== draft[k]) return false;
++  return true;
++}
++
+ // "hace 3 días" / "hace 2 sem" / "hace 1 mes". Sober, Spanish.
+ function formatRelativeAgo(ts: number): string {
+   const diffMs = Date.now() - ts;
+@@ -123,6 +143,7 @@ export default function ActiveWorkoutScreen() {
+   const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
+   const startWorkout = useWorkoutStore((s) => s.startWorkout);
+   const completeSet = useWorkoutStore((s) => s.completeSet);
++  const editCompletedSetValues = useWorkoutStore((s) => s.editCompletedSetValues);
+   const skipRest = useWorkoutStore((s) => s.skipRest);
+   const extendRest = useWorkoutStore((s) => s.extendRest);
+   const setExerciseRestForCurrent = useWorkoutStore((s) => s.setExerciseRestForCurrent);
+@@ -143,9 +164,6 @@ export default function ActiveWorkoutScreen() {
+     }
+   }, [aw, blockId, assignmentId, scheduledDate, source, startWorkout]);
+ 
+-  // Mirror the session to the Live Activity / ongoing notification.
+-  useLiveActivitySync();
+-
+   // ===== session timer =====
+   // Keyed on startTime alone — keying on `aw` would tear the interval down
+   // on every store mutation (each set completion).
+@@ -165,6 +183,14 @@ export default function ActiveWorkoutScreen() {
+   const [showAdd, setShowAdd] = useState(false);
+   const [correctionOpen, setCorrectionOpen] = useState(false);
+   const [overviewOpen, setOverviewOpen] = useState(false);
++  // Rest-state correction of the JUST-completed set (BRIEF-03). Its own draft
++  // and its own sheet instance — mutually exclusive with the set-active sheet,
++  // so the two modals can never coexist.
++  const [restCorrection, setRestCorrection] = useState<{
++    exerciseId: string;
++    setId: string;
++  } | null>(null);
++  const [editDraft, setEditDraft] = useState<Record<string, FieldValue>>({});
+   const [calcOpen, setCalcOpen] = useState(false);
+   const [calcTarget, setCalcTarget] = useState(60);
+ 
+@@ -265,6 +291,19 @@ export default function ActiveWorkoutScreen() {
+     hasEnteredCurrentExercise: entered.has(currentExerciseIndex),
+   });
+   const stateKey = scoreboardStateKey(sbState, { currentExerciseIndex, currentSetIndex });
++  const resting = sbState.kind === 'resting';
++
++  // The set the user JUST finished — derived (most recent completed_at), never
++  // stored, so it survives exercise boundaries and needs no migration.
++  const awExercises = aw?.exercises;
++  const jc = useMemo(
++    () => (resting && awExercises ? resolveJustCompleted(awExercises) : null),
++    [resting, awExercises],
++  );
++
++  // Mirror the session onto the lock screen / Dynamic Island. Same machine, same
++  // formatter — the phone face-up on the bench IS the scoreboard.
++  useLiveActivitySync({ hasEnteredCurrentExercise: entered.has(currentExerciseIndex) });
+ 
+   // The scoreboard's giant value — draft-aware so a correction shows instantly.
+   const target = useMemo(() => {
+@@ -272,6 +311,16 @@ export default function ActiveWorkoutScreen() {
+     return formatScoreboardTarget(exercise.fields, { ...currentSet.values, ...draftValues });
+   }, [exercise, currentSet, draftValues]);
+ 
++  // The giant number declared as memory: "Sugerido · +2.5 kg vs la última".
++  // Draft-aware like `target` — correcting the objective recomputes the delta
++  // live and drops the word "Sugerido" (the user's number is not a suggestion).
++  const suggestedCaption = useMemo(() => {
++    const currentValues = currentSet ? { ...currentSet.values, ...draftValues } : {};
++    const edited = currentSet ? !shallowEqualValues(currentSet.values, draftValues) : false;
++    const delta = computeProgressionDelta(currentValues, previousRef);
++    return progressionCaption(delta, { edited });
++  }, [currentSet, draftValues, previousRef]);
++
+   // ===== VoiceOver: announce each state change exactly once =====
+   const lastAnnouncedRef = useRef<string | null>(null);
+   useEffect(() => {
+@@ -388,6 +437,30 @@ export default function ActiveWorkoutScreen() {
+     setCorrectionOpen(true);
+   }, []);
+ 
++  // ===== rest-state correction of the just-completed set =====
++  const openRestCorrection = useCallback((ref: JustCompletedRef) => {
++    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
++    setEditDraft({ ...ref.values });
++    setRestCorrection({ exerciseId: ref.exerciseId, setId: ref.setId });
++  }, []);
++
++  const handleEditDraftChange = useCallback((fieldId: string, value: FieldValue) => {
++    setEditDraft((prev) => ({ ...prev, [fieldId]: value }));
++  }, []);
++
++  const closeRestCorrection = useCallback(() => {
++    setRestCorrection(null);
++  }, []);
++
++  // Patch ONLY the values of the target set — completed/completed_at stay put,
++  // the rest countdown keeps running and the pointer doesn't move.
++  const commitRestCorrection = useCallback(() => {
++    if (!restCorrection) return;
++    editCompletedSetValues(restCorrection.exerciseId, restCorrection.setId, editDraft);
++    setRestCorrection(null);
++    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
++  }, [restCorrection, editDraft, editCompletedSetValues]);
++
+   const openOverview = useCallback(() => {
+     Haptics.selectionAsync().catch(() => {});
+     setOverviewOpen(true);
+@@ -487,9 +560,18 @@ export default function ActiveWorkoutScreen() {
+     );
+   }
+ 
+-  const resting = sbState.kind === 'resting';
+   const changing = sbState.kind === 'exercise-change';
+ 
++  // Live lookups for the rest-correction sheet — resolved from the store copy
++  // so the numpad + metadata target the exercise the ref points at, even when
++  // the pointer already moved to the next exercise.
++  const restCorrectionExercise = restCorrection
++    ? (aw.exercises.find((e) => e.id === restCorrection.exerciseId) ?? null)
++    : null;
++  const restCorrectionSetIndex = restCorrectionExercise
++    ? restCorrectionExercise.sets.findIndex((s) => s.id === restCorrection?.setId)
++    : -1;
++
+   // "Siguiente" peek during rest — indices already point at what comes next.
+   const nextLabel =
+     currentSetIndex > 0
+@@ -554,6 +636,15 @@ export default function ActiveWorkoutScreen() {
+                 nextTarget={target}
+                 currentRestSeconds={exercise.rest_seconds}
+                 onChangeRestSeconds={setExerciseRestForCurrent}
++                justCompleted={
++                  jc
++                    ? {
++                        label: jc.exerciseName,
++                        target: formatScoreboardTarget(jc.fields, jc.values),
++                        onCorrect: () => openRestCorrection(jc),
++                      }
++                    : undefined
++                }
+               />
+             </Animated.View>
+           ) : (
+@@ -578,6 +669,15 @@ export default function ActiveWorkoutScreen() {
+                   {exercise.name}
+                 </Text>
+                 {previousRef ? <PreviousRefPill reference={previousRef} /> : null}
++                {!changing && suggestedCaption ? (
++                  <Text
++                    style={styles.suggested}
++                    accessibilityLabel={suggestedCaption.spoken}
++                    maxFontSizeMultiplier={1.6}
++                  >
++                    {suggestedCaption.text}
++                  </Text>
++                ) : null}
+                 <View style={styles.targetZone}>
+                   <GiantTarget
+                     target={target}
+@@ -649,6 +749,12 @@ export default function ActiveWorkoutScreen() {
+         </View>
+       ) : null}
+ 
++      {/* Paper fibre. Modo Sesión is presented as a fullScreenModal — iOS gives it
++          its own view controller ABOVE the navigator's PaperRoot, so it needs its
++          own grain or it would be the one screen printed on glass. Sheets render
++          after this node, so they stay crisp. */}
++      <PaperGrain />
++
+       {/* ── Layers ── */}
+       <SetCorrectionSheet
+         visible={correctionOpen}
+@@ -663,6 +769,12 @@ export default function ActiveWorkoutScreen() {
+         accent={Colors.discipline[exercise.discipline] ?? Colors.ink.primary}
+         tint={Colors.tint[exercise.discipline] ?? Colors.bg.elevated}
+         onClose={() => setCorrectionOpen(false)}
++        onCommit={() => {
++          // Same commit path as the scoreboard HECHO — merge, PR, rest.
++          handleCompleteSet();
++          setCorrectionOpen(false);
++          setCalcOpen(false);
++        }}
+       >
+         <PlateCalculator
+           visible={calcOpen}
+@@ -672,6 +784,32 @@ export default function ActiveWorkoutScreen() {
+         />
+       </SetCorrectionSheet>
+ 
++      {/* Second, dedicated correction sheet — patches the JUST-completed set
++          during rest via editCompletedSetValues (no completed_at, no restTimer,
++          no pointer moves). Mutually exclusive with the sheet above, so iOS
++          never sees two sibling modals. No PlateCalculator in this flow. */}
++      <SetCorrectionSheet
++        visible={restCorrection != null}
++        exerciseId={restCorrection?.exerciseId ?? ''}
++        setId={restCorrection?.setId ?? ''}
++        setIndex={Math.max(0, restCorrectionSetIndex)}
++        fields={restCorrectionExercise?.fields ?? []}
++        values={editDraft}
++        onChange={handleEditDraftChange}
++        accent={
++          restCorrectionExercise
++            ? (Colors.discipline[restCorrectionExercise.discipline] ?? Colors.ink.primary)
++            : Colors.ink.primary
++        }
++        tint={
++          restCorrectionExercise
++            ? (Colors.tint[restCorrectionExercise.discipline] ?? Colors.bg.elevated)
++            : Colors.bg.elevated
++        }
++        onClose={closeRestCorrection}
++        onCommit={commitRestCorrection}
++      />
++
+       <SessionOverviewSheet
+         visible={overviewOpen}
+         exercises={aw.exercises}
+@@ -694,9 +832,11 @@ export default function ActiveWorkoutScreen() {
+ }
+ 
+ const styles = StyleSheet.create({
++  // Warm paper, not lab white — and still legible at 2 m: the grain costs 0.1%
++  // of luminance, ink.primary on paper.base is 15.5:1 (§5.3).
+   screen: {
+     flex: 1,
+-    backgroundColor: Colors.bg.void,
++    backgroundColor: Colors.paper.base,
+   },
+   center: {
+     alignItems: 'center',
+@@ -767,6 +907,15 @@ const styles = StyleSheet.create({
+   targetZone: {
+     marginTop: Spacing.lg,
+   },
++  // "Sugerido · +2.5 kg" — sober memory caption. Deliberately NO gold: the
++  // moat whispers; tertiary ink keeps the giant target as the only hero.
++  suggested: {
++    ...Type.micro,
++    color: Colors.ink.tertiary,
++    textAlign: 'center',
++    letterSpacing: 0.4,
++    fontVariant: ['tabular-nums'],
++  },
+   refPill: {
+     flexDirection: 'row',
+     alignItems: 'center',
+diff --git a/src/store/workoutStore.ts b/src/store/workoutStore.ts
+index 009426a..b624d39 100644
+--- a/src/store/workoutStore.ts
++++ b/src/store/workoutStore.ts
+@@ -177,6 +177,16 @@ interface WorkoutState {
+     exerciseId: string,
+     goal: { goalWeight?: number; goalReps?: number },
+   ) => void;
++  /**
++   * Merge values onto an already-completed set (rest-state correction). Does
++   * NOT touch `completed`, `completed_at`, `restTimer` or the current indices —
++   * the rest countdown keeps running and the pointer stays put.
++   */
++  editCompletedSetValues: (
++    exerciseId: string,
++    setId: string,
++    values: Record<string, FieldValue>,
++  ) => void;
+   /**
+    * Patch metadata on a set inside the active workout (kind, rpe, notes).
+    * Passing `null` for `rpe` clears it; omitting a field leaves it unchanged.
+@@ -693,6 +703,22 @@ export const useWorkoutStore = create<WorkoutState>()(
+         });
+       },
+ 
++      editCompletedSetValues: (exerciseId, setId, values) => {
++        set((state) => {
++          if (!state.activeWorkout) return state;
++          const exercises = state.activeWorkout.exercises.map((ex) => {
++            if (ex.id !== exerciseId) return ex;
++            return {
++              ...ex,
++              sets: ex.sets.map((s) =>
++                s.id === setId ? { ...s, values: { ...s.values, ...values } } : s,
++              ),
++            };
++          });
++          return { activeWorkout: { ...state.activeWorkout, exercises } };
++        });
++      },
++
+       updateSetMetadata: (exerciseId, setId, patch) => {
+         set((state) => {
+           if (!state.activeWorkout) return state;
+diff --git a/src/theme/animations.ts b/src/theme/animations.ts
+index 4bafc68..ae41244 100644
+--- a/src/theme/animations.ts
++++ b/src/theme/animations.ts
+@@ -38,8 +38,20 @@ export const springs = {
+   press: { damping: 16, stiffness: 360, mass: 0.6 } satisfies WithSpringConfig,
+   /** Bottom sheet present. */
+   sheet: { damping: 26, stiffness: 220, mass: 1.0 } satisfies WithSpringConfig,
+-  /** PR cards, streak increment — celebratory overshoot. */
++  /** PR cards, streak increment — celebratory overshoot. NEVER on text (§3e). */
+   celebrate: { damping: 9, stiffness: 200, mass: 0.7 } satisfies WithSpringConfig,
++
++  // ── Material springs (Design v3 §3e) ─────────────────────────────────────
++  // The hard rule: **matter bounces once, text never bounces.** `ios` is the
++  // system's crisp spring — correct and anonymous. Paper is heavier: it settles.
++  // Parameterised the WWDC23 way (duration + bounce):
++  // https://developer.apple.com/videos/play/wwdc2023/10158/
++  /** MATTER — cards, sheets, anything with a surface. ~0.5s, one soft bounce. */
++  paper: { damping: 17, stiffness: 170, mass: 1.0 } satisfies WithSpringConfig,
++  /** TEXT — headlines, numerals, labels. Zero bounce. Bouncing text = toy app. */
++  ink: { damping: 26, stiffness: 210, mass: 0.9 } satisfies WithSpringConfig,
++  /** The block landing on the table — slow, weighty, no overshoot. */
++  settle: { damping: 30, stiffness: 140, mass: 1.2 } satisfies WithSpringConfig,
+ } as const;
+ 
+ // ======================== TIMING PRESETS ========================
+diff --git a/src/theme/tokens.ts b/src/theme/tokens.ts
+index a48bd5d..cccb0b8 100644
+--- a/src/theme/tokens.ts
++++ b/src/theme/tokens.ts
+@@ -10,30 +10,62 @@ import { Fonts } from './fonts';
+ // ── Color ────────────────────────────────────────────────────────────────────
+ 
+ export const Colors = {
+-  bg: {
+-    void: '#FFFFFF', // primary screen background (pure white — night-run spec)
+-    surface: '#FFFFFF', // cards, sheets, modals
+-    elevated: '#F2F0EC', // raised surfaces, pressed states
+-    warm: '#F5F0E8', // "premium" zones — hero cards, PR badges (alt warm)
+-    warm2: '#EFE8D8', // deeper warm — PR celebration, editorial blocks
++  // ── Material (Design v3 §3a) ──────────────────────────────────────────────
++  // WHY: the canvas is warm paper and the cards are white — inverted from v2,
++  // where both were #FFFFFF and a card could only exist by wearing a grey
++  // border. Card = white on paper → it exists by MATERIAL contrast, no border.
++  paper: {
++    base: '#FBF9F5', // THE CANVAS. Every screen background.
++    raised: '#FFFFFF', // THE CARDS. They lift off the paper.
++    warm: '#F4EFE5', // editorial zones, quote blocks
++    deep: '#EBE3D4', // celebration, PR, dense moments
++    // WHY: translucent warm white for blurred chrome (tab capsule). Pure white
++    // at 72% over a warm blur reads blue-ish; this is ink.inverse with alpha.
++    veil: 'rgba(255,253,249,0.72)',
++    // WHY: sheet backdrops. Pure black (rgba(0,0,0,0.35)) over warm paper reads
++    // as a cold filter on the page; this is ink at the same alpha. Three weights
++    // because the app already used three (0.18 / 0.32–0.38 / 0.5–0.72).
++    scrimSoft: 'rgba(28,24,20,0.18)', // a hint of dim (inline overlays)
++    scrim: 'rgba(28,24,20,0.35)', // standard sheet backdrop
++    scrimDeep: 'rgba(28,24,20,0.62)', // full-screen takeovers, celebration
++    grain: 0.035, // opacity of the tiled noise (≤0.04 — never eat legibility)
+   },
++  bg: {
++    /** @deprecated alias of paper.base */
++    void: '#FBF9F5',
++    /** @deprecated alias of paper.raised */
++    surface: '#FFFFFF',
++    elevated: '#F3EFE8', // pressed states — warm, was cool #F2F0EC
++    /** @deprecated alias of paper.warm */
++    warm: '#F4EFE5',
++    /** @deprecated alias of paper.deep */
++    warm2: '#EBE3D4',
++  },
++  // WHY (Design v3 §3c): the old ramp was Tailwind's gray-500/gray-400 (#6B7280,
++  // #9CA3AF) — cool greys (~220° hue) on a warm brand. This ramp is warm ink:
++  // hue ~30°, saturation 3–8%. Every pair below is ≥4.5:1 on paper.base
++  // (see src/theme/__tests__/contrast.test.ts — it's a gate, not a vibe).
+   ink: {
+-    primary: '#1A1A2E', // headlines, body (deep ink-navy)
+-    secondary: '#34344A', // emphasized secondary
+-    tertiary: '#6B7280', // metadata
+-    muted: '#9CA3AF', // labels, placeholders
+-    inverse: '#FFFFFF', // text on dark/gold surfaces
++    primary: '#241F1A', // headlines, body — 15.5:1 on paper
++    secondary: '#4A4139', // emphasized secondary — 9.5:1
++    tertiary: '#6E6357', // metadata — 5.6:1
++    muted: '#736858', // labels, placeholders — 5.2:1 (doc's #7D7263 was 4.4 → failed)
++    faint: '#A79C8D', // DECORATION ONLY (hairlines, dots). 2.6:1 — never text.
++    inverse: '#FFFDF9', // warm white on ink/gold — never pure #FFFFFF
+   },
+   gold: {
+     base: '#D4AF37', // signature accent — primary CTAs, indicators
+-    deep: '#8B6F1D', // gold-on-warm text (eyebrows, chapter labels)
++    deep: '#7A6118', // gold-as-INK (eyebrows, chapter labels) — 5.6:1 on paper,
++    // 5.2:1 on paper.warm. Was #8B6F1D (4.2:1 on warm → failed AA).
+     light: '#EBDCAD', // gold tint, subtle accents
+     glow: 'rgba(212,175,55,0.18)', // halos, ripples, pill backgrounds
+   },
++  // WHY (Design v3 §3f): "filetes, no bordes" — editorial rules BETWEEN things,
++  // not perimeters AROUND them. Tinted with ink (36,31,26), never blue-black.
+   hair: {
+-    subtle: 'rgba(26,26,46,0.06)', // section dividers
+-    base: 'rgba(26,26,46,0.08)', // card borders (default)
+-    strong: 'rgba(26,26,46,0.14)', // pressed borders, dividers in white
++    subtle: 'rgba(36,31,26,0.06)', // section dividers
++    base: 'rgba(36,31,26,0.10)', // rules, tracks, inputs
++    strong: 'rgba(36,31,26,0.16)', // pressed borders, dividers on white
+     gold: 'rgba(212,175,55,0.28)', // gold card borders on white (spec 0.2–0.4)
+     goldStrong: 'rgba(212,175,55,0.40)', // active/focus gold borders
+   },
+@@ -75,16 +107,16 @@ export const Colors = {
+ 
+   // ── Backwards-compat shims (removed after full migration) ─────────────────
+   // WHY: keeps existing call sites compiling while screens migrate to new keys.
+-  /** @deprecated Use Colors.bg.void */
++  /** @deprecated Use Colors.paper.* */
+   get background() {
+     return {
+-      void: this.bg.void,
+-      surface: this.bg.surface,
++      void: this.paper.base,
++      surface: this.paper.raised,
+       elevated: this.bg.elevated,
+       overlay: this.bg.elevated,
+-      scrim: 'rgba(0, 0, 0, 0.38)',
+-      gradientStart: '#FFFFFF',
+-      gradientEnd: '#FFF8F0',
++      scrim: 'rgba(28,24,20,0.40)', // warm scrim — a cool scrim greys the paper
++      gradientStart: this.paper.raised,
++      gradientEnd: this.paper.warm,
+     };
+   },
+   /** @deprecated Use Colors.ink.* */
+@@ -93,7 +125,7 @@ export const Colors = {
+       primary: this.ink.primary,
+       secondary: this.ink.tertiary,
+       tertiary: this.ink.tertiary,
+-      disabled: '#C7C7CC',
++      disabled: this.ink.faint, // was #C7C7CC (cool grey)
+       inverse: this.ink.inverse,
+       onAccent: this.ink.inverse,
+     };
+@@ -101,11 +133,11 @@ export const Colors = {
+   /** @deprecated Use Colors.hair.* */
+   get border() {
+     return {
+-      subtle: 'rgba(0,0,0,0.04)',
+-      light: 'rgba(0,0,0,0.07)',
+-      medium: 'rgba(0,0,0,0.11)',
+-      strong: 'rgba(0,0,0,0.18)',
+-      warm: '#EFECE8',
++      subtle: 'rgba(36,31,26,0.04)',
++      light: 'rgba(36,31,26,0.07)',
++      medium: 'rgba(36,31,26,0.11)',
++      strong: 'rgba(36,31,26,0.18)',
++      warm: '#EDE6DA', // was #EFECE8 (cool)
+     };
+   },
+   /** @deprecated Use Colors.gold.* */
+@@ -179,13 +211,21 @@ export const FontFamily = {
+  * **Plus Jakarta Sans**. Optical tracking tightens as size grows.
+  */
+ export const Type = {
+-  // Oversized editorial greeting — Fraunces Black, the loudest brand voice.
++  // Oversized editorial greeting — Fraunces Black (opsz 144 / SOFT 100 / WONK 1),
++  // the loudest brand voice. WHY 52 / -1.6 (Design v3 §3b): a display face wants
++  // leading BELOW its natural line (1.23× for Fraunces) so lines lock into a
++  // block of ink. Was 44/47/-1.2.
++  //
++  // WHY 50 and not the doc's 48: measured, not guessed. At 52pt Fraunces Black's
++  // Á tops out at 48.8pt of ink above the baseline (upm 2000, Aacute yMax 1876).
++  // A 48pt line box clips the accent — and "Álvaro" is the first word this app
++  // ever prints. 50pt is the tightest leading (0.96×) that clears it.
+   heroDisplay: {
+     fontFamily: Fonts.serifBlack,
+-    fontSize: 44,
+-    lineHeight: 47,
++    fontSize: 52,
++    lineHeight: 50,
+     fontWeight: '900' as const,
+-    letterSpacing: -1.2,
++    letterSpacing: -1.6,
+   },
+   // Editorial serif large-title — Fraunces SemiBold.
+   title: {
+@@ -244,12 +284,14 @@ export const Type = {
+   micro: { fontFamily: Fonts.sansMedium, fontSize: 11, lineHeight: 14, fontWeight: '500' as const },
+ 
+   // Editorial label — uppercase, tracked. The "CHAPTER 03" voice.
++  // WHY 10/2.4 (Design v3 §3b): smaller + wider tracking reads as a printed
++  // running head; 11/1.8 read as a UI label. Was 11/1.8.
+   eyebrow: {
+     fontFamily: Fonts.sansSemiBold,
+-    fontSize: 11,
++    fontSize: 10,
+     lineHeight: 14,
+     fontWeight: '600' as const,
+-    letterSpacing: 1.8,
++    letterSpacing: 2.4,
+     textTransform: 'uppercase' as const,
+   },
+ 
+@@ -287,6 +329,16 @@ export const Type = {
+     fontWeight: '600' as const,
+     fontVariant: ['tabular-nums'] as FontVariant[],
+   },
++
++  // Letterpress — a light highlight UNDER the glyph so ink looks pressed into
++  // the fibre. Spread onto headlines living on paper.warm / paper.deep only,
++  // and only at ≥22pt (below that it smears). It's a textShadow: invisible to
++  // VoiceOver, free on the GPU. (Design v3 §3f)
++  letterpress: {
++    textShadowColor: 'rgba(255,253,249,0.55)',
++    textShadowOffset: { width: 0, height: 1 },
++    textShadowRadius: 0,
++  },
+ } as const;
+ 
+ // ── Typography (v1 — backwards-compat shim) ─────────────────────────────────
+@@ -348,6 +400,9 @@ export const Spacing = {
+     sections: 24,
+     inline: 8,
+     sets: 4,
++    // WHY (Design v3 §3d): air between NARRATIVE blocks is double the air
++    // between cards — that's what separates a magazine from a settings screen.
++    editorial: 40,
+   },
+ } as const;
+ 
+@@ -376,35 +431,35 @@ export const Shadows = {
+     elevation: 0,
+   },
+   subtle: {
+-    shadowColor: '#1A1A2E',
++    shadowColor: '#4A3B28',
+     shadowOffset: { width: 0, height: 1 },
+     shadowOpacity: 0.06,
+     shadowRadius: 4,
+     elevation: 2,
+   },
+   card: {
+-    shadowColor: '#1A1A2E',
++    shadowColor: '#4A3B28',
+     shadowOffset: { width: 0, height: 4 },
+     shadowOpacity: 0.07,
+     shadowRadius: 12,
+     elevation: 4,
+   },
+   icon: {
+-    shadowColor: '#1A1A2E',
++    shadowColor: '#4A3B28',
+     shadowOffset: { width: 0, height: 5 },
+     shadowOpacity: 0.12,
+     shadowRadius: 12,
+     elevation: 6,
+   },
+   elevated: {
+-    shadowColor: '#1A1A2E',
++    shadowColor: '#4A3B28',
+     shadowOffset: { width: 0, height: 8 },
+     shadowOpacity: 0.1,
+     shadowRadius: 18,
+     elevation: 8,
+   },
+   modal: {
+-    shadowColor: '#1A1A2E',
++    shadowColor: '#4A3B28',
+     shadowOffset: { width: 0, height: 12 },
+     shadowOpacity: 0.16,
+     shadowRadius: 28,
+@@ -420,7 +475,7 @@ export const Shadows = {
+   },
+   // WHY: deeper neutral shadow for cards held down (spec §3.5)
+   pressed: {
+-    shadowColor: '#1A1A2E',
++    shadowColor: '#4A3B28',
+     shadowOffset: { width: 0, height: 14 },
+     shadowOpacity: 0.1,
+     shadowRadius: 28,
+@@ -439,6 +494,10 @@ export const Animation = {
+     ios: { damping: 18, stiffness: 300, mass: 0.7 },
+     tabIcon: { damping: 12, stiffness: 400, mass: 0.5 },
+     drag: { damping: 14, stiffness: 220, mass: 0.65 },
++    // ── Material springs (Design v3 §3e) — mirror of springs.paper/ink/settle
++    paper: { damping: 17, stiffness: 170, mass: 1.0 },
++    ink: { damping: 26, stiffness: 210, mass: 0.9 },
++    settle: { damping: 30, stiffness: 140, mass: 1.2 },
+   },
+   duration: {
+     instant: 100,
+diff --git a/targets/WorkoutActivity/WorkoutActivityIntents.swift b/targets/WorkoutActivity/WorkoutActivityIntents.swift
+index 929984d..fd4339e 100644
+--- a/targets/WorkoutActivity/WorkoutActivityIntents.swift
++++ b/targets/WorkoutActivity/WorkoutActivityIntents.swift
+@@ -1,13 +1,50 @@
+ // App Intents for the workout Live Activity buttons (iOS 17+).
+ //
+-// TARGET MEMBERSHIP: compile this file into BOTH the app target and the
+-// widget extension. `LiveActivityIntent` performs IN THE APP PROCESS, which
+-// is what lets us reach the RN bridge: perform() posts a NotificationCenter
+-// notification that KairosLiveActivityModule observes and forwards to JS.
++// TARGET MEMBERSHIP: compile this file into BOTH the app target and the widget
++// extension. `LiveActivityIntent` performs IN THE APP PROCESS, which is what
++// lets us reach the RN bridge without opening the app — the whole point of the
++// mandate (docs/INWORKOUT_GLANCE_MODE.md §5): advance the session without
++// unlocking the phone.
++//
++// Dispatch is two-channel, and the queue is the source of truth:
++//   1. UserDefaults queue — durable. iOS may LAUNCH the app in the background
++//      to run the intent; the RN runtime then has no listener yet (or no store
++//      hydrated), and a bare notification would be lost. The queue survives
++//      until KairosLiveActivityModule flushes it (OnStartObserving).
++//   2. NotificationCenter ping — liveness. When the app is already running,
++//      this wakes the module to drain the queue immediately (~instant).
++//
++// `.standard` defaults are correct precisely BECAUSE this runs in the app
++// process. If any of these ever becomes a plain AppIntent (widget process), the
++// queue must move to an App Group container.
+ 
+ import AppIntents
+ import Foundation
+ 
++private let kairosWidgetActionNotification = Notification.Name("KairosLiveActivityWidgetAction")
++private let kairosPendingActionsKey = "kairos.liveActivity.pendingActions"
++
++@available(iOS 17.0, *)
++private func dispatchWidgetAction(_ action: String) {
++  let defaults = UserDefaults.standard
++  var queue = defaults.array(forKey: kairosPendingActionsKey) as? [[String: Any]] ?? []
++  // Property-list types only (String/Double) — this dictionary is persisted.
++  queue.append([
++    "action": action,
++    "ts": Date().timeIntervalSince1970 * 1000.0,
++  ])
++  defaults.set(queue, forKey: kairosPendingActionsKey)
++
++  NotificationCenter.default.post(
++    name: kairosWidgetActionNotification,
++    object: nil,
++    userInfo: ["action": action]
++  )
++}
++
++/// HECHO — the one-thumb action. Logs the current set with the values the Live
++/// Activity is already showing (the progression's suggestion), so confirming is
++/// a single tap on the lock screen.
+ @available(iOS 17.0, *)
+ struct CompleteSetIntent: LiveActivityIntent {
+   static var title: LocalizedStringResource = "Completar serie"
+@@ -16,11 +53,7 @@ struct CompleteSetIntent: LiveActivityIntent {
+   static var openAppWhenRun: Bool = false
+ 
+   func perform() async throws -> some IntentResult {
+-    NotificationCenter.default.post(
+-      name: Notification.Name("KairosLiveActivityWidgetAction"),
+-      object: nil,
+-      userInfo: ["action": "completeSet"]
+-    )
++    dispatchWidgetAction("completeSet")
+     return .result()
+   }
+ }
+@@ -32,11 +65,19 @@ struct ExtendRestIntent: LiveActivityIntent {
+   static var openAppWhenRun: Bool = false
+ 
+   func perform() async throws -> some IntentResult {
+-    NotificationCenter.default.post(
+-      name: Notification.Name("KairosLiveActivityWidgetAction"),
+-      object: nil,
+-      userInfo: ["action": "extendRest"]
+-    )
++    dispatchWidgetAction("extendRest")
++    return .result()
++  }
++}
++
++@available(iOS 17.0, *)
++struct SkipRestIntent: LiveActivityIntent {
++  static var title: LocalizedStringResource = "Saltar descanso"
++  static var description = IntentDescription("Termina el descanso y pasa a la siguiente serie.")
++  static var openAppWhenRun: Bool = false
++
++  func perform() async throws -> some IntentResult {
++    dispatchWidgetAction("skipRest")
+     return .result()
+   }
+ }
+diff --git a/targets/WorkoutActivity/WorkoutLiveActivity.swift b/targets/WorkoutActivity/WorkoutLiveActivity.swift
+index 8c0fcd4..5e7ea04 100644
+--- a/targets/WorkoutActivity/WorkoutLiveActivity.swift
++++ b/targets/WorkoutActivity/WorkoutLiveActivity.swift
+@@ -1,12 +1,23 @@
+ // Workout Live Activity UI — Lock Screen banner + Dynamic Island.
+ //
+-// Design notes (mirrors the in-app system):
+-//   • No continuous animation — Live Activities forbid it. The luxury is
+-//     typography: large tabular numerals, a single gold accent (#D4AF37),
+-//     generous spacing.
+-//   • Rest countdown uses Text(timerInterval:) so the system ticks the
+-//     numeral without waking the app.
+-//   • iOS 17 buttons use App Intents (CompleteSetIntent / ExtendRestIntent).
++// This is the PRIMARY in-workout display (docs/INWORKOUT_GLANCE_MODE.md §5):
++// the phone lies face-up on the bench and IS the scoreboard. So it renders the
++// same four things the phone screen renders — exercise, the giant target, set
++// N/M, and the rest countdown — plus the one-thumb HECHO, without unlocking.
++//
++// Design notes:
++//   • Nothing is computed here. `targetLine` arrives pre-formatted from the JS
++//     formatter (features/workout/scoreboard/format.ts) so running/mobility
++//     sessions read correctly instead of collapsing to weight×reps.
++//   • No continuous animation — Live Activities forbid it. The two exceptions
++//     the system grants are exactly what a rest timer needs:
++//     Text(timerInterval:) and ProgressView(timerInterval:), both ticked by the
++//     OS with the app suspended and zero JS.
++//   • `restInterval` turns nil on its own at rest end, and the module hands
++//     ActivityKit `staleDate = restEndsAt`, so the surface flips from countdown
++//     to "next set target + HECHO" by itself.
++//   • Gold is the rest accent (Kai's colour). HECHO is ink — the same hierarchy
++//     the phone uses, where gold is reserved for Kai and PRs.
+ 
+ import ActivityKit
+ import SwiftUI
+@@ -34,42 +45,40 @@ struct WorkoutLiveActivity: Widget {
+             Text(context.state.exerciseName)
+               .font(.headline)
+               .lineLimit(1)
++              .minimumScaleFactor(0.8)
+           }
+         }
+         DynamicIslandExpandedRegion(.trailing) {
+-          if let restEndsAt = context.state.restEndsAt, restEndsAt > .now {
+-            VStack(alignment: .trailing, spacing: 2) {
+-              Text("DESCANSO")
+-                .font(.caption2.weight(.semibold))
+-                .foregroundStyle(kairosGold)
+-              Text(timerInterval: Date.now...restEndsAt, countsDown: true)
+-                .font(.title2.weight(.semibold).monospacedDigit())
+-                .frame(width: 64)
+-                .multilineTextAlignment(.trailing)
+-            }
+-          } else {
+-            SetCounter(state: context.state)
+-          }
++          SetCounter(state: context.state)
+         }
+         DynamicIslandExpandedRegion(.bottom) {
+-          HStack(spacing: 12) {
+-            TargetLabel(state: context.state)
+-            Spacer()
+-            if #available(iOS 17.0, *) {
+-              if let restEndsAt = context.state.restEndsAt, restEndsAt > .now {
+-                Button(intent: ExtendRestIntent()) {
+-                  Text("+30 s")
+-                    .font(.callout.weight(.semibold))
+-                }
+-                .tint(kairosGold)
+-                .buttonStyle(.bordered)
++          if let rest = context.state.restInterval {
++            VStack(spacing: 6) {
++              HStack(alignment: .firstTextBaseline) {
++                Text(timerInterval: rest, countsDown: true)
++                  .font(.system(size: 40, weight: .semibold, design: .rounded).monospacedDigit())
++                  .foregroundStyle(kairosGold)
++                  .frame(maxWidth: 132, alignment: .leading)
++                Spacer(minLength: 8)
++                RestButtons()
+               }
+-              Button(intent: CompleteSetIntent()) {
+-                Text("Completar serie")
+-                  .font(.callout.weight(.semibold))
++              ProgressView(timerInterval: rest, countsDown: true) {
++                EmptyView()
++              } currentValueLabel: {
++                EmptyView()
+               }
++              .progressViewStyle(.linear)
+               .tint(kairosGold)
+-              .buttonStyle(.borderedProminent)
++              NextUpLabel(state: context.state)
++            }
++          } else {
++            HStack(alignment: .center, spacing: 10) {
++              VStack(alignment: .leading, spacing: 2) {
++                TargetLine(state: context.state, size: 34)
++                NextUpLabel(state: context.state)
++              }
++              Spacer(minLength: 8)
++              DoneButton()
+             }
+           }
+         }
+@@ -77,8 +86,8 @@ struct WorkoutLiveActivity: Widget {
+         Image(systemName: "figure.strengthtraining.traditional")
+           .foregroundStyle(kairosGold)
+       } compactTrailing: {
+-        if let restEndsAt = context.state.restEndsAt, restEndsAt > .now {
+-          Text(timerInterval: Date.now...restEndsAt, countsDown: true)
++        if let rest = context.state.restInterval {
++          Text(timerInterval: rest, countsDown: true)
+             .font(.caption2.monospacedDigit())
+             .frame(maxWidth: 44)
+             .foregroundStyle(kairosGold)
+@@ -102,55 +111,67 @@ struct WorkoutLiveActivity: Widget {
+ private struct LockScreenView: View {
+   let context: ActivityViewContext<WorkoutActivityAttributes>
+ 
++  private var state: WorkoutActivityAttributes.ContentState { context.state }
++
+   var body: some View {
+-    VStack(alignment: .leading, spacing: 10) {
+-      HStack(alignment: .firstTextBaseline) {
+-        VStack(alignment: .leading, spacing: 2) {
+-          Text(context.attributes.blockName.uppercased())
+-            .font(.caption2.weight(.semibold))
+-            .tracking(1.2)
+-            .foregroundStyle(.secondary)
+-          Text(context.state.exerciseName)
+-            .font(.title3.weight(.semibold))
+-            .lineLimit(1)
+-        }
++    VStack(alignment: .leading, spacing: 8) {
++      // Eyebrow: block · set counter. Always present, so the glance always
++      // answers "where am I in the session".
++      HStack {
++        Text(eyebrow)
++          .font(.caption2.weight(.semibold))
++          .tracking(1.2)
++          .foregroundStyle(state.isResting ? kairosGold : .secondary)
++          .lineLimit(1)
+         Spacer()
+-        if let restEndsAt = context.state.restEndsAt, restEndsAt > .now {
+-          VStack(alignment: .trailing, spacing: 2) {
+-            Text("DESCANSO")
+-              .font(.caption2.weight(.semibold))
+-              .tracking(1.2)
+-              .foregroundStyle(kairosGold)
+-            Text(timerInterval: Date.now...restEndsAt, countsDown: true)
+-              .font(.title2.weight(.semibold).monospacedDigit())
+-              .frame(width: 72, alignment: .trailing)
+-          }
+-        } else {
+-          SetCounter(state: context.state)
+-        }
++        Text("SERIE \(state.setIndex)/\(state.setTotal)")
++          .font(.caption2.weight(.semibold).monospacedDigit())
++          .tracking(1.2)
++          .foregroundStyle(.secondary)
+       }
+ 
+-      HStack {
+-        TargetLabel(state: context.state)
+-        Spacer()
+-        if #available(iOS 17.0, *) {
+-          if let restEndsAt = context.state.restEndsAt, restEndsAt > .now {
+-            Button(intent: ExtendRestIntent()) {
+-              Text("+30 s").font(.footnote.weight(.semibold))
+-            }
+-            .tint(kairosGold)
+-            .buttonStyle(.bordered)
+-          }
+-          Button(intent: CompleteSetIntent()) {
+-            Text("Completar serie").font(.footnote.weight(.semibold))
+-          }
+-          .tint(kairosGold)
+-          .buttonStyle(.borderedProminent)
++      if let rest = state.restInterval {
++        // Rest IS the state (§"Estados del marcador"): countdown dominates,
++        // the ring/bar ticks natively, controls stay one thumb away.
++        HStack(alignment: .center, spacing: 12) {
++          Text(timerInterval: rest, countsDown: true)
++            .font(.system(size: 46, weight: .semibold, design: .rounded).monospacedDigit())
++            .foregroundStyle(kairosInk)
++            .frame(maxWidth: 150, alignment: .leading)
++          Spacer(minLength: 0)
++          RestButtons()
++        }
++        ProgressView(timerInterval: rest, countsDown: true) {
++          EmptyView()
++        } currentValueLabel: {
++          EmptyView()
++        }
++        .progressViewStyle(.linear)
++        .tint(kairosGold)
++      } else {
++        Text(state.exerciseName)
++          .font(.title3.weight(.semibold))
++          .foregroundStyle(kairosInk)
++          .lineLimit(1)
++          .minimumScaleFactor(0.7)
++
++        HStack(alignment: .center, spacing: 12) {
++          TargetLine(state: state, size: 40)
++          Spacer(minLength: 0)
++          DoneButton()
+         }
+       }
++
++      NextUpLabel(state: state)
+     }
+     .padding(16)
+   }
++
++  private var eyebrow: String {
++    if state.isResting { return "DESCANSO" }
++    if state.phase == .change { return "SIGUIENTE EJERCICIO" }
++    return context.attributes.blockName.uppercased()
++  }
+ }
+ 
+ // ── Shared fragments ───────────────────────────────────────────────────────
+@@ -159,6 +180,9 @@ private struct LockScreenView: View {
+ private struct SetCounter: View {
+   let state: WorkoutActivityAttributes.ContentState
+ 
++  // Always the set fraction: "where am I in this exercise" is the one fact that
++  // is true in every phase. The rest state announces itself with the gold
++  // countdown, not by relabelling this.
+   var body: some View {
+     VStack(alignment: .trailing, spacing: 2) {
+       Text("SERIE")
+@@ -171,27 +195,74 @@ private struct SetCounter: View {
+   }
+ }
+ 
++/// The giant target — the one thing that must be legible from two metres.
++@available(iOS 16.2, *)
++private struct TargetLine: View {
++  let state: WorkoutActivityAttributes.ContentState
++  let size: CGFloat
++
++  var body: some View {
++    Text(state.targetLine ?? "Sin objetivo")
++      .font(
++        .system(size: state.targetLine == nil ? size * 0.5 : size, weight: .semibold, design: .rounded)
++          .monospacedDigit()
++      )
++      .foregroundStyle(state.targetLine == nil ? Color.secondary : kairosInk)
++      .lineLimit(1)
++      .minimumScaleFactor(0.5)
++  }
++}
++
+ @available(iOS 16.2, *)
+-private struct TargetLabel: View {
++private struct NextUpLabel: View {
+   let state: WorkoutActivityAttributes.ContentState
+ 
+   var body: some View {
+-    if let label = targetText {
+-      Text(label)
+-        .font(.callout.monospacedDigit())
++    if let next = state.nextUp {
++      Text("Siguiente · \(next)")
++        .font(.caption2)
+         .foregroundStyle(.secondary)
++        .lineLimit(1)
+     }
+   }
++}
+ 
+-  private var targetText: String? {
+-    var parts: [String] = []
+-    if let w = state.targetWeight {
+-      parts.append(w.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(w)) kg" : "\(w) kg")
++/// HECHO — the one-thumb action, sized so a shaking post-set thumb can't miss.
++@available(iOS 16.2, *)
++private struct DoneButton: View {
++  var body: some View {
++    if #available(iOS 17.0, *) {
++      Button(intent: CompleteSetIntent()) {
++        Text("HECHO")
++          .font(.callout.weight(.bold))
++          .tracking(1.0)
++          .padding(.horizontal, 6)
++      }
++      .tint(kairosInk)
++      .buttonStyle(.borderedProminent)
++      .controlSize(.large)
+     }
+-    if let r = state.targetReps {
+-      parts.append("× \(r)")
++  }
++}
++
++@available(iOS 16.2, *)
++private struct RestButtons: View {
++  var body: some View {
++    if #available(iOS 17.0, *) {
++      HStack(spacing: 8) {
++        Button(intent: ExtendRestIntent()) {
++          Text("+30 s").font(.footnote.weight(.semibold))
++        }
++        .tint(kairosGold)
++        .buttonStyle(.bordered)
++
++        Button(intent: SkipRestIntent()) {
++          Text("Saltar").font(.footnote.weight(.semibold))
++        }
++        .tint(kairosInk)
++        .buttonStyle(.borderedProminent)
++      }
+     }
+-    return parts.isEmpty ? nil : parts.joined(separator: " ")
+   }
+ }
+ 
+diff --git a/tsconfig.json b/tsconfig.json
+index 06da3a0..ae099e8 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -15,6 +15,7 @@
+     ".expo",
+     "dist",
+     "build",
++    "docs",
+     "supabase/functions/**"
+   ]
+ }

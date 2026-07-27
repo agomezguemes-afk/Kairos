@@ -1,7 +1,11 @@
 // Keeps the OS surface (iOS Live Activity / Android ongoing notification)
-// mirroring the active workout, and applies widget button actions back onto
-// the store. Mount once inside ActiveWorkoutScreen — the activity lives and
-// dies with the session, not the screen focus.
+// mirroring the active workout. Mount once inside ActiveWorkoutScreen — the
+// activity lives and dies with the SESSION, not with the screen's focus.
+//
+// The payload is derived by a pure function (payload.ts) from the same machine
+// + formatter the phone scoreboard uses, so the lock screen and the phone can
+// never disagree. The button→store bridge lives in widgetBridge.ts because it
+// must outlive this hook.
 
 import { useEffect, useMemo, useRef } from 'react';
 
@@ -9,116 +13,86 @@ import {
   startWorkoutActivity,
   updateWorkoutActivity,
   endWorkoutActivity,
-  addWidgetActionListener,
   isLiveActivitySupported,
   type LiveActivityWorkoutState,
 } from '../../../modules/kairos-live-activity';
 import { useWorkoutStore } from '../../store/workoutStore';
 
-const WIDGET_EXTEND_SECONDS = 30;
+import { buildLiveActivityPayload, type LiveActivityPayload } from './payload';
+import { installWidgetActionBridge } from './widgetBridge';
 
-// Superset of the native contract: `nextExerciseName` is a forward-compatible
-// extra key. The Swift decoder (KairosLiveActivityModule.contentState) reads
-// known keys from the dict and ignores the rest, so shipping it today is a
-// no-op until ContentState + the widget UI consume it (native change described
-// in the Modo Sesión report — needs a rebuild, so it ships separately).
-interface KairosActivityState extends LiveActivityWorkoutState {
-  nextExerciseName: string | null;
+// Installed at import time (module scope), not on mount: iOS can relaunch a
+// killed app in the background to run the App Intent, and the tap must be
+// applied even though no screen ever mounts in that launch.
+installWidgetActionBridge();
+
+export interface LiveActivitySyncOptions {
+  /** The screen's "has the user tapped Empezar on this exercise" bit. */
+  hasEnteredCurrentExercise: boolean;
 }
 
-function deriveState(): KairosActivityState | null {
-  const s = useWorkoutStore.getState();
-  const aw = s.activeWorkout;
-  if (!aw) return null;
-  const exercise = aw.exercises[aw.currentExerciseIndex];
-  if (!exercise) return null;
-  const set = exercise.sets[aw.currentSetIndex];
-  const block = s.blocks.find((b) => b.id === aw.blockId);
-
-  const weight =
-    typeof set?.values['weight'] === 'number' ? (set.values['weight'] as number) : null;
-  const reps = typeof set?.values['reps'] === 'number' ? (set.values['reps'] as number) : null;
-
-  return {
-    blockName: block?.name ?? 'Entrenamiento',
-    exerciseName: exercise.name,
-    setIndex: Math.min(aw.currentSetIndex + 1, exercise.sets.length),
-    setTotal: exercise.sets.length,
-    targetWeight: weight ?? exercise.goalWeight ?? null,
-    targetReps: reps ?? exercise.goalReps ?? null,
-    restEndsAt: aw.restTimer.active ? aw.restTimer.startTime + aw.restTimer.duration * 1000 : null,
-    nextExerciseName: aw.exercises[aw.currentExerciseIndex + 1]?.name ?? null,
-  };
+function toNativeState(payload: LiveActivityPayload): LiveActivityWorkoutState {
+  return { ...payload };
 }
 
-export function useLiveActivitySync(): void {
+export function useLiveActivitySync({ hasEnteredCurrentExercise }: LiveActivitySyncOptions): void {
   const aw = useWorkoutStore((s) => s.activeWorkout);
+  const blocks = useWorkoutStore((s) => s.blocks);
+
+  const payload = useMemo(() => {
+    if (!aw) return null;
+    const block = blocks.find((b) => b.id === aw.blockId);
+    return buildLiveActivityPayload({
+      blockName: block?.name ?? 'Entrenamiento',
+      currentExerciseIndex: aw.currentExerciseIndex,
+      currentSetIndex: aw.currentSetIndex,
+      exercises: aw.exercises,
+      restTimer: aw.restTimer,
+      hasEnteredCurrentExercise,
+    });
+  }, [aw, blocks, hasEnteredCurrentExercise]);
+
+  // One string per meaningful payload change. ActivityKit's update budget is
+  // finite, so the surface is only pushed when what it SHOWS actually changes —
+  // not on every store mutation that leaves the scoreboard identical.
+  const signature = payload ? JSON.stringify(payload) : null;
+
+  const sentRef = useRef<string | null>(null);
   const startedRef = useRef(false);
 
-  // Single signature string so the effect only fires on meaningful changes,
-  // not on every draft keystroke re-render.
-  const signature = useMemo(() => {
-    if (!aw) return null;
-    const ex = aw.exercises[aw.currentExerciseIndex];
-    return [
-      aw.blockId,
-      aw.currentExerciseIndex,
-      aw.currentSetIndex,
-      ex?.sets.length ?? 0,
-      aw.restTimer.active ? aw.restTimer.startTime + aw.restTimer.duration * 1000 : 0,
-    ].join('|');
-  }, [aw]);
-
   useEffect(() => {
-    if (!signature) {
+    if (!payload || !signature) {
       if (startedRef.current) {
         startedRef.current = false;
-        endWorkoutActivity();
+        sentRef.current = null;
+        void endWorkoutActivity();
       }
       return;
     }
+    if (sentRef.current === signature) return;
     if (!isLiveActivitySupported()) return;
-    const state = deriveState();
-    if (!state) return;
+
+    sentRef.current = signature;
+    const state = toNativeState(payload);
     if (!startedRef.current) {
       startedRef.current = true;
-      startWorkoutActivity(state);
+      void startWorkoutActivity(state);
     } else {
-      updateWorkoutActivity(state);
+      void updateWorkoutActivity(state);
     }
-  }, [signature]);
+  }, [payload, signature]);
 
-  // End the activity when the session screen unmounts with no active workout
-  // left behind (finish/cancel paths set activeWorkout = null first).
+  // On unmount: end the activity only if the SESSION is over. Finish/cancel null
+  // out activeWorkout (the effect above already ended it), so this is normally a
+  // no-op. If a session is somehow still live when the screen goes away, the
+  // lock-screen scoreboard must survive — the whole point is that it works with
+  // the app out of the picture, and widgetBridge still applies its taps.
   useEffect(() => {
     return () => {
-      if (startedRef.current) {
-        startedRef.current = false;
-        endWorkoutActivity();
-      }
+      if (!startedRef.current) return;
+      if (useWorkoutStore.getState().activeWorkout) return;
+      startedRef.current = false;
+      void endWorkoutActivity();
     };
-  }, []);
-
-  // Widget buttons → store actions. Uses getState() at event time: the
-  // listener outlives any particular render.
-  useEffect(() => {
-    const sub = addWidgetActionListener(({ action }) => {
-      const s = useWorkoutStore.getState();
-      const current = s.activeWorkout;
-      if (!current) return;
-      if (action === 'extendRest') {
-        s.extendRest(WIDGET_EXTEND_SECONDS);
-        return;
-      }
-      if (action === 'completeSet') {
-        const exercise = current.exercises[current.currentExerciseIndex];
-        const set = exercise?.sets[current.currentSetIndex];
-        if (!exercise || !set || set.completed) return;
-        // Complete with whatever values the set already carries (goal
-        // prefills / ghost values) — the widget has no keypad by design.
-        s.completeSet(exercise.id, set.id, set.values);
-      }
-    });
-    return () => sub.remove();
   }, []);
 }

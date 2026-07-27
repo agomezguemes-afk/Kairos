@@ -38,8 +38,20 @@ export const springs = {
   press: { damping: 16, stiffness: 360, mass: 0.6 } satisfies WithSpringConfig,
   /** Bottom sheet present. */
   sheet: { damping: 26, stiffness: 220, mass: 1.0 } satisfies WithSpringConfig,
-  /** PR cards, streak increment — celebratory overshoot. */
+  /** PR cards, streak increment — celebratory overshoot. NEVER on text (§3e). */
   celebrate: { damping: 9, stiffness: 200, mass: 0.7 } satisfies WithSpringConfig,
+
+  // ── Material springs (Design v3 §3e) ─────────────────────────────────────
+  // The hard rule: **matter bounces once, text never bounces.** `ios` is the
+  // system's crisp spring — correct and anonymous. Paper is heavier: it settles.
+  // Parameterised the WWDC23 way (duration + bounce):
+  // https://developer.apple.com/videos/play/wwdc2023/10158/
+  /** MATTER — cards, sheets, anything with a surface. ~0.5s, one soft bounce. */
+  paper: { damping: 17, stiffness: 170, mass: 1.0 } satisfies WithSpringConfig,
+  /** TEXT — headlines, numerals, labels. Zero bounce. Bouncing text = toy app. */
+  ink: { damping: 26, stiffness: 210, mass: 0.9 } satisfies WithSpringConfig,
+  /** The block landing on the table — slow, weighty, no overshoot. */
+  settle: { damping: 30, stiffness: 140, mass: 1.2 } satisfies WithSpringConfig,
 } as const;
 
 // ======================== TIMING PRESETS ========================

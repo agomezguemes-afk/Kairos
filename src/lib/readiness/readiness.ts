@@ -16,6 +16,24 @@
 //                   in last 48h; recovers linearly to 100% by 72h.
 
 import type { WorkoutHistoryEntry } from '../../store/workoutStore';
+import type { BiometricSample } from '../health/types';
+import type { FitnessGoal } from '../../types/profile';
+import {
+  computeBiometricBaseline,
+  scoreRecoverySignal,
+  deriveTrainingLoadSignal,
+  scoreAdherence,
+  computeAdaptationSignal,
+  type AdaptationSignal,
+} from './adaptiveEngine';
+
+export interface ReadinessBiometricContext {
+  /** Rolling sample history from healthStore. */
+  samples: BiometricSample[];
+  today: { hrvMs: number | null; sleepHours: number | null };
+  goal: FitnessGoal | null;
+  weeklyFrequency: number | null;
+}
 
 export interface ReadinessSnapshot {
   energia: number; // 0-100
@@ -25,6 +43,8 @@ export interface ReadinessSnapshot {
   headline: string;
   /** Stable diagnostic codes the headline derives from — useful in tests. */
   signals: ReadinessSignals;
+  /** null when no biometric context was supplied — today's exact behavior. */
+  adaptation: AdaptationSignal | null;
 }
 
 export interface ReadinessSignals {
@@ -44,6 +64,7 @@ const MS_PER_DAY = 24 * 3600 * 1000;
 export function computeReadiness(
   history: WorkoutHistoryEntry[],
   now = Date.now(),
+  biometrics?: ReadinessBiometricContext,
 ): ReadinessSnapshot {
   // History comes from persisted storage — a corrupt/imported entry with a
   // non-finite timestamp would otherwise propagate NaN into every score.
@@ -54,13 +75,49 @@ export function computeReadiness(
   const fuerza = scoreFuerza(signals, clean, now);
   const recuperacion = scoreRecuperacion(signals);
 
+  // Gate: until real biometric confidence exists (HealthKit active with
+  // enough samples), the adaptation signal must never actually influence
+  // anything — per Álvaro's explicit decision (2026-07-27), the
+  // load+adherence-only path (confidence 'medium') must not silently change
+  // live behavior (progression nudges, Kai card, headline) before he has
+  // turned on HealthKit. See docs/superpowers/specs/2026-07-23-adaptive-readiness-design.md.
+  const rawAdaptation = biometrics
+    ? resolveAdaptationSignal(biometrics, signals, { energia, fuerza, recuperacion }, now)
+    : null;
+  const adaptation = rawAdaptation?.confidence === 'high' ? rawAdaptation : null;
+
   return {
     energia,
     fuerza,
     recuperacion,
-    headline: buildHeadline({ energia, fuerza, recuperacion }, signals),
+    headline: buildHeadline({ energia, fuerza, recuperacion }, signals, adaptation),
     signals,
+    adaptation,
   };
+}
+
+function resolveAdaptationSignal(
+  ctx: ReadinessBiometricContext,
+  signals: ReadinessSignals,
+  scores: { energia: number; fuerza: number; recuperacion: number },
+  now: number,
+): AdaptationSignal {
+  const baseline = computeBiometricBaseline(ctx.samples, now);
+  const recoverySignal = scoreRecoverySignal(ctx.today, baseline);
+  const trainingLoadSignal = deriveTrainingLoadSignal(
+    scores.energia,
+    scores.fuerza,
+    scores.recuperacion,
+  );
+  const adherenceSignal = scoreAdherence(signals.sessionsLast7Days, ctx.weeklyFrequency);
+  return computeAdaptationSignal({
+    recoverySignal,
+    recoveryConfident: baseline.confident,
+    trainingLoadSignal,
+    hasTrainingHistory: signals.daysSinceLastWorkout !== null,
+    adherenceSignal,
+    goal: ctx.goal,
+  });
 }
 
 // ── Signal extraction ───────────────────────────────────────────────
@@ -217,9 +274,17 @@ function scoreRecuperacion(s: ReadinessSignals): number {
 function buildHeadline(
   scores: { energia: number; fuerza: number; recuperacion: number },
   s: ReadinessSignals,
+  adaptation: AdaptationSignal | null,
 ): string {
   if (s.daysSinceLastWorkout === null) {
     return 'Bienvenido. Tu sistema empieza con tu primer entrenamiento.';
+  }
+
+  // Grounded biometric signal outranks the training-load-only read when it's
+  // confident and strong — real recovery data beats a training-only guess.
+  if (adaptation && adaptation.confidence !== 'low' && adaptation.dominant === 'recovery') {
+    if (adaptation.value <= -0.5) return 'Tu recuperación real está baja hoy. Sesión más suave.';
+    if (adaptation.value >= 0.5) return 'Buena recuperación real. Puedes ir fuerte hoy.';
   }
 
   const min = Math.min(scores.energia, scores.fuerza, scores.recuperacion);

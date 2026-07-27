@@ -1,0 +1,150 @@
+diff --git a/src/features/planner/components/HomeHero.tsx b/src/features/planner/components/HomeHero.tsx
+index 7df42a5..be199b3 100644
+--- a/src/features/planner/components/HomeHero.tsx
++++ b/src/features/planner/components/HomeHero.tsx
+@@ -8,16 +8,25 @@
+ // with numberOfLines={1}, so "Buenos días, Álvaro" ellipsised to
+ // "Buenos días, Á…". Here the greeting WRAPS (no line clamp), so a name never
+ // gets truncated — it flows onto a second line instead.
++//
++// STORY-02: the greeting shrinks to a compact single line when today has a
++// session to start or continue — that CTA is the one thing that matters right
++// now, and the hero shouldn't push it below the fold. HomeHero resolves its
++// own mode via useDayCardState(todayISO()) — deliberately decoupled from
++// TodayPlanner's selectedDate: the greeting is ALWAYS about today, even while
++// the user browses another day on the calendar.
+ 
+ import React from 'react';
+ import { Text, StyleSheet } from 'react-native';
+-import Animated, { FadeIn } from 'react-native-reanimated';
++import Animated, { FadeIn, LinearTransition, Easing, useReducedMotion } from 'react-native-reanimated';
+ 
+ import { Colors, Type, Spacing, Animation } from '../../../theme/tokens';
+ import { todayISO, formatLongDate } from '../lib/dates';
+ import { getGreeting } from '../lib/momentum';
+ import { useMomentumPhrase } from '../hooks/useMomentumPhrase';
+ import { useWorkoutStore } from '../../../store/workoutStore';
++import { useDayCardState } from '../hooks/useDayCardState';
++import { heroMode } from '../lib/heroMode';
+ 
+ export default function HomeHero() {
+   const today = todayISO();
+@@ -25,11 +34,17 @@ export default function HomeHero() {
+   const firstName = userName ? userName.split(/\s+/)[0] : null;
+   const greeting = getGreeting(firstName);
+   const phrase = useMomentumPhrase();
++  const reduceMotion = useReducedMotion();
++
++  const todayState = useDayCardState(today);
++  const mode = heroMode(todayState.variant);
++  const isCompact = mode === 'compact';
+ 
+   return (
+     <Animated.View
+       entering={FadeIn.duration(Animation.duration.normal)}
+-      style={styles.container}
++      layout={reduceMotion ? undefined : LinearTransition.duration(220).easing(Easing.out(Easing.cubic))}
++      style={[styles.container, isCompact && styles.containerCompact]}
+       accessible
+       accessibilityRole="header"
+       accessibilityLabel={`${greeting}. ${formatLongDate(today)}. ${phrase}`}
+@@ -37,25 +52,56 @@ export default function HomeHero() {
+       <Text style={styles.eyebrow} accessibilityElementsHidden importantForAccessibility="no">
+         {formatLongDate(today)}
+       </Text>
+-      {/* No numberOfLines — the greeting wraps rather than ellipsising a name.
+-          Font scaling is allowed (Dynamic Type) but capped so a huge setting
+-          can't push the hero off-screen; the display face carries the moment. */}
+-      <Text
+-        style={styles.greeting}
+-        maxFontSizeMultiplier={1.4}
+-        accessibilityElementsHidden
+-        importantForAccessibility="no"
+-      >
+-        {greeting}
+-      </Text>
+-      <Text
+-        style={styles.phrase}
+-        maxFontSizeMultiplier={1.6}
+-        accessibilityElementsHidden
+-        importantForAccessibility="no"
+-      >
+-        {phrase}
+-      </Text>
++      {isCompact ? (
++        <>
++          {/* Compact: one line at titleSmall — today's session is the CTA that
++              matters, the greeting steps back to make room for it. Truncating
++              here is acceptable (unlike full): the name lives whole in the
++              a11y label, and full mode below the empty/completed states never
++              truncates. */}
++          <Text
++            style={styles.greetingCompact}
++            numberOfLines={1}
++            ellipsizeMode="tail"
++            maxFontSizeMultiplier={1.3}
++            accessibilityElementsHidden
++            importantForAccessibility="no"
++          >
++            {greeting}
++          </Text>
++          <Text
++            style={styles.phraseCompact}
++            maxFontSizeMultiplier={1.6}
++            accessibilityElementsHidden
++            importantForAccessibility="no"
++          >
++            {phrase}
++          </Text>
++        </>
++      ) : (
++        <>
++          {/* No numberOfLines — the greeting wraps rather than ellipsising a
++              name. Font scaling is allowed (Dynamic Type) but capped so a huge
++              setting can't push the hero off-screen; the display face carries
++              the moment. */}
++          <Text
++            style={styles.greeting}
++            maxFontSizeMultiplier={1.4}
++            accessibilityElementsHidden
++            importantForAccessibility="no"
++          >
++            {greeting}
++          </Text>
++          <Text
++            style={styles.phrase}
++            maxFontSizeMultiplier={1.6}
++            accessibilityElementsHidden
++            importantForAccessibility="no"
++          >
++            {phrase}
++          </Text>
++        </>
++      )}
+     </Animated.View>
+   );
+ }
+@@ -65,6 +111,9 @@ const styles = StyleSheet.create({
+     paddingHorizontal: Spacing.screen.horizontal,
+     paddingBottom: Spacing.lg,
+   },
++  containerCompact: {
++    paddingBottom: Spacing.md,
++  },
+   eyebrow: {
+     ...Type.caption,
+     color: Colors.ink.muted,
+@@ -80,4 +129,13 @@ const styles = StyleSheet.create({
+     color: Colors.ink.tertiary,
+     marginTop: Spacing.md,
+   },
++  greetingCompact: {
++    ...Type.titleSmall,
++    color: Colors.ink.primary,
++  },
++  phraseCompact: {
++    ...Type.caption,
++    color: Colors.ink.tertiary,
++    marginTop: Spacing.xs,
++  },
+ });

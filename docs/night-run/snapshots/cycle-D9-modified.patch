@@ -1,0 +1,264 @@
+diff --git a/src/components/workout/SessionOverviewSheet.tsx b/src/components/workout/SessionOverviewSheet.tsx
+index 712e681..4796612 100644
+--- a/src/components/workout/SessionOverviewSheet.tsx
++++ b/src/components/workout/SessionOverviewSheet.tsx
+@@ -1,11 +1,13 @@
+ // SessionOverviewSheet — the full exercise list, one tap away from the
+ // scoreboard (spec: "la lista completa tras un tap"). Read-only glance:
+-// every exercise with its per-set dots and completed values. Navigation
+-// stays on the scoreboard (swipe) — this layer answers "¿cuánto queda?",
+-// it doesn't move the session. Hosts the "Añadir ejercicio" affordance
+-// that left the main view.
++// "¿cuánto queda?" answered without scroll (header counts + gold progress
++// bar), then an app-style accordion — one exercise expanded at a time,
++// default the current one — instead of the old wall-of-text (every set of
++// every exercise open simultaneously). Navigation stays on the scoreboard
++// (swipe); this layer never moves the session. Hosts the "Añadir ejercicio"
++// affordance that left the main view.
+ 
+-import React, { useCallback } from 'react';
++import React, { useCallback, useMemo, useState } from 'react';
+ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+ import Animated, {
+   Easing,
+@@ -19,8 +21,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ import * as Haptics from 'expo-haptics';
+ 
+ import KIcon from '../icons/KIcon';
+-import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
+-import type { ExerciseCard, ExerciseSet, FieldDefinition } from '../../types/core';
++import { Colors, FontFamily, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
++import { buildSessionOverview } from '../../features/workout/scoreboard/sessionOverview';
++import type { ExerciseCard } from '../../types/core';
+ 
+ interface Props {
+   visible: boolean;
+@@ -30,18 +33,6 @@ interface Props {
+   onClose: () => void;
+ }
+ 
+-// "60 kg · 8" from a completed set — same walk as the old inline summary.
+-function setSummary(set: ExerciseSet, fields: FieldDefinition[]): string {
+-  const parts: string[] = [];
+-  const sorted = [...fields].sort((a, b) => a.order - b.order);
+-  for (const f of sorted) {
+-    const v = set.values[f.id];
+-    if (v == null || v === '') continue;
+-    parts.push(f.unit ? `${v} ${f.unit}` : String(v));
+-  }
+-  return parts.join(' · ');
+-}
+-
+ function SessionOverviewSheetImpl({
+   visible,
+   exercises,
+@@ -51,12 +42,27 @@ function SessionOverviewSheetImpl({
+ }: Props) {
+   const insets = useSafeAreaInsets();
+   const reduceMotion = useReducedMotion();
++  const [expandedId, setExpandedId] = useState<string | null>(null);
++
++  const ov = useMemo(
++    () => buildSessionOverview(exercises, currentExerciseIndex),
++    [exercises, currentExerciseIndex],
++  );
++  const currentId = exercises[currentExerciseIndex]?.id ?? null;
++  // Exactly one exercise open at a time: the tapped one, defaulting to
++  // whichever the scoreboard has active right now.
++  const shownId = expandedId ?? currentId;
+ 
+   const handleAdd = useCallback(() => {
+     Haptics.selectionAsync().catch(() => {});
+     onAddExercise();
+   }, [onAddExercise]);
+ 
++  const handleToggle = useCallback((id: string) => {
++    Haptics.selectionAsync().catch(() => {});
++    setExpandedId(id);
++  }, []);
++
+   return (
+     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+       <Animated.View
+@@ -85,26 +91,45 @@ function SessionOverviewSheetImpl({
+         >
+           <View style={styles.handle} />
+           <Text style={styles.title}>Sesión</Text>
++          <Text style={styles.subtitle} maxFontSizeMultiplier={1.6}>
++            {ov.exercisesDone}/{ov.exercisesTotal} ejercicios · {ov.progressLabel}
++          </Text>
++          <View
++            style={styles.progressTrack}
++            accessibilityRole="progressbar"
++            accessibilityValue={{ min: 0, max: ov.setsTotal, now: ov.setsDone }}
++          >
++            <View style={[styles.progressFill, { width: `${ov.progress * 100}%` }]} />
++          </View>
+ 
+           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+-            {exercises.map((ex, i) => {
+-              const done = ex.sets.filter((s) => s.completed).length;
+-              const isCurrent = i === currentExerciseIndex;
+-              const complete = ex.sets.length > 0 && done === ex.sets.length;
++            {ov.exercises.map((ex) => {
++              const isCurrent = ex.status === 'current';
++              const expanded = ex.id === shownId;
++              const stateLabel = isCurrent
++                ? ', ejercicio actual'
++                : ex.status === 'done'
++                  ? ', completado'
++                  : '';
++              const recapLabel = expanded ? '' : `, ${ex.recap}`;
+               return (
+-                <View
++                <Pressable
+                   key={ex.id}
+-                  style={[styles.exRow, isCurrent && styles.exRowCurrent]}
+-                  accessible
+-                  accessibilityLabel={`${ex.name}, ${done} de ${ex.sets.length} sets${
+-                    isCurrent ? ', ejercicio actual' : complete ? ', completado' : ''
+-                  }`}
++                  onPress={() => handleToggle(ex.id)}
++                  accessibilityRole="button"
++                  accessibilityState={{ expanded }}
++                  accessibilityLabel={`${ex.name}, ${ex.done} de ${ex.total} sets${stateLabel}${recapLabel}`}
++                  style={({ pressed }) => [
++                    styles.exRow,
++                    isCurrent && styles.exRowCurrent,
++                    pressed && styles.exRowPressed,
++                  ]}
+                 >
+                   <View
+                     style={[
+                       styles.exDot,
+-                      complete && styles.exDotDone,
+-                      isCurrent && !complete && styles.exDotCurrent,
++                      ex.status === 'done' && styles.exDotDone,
++                      isCurrent && styles.exDotCurrent,
+                     ]}
+                   />
+                   <View style={styles.exBody}>
+@@ -115,24 +140,29 @@ function SessionOverviewSheetImpl({
+                     >
+                       {ex.name}
+                     </Text>
+-                    {ex.sets.map((s, j) => {
+-                      const summary = s.completed ? setSummary(s, ex.fields) : '';
+-                      return s.completed && summary ? (
+-                        <Text
+-                          key={s.id}
+-                          style={styles.setLine}
+-                          numberOfLines={1}
+-                          maxFontSizeMultiplier={1.6}
+-                        >
+-                          {j + 1} · {summary}
+-                        </Text>
+-                      ) : null;
+-                    })}
++                    {expanded ? (
++                      ex.sets.map((s) =>
++                        s.completed && s.summary ? (
++                          <Text
++                            key={s.index}
++                            style={styles.setLine}
++                            numberOfLines={1}
++                            maxFontSizeMultiplier={1.6}
++                          >
++                            {s.index} · {s.summary}
++                          </Text>
++                        ) : null,
++                      )
++                    ) : (
++                      <Text style={styles.recapLine} numberOfLines={1} maxFontSizeMultiplier={1.6}>
++                        {ex.recap}
++                      </Text>
++                    )}
+                   </View>
+                   <Text style={styles.exCount} maxFontSizeMultiplier={1.6}>
+-                    {done}/{ex.sets.length}
++                    {ex.done}/{ex.total}
+                   </Text>
+-                </View>
++                </Pressable>
+               );
+             })}
+ 
+@@ -183,8 +213,28 @@ const styles = StyleSheet.create({
+   title: {
+     ...Type.bodyEmph,
+     color: Colors.ink.primary,
++    marginBottom: Spacing.xs,
++  },
++  // "3/8 ejercicios · 12 de 24 series" — the "¿cuánto queda?" answer, glanceable
++  // with zero scroll (BRIEF-08).
++  subtitle: {
++    ...Type.caption,
++    color: Colors.ink.tertiary,
+     marginBottom: Spacing.sm,
+   },
++  // Single gold accent of this screen: progress is DATA, not decoration.
++  progressTrack: {
++    height: 4,
++    borderRadius: Radius.full,
++    backgroundColor: Colors.gold.glow,
++    overflow: 'hidden',
++    marginBottom: Spacing.md,
++  },
++  progressFill: {
++    height: '100%',
++    borderRadius: Radius.full,
++    backgroundColor: Colors.gold.base,
++  },
+   body: {
+     paddingBottom: Spacing.md,
+     gap: Spacing.sm,
+@@ -193,6 +243,7 @@ const styles = StyleSheet.create({
+     flexDirection: 'row',
+     alignItems: 'flex-start',
+     gap: Spacing.md,
++    minHeight: 44,
+     paddingVertical: Spacing.sm,
+     paddingHorizontal: Spacing.sm,
+     borderRadius: Radius.md,
+@@ -200,6 +251,9 @@ const styles = StyleSheet.create({
+   exRowCurrent: {
+     backgroundColor: Colors.bg.warm,
+   },
++  exRowPressed: {
++    opacity: 0.7,
++  },
+   exDot: {
+     width: 10,
+     height: 10,
+@@ -221,12 +275,17 @@ const styles = StyleSheet.create({
+     flex: 1,
+     gap: 2,
+   },
++  // Sans, sober — every exercise except the one the scoreboard is showing now.
+   exName: {
+     ...Type.body,
+     color: Colors.ink.secondary,
+   },
++  // Fraunces echoes the scoreboard's own titling for the exercise in play —
++  // the one place this glance shares the marker's editorial voice.
+   exNameCurrent: {
+-    ...Type.bodyEmph,
++    fontFamily: FontFamily.serif,
++    fontSize: 17,
++    lineHeight: 22,
+     color: Colors.ink.primary,
+   },
+   setLine: {
+@@ -234,6 +293,12 @@ const styles = StyleSheet.create({
+     color: Colors.ink.muted,
+     fontVariant: ['tabular-nums'],
+   },
++  // Collapsed one-liner ("4 series" | "2/4 series" | "Pendiente") — replaces
++  // the old wall of per-set lines for every exercise not in focus.
++  recapLine: {
++    ...Type.caption,
++    color: Colors.ink.muted,
++  },
+   exCount: {
+     ...Type.numSmall,
+     color: Colors.ink.tertiary,

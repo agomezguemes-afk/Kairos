@@ -17,6 +17,8 @@ export {
   RPE_EASY_MAX,
   RPE_HARD_MIN,
 } from './suggestNextValues';
+export { inSessionWeightNudge } from './inSessionNudge';
+export type { InSessionNudge } from './inSessionNudge';
 export { detectPR } from './detectPR';
 export { applyProgression } from './applyProgression';
 

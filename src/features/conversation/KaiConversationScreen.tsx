@@ -454,11 +454,10 @@ const styles = StyleSheet.create({
     // Opposite-side gutter so a bubble never spans full width (sender stays clear).
     paddingRight: Spacing['2xl'] * 2,
   },
+  // No border: white on warm paper (v3 §3a). Kai's voice is a card that lifts.
   kaiBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.bg.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.hair.base,
+    backgroundColor: Colors.paper.raised,
     borderRadius: Radius.lg,
     borderTopLeftRadius: Radius.xs,
     paddingVertical: Spacing.md,
@@ -498,9 +497,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: Colors.bg.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.hair.base,
+    backgroundColor: Colors.paper.raised,
     borderRadius: Radius.lg,
     borderTopLeftRadius: Radius.xs,
     paddingVertical: Spacing.md,

@@ -214,8 +214,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.hair.base,
     ...Shadows.elevated,
   },
+  // The capsule KEEPS its hairline: it floats over scrolling content, and a
+  // white card passing underneath would otherwise erase its edge (§3f allows a
+  // rim on floating chrome — what we killed are card PERIMETERS).
   warmOverlay: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: Colors.paper.veil,
     borderRadius: Radius['3xl'],
   },
   pill: {

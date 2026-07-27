@@ -12,6 +12,7 @@
 import type { WorkoutBlock, ExerciseCard, ExerciseSet } from '../../types/core';
 import type { ContentNode } from '../../types/content';
 import type { WorkoutHistoryEntry } from '../../store/workoutStore';
+import type { AdaptationSignal } from '../readiness/adaptiveEngine';
 import { readExerciseHistory } from './readExerciseHistory';
 import { suggestNextValues, WEIGHT_NUDGE_KG } from './suggestNextValues';
 import type { SuggestionBasis } from './types';
@@ -42,12 +43,16 @@ function carryForwardValues(
 }
 
 /** Pre-fill one exercise's sets + goals from its suggestion. */
-function enrichExercise(exercise: ExerciseCard, history: WorkoutHistoryEntry[]): ExerciseCard {
+function enrichExercise(
+  exercise: ExerciseCard,
+  history: WorkoutHistoryEntry[],
+  adaptation?: AdaptationSignal,
+): ExerciseCard {
   const hist = readExerciseHistory(history, {
     name: exercise.name,
     libraryId: exercise.libraryId,
   });
-  const suggestion = suggestNextValues(exercise.fields, hist);
+  const suggestion = suggestNextValues(exercise.fields, hist, adaptation);
   const suggested = suggestion.values;
   if (Object.keys(suggested).length === 0) return exercise;
 
@@ -77,13 +82,14 @@ function enrichExercise(exercise: ExerciseCard, history: WorkoutHistoryEntry[]):
 export function applyProgression(
   block: WorkoutBlock,
   history: WorkoutHistoryEntry[],
+  adaptation?: AdaptationSignal,
 ): WorkoutBlock {
   if (history.length === 0) return block;
 
   let changed = false;
   const content: ContentNode[] = block.content.map((node) => {
     if (node.type !== 'exercise') return node;
-    const enriched = enrichExercise(node.data.exercise, history);
+    const enriched = enrichExercise(node.data.exercise, history, adaptation);
     if (enriched === node.data.exercise) return node;
     changed = true;
     return { ...node, data: { ...node.data, exercise: enriched } };

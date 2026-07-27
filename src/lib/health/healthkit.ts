@@ -49,7 +49,7 @@ export function isHealthKitAvailable(): boolean {
 
 const PERMISSIONS = {
   permissions: {
-    read: ['Weight', 'Height', 'DateOfBirth'],
+    read: ['Weight', 'Height', 'DateOfBirth', 'HeartRateVariability', 'SleepAnalysis'],
     write: ['Workout', 'ActiveEnergyBurned'],
   },
 };
@@ -137,6 +137,71 @@ export async function readBodyWeight(): Promise<number | null> {
         resolve(value);
       });
     } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Read latest HRV (SDNN, ms) from the last 24h. Returns null when
+ * unavailable / not authorized / no data. Never throws.
+ */
+export async function readHRV(): Promise<number | null> {
+  const native = getNative();
+  if (!native) return null;
+  return new Promise<number | null>((resolve) => {
+    try {
+      const options = {
+        startDate: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+        endDate: new Date().toISOString(),
+      };
+      native.getHeartRateVariabilitySamples(options, (err: string | null, results: any[]) => {
+        if (err || !Array.isArray(results) || results.length === 0) {
+          resolve(null);
+          return;
+        }
+        const latest = results[results.length - 1];
+        resolve(typeof latest?.value === 'number' ? latest.value : null);
+      });
+    } catch (e) {
+      if (__DEV__) console.warn('[Kairos/HealthKit] getHeartRateVariabilitySamples threw:', e);
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Read total asleep hours for the most recent night (last 24h window).
+ * Sums only ASLEEP* segments — INBED includes awake-in-bed time, which
+ * would overstate sleep. Returns null when unavailable / no data. Never
+ * throws.
+ */
+export async function readSleepHours(): Promise<number | null> {
+  const native = getNative();
+  if (!native) return null;
+  return new Promise<number | null>((resolve) => {
+    try {
+      const options = {
+        startDate: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+        endDate: new Date().toISOString(),
+      };
+      native.getSleepSamples(options, (err: string | null, results: any[]) => {
+        if (err || !Array.isArray(results) || results.length === 0) {
+          resolve(null);
+          return;
+        }
+        const asleepStages = new Set(['ASLEEP', 'ASLEEP_CORE', 'ASLEEP_DEEP', 'ASLEEP_REM']);
+        const asleepMs = results
+          .filter((s) => asleepStages.has(s?.value))
+          .reduce((sum, s) => {
+            const start = new Date(s.startDate).getTime();
+            const end = new Date(s.endDate).getTime();
+            return sum + Math.max(0, end - start);
+          }, 0);
+        resolve(asleepMs > 0 ? asleepMs / 3_600_000 : null);
+      });
+    } catch (e) {
+      if (__DEV__) console.warn('[Kairos/HealthKit] getSleepSamples threw:', e);
       resolve(null);
     }
   });

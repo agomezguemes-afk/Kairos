@@ -3,11 +3,11 @@
 // after the first logged session.
 
 import React from 'react';
-import { Text, Pressable, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 
 import KIcon from '../../../components/icons/KIcon';
+import PressableScale from '../../../components/PressableScale';
 import { Colors, Type, Spacing, Radius, Shadows } from '../../../theme/tokens';
 import { getBlockExercises, type WorkoutBlock } from '../../../types/core';
 
@@ -19,11 +19,6 @@ interface Props {
 function FirstWorkoutCTA({ block, onStart }: Props) {
   const exerciseCount = getBlockExercises(block).length;
 
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    onStart(block);
-  };
-
   return (
     <Animated.View entering={FadeInDown.duration(400)} style={styles.card}>
       <Text style={styles.eyebrow}>Tu primer entrenamiento</Text>
@@ -33,15 +28,16 @@ function FirstWorkoutCTA({ block, onStart }: Props) {
       <Text style={styles.meta}>
         {exerciseCount} {exerciseCount === 1 ? 'ejercicio' : 'ejercicios'} · listo para empezar
       </Text>
-      <Pressable
+      <PressableScale
         accessibilityRole="button"
         accessibilityLabel={`Empezar primer entrenamiento: ${block.name}`}
-        onPress={handlePress}
-        style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
+        onPress={() => onStart(block)}
+        haptic="medium"
+        style={styles.cta}
       >
         <KIcon name="zap" size={16} color={Colors.ink.inverse} />
         <Text style={styles.ctaText}>Empezar ahora</Text>
-      </Pressable>
+      </PressableScale>
     </Animated.View>
   );
 }
@@ -55,7 +51,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     padding: Spacing['2xl'],
     borderRadius: Radius['2xl'],
-    backgroundColor: Colors.bg.warm,
+    backgroundColor: Colors.paper.warm,
     gap: Spacing.xs,
     ...Shadows.none,
   },
@@ -63,8 +59,11 @@ const styles = StyleSheet.create({
     ...Type.eyebrow,
     color: Colors.ink.tertiary,
   },
+  // Letterpress: on a warm surface the title sinks into the fibre (§3f). Only
+  // valid ≥22pt — titleSmall is exactly 22.
   title: {
     ...Type.titleSmall,
+    ...Type.letterpress,
     color: Colors.ink.primary,
     marginTop: 2,
   },

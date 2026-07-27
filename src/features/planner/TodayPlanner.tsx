@@ -15,8 +15,8 @@ import HomeHero from './components/HomeHero';
 import FirstWorkoutCTA from './components/FirstWorkoutCTA';
 import AmbientKaiBar from '../conversation/AmbientKaiBar';
 import HomeHeroStats from './components/HomeHeroStats';
-import ReadinessRings from './components/ReadinessRings';
-import CalendarView from './components/CalendarView';
+import ReadinessLine from './components/ReadinessLine';
+import WeekStrip from './components/WeekStrip';
 import DayCard from './components/DayCard';
 import KaiSignalCard from './components/KaiSignal';
 import AssignBlockSheet from './components/AssignBlockSheet';
@@ -31,6 +31,7 @@ import { useDayCardState } from './hooks/useDayCardState';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { useScheduleStore } from '../../store/scheduleStore';
 import { useGamification } from '../../context/GamificationContext';
+import { useReadinessSnapshot } from '../../lib/readiness/useReadinessSnapshot';
 import { isSurfaceVisible } from '../../config/wedge';
 import type { ISODate, ResolvedAssignment } from '../../types/schedule';
 import { getBlockExercises, type WorkoutBlock } from '../../types/core';
@@ -64,6 +65,7 @@ export default function TodayPlanner() {
   const history = useWorkoutStore((s) => s.workoutHistory);
   const activeWorkout = useWorkoutStore((s) => s.activeWorkout);
   const { streak } = useGamification();
+  const readinessSnapshot = useReadinessSnapshot();
 
   // Prune expired undo entries every 5s while the screen is mounted.
   const pruneExpired = useScheduleStore((s) => s.pruneExpiredDeletions);
@@ -99,8 +101,17 @@ export default function TodayPlanner() {
         blocksCount: blocks.length,
         hasActiveWorkout: !!activeWorkout,
         lastSession,
+        adaptation: readinessSnapshot.adaptation,
       }),
-    [selectedDate, dayState, streak, blocks.length, activeWorkout, lastSession],
+    [
+      selectedDate,
+      dayState,
+      streak,
+      blocks.length,
+      activeWorkout,
+      lastSession,
+      readinessSnapshot.adaptation,
+    ],
   );
 
   // First-workout hero: only until the first session lands in history.
@@ -159,9 +170,9 @@ export default function TodayPlanner() {
     nav.navigate('KaiToday');
   }, [nav]);
 
-  // The calendar is demoted below the primary day card (Design v2). When the
-  // user picks a day down there, scroll the focused-day card back into view so
-  // the control→result link stays legible despite the reversed order.
+  // The week strip sits below the primary day card. When the user picks a day
+  // there, scroll the focused-day card back into view so the control→result
+  // link stays legible.
   const handleSelectDate = useCallback(
     (d: ISODate) => {
       setSelectedDate(d);
@@ -225,10 +236,18 @@ export default function TodayPlanner() {
           onPlanWeek={handlePlanWeek}
         />
 
-        {/* Demoted zone — quieter, below the fold. Calendar sits closest to the
-            card it drives; weekly stats / readiness / señal recede further. */}
-        <CalendarView selectedDate={selectedDate} onSelect={handleSelectDate} />
-        <ReadinessRings />
+        {/* The week strip sits in the fold, right under the card it drives —
+            the calendar is visible on open, no tap required (STORY-08 reverts
+            the HomeFolder accordion). Picking a day scrolls the focused-day
+            card back to the top. */}
+        <WeekStrip selectedDate={selectedDate} onSelect={handleSelectDate} />
+
+        {/* Below the fold — plain scroll, no accordion. These read as loose
+            sections revealed by scrolling further (Apple Health idiom), each
+            wearing its own chrome again: ReadinessLine with its editorial rule,
+            weekly stats, KaiSignal as its warm card. KaiSignal self-guards on a
+            null signal, so no empty section renders. */}
+        <ReadinessLine />
         <HomeHeroStats />
         <KaiSignalCard signal={signal} onAction={handleSignalAction} />
       </ScrollView>
@@ -274,6 +293,6 @@ export default function TodayPlanner() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.bg.void },
+  screen: { flex: 1, backgroundColor: Colors.paper.base },
   content: {},
 });

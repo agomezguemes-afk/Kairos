@@ -1,0 +1,191 @@
+diff --git a/src/components/workout/SetCorrectionSheet.tsx b/src/components/workout/SetCorrectionSheet.tsx
+index cb8501a..b15b33f 100644
+--- a/src/components/workout/SetCorrectionSheet.tsx
++++ b/src/components/workout/SetCorrectionSheet.tsx
+@@ -4,11 +4,11 @@
+ // main scoreboard. Same Modal + Reanimated sheet pattern as SetActionSheet —
+ // @gorhom/bottom-sheet isn't installed and adding it needs a native rebuild.
+ //
+-// Edits flow through the parent's draftValues (onChange) so closing the sheet
+-// and pressing HECHO commits exactly what the user saw. Metadata writes go
++// Edits flow through the parent's draftValues (onChange) so HECHO — here or on
++// the scoreboard — commits exactly what the user saw. Metadata writes go
+ // straight to the store (updateSetMetadata), mirroring SetActionSheet.
+ 
+-import React, { useCallback, useEffect, useState } from 'react';
++import React, { useCallback, useMemo, useState } from 'react';
+ import {
+   KeyboardAvoidingView,
+   Modal,
+@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ import * as Haptics from 'expo-haptics';
+ 
+ import SetInput from './SetInput';
++import { resolveSheetCommit } from '../../features/workout/scoreboard/commit';
+ import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
+ import { useWorkoutStore } from '../../store/workoutStore';
+ import type { FieldDefinition, FieldValue, SetKind } from '../../types/core';
+@@ -49,6 +50,8 @@ interface Props {
+   accent: string;
+   tint: string;
+   onClose: () => void;
++  /** HECHO from the sheet: commit the draft + advance to rest (≤2 taps/set). */
++  onCommit: () => void;
+   /**
+    * Nested modal slot (PlateCalculator). iOS can't present two sibling RN
+    * Modals at once — nesting the inner Modal inside this one is the pattern
+@@ -80,6 +83,7 @@ function SetCorrectionSheetImpl({
+   accent,
+   tint,
+   onClose,
++  onCommit,
+   children,
+ }: Props) {
+   const insets = useSafeAreaInsets();
+@@ -147,6 +151,17 @@ function SetCorrectionSheetImpl({
+     onClose();
+   }, [flushNote, onClose]);
+ 
++  const handleCommit = useCallback(() => {
++    flushNote();
++    onCommit();
++  }, [flushNote, onCommit]);
++
++  // What HECHO will actually log — spoken so VoiceOver's hint matches the record.
++  const commitTarget = useMemo(
++    () => resolveSheetCommit({}, values, fields).target,
++    [values, fields],
++  );
++
+   const toggleMeta = useCallback(() => {
+     Haptics.selectionAsync().catch(() => {});
+     setUi((prev) => ({ ...prev, showMeta: !prev.showMeta }));
+@@ -298,15 +313,35 @@ function SetCorrectionSheetImpl({
+               ) : null}
+             </ScrollView>
+ 
+-            {/* Ink pill — Design v2 primary. Gold stays out of this sheet. */}
++            {/* Ink pill — Design v2 primary. Gold stays out of this sheet.
++                HECHO here commits the corrected draft in the same gesture,
++                collapsing corregir+completar from 3 taps to 2. */}
+             <Pressable
+-              onPress={handleClose}
++              onPress={handleCommit}
+               accessibilityRole="button"
+-              accessibilityLabel="Listo, volver al marcador"
++              accessibilityLabel="Guardar y completar la serie"
++              accessibilityHint={
++                commitTarget
++                  ? `Registra ${commitTarget.spoken} y pasa al descanso`
++                  : 'Registra la serie y pasa al descanso'
++              }
+               style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
+             >
+               <Text style={styles.ctaText} maxFontSizeMultiplier={1.4}>
+-                Listo
++                HECHO
++              </Text>
++            </Pressable>
++
++            {/* Escape hatch: open the sheet just to peek at RPE/nota without
++                logging the set. Scrim and handle cancel the same way. */}
++            <Pressable
++              onPress={handleClose}
++              accessibilityRole="button"
++              accessibilityLabel="Cerrar sin guardar la serie"
++              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.6 }]}
++            >
++              <Text style={styles.ghostText} maxFontSizeMultiplier={1.6}>
++                Cerrar sin guardar
+               </Text>
+             </Pressable>
+           </Animated.View>
+@@ -447,4 +482,16 @@ const styles = StyleSheet.create({
+     ...Type.subheading,
+     color: Colors.ink.inverse,
+   },
++  ghost: {
++    minHeight: 44,
++    justifyContent: 'center',
++    alignSelf: 'center',
++    paddingHorizontal: Spacing.md,
++    marginTop: Spacing.xs,
++  },
++  ghostText: {
++    ...Type.caption,
++    color: Colors.ink.tertiary,
++    fontWeight: '600',
++  },
+ });
+diff --git a/src/screens/ActiveWorkoutScreen.tsx b/src/screens/ActiveWorkoutScreen.tsx
+index e244503..3c205b3 100644
+--- a/src/screens/ActiveWorkoutScreen.tsx
++++ b/src/screens/ActiveWorkoutScreen.tsx
+@@ -37,6 +37,7 @@ import type { RootStackParamList } from '../types/navigation';
+ import type { ExerciseCard, FieldValue, FieldDefinition, Discipline } from '../types/core';
+ import { createExerciseCard } from '../types/core';
+ import { Colors, Type, Spacing, Radius, FontFamily } from '../theme/tokens';
++import PaperGrain from '../theme/Paper';
+ import { deriveScoreboardState, scoreboardStateKey } from '../features/workout/scoreboard/machine';
+ import {
+   formatScoreboardTarget,
+@@ -143,9 +144,6 @@ export default function ActiveWorkoutScreen() {
+     }
+   }, [aw, blockId, assignmentId, scheduledDate, source, startWorkout]);
+ 
+-  // Mirror the session to the Live Activity / ongoing notification.
+-  useLiveActivitySync();
+-
+   // ===== session timer =====
+   // Keyed on startTime alone — keying on `aw` would tear the interval down
+   // on every store mutation (each set completion).
+@@ -266,6 +264,10 @@ export default function ActiveWorkoutScreen() {
+   });
+   const stateKey = scoreboardStateKey(sbState, { currentExerciseIndex, currentSetIndex });
+ 
++  // Mirror the session onto the lock screen / Dynamic Island. Same machine, same
++  // formatter — the phone face-up on the bench IS the scoreboard.
++  useLiveActivitySync({ hasEnteredCurrentExercise: entered.has(currentExerciseIndex) });
++
+   // The scoreboard's giant value — draft-aware so a correction shows instantly.
+   const target = useMemo(() => {
+     if (!exercise || !currentSet) return null;
+@@ -649,6 +651,12 @@ export default function ActiveWorkoutScreen() {
+         </View>
+       ) : null}
+ 
++      {/* Paper fibre. Modo Sesión is presented as a fullScreenModal — iOS gives it
++          its own view controller ABOVE the navigator's PaperRoot, so it needs its
++          own grain or it would be the one screen printed on glass. Sheets render
++          after this node, so they stay crisp. */}
++      <PaperGrain />
++
+       {/* ── Layers ── */}
+       <SetCorrectionSheet
+         visible={correctionOpen}
+@@ -663,6 +671,12 @@ export default function ActiveWorkoutScreen() {
+         accent={Colors.discipline[exercise.discipline] ?? Colors.ink.primary}
+         tint={Colors.tint[exercise.discipline] ?? Colors.bg.elevated}
+         onClose={() => setCorrectionOpen(false)}
++        onCommit={() => {
++          // Same commit path as the scoreboard HECHO — merge, PR, rest.
++          handleCompleteSet();
++          setCorrectionOpen(false);
++          setCalcOpen(false);
++        }}
+       >
+         <PlateCalculator
+           visible={calcOpen}
+@@ -694,9 +708,11 @@ export default function ActiveWorkoutScreen() {
+ }
+ 
+ const styles = StyleSheet.create({
++  // Warm paper, not lab white — and still legible at 2 m: the grain costs 0.1%
++  // of luminance, ink.primary on paper.base is 15.5:1 (§5.3).
+   screen: {
+     flex: 1,
+-    backgroundColor: Colors.bg.void,
++    backgroundColor: Colors.paper.base,
+   },
+   center: {
+     alignItems: 'center',

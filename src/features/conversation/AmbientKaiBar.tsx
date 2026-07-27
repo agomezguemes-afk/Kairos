@@ -108,10 +108,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingLeft: Spacing.md,
     paddingRight: Spacing.sm,
-    backgroundColor: Colors.bg.surface,
+    backgroundColor: Colors.paper.raised,
     borderRadius: Radius['3xl'],
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.hair.base,
     ...Shadows.elevated,
   },
   barPressed: {

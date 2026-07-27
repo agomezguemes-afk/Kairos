@@ -36,10 +36,27 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useWorkoutStore } from '../store/workoutStore';
 import { Colors } from '../theme/index';
+import PaperGrain from '../theme/Paper';
 import { SKIP_AUTH } from '../config/constants';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<DashboardTabParamList>();
+
+// ======================== PAPER ROOT ========================
+
+// The canvas the whole app is printed on: warm paper + one tiled grain layer,
+// mounted once (§3a). Screens keep their own background colour, so the grain
+// only ever adds fibre on top — it never fights a screen for the base tone.
+// ActiveWorkoutScreen mounts its own copy: iOS presents fullScreenModal in a
+// separate view controller, above this view.
+function PaperRoot({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={paperStyles.root}>
+      {children}
+      <PaperGrain />
+    </View>
+  );
+}
 
 // ======================== DASHBOARD TABS ========================
 
@@ -79,7 +96,7 @@ export default function AppNavigator() {
   // ── SKIP_AUTH mode: jump straight to the dashboard ──────────────
   if (SKIP_AUTH) {
     return (
-      <>
+      <PaperRoot>
         <NavigationContainer>
           {onboarded ? (
             <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -157,80 +174,86 @@ export default function AppNavigator() {
 
         {/* Splash sits on top of everything and fades itself out */}
         {splashVisible && <SplashScreen onDone={() => setSplashVisible(false)} />}
-      </>
+      </PaperRoot>
     );
   }
 
   // ── Auth mode: wait for Supabase init ────────────────────────────
   if (!isInitialized || profileLoading) {
     return (
-      <>
+      <PaperRoot>
         <View style={loadingStyles.container}>
           <AnimatedKairosLogo size={72} />
           <Text style={loadingStyles.caption}>Preparando tu espacio</Text>
         </View>
         {splashVisible && <SplashScreen onDone={() => setSplashVisible(false)} />}
-      </>
+      </PaperRoot>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!session ? (
-          <>
-            <Stack.Screen name="Welcome" component={WelcomeScreen} />
-            <Stack.Screen name="Auth" component={AuthScreen} />
-          </>
-        ) : !onboarded ? (
-          <>
-            <Stack.Screen name="Onboarding" component={PremiumOnboardingScreen} />
-            <Stack.Screen name="Dashboard" component={DashboardTabs} />
-            <Stack.Screen
-              name="BlockDetail"
-              component={BlockEditorScreen}
-              options={{ animation: 'slide_from_right' }}
-            />
-            <Stack.Screen
-              name="ActiveWorkout"
-              component={ActiveWorkoutScreen}
-              options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
-            />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="Dashboard" component={DashboardTabs} />
-            <Stack.Screen
-              name="BlockDetail"
-              component={BlockEditorScreen}
-              options={{ animation: 'slide_from_right' }}
-            />
-            <Stack.Screen
-              name="ActiveWorkout"
-              component={ActiveWorkoutScreen}
-              options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
-            />
-            <Stack.Screen name="Badges" component={BadgesScreen} />
-            <Stack.Screen name="PRCards" component={PRCardsScreen} />
-            <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
-            <Stack.Screen name="AIChat" component={AIChatScreen} />
-            <Stack.Screen name="KaiToday" component={KaiConversationScreen} />
-            <Stack.Screen
-              name="AILabScreen"
-              component={AILabScreen}
-              options={{ presentation: 'modal' }}
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <PaperRoot>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {!session ? (
+            <>
+              <Stack.Screen name="Welcome" component={WelcomeScreen} />
+              <Stack.Screen name="Auth" component={AuthScreen} />
+            </>
+          ) : !onboarded ? (
+            <>
+              <Stack.Screen name="Onboarding" component={PremiumOnboardingScreen} />
+              <Stack.Screen name="Dashboard" component={DashboardTabs} />
+              <Stack.Screen
+                name="BlockDetail"
+                component={BlockEditorScreen}
+                options={{ animation: 'slide_from_right' }}
+              />
+              <Stack.Screen
+                name="ActiveWorkout"
+                component={ActiveWorkoutScreen}
+                options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+              />
+            </>
+          ) : (
+            <>
+              <Stack.Screen name="Dashboard" component={DashboardTabs} />
+              <Stack.Screen
+                name="BlockDetail"
+                component={BlockEditorScreen}
+                options={{ animation: 'slide_from_right' }}
+              />
+              <Stack.Screen
+                name="ActiveWorkout"
+                component={ActiveWorkoutScreen}
+                options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+              />
+              <Stack.Screen name="Badges" component={BadgesScreen} />
+              <Stack.Screen name="PRCards" component={PRCardsScreen} />
+              <Stack.Screen name="ProgressTree" component={ProgressTreeScreen} />
+              <Stack.Screen name="AIChat" component={AIChatScreen} />
+              <Stack.Screen name="KaiToday" component={KaiConversationScreen} />
+              <Stack.Screen
+                name="AILabScreen"
+                component={AILabScreen}
+                options={{ presentation: 'modal' }}
+              />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+    </PaperRoot>
   );
 }
+
+const paperStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.paper.base },
+});
 
 const loadingStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg.void,
+    backgroundColor: Colors.paper.base,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.lg,

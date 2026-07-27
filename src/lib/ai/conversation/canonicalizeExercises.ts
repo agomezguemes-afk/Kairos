@@ -45,6 +45,9 @@ import { buildStarterBlocks, STARTER_DISCIPLINES } from '../../routines/starterT
 import type { StarterDiscipline } from '../../routines/starterTemplates';
 import { buildHybridRaceBlock } from '../../routines/hybridPreset';
 import { normalizeExerciseName } from '../../progression/modality';
+import { allowedEquipmentSet, resolveEquipment } from './equipment';
+import type { EquipmentContext } from './equipment';
+import { catalogVocabulary } from './exerciseCatalog';
 import type { SessionBrief } from './types';
 
 // ======================== TOKENIZATION ========================
@@ -189,8 +192,13 @@ function implementAffinity(a: Set<string>, b: Set<string>): number {
 // Display-name priority on viewKey collisions: builder names first — template
 // history matches by exact name, so the builder spelling is the load-bearing
 // one. The library id is merged in regardless (see dedup).
-type VocabSource = 'starter' | 'preset' | 'library';
-const SOURCE_PRIORITY: Record<VocabSource, number> = { starter: 0, preset: 1, library: 2 };
+type VocabSource = 'starter' | 'catalog' | 'preset' | 'library';
+const SOURCE_PRIORITY: Record<VocabSource, number> = {
+  starter: 0,
+  catalog: 1,
+  preset: 2,
+  library: 3,
+};
 
 interface VocabEntry {
   name: string;
@@ -199,6 +207,13 @@ interface VocabEntry {
   libraryId?: string;
   discipline?: Discipline;
   muscleGroups?: MuscleGroup[];
+  /**
+   * What it takes to do the movement. EXACT where the source knows it (a
+   * template/catalog option carries its own `needsAny`; an ungated option is
+   * bodyweight and says so); inferred from the name only for library entries,
+   * which carry no equipment field. Drives the restriction-aware prompt bias.
+   */
+  equipment?: EquipmentTag[];
 }
 
 // Singleton equipment profiles surface every gated template option: the first
@@ -220,13 +235,27 @@ interface HarvestedName {
   name: string;
   discipline: Discipline;
   source: VocabSource;
+  equipment?: EquipmentTag[];
 }
 
 // Harvest option/station names from the read-only routine builders without
 // touching them: build across discipline × equipment permutations (frequency 4
 // unlocks day B) and read the emitted cards' name + discipline.
+//
+// The singleton probe profiles double as the equipment gate. A name that
+// surfaces under the EMPTY profile is its slot's ungated option — it needs
+// nothing, so it is bodyweight, full stop. A name that never surfaces there is
+// gated, and its gate is exactly the set of singleton profiles that DID surface
+// it: that is the option's `needsAny`, recovered without exporting the
+// templates' internals.
 function harvestFromBuilders(): HarvestedName[] {
-  const out: HarvestedName[] = [];
+  interface Probe {
+    discipline: Discipline;
+    ungated: boolean;
+    tags: Set<EquipmentTag>;
+  }
+  const probes = new Map<string, Probe>();
+
   for (const discipline of STARTER_DISCIPLINE_IDS) {
     for (const equipment of EQUIP_PROFILES) {
       const blocks = buildStarterBlocks(
@@ -236,10 +265,27 @@ function harvestFromBuilders(): HarvestedName[] {
       );
       for (const b of blocks) {
         for (const ex of getBlockExercises(b)) {
-          out.push({ name: ex.name, discipline: ex.discipline, source: 'starter' });
+          const probe = probes.get(ex.name) ?? {
+            discipline: ex.discipline,
+            ungated: false,
+            tags: new Set<EquipmentTag>(),
+          };
+          if (equipment.length === 0) probe.ungated = true;
+          else for (const tag of equipment) probe.tags.add(tag);
+          probes.set(ex.name, probe);
         }
       }
     }
+  }
+
+  const out: HarvestedName[] = [];
+  for (const [name, probe] of probes) {
+    out.push({
+      name,
+      discipline: probe.discipline,
+      source: 'starter',
+      equipment: probe.ungated ? ['bodyweight'] : [...probe.tags],
+    });
   }
   for (const ex of getBlockExercises(buildHybridRaceBlock())) {
     out.push({ name: ex.name, discipline: ex.discipline, source: 'preset' });
@@ -252,8 +298,9 @@ function viewKey(view: TokenView): string {
 }
 
 // Collapse entries with the same movement+implement identity, keeping the
-// highest-priority source's display name while merging libraryId/muscleGroups
-// from every collapsed sibling.
+// highest-priority source's display name while merging libraryId/muscleGroups/
+// equipment from every collapsed sibling. Same movement + same implement = same
+// gate, so unioning the equipment of two spellings of one row is sound.
 function dedup(entries: VocabEntry[]): VocabEntry[] {
   const byKey = new Map<string, VocabEntry>();
   for (const e of entries) {
@@ -265,13 +312,69 @@ function dedup(entries: VocabEntry[]): VocabEntry[] {
     }
     const winner = SOURCE_PRIORITY[e.source] < SOURCE_PRIORITY[existing.source] ? e : existing;
     const loser = winner === e ? existing : e;
+    const equipment =
+      winner.equipment || loser.equipment
+        ? [...new Set([...(winner.equipment ?? []), ...(loser.equipment ?? [])])]
+        : undefined;
     byKey.set(key, {
       ...winner,
       libraryId: winner.libraryId ?? loser.libraryId,
       muscleGroups: winner.muscleGroups ?? loser.muscleGroups,
+      equipment,
     });
   }
   return [...byKey.values()];
+}
+
+// Movement tokens that name their own hardware. The library carries no
+// equipment field, so a library-only entry ("Prensa", "Jalón al pecho") is read
+// off its name — the same convention the matcher already uses for implements.
+const MACHINE_MOVEMENTS = new Set(['polea', 'maquina', 'prensa', 'jalon', 'femoral']);
+const BAR_MOVEMENTS = new Set(['dominada', 'colgado', 'colgada']);
+// Unmarked-strength-means-barbell (see DEFAULT_IMPLEMENT) has exceptions: these
+// movements are bodyweight even when the library files them under strength.
+const BODYWEIGHT_MOVEMENTS = new Set([
+  'flexion',
+  'fondo',
+  'plancha',
+  'hollow',
+  'burpee',
+  'rueda',
+  'superman',
+  'pike',
+  'puente',
+  'comba',
+]);
+
+/**
+ * What a name says it needs. Exact information (template/catalog gates) always
+ * wins; this only fills the gap for library entries.
+ */
+function inferEquipmentFromName(
+  view: TokenView,
+  discipline: Discipline | undefined,
+): EquipmentTag[] {
+  const tags = new Set<EquipmentTag>();
+  if (view.implement.has('mancuerna')) tags.add('dumbbells');
+  if (view.implement.has('goblet')) {
+    tags.add('dumbbells');
+    tags.add('kettlebell');
+  }
+  if (view.implement.has('kettlebell')) tags.add('kettlebell');
+  if (view.implement.has('banda') || view.implement.has('goma')) tags.add('resistance_bands');
+  if (view.implement.has('barra')) tags.add('barbell_plates');
+  if (view.implement.has('pesocorporal') || view.implement.has('toalla')) tags.add('bodyweight');
+  for (const m of view.movement) {
+    if (MACHINE_MOVEMENTS.has(m)) tags.add('machines_full_gym');
+    if (BAR_MOVEMENTS.has(m)) tags.add('pull_up_bar');
+  }
+  if (tags.size > 0) return [...tags];
+
+  const bodyweight = [...view.movement].some((m) => BODYWEIGHT_MOVEMENTS.has(m));
+  if (bodyweight || discipline !== 'strength') return ['bodyweight'];
+  // An unmarked strength name conventionally means barbell — the same rule the
+  // canonical matcher applies ("Press militar" IS the barbell press).
+  return ['barbell_plates'];
 }
 
 function buildVocabulary(): VocabEntry[] {
@@ -291,7 +394,27 @@ function buildVocabulary(): VocabEntry[] {
   for (const h of harvestFromBuilders()) {
     const view = tokenView(h.name);
     if (view.movement.size === 0) continue;
-    raw.push({ name: h.name, source: h.source, view, discipline: h.discipline });
+    raw.push({
+      name: h.name,
+      source: h.source,
+      view,
+      discipline: h.discipline,
+      equipment: h.equipment,
+    });
+  }
+  // The focus catalog: the only source that knows both the muscle groups AND the
+  // exact gate of a movement the library never heard of ("Remo en polea").
+  for (const c of catalogVocabulary()) {
+    const view = tokenView(c.name);
+    if (view.movement.size === 0) continue;
+    raw.push({
+      name: c.name,
+      source: 'catalog',
+      view,
+      discipline: c.discipline,
+      muscleGroups: c.groups,
+      equipment: c.equipment,
+    });
   }
 
   const deduped = dedup(raw);
@@ -300,9 +423,10 @@ function buildVocabulary(): VocabEntry[] {
   // "Sentadilla con barra" inherits quads/glutes.
   const withGroups = deduped.filter((e) => e.muscleGroups && e.muscleGroups.length > 0);
   return deduped.map((e) => {
-    if (e.muscleGroups && e.muscleGroups.length > 0) return e;
+    const equipment = e.equipment ?? inferEquipmentFromName(e.view, e.discipline);
+    if (e.muscleGroups && e.muscleGroups.length > 0) return { ...e, equipment };
     const sibling = withGroups.find((l) => setsEqual(l.view.movement, e.view.movement));
-    return sibling ? { ...e, muscleGroups: sibling.muscleGroups } : e;
+    return sibling ? { ...e, muscleGroups: sibling.muscleGroups, equipment } : { ...e, equipment };
   });
 }
 

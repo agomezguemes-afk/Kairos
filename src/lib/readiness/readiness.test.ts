@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { computeReadiness } from './readiness';
 import type { WorkoutHistoryEntry } from '../../store/workoutStore';
+import type { ReadinessBiometricContext } from './readiness';
+import type { BiometricSample } from '../health/types';
 
 const NOW = new Date('2026-06-02T10:00:00Z').getTime();
 const DAY = 24 * 3600 * 1000;
@@ -219,5 +221,70 @@ describe('Readiness — headline', () => {
     if (r.recuperacion === Math.min(r.energia, r.fuerza, r.recuperacion)) {
       expect(r.headline.toLowerCase()).toMatch(/recuperac|ligera|distinto/);
     }
+  });
+});
+
+function biometricSamples(n: number, hrv: number, sleep: number, endMs: number): BiometricSample[] {
+  const out: BiometricSample[] = [];
+  for (let i = 0; i < n; i++) {
+    // Tiny alternating jitter so the baseline has nonzero stdDev — real
+    // biometric data is never perfectly flat, and adaptiveEngine's
+    // zScoreNormalized intentionally returns null on a zero-variance
+    // baseline (see adaptiveEngine.test.ts: "never divides by zero when
+    // stdDev is 0"). A perfectly uniform fixture would silently drop the
+    // recovery signal from the fusion, which defeats the point of these tests.
+    const jitter = i % 2 === 0 ? 1 : -1;
+    out.push({
+      date: new Date(endMs - i * DAY).toISOString().slice(0, 10),
+      hrvMs: hrv + jitter,
+      sleepHours: sleep + jitter * 0.1,
+    });
+  }
+  return out;
+}
+
+describe('Readiness — biometric context (optional 3rd argument)', () => {
+  it('omitting biometrics leaves adaptation null and all scores unchanged', () => {
+    const r = computeReadiness([entry(1)], NOW);
+    expect(r.adaptation).toBeNull();
+  });
+
+  it('with a confident baseline and a bad-recovery today, adaptation is negative and dominant=recovery', () => {
+    const goodBaseline = biometricSamples(10, 50, 7, NOW - DAY);
+    const ctx: ReadinessBiometricContext = {
+      samples: goodBaseline,
+      today: { hrvMs: 25, sleepHours: 4 }, // well below baseline
+      goal: 'strength',
+      weeklyFrequency: 4,
+    };
+    const r = computeReadiness([entry(1)], NOW, ctx);
+    expect(r.adaptation).not.toBeNull();
+    expect(r.adaptation!.value).toBeLessThan(0);
+  });
+
+  it('headline reflects a strong negative recovery signal when it is dominant', () => {
+    const goodBaseline = biometricSamples(10, 50, 7, NOW - DAY);
+    const ctx: ReadinessBiometricContext = {
+      samples: goodBaseline,
+      today: { hrvMs: 15, sleepHours: 3 },
+      goal: 'wellness',
+      weeklyFrequency: 3,
+    };
+    const r = computeReadiness([entry(1)], NOW, ctx);
+    if (r.adaptation!.dominant === 'recovery' && r.adaptation!.value <= -0.5) {
+      expect(r.headline.toLowerCase()).toMatch(/recuperaci/);
+    }
+  });
+
+  it('with fewer than 7 days of samples, adaptation is gated to null (not high confidence)', () => {
+    const thinBaseline = biometricSamples(3, 50, 7, NOW - DAY);
+    const ctx: ReadinessBiometricContext = {
+      samples: thinBaseline,
+      today: { hrvMs: 50, sleepHours: 7 },
+      goal: null,
+      weeklyFrequency: null,
+    };
+    const r = computeReadiness([entry(1)], NOW, ctx);
+    expect(r.adaptation).toBeNull();
   });
 });

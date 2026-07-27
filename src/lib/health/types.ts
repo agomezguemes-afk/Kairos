@@ -44,3 +44,10 @@ export interface HealthAvailability {
   /** Last error if any. */
   error: string | null;
 }
+
+/** One day's biometric readout. `date` is a local calendar day, "YYYY-MM-DD". */
+export interface BiometricSample {
+  date: string;
+  hrvMs: number | null;
+  sleepHours: number | null;
+}

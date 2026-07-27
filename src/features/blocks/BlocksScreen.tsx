@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -13,11 +13,12 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import BlockCard from './components/BlockCard';
 import CanvasGrid from './components/CanvasGrid';
+import FolderGrid from './components/FolderGrid';
 import BlockCreationSheet, { type BlockCreationOptions } from '../../components/BlockCreationSheet';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
 import KairosIcon from '../../components/KairosIcon';
+import PressableScale from '../../components/PressableScale';
 import TemplatePickerSheet from './components/TemplatePickerSheet';
 
 import type { WorkoutBlock } from '../../types/core';
@@ -32,7 +33,6 @@ type ViewMode = 'canvas' | 'grid';
 const VIEW_MODE_DEFAULT: ViewMode = 'canvas';
 
 const H_PAD = Spacing.screen.horizontal;
-const NUM_COLUMNS = 2;
 
 export default function BlocksScreen({ route }: any) {
   const insets = useSafeAreaInsets();
@@ -48,7 +48,6 @@ export default function BlocksScreen({ route }: any) {
   const { onBlockCreated } = useGamification();
 
   const confettiRef = useRef<ConfettiRef | null>(null);
-  const listRef = useRef<FlatList>(null);
 
   const [showCreation, setShowCreation] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -170,22 +169,6 @@ export default function BlocksScreen({ route }: any) {
     transform: [{ scale: fabScale.value }],
   }));
 
-  // Render card
-  const renderItem = useCallback(
-    ({ item, index }: { item: WorkoutBlock; index: number }) => (
-      <BlockCard
-        block={item}
-        index={index}
-        onPress={() => handleOpenBlock(item)}
-        onLongPress={() => handleBlockOptions(item)}
-        isHighlighted={item.id === highlightTargetId}
-      />
-    ),
-    [handleOpenBlock, handleBlockOptions, highlightTargetId],
-  );
-
-  const keyExtractor = useCallback((item: WorkoutBlock) => item.id, []);
-
   const sortLabels: Record<SortMode, string> = {
     recent: 'Recientes',
     name: 'Nombre',
@@ -253,7 +236,7 @@ export default function BlocksScreen({ route }: any) {
         </View>
       </Animated.View>
 
-      {/* Canvas (widget-style) OR Grid (FlatList) OR empty state */}
+      {/* Canvas (widget-style) OR Grid (folders + cards) OR empty state */}
       {sortedBlocks.length > 0 ? (
         viewMode === 'canvas' ? (
           <CanvasGrid
@@ -264,15 +247,12 @@ export default function BlocksScreen({ route }: any) {
             bottomInset={insets.bottom}
           />
         ) : (
-          <FlatList
-            ref={listRef}
-            data={sortedBlocks}
-            keyExtractor={keyExtractor}
-            renderItem={renderItem}
-            numColumns={NUM_COLUMNS}
-            contentContainerStyle={[styles.gridContent, { paddingBottom: insets.bottom + 100 }]}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews={Platform.OS === 'android'}
+          <FolderGrid
+            blocks={sortedBlocks}
+            onOpenBlock={handleOpenBlock}
+            onBlockOptions={handleBlockOptions}
+            highlightTargetId={highlightTargetId}
+            bottomInset={insets.bottom}
           />
         )
       ) : (
@@ -285,18 +265,20 @@ export default function BlocksScreen({ route }: any) {
             Crea bloques de entrenamiento personalizados.{'\n'}
             Cada bloque contiene ejercicios con series y repeticiones que puedes rastrear.
           </Text>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setTemplatePickerOpen(true);
-            }}
-            style={({ pressed }) => [styles.welcomeBtn, pressed && { opacity: 0.82 }]}
+          <PressableScale
+            onPress={() => setTemplatePickerOpen(true)}
+            haptic="light"
+            accessibilityRole="button"
+            accessibilityLabel="Empezar con plantilla"
+            style={styles.welcomeBtn}
           >
             <Feather name="zap" size={18} color={Colors.text.inverse} />
             <Text style={styles.welcomeBtnText}>Empezar con plantilla</Text>
-          </Pressable>
+          </PressableScale>
           <Pressable
             onPress={handleQuickCreate}
+            accessibilityRole="button"
+            accessibilityLabel="Crear bloque en blanco"
             style={({ pressed }) => [styles.welcomeBtnSecondary, pressed && { opacity: 0.7 }]}
           >
             <Text style={styles.welcomeBtnSecondaryText}>O crear bloque en blanco</Text>
@@ -317,7 +299,9 @@ export default function BlocksScreen({ route }: any) {
               fabScale.value = withSpring(0.88, springs.tap);
             }}
             onPressOut={() => {
-              fabScale.value = withSpring(1, springs.bouncy);
+              // Matter: one soft bounce and it settles (v3 §3e). springs.bouncy
+              // overshot twice — a button, not a trampoline.
+              fabScale.value = withSpring(1, springs.paper);
             }}
             onPress={handleQuickCreate}
             onLongPress={() => {
@@ -405,11 +389,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.micro,
     fontWeight: Typography.weight.medium,
     color: Colors.accent.primary,
-  },
-
-  gridContent: {
-    paddingHorizontal: H_PAD - Spacing.gap.cards / 2,
-    paddingTop: Spacing.sm,
   },
 
   welcome: {

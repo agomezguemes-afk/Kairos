@@ -17,7 +17,9 @@ interface CanvasWidgetProps {
   size: CanvasWidgetSize;
 }
 
-const ICON_FOR: Record<string, string> = {
+// Exported so DisciplineFolder's mini-preview reuses the same emoji map
+// (STORY-05 §3.2 — don't duplicate BlockCard's icon switch).
+export const ICON_FOR: Record<string, string> = {
   strength: '\u{1F4AA}',
   weightlifting: '\u{1F4AA}',
   running: '\u{1F3C3}',
@@ -133,12 +135,11 @@ function CanvasWidgetInner({ block, size }: CanvasWidgetProps) {
 export default React.memo(CanvasWidgetInner);
 
 const styles = StyleSheet.create({
+  // No border: white on warm paper is its own edge (v3 §3a).
   shell: {
     flex: 1,
-    backgroundColor: Colors.bg.surface,
+    backgroundColor: Colors.paper.raised,
     borderRadius: Radius.lg,
-    borderWidth: 0.5,
-    borderColor: Colors.hair.base,
     overflow: 'hidden',
     ...Shadows.card,
   },

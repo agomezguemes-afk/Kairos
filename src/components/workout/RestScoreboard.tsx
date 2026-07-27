@@ -20,6 +20,8 @@ import type { FormattedTarget } from '../../features/workout/scoreboard/format';
 interface Props {
   durationSec: number;
   startTime: number;
+  /** State headline — e.g. "Descanso · calentamiento" after a warmup set. */
+  label?: string;
   onSkip: () => void;
   /** Fires exactly once when the countdown hits zero (auto-advance). */
   onComplete: () => void;
@@ -30,6 +32,16 @@ interface Props {
   /** Rest target for the current exercise — powers the −15/+15 tuning row. */
   currentRestSeconds?: number;
   onChangeRestSeconds?: (newRestSeconds: number) => void;
+  /**
+   * Echo of the just-completed set — "Hecho · 60 kg × 8 · Corregir". Sober
+   * (no gold: the gold is the ring's); tapping opens the correction sheet
+   * for THAT set without restarting the countdown.
+   */
+  justCompleted?: {
+    label: string;
+    target: FormattedTarget | null;
+    onCorrect: () => void;
+  };
 }
 
 const TICK_MS = 250;
@@ -44,6 +56,7 @@ const REST_ADJUST_STEP = 15;
 function RestScoreboardImpl({
   durationSec,
   startTime,
+  label,
   onSkip,
   onComplete,
   onExtend,
@@ -51,6 +64,7 @@ function RestScoreboardImpl({
   nextTarget,
   currentRestSeconds,
   onChangeRestSeconds,
+  justCompleted,
 }: Props) {
   const reduceMotion = useReducedMotion();
   const [now, setNow] = useState(() => Date.now());
@@ -106,10 +120,17 @@ function RestScoreboardImpl({
           .join(` ${nextTarget.separator} `)
       : null;
 
+  const doneTargetLine =
+    justCompleted?.target != null
+      ? justCompleted.target.segments
+          .map((s) => (s.unit ? `${s.value} ${s.unit}` : s.value))
+          .join(` ${justCompleted.target.separator} `)
+      : null;
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.label} accessibilityRole="text">
-        Descanso
+        {label ?? 'Descanso'}
       </Text>
 
       <View
@@ -171,6 +192,24 @@ function RestScoreboardImpl({
             </Text>
           ) : null}
         </View>
+      ) : null}
+
+      {/* Echo of the just-completed set — the fix-it-when-you-notice-it row.
+          Sober ink on elevated bg; no gold (the ring owns the gold moment). */}
+      {justCompleted ? (
+        <Pressable
+          onPress={justCompleted.onCorrect}
+          accessibilityRole="button"
+          accessibilityLabel={`Corregir la serie recién hecha: ${justCompleted.label}${
+            justCompleted.target ? ` ${justCompleted.target.spoken}` : ''
+          }`}
+          style={({ pressed }) => [styles.doneRow, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={styles.doneText} numberOfLines={1} maxFontSizeMultiplier={1.6}>
+            Hecho{doneTargetLine ? ` · ${doneTargetLine}` : ''} ·{' '}
+            <Text style={styles.doneCorrect}>Corregir</Text>
+          </Text>
+        </Pressable>
       ) : null}
 
       <View style={styles.actionsRow}>
@@ -283,6 +322,21 @@ const styles = StyleSheet.create({
   nextTarget: {
     ...Type.numMedium,
     color: Colors.ink.tertiary,
+  },
+  doneRow: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+  },
+  doneText: {
+    ...Type.micro,
+    color: Colors.ink.tertiary,
+    fontVariant: ['tabular-nums'],
+  },
+  doneCorrect: {
+    color: Colors.ink.secondary,
+    fontWeight: '600',
   },
   actionsRow: {
     flexDirection: 'row',

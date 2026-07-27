@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors, Spacing, Type } from '../../../../theme/tokens';
+import { Colors, Spacing, Type, Shadows } from '../../../../theme/tokens';
 import { text } from '../textStyles';
 import PressableScale from '../motion/PressableScale';
 import { AppleGlyph, GoogleGlyph, MailGlyph } from './BrandGlyphs';
@@ -141,11 +141,8 @@ const styles = StyleSheet.create({
   },
   btnDark: {
     backgroundColor: Colors.ink.primary,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 2,
+    // Warm shadow from the tokens (§3f) — was a pure-black #000000 literal.
+    ...Shadows.subtle,
   },
   btnLight: {
     backgroundColor: Colors.bg.surface,

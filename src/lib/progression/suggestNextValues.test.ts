@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 
-import { suggestNextValues, rpeNudgeKg } from './suggestNextValues';
+import { suggestNextValues, rpeNudgeKg, applyAdaptationToNudge } from './suggestNextValues';
 import type { ExerciseHistory, HistoricalSession } from './types';
 import { field } from './_fixtures';
+import type { AdaptationSignal } from '../readiness/adaptiveEngine';
+
+function adaptation(value: number, overrides: Partial<AdaptationSignal> = {}): AdaptationSignal {
+  return { value, confidence: 'high', dominant: 'recovery', ...overrides };
+}
 
 function hist(sessions: HistoricalSession[]): ExerciseHistory {
   return { key: 'ex', sessions };
@@ -147,5 +152,66 @@ describe('suggestNextValues — unknown modality & empty history', () => {
     );
     expect(s.values).toEqual({ weight: 60, reps: 8 });
     expect(s.values['calories']).toBeUndefined();
+  });
+});
+
+describe('applyAdaptationToNudge — never invents a push, only dampens', () => {
+  it('undefined adaptation → nudge unchanged', () => {
+    expect(applyAdaptationToNudge(2.5, undefined)).toBe(2.5);
+    expect(applyAdaptationToNudge(-2.5, undefined)).toBe(-2.5);
+    expect(applyAdaptationToNudge(0, undefined)).toBe(0);
+  });
+
+  it('strong deload signal suppresses a positive (increase) nudge', () => {
+    expect(applyAdaptationToNudge(2.5, adaptation(-0.8))).toBe(0);
+  });
+
+  it('strong deload signal leaves a negative (decrease) nudge untouched', () => {
+    expect(applyAdaptationToNudge(-2.5, adaptation(-0.8))).toBe(-2.5);
+  });
+
+  it('strong positive signal never manufactures an increase from a hold (0)', () => {
+    expect(applyAdaptationToNudge(0, adaptation(0.9))).toBe(0);
+  });
+
+  it('mild negative signal (above the -0.5 threshold) does not suppress the increase', () => {
+    expect(applyAdaptationToNudge(2.5, adaptation(-0.3))).toBe(2.5);
+  });
+
+  it('exactly -0.5 suppresses (boundary is inclusive)', () => {
+    expect(applyAdaptationToNudge(2.5, adaptation(-0.5))).toBe(0);
+  });
+});
+
+describe('suggestNextValues — regression: identical output when adaptation is omitted', () => {
+  it('easy last set (RPE 6) → +2.5 exactly as before, with no 3rd argument', () => {
+    const s = suggestNextValues(
+      STRENGTH,
+      hist([{ performedAt: 1, sets: [{ values: { weight: 60, reps: 8 }, rpe: 6 }] }]),
+    );
+    expect(s.values['weight']).toBe(62.5);
+    expect(s.basis['weight']).toBe('nudge-up');
+  });
+});
+
+describe('suggestNextValues — with adaptation signal', () => {
+  it('deload signal suppresses an RPE-driven increase', () => {
+    const s = suggestNextValues(
+      STRENGTH,
+      hist([{ performedAt: 1, sets: [{ values: { weight: 60, reps: 8 }, rpe: 6 }] }]),
+      adaptation(-0.8),
+    );
+    expect(s.values['weight']).toBe(60); // increase suppressed, held at last weight
+    expect(s.basis['weight']).toBe('carry-forward');
+  });
+
+  it('deload signal does not touch an RPE-driven decrease', () => {
+    const s = suggestNextValues(
+      STRENGTH,
+      hist([{ performedAt: 1, sets: [{ values: { weight: 100, reps: 3 }, rpe: 10 }] }]),
+      adaptation(-0.8),
+    );
+    expect(s.values['weight']).toBe(97.5);
+    expect(s.basis['weight']).toBe('nudge-down');
   });
 });

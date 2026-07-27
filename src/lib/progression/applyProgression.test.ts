@@ -5,6 +5,7 @@ import { createWorkoutBlock, createExerciseCard } from '../../types/core';
 import type { WorkoutBlock, ExerciseCard } from '../../types/core';
 import { createExerciseNode } from '../../types/content';
 import { entry, exSummary, pset } from './_fixtures';
+import type { AdaptationSignal } from '../readiness/adaptiveEngine';
 
 function blockWith(exercises: ExerciseCard[]): WorkoutBlock {
   const block = createWorkoutBlock('user_001', 0, 'strength', { name: 'Hoy' });
@@ -134,5 +135,33 @@ describe('applyProgression — warmup sets skip the RPE nudge', () => {
     const ex = enriched.content[0].type === 'exercise' ? enriched.content[0].data.exercise : null;
     expect(ex!.sets[0].values['weight']).toBe(100);
     expect(ex!.sets[1].values['weight']).toBe(97.5);
+  });
+});
+
+describe('applyProgression — with adaptation signal', () => {
+  it('deload signal suppresses an increase when pre-filling a new block', () => {
+    const squat = createExerciseCard('b', 0, 'strength', { name: 'Sentadilla con barra' });
+    const block = blockWith([squat]);
+    const history = [
+      entry([exSummary('Sentadilla con barra', [pset({ weight: 60, reps: 8 }, { rpe: 6 })])]),
+    ];
+    const adaptation: AdaptationSignal = { value: -0.8, confidence: 'high', dominant: 'recovery' };
+
+    const enriched = applyProgression(block, history, adaptation);
+    const ex = enriched.content[0].type === 'exercise' ? enriched.content[0].data.exercise : null;
+    for (const s of ex!.sets) {
+      expect(s.values['weight']).toBe(60); // increase suppressed
+    }
+  });
+
+  it('omitting adaptation reproduces the exact pre-change output (regression)', () => {
+    const squat = createExerciseCard('b', 0, 'strength', { name: 'Sentadilla con barra' });
+    const block = blockWith([squat]);
+    const history = [
+      entry([exSummary('Sentadilla con barra', [pset({ weight: 60, reps: 8 }, { rpe: 6 })])]),
+    ];
+    const enriched = applyProgression(block, history);
+    const ex = enriched.content[0].type === 'exercise' ? enriched.content[0].data.exercise : null;
+    expect(ex!.sets[0].values['weight']).toBe(62.5);
   });
 });

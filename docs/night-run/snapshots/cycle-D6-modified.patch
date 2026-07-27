@@ -1,0 +1,534 @@
+diff --git a/src/components/workout/RestScoreboard.tsx b/src/components/workout/RestScoreboard.tsx
+index 3285486..953814a 100644
+--- a/src/components/workout/RestScoreboard.tsx
++++ b/src/components/workout/RestScoreboard.tsx
+@@ -20,6 +20,8 @@ import type { FormattedTarget } from '../../features/workout/scoreboard/format';
+ interface Props {
+   durationSec: number;
+   startTime: number;
++  /** State headline — e.g. "Descanso · calentamiento" after a warmup set. */
++  label?: string;
+   onSkip: () => void;
+   /** Fires exactly once when the countdown hits zero (auto-advance). */
+   onComplete: () => void;
+@@ -30,6 +32,16 @@ interface Props {
+   /** Rest target for the current exercise — powers the −15/+15 tuning row. */
+   currentRestSeconds?: number;
+   onChangeRestSeconds?: (newRestSeconds: number) => void;
++  /**
++   * Echo of the just-completed set — "Hecho · 60 kg × 8 · Corregir". Sober
++   * (no gold: the gold is the ring's); tapping opens the correction sheet
++   * for THAT set without restarting the countdown.
++   */
++  justCompleted?: {
++    label: string;
++    target: FormattedTarget | null;
++    onCorrect: () => void;
++  };
+ }
+ 
+ const TICK_MS = 250;
+@@ -44,6 +56,7 @@ const REST_ADJUST_STEP = 15;
+ function RestScoreboardImpl({
+   durationSec,
+   startTime,
++  label,
+   onSkip,
+   onComplete,
+   onExtend,
+@@ -51,6 +64,7 @@ function RestScoreboardImpl({
+   nextTarget,
+   currentRestSeconds,
+   onChangeRestSeconds,
++  justCompleted,
+ }: Props) {
+   const reduceMotion = useReducedMotion();
+   const [now, setNow] = useState(() => Date.now());
+@@ -106,10 +120,17 @@ function RestScoreboardImpl({
+           .join(` ${nextTarget.separator} `)
+       : null;
+ 
++  const doneTargetLine =
++    justCompleted?.target != null
++      ? justCompleted.target.segments
++          .map((s) => (s.unit ? `${s.value} ${s.unit}` : s.value))
++          .join(` ${justCompleted.target.separator} `)
++      : null;
++
+   return (
+     <View style={styles.wrap}>
+       <Text style={styles.label} accessibilityRole="text">
+-        Descanso
++        {label ?? 'Descanso'}
+       </Text>
+ 
+       <View
+@@ -173,6 +194,24 @@ function RestScoreboardImpl({
+         </View>
+       ) : null}
+ 
++      {/* Echo of the just-completed set — the fix-it-when-you-notice-it row.
++          Sober ink on elevated bg; no gold (the ring owns the gold moment). */}
++      {justCompleted ? (
++        <Pressable
++          onPress={justCompleted.onCorrect}
++          accessibilityRole="button"
++          accessibilityLabel={`Corregir la serie recién hecha: ${justCompleted.label}${
++            justCompleted.target ? ` ${justCompleted.target.spoken}` : ''
++          }`}
++          style={({ pressed }) => [styles.doneRow, pressed && { opacity: 0.6 }]}
++        >
++          <Text style={styles.doneText} numberOfLines={1} maxFontSizeMultiplier={1.6}>
++            Hecho{doneTargetLine ? ` · ${doneTargetLine}` : ''} ·{' '}
++            <Text style={styles.doneCorrect}>Corregir</Text>
++          </Text>
++        </Pressable>
++      ) : null}
++
+       <View style={styles.actionsRow}>
+         <Pressable
+           onPress={handleExtend}
+@@ -284,6 +323,21 @@ const styles = StyleSheet.create({
+     ...Type.numMedium,
+     color: Colors.ink.tertiary,
+   },
++  doneRow: {
++    minHeight: 44,
++    justifyContent: 'center',
++    paddingVertical: Spacing.xs,
++    paddingHorizontal: Spacing.md,
++  },
++  doneText: {
++    ...Type.micro,
++    color: Colors.ink.tertiary,
++    fontVariant: ['tabular-nums'],
++  },
++  doneCorrect: {
++    color: Colors.ink.secondary,
++    fontWeight: '600',
++  },
+   actionsRow: {
+     flexDirection: 'row',
+     alignItems: 'center',
+diff --git a/src/screens/ActiveWorkoutScreen.tsx b/src/screens/ActiveWorkoutScreen.tsx
+index e244503..83d364c 100644
+--- a/src/screens/ActiveWorkoutScreen.tsx
++++ b/src/screens/ActiveWorkoutScreen.tsx
+@@ -37,7 +37,12 @@ import type { RootStackParamList } from '../types/navigation';
+ import type { ExerciseCard, FieldValue, FieldDefinition, Discipline } from '../types/core';
+ import { createExerciseCard } from '../types/core';
+ import { Colors, Type, Spacing, Radius, FontFamily } from '../theme/tokens';
++import PaperGrain from '../theme/Paper';
+ import { deriveScoreboardState, scoreboardStateKey } from '../features/workout/scoreboard/machine';
++import {
++  resolveJustCompleted,
++  type JustCompletedRef,
++} from '../features/workout/scoreboard/justCompleted';
+ import {
+   formatScoreboardTarget,
+   announceSetActive,
+@@ -50,6 +55,11 @@ import {
+   formatReference,
+   type PreviousReference,
+ } from '../components/workout/lib/previousReference';
++import { readExerciseHistory, suggestNextValues, inSessionWeightNudge } from '../lib/progression';
++import {
++  describeSuggestion,
++  describeInSessionNudge,
++} from '../features/workout/scoreboard/suggestionRationale';
+ import {
+   detectPR,
+   formatPRDelta,
+@@ -123,6 +133,7 @@ export default function ActiveWorkoutScreen() {
+   const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
+   const startWorkout = useWorkoutStore((s) => s.startWorkout);
+   const completeSet = useWorkoutStore((s) => s.completeSet);
++  const editCompletedSetValues = useWorkoutStore((s) => s.editCompletedSetValues);
+   const skipRest = useWorkoutStore((s) => s.skipRest);
+   const extendRest = useWorkoutStore((s) => s.extendRest);
+   const setExerciseRestForCurrent = useWorkoutStore((s) => s.setExerciseRestForCurrent);
+@@ -143,9 +154,6 @@ export default function ActiveWorkoutScreen() {
+     }
+   }, [aw, blockId, assignmentId, scheduledDate, source, startWorkout]);
+ 
+-  // Mirror the session to the Live Activity / ongoing notification.
+-  useLiveActivitySync();
+-
+   // ===== session timer =====
+   // Keyed on startTime alone — keying on `aw` would tear the interval down
+   // on every store mutation (each set completion).
+@@ -165,6 +173,14 @@ export default function ActiveWorkoutScreen() {
+   const [showAdd, setShowAdd] = useState(false);
+   const [correctionOpen, setCorrectionOpen] = useState(false);
+   const [overviewOpen, setOverviewOpen] = useState(false);
++  // Rest-state correction of the JUST-completed set (BRIEF-03). Its own draft
++  // and its own sheet instance — mutually exclusive with the set-active sheet,
++  // so the two modals can never coexist.
++  const [restCorrection, setRestCorrection] = useState<{
++    exerciseId: string;
++    setId: string;
++  } | null>(null);
++  const [editDraft, setEditDraft] = useState<Record<string, FieldValue>>({});
+   const [calcOpen, setCalcOpen] = useState(false);
+   const [calcTarget, setCalcTarget] = useState(60);
+ 
+@@ -233,15 +249,50 @@ export default function ActiveWorkoutScreen() {
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [exercise?.id, workoutHistory.length, completedInSession]);
+ 
++  // The intra-session advisor's signal: the nearest completed earlier set of
++  // the CURRENT exercise (same walk as `previousValues`, but keeping weight+rpe
++  // instead of the values map). Never crosses an exercise boundary — the first
++  // set of each exercise has no prior and therefore no nudge.
++  const priorCompletedSet = useMemo<{
++    weight: number | null;
++    rpe: number | null | undefined;
++  } | null>(() => {
++    if (!aw || !exercise) return null;
++    for (let i = aw.currentSetIndex - 1; i >= 0; i--) {
++      const s = exercise.sets[i];
++      if (s.completed) {
++        const w = s.values['weight'];
++        return { weight: typeof w === 'number' ? w : null, rpe: s.rpe };
++      }
++    }
++    return null;
++  }, [aw, exercise]);
++
++  // "La serie anterior fue fácil → +2.5" — the BETWEEN-sessions heuristic
++  // replayed WITHIN the session. null = no actionable signal (no RPE, in-range
++  // RPE, no weight, or not a strength movement) → zero surprise.
++  const inSessionNudge = useMemo(
++    () =>
++      exercise && priorCompletedSet ? inSessionWeightNudge(exercise.fields, priorCompletedSet) : null,
++    // eslint-disable-next-line react-hooks/exhaustive-deps -- exercise keyed by identity; fields don't change mid-session
++    [exercise?.id, priorCompletedSet],
++  );
++
+   // Draft values — start as the progression prefill; the correction sheet
+   // writes over them. HECHO commits whatever is here (confirm-or-correct).
++  // When the advisor has a nudge, the SEED carries the adjusted weight — the
++  // giant target shows it and HECHO confirms it, without touching the store.
+   const [draftValues, setDraftValues] = useState<Record<string, FieldValue>>({});
+   useEffect(() => {
+     if (!currentSet) {
+       setDraftValues({});
+       return;
+     }
+-    setDraftValues({ ...currentSet.values });
++    if (inSessionNudge != null && typeof currentSet.values['weight'] === 'number') {
++      setDraftValues({ ...currentSet.values, weight: inSessionNudge.nextWeight });
++    } else {
++      setDraftValues({ ...currentSet.values });
++    }
+     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on set IDENTITY only; reacting to currentSet.values would clobber in-progress edits
+   }, [currentSet?.id]);
+ 
+@@ -265,6 +316,29 @@ export default function ActiveWorkoutScreen() {
+     hasEnteredCurrentExercise: entered.has(currentExerciseIndex),
+   });
+   const stateKey = scoreboardStateKey(sbState, { currentExerciseIndex, currentSetIndex });
++  const resting = sbState.kind === 'resting';
++
++  // The set the user JUST finished — derived (most recent completed_at), never
++  // stored, so it survives exercise boundaries and needs no migration.
++  const awExercises = aw?.exercises;
++  const jc = useMemo(
++    () => (resting && awExercises ? resolveJustCompleted(awExercises) : null),
++    [resting, awExercises],
++  );
++
++  // Kind of the just-completed set — the rest headline says WHY it's short
++  // ("Descanso · calentamiento") when the finished set was a warmup (BRIEF-07).
++  const jcKind =
++    resting && jc && awExercises
++      ? awExercises
++          .find((e) => e.id === jc.exerciseId)
++          ?.sets.find((s) => s.id === jc.setId)?.kind
++      : undefined;
++  const restLabel = jcKind === 'warmup' ? 'Descanso · calentamiento' : 'Descanso';
++
++  // Mirror the session onto the lock screen / Dynamic Island. Same machine, same
++  // formatter — the phone face-up on the bench IS the scoreboard.
++  useLiveActivitySync({ hasEnteredCurrentExercise: entered.has(currentExerciseIndex) });
+ 
+   // The scoreboard's giant value — draft-aware so a correction shows instantly.
+   const target = useMemo(() => {
+@@ -272,6 +346,34 @@ export default function ActiveWorkoutScreen() {
+     return formatScoreboardTarget(exercise.fields, { ...currentSet.values, ...draftValues });
+   }, [exercise, currentSet, draftValues]);
+ 
++  // The real progression engine's suggestion for this exercise — same source
++  // as the prefilled giant number, so number and caption can never disagree.
++  const suggestion = useMemo(() => {
++    if (!exercise) return null;
++    const hist = readExerciseHistory(workoutHistory, {
++      name: exercise.name,
++      libraryId: exercise.libraryId,
++    });
++    return suggestNextValues(exercise.fields, hist);
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [exercise?.id, workoutHistory.length, completedInSession]);
++
++  // "Sugerido +2.5 kg · la serie anterior fue fácil" — the advisor's caption
++  // wins over the between-sessions one (fresher signal). Draft-aware: the
++  // moment the user edits the target, the line disappears (never call the
++  // user's own number a suggestion).
++  const suggestionCaption = useMemo(() => {
++    if (!currentSet) return null;
++    const cur = { ...currentSet.values, ...draftValues };
++    if (inSessionNudge) {
++      return cur['weight'] === inSessionNudge.nextWeight
++        ? describeInSessionNudge(inSessionNudge)
++        : null;
++    }
++    if (!suggestion) return null;
++    return describeSuggestion(suggestion, cur);
++  }, [inSessionNudge, suggestion, currentSet, draftValues]);
++
+   // ===== VoiceOver: announce each state change exactly once =====
+   const lastAnnouncedRef = useRef<string | null>(null);
+   useEffect(() => {
+@@ -388,6 +490,30 @@ export default function ActiveWorkoutScreen() {
+     setCorrectionOpen(true);
+   }, []);
+ 
++  // ===== rest-state correction of the just-completed set =====
++  const openRestCorrection = useCallback((ref: JustCompletedRef) => {
++    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
++    setEditDraft({ ...ref.values });
++    setRestCorrection({ exerciseId: ref.exerciseId, setId: ref.setId });
++  }, []);
++
++  const handleEditDraftChange = useCallback((fieldId: string, value: FieldValue) => {
++    setEditDraft((prev) => ({ ...prev, [fieldId]: value }));
++  }, []);
++
++  const closeRestCorrection = useCallback(() => {
++    setRestCorrection(null);
++  }, []);
++
++  // Patch ONLY the values of the target set — completed/completed_at stay put,
++  // the rest countdown keeps running and the pointer doesn't move.
++  const commitRestCorrection = useCallback(() => {
++    if (!restCorrection) return;
++    editCompletedSetValues(restCorrection.exerciseId, restCorrection.setId, editDraft);
++    setRestCorrection(null);
++    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
++  }, [restCorrection, editDraft, editCompletedSetValues]);
++
+   const openOverview = useCallback(() => {
+     Haptics.selectionAsync().catch(() => {});
+     setOverviewOpen(true);
+@@ -487,9 +613,18 @@ export default function ActiveWorkoutScreen() {
+     );
+   }
+ 
+-  const resting = sbState.kind === 'resting';
+   const changing = sbState.kind === 'exercise-change';
+ 
++  // Live lookups for the rest-correction sheet — resolved from the store copy
++  // so the numpad + metadata target the exercise the ref points at, even when
++  // the pointer already moved to the next exercise.
++  const restCorrectionExercise = restCorrection
++    ? (aw.exercises.find((e) => e.id === restCorrection.exerciseId) ?? null)
++    : null;
++  const restCorrectionSetIndex = restCorrectionExercise
++    ? restCorrectionExercise.sets.findIndex((s) => s.id === restCorrection?.setId)
++    : -1;
++
+   // "Siguiente" peek during rest — indices already point at what comes next.
+   const nextLabel =
+     currentSetIndex > 0
+@@ -545,6 +680,7 @@ export default function ActiveWorkoutScreen() {
+               style={styles.stateFill}
+             >
+               <RestScoreboard
++                label={restLabel}
+                 durationSec={aw.restTimer.duration}
+                 startTime={aw.restTimer.startTime}
+                 onSkip={skipRest}
+@@ -554,6 +690,15 @@ export default function ActiveWorkoutScreen() {
+                 nextTarget={target}
+                 currentRestSeconds={exercise.rest_seconds}
+                 onChangeRestSeconds={setExerciseRestForCurrent}
++                justCompleted={
++                  jc
++                    ? {
++                        label: jc.exerciseName,
++                        target: formatScoreboardTarget(jc.fields, jc.values),
++                        onCorrect: () => openRestCorrection(jc),
++                      }
++                    : undefined
++                }
+               />
+             </Animated.View>
+           ) : (
+@@ -578,6 +723,15 @@ export default function ActiveWorkoutScreen() {
+                   {exercise.name}
+                 </Text>
+                 {previousRef ? <PreviousRefPill reference={previousRef} /> : null}
++                {!changing && suggestionCaption ? (
++                  <Text
++                    style={styles.suggested}
++                    accessibilityLabel={suggestionCaption.spoken}
++                    maxFontSizeMultiplier={1.6}
++                  >
++                    {suggestionCaption.text}
++                  </Text>
++                ) : null}
+                 <View style={styles.targetZone}>
+                   <GiantTarget
+                     target={target}
+@@ -649,6 +803,12 @@ export default function ActiveWorkoutScreen() {
+         </View>
+       ) : null}
+ 
++      {/* Paper fibre. Modo Sesión is presented as a fullScreenModal — iOS gives it
++          its own view controller ABOVE the navigator's PaperRoot, so it needs its
++          own grain or it would be the one screen printed on glass. Sheets render
++          after this node, so they stay crisp. */}
++      <PaperGrain />
++
+       {/* ── Layers ── */}
+       <SetCorrectionSheet
+         visible={correctionOpen}
+@@ -663,6 +823,12 @@ export default function ActiveWorkoutScreen() {
+         accent={Colors.discipline[exercise.discipline] ?? Colors.ink.primary}
+         tint={Colors.tint[exercise.discipline] ?? Colors.bg.elevated}
+         onClose={() => setCorrectionOpen(false)}
++        onCommit={() => {
++          // Same commit path as the scoreboard HECHO — merge, PR, rest.
++          handleCompleteSet();
++          setCorrectionOpen(false);
++          setCalcOpen(false);
++        }}
+       >
+         <PlateCalculator
+           visible={calcOpen}
+@@ -672,6 +838,32 @@ export default function ActiveWorkoutScreen() {
+         />
+       </SetCorrectionSheet>
+ 
++      {/* Second, dedicated correction sheet — patches the JUST-completed set
++          during rest via editCompletedSetValues (no completed_at, no restTimer,
++          no pointer moves). Mutually exclusive with the sheet above, so iOS
++          never sees two sibling modals. No PlateCalculator in this flow. */}
++      <SetCorrectionSheet
++        visible={restCorrection != null}
++        exerciseId={restCorrection?.exerciseId ?? ''}
++        setId={restCorrection?.setId ?? ''}
++        setIndex={Math.max(0, restCorrectionSetIndex)}
++        fields={restCorrectionExercise?.fields ?? []}
++        values={editDraft}
++        onChange={handleEditDraftChange}
++        accent={
++          restCorrectionExercise
++            ? (Colors.discipline[restCorrectionExercise.discipline] ?? Colors.ink.primary)
++            : Colors.ink.primary
++        }
++        tint={
++          restCorrectionExercise
++            ? (Colors.tint[restCorrectionExercise.discipline] ?? Colors.bg.elevated)
++            : Colors.bg.elevated
++        }
++        onClose={closeRestCorrection}
++        onCommit={commitRestCorrection}
++      />
++
+       <SessionOverviewSheet
+         visible={overviewOpen}
+         exercises={aw.exercises}
+@@ -694,9 +886,11 @@ export default function ActiveWorkoutScreen() {
+ }
+ 
+ const styles = StyleSheet.create({
++  // Warm paper, not lab white — and still legible at 2 m: the grain costs 0.1%
++  // of luminance, ink.primary on paper.base is 15.5:1 (§5.3).
+   screen: {
+     flex: 1,
+-    backgroundColor: Colors.bg.void,
++    backgroundColor: Colors.paper.base,
+   },
+   center: {
+     alignItems: 'center',
+@@ -767,6 +961,15 @@ const styles = StyleSheet.create({
+   targetZone: {
+     marginTop: Spacing.lg,
+   },
++  // "Sugerido · +2.5 kg" — sober memory caption. Deliberately NO gold: the
++  // moat whispers; tertiary ink keeps the giant target as the only hero.
++  suggested: {
++    ...Type.micro,
++    color: Colors.ink.tertiary,
++    textAlign: 'center',
++    letterSpacing: 0.4,
++    fontVariant: ['tabular-nums'],
++  },
+   refPill: {
+     flexDirection: 'row',
+     alignItems: 'center',
+diff --git a/src/store/workoutStore.ts b/src/store/workoutStore.ts
+index 009426a..7a8cf6c 100644
+--- a/src/store/workoutStore.ts
++++ b/src/store/workoutStore.ts
+@@ -28,6 +28,7 @@ import { useScheduleStore } from './scheduleStore';
+ import { buildWeeklyRule } from '../features/planner/lib/rrule';
+ import { todayISO } from '../features/planner/lib/dates';
+ import { groupAssignmentsByBlock, toRRuleWeekday } from '../lib/routines/weekAssignments';
++import { restForSet } from '../features/workout/scoreboard/restForSet';
+ import { ANALYTICS_EVENTS, track } from '../lib/analytics';
+ // Type-only: erased at runtime, so no workoutStore ↔ onboardingSpace cycle.
+ import type { OnboardingSpaceResult } from '../lib/ai/onboardingSpace';
+@@ -177,6 +178,16 @@ interface WorkoutState {
+     exerciseId: string,
+     goal: { goalWeight?: number; goalReps?: number },
+   ) => void;
++  /**
++   * Merge values onto an already-completed set (rest-state correction). Does
++   * NOT touch `completed`, `completed_at`, `restTimer` or the current indices —
++   * the rest countdown keeps running and the pointer stays put.
++   */
++  editCompletedSetValues: (
++    exerciseId: string,
++    setId: string,
++    values: Record<string, FieldValue>,
++  ) => void;
+   /**
+    * Patch metadata on a set inside the active workout (kind, rpe, notes).
+    * Passing `null` for `rpe` clears it; omitting a field leaves it unchanged.
+@@ -507,7 +518,10 @@ export const useWorkoutStore = create<WorkoutState>()(
+             nextSetIdx = aw.currentSetIndex; // pin to last
+           }
+ 
+-          const restDuration = currentEx.rest_seconds || 90;
++          // Rest depends on the kind of the set JUST completed (currentSetIndex
++          // still points at it here — advance happens in the returned state).
++          const completedSet = currentEx.sets[aw.currentSetIndex];
++          const restDuration = restForSet(completedSet?.kind ?? 'working', currentEx.rest_seconds);
+ 
+           return {
+             activeWorkout: {
+@@ -693,6 +707,22 @@ export const useWorkoutStore = create<WorkoutState>()(
+         });
+       },
+ 
++      editCompletedSetValues: (exerciseId, setId, values) => {
++        set((state) => {
++          if (!state.activeWorkout) return state;
++          const exercises = state.activeWorkout.exercises.map((ex) => {
++            if (ex.id !== exerciseId) return ex;
++            return {
++              ...ex,
++              sets: ex.sets.map((s) =>
++                s.id === setId ? { ...s, values: { ...s.values, ...values } } : s,
++              ),
++            };
++          });
++          return { activeWorkout: { ...state.activeWorkout, exercises } };
++        });
++      },
++
+       updateSetMetadata: (exerciseId, setId, patch) => {
+         set((state) => {
+           if (!state.activeWorkout) return state;

@@ -15,6 +15,7 @@
     ".expo",
     "dist",
     "build",
+    "docs",
     "supabase/functions/**"
   ]
 }

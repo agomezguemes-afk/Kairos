@@ -10,30 +10,62 @@ import { Fonts } from './fonts';
 // ── Color ────────────────────────────────────────────────────────────────────
 
 export const Colors = {
-  bg: {
-    void: '#FFFFFF', // primary screen background (pure white — night-run spec)
-    surface: '#FFFFFF', // cards, sheets, modals
-    elevated: '#F2F0EC', // raised surfaces, pressed states
-    warm: '#F5F0E8', // "premium" zones — hero cards, PR badges (alt warm)
-    warm2: '#EFE8D8', // deeper warm — PR celebration, editorial blocks
+  // ── Material (Design v3 §3a) ──────────────────────────────────────────────
+  // WHY: the canvas is warm paper and the cards are white — inverted from v2,
+  // where both were #FFFFFF and a card could only exist by wearing a grey
+  // border. Card = white on paper → it exists by MATERIAL contrast, no border.
+  paper: {
+    base: '#FBF9F5', // THE CANVAS. Every screen background.
+    raised: '#FFFFFF', // THE CARDS. They lift off the paper.
+    warm: '#F4EFE5', // editorial zones, quote blocks
+    deep: '#EBE3D4', // celebration, PR, dense moments
+    // WHY: translucent warm white for blurred chrome (tab capsule). Pure white
+    // at 72% over a warm blur reads blue-ish; this is ink.inverse with alpha.
+    veil: 'rgba(255,253,249,0.72)',
+    // WHY: sheet backdrops. Pure black (rgba(0,0,0,0.35)) over warm paper reads
+    // as a cold filter on the page; this is ink at the same alpha. Three weights
+    // because the app already used three (0.18 / 0.32–0.38 / 0.5–0.72).
+    scrimSoft: 'rgba(28,24,20,0.18)', // a hint of dim (inline overlays)
+    scrim: 'rgba(28,24,20,0.35)', // standard sheet backdrop
+    scrimDeep: 'rgba(28,24,20,0.62)', // full-screen takeovers, celebration
+    grain: 0.035, // opacity of the tiled noise (≤0.04 — never eat legibility)
   },
+  bg: {
+    /** @deprecated alias of paper.base */
+    void: '#FBF9F5',
+    /** @deprecated alias of paper.raised */
+    surface: '#FFFFFF',
+    elevated: '#F3EFE8', // pressed states — warm, was cool #F2F0EC
+    /** @deprecated alias of paper.warm */
+    warm: '#F4EFE5',
+    /** @deprecated alias of paper.deep */
+    warm2: '#EBE3D4',
+  },
+  // WHY (Design v3 §3c): the old ramp was Tailwind's gray-500/gray-400 (#6B7280,
+  // #9CA3AF) — cool greys (~220° hue) on a warm brand. This ramp is warm ink:
+  // hue ~30°, saturation 3–8%. Every pair below is ≥4.5:1 on paper.base
+  // (see src/theme/__tests__/contrast.test.ts — it's a gate, not a vibe).
   ink: {
-    primary: '#1A1A2E', // headlines, body (deep ink-navy)
-    secondary: '#34344A', // emphasized secondary
-    tertiary: '#6B7280', // metadata
-    muted: '#9CA3AF', // labels, placeholders
-    inverse: '#FFFFFF', // text on dark/gold surfaces
+    primary: '#241F1A', // headlines, body — 15.5:1 on paper
+    secondary: '#4A4139', // emphasized secondary — 9.5:1
+    tertiary: '#6E6357', // metadata — 5.6:1
+    muted: '#736858', // labels, placeholders — 5.2:1 (doc's #7D7263 was 4.4 → failed)
+    faint: '#A79C8D', // DECORATION ONLY (hairlines, dots). 2.6:1 — never text.
+    inverse: '#FFFDF9', // warm white on ink/gold — never pure #FFFFFF
   },
   gold: {
     base: '#D4AF37', // signature accent — primary CTAs, indicators
-    deep: '#8B6F1D', // gold-on-warm text (eyebrows, chapter labels)
+    deep: '#7A6118', // gold-as-INK (eyebrows, chapter labels) — 5.6:1 on paper,
+    // 5.2:1 on paper.warm. Was #8B6F1D (4.2:1 on warm → failed AA).
     light: '#EBDCAD', // gold tint, subtle accents
     glow: 'rgba(212,175,55,0.18)', // halos, ripples, pill backgrounds
   },
+  // WHY (Design v3 §3f): "filetes, no bordes" — editorial rules BETWEEN things,
+  // not perimeters AROUND them. Tinted with ink (36,31,26), never blue-black.
   hair: {
-    subtle: 'rgba(26,26,46,0.06)', // section dividers
-    base: 'rgba(26,26,46,0.08)', // card borders (default)
-    strong: 'rgba(26,26,46,0.14)', // pressed borders, dividers in white
+    subtle: 'rgba(36,31,26,0.06)', // section dividers
+    base: 'rgba(36,31,26,0.10)', // rules, tracks, inputs
+    strong: 'rgba(36,31,26,0.16)', // pressed borders, dividers on white
     gold: 'rgba(212,175,55,0.28)', // gold card borders on white (spec 0.2–0.4)
     goldStrong: 'rgba(212,175,55,0.40)', // active/focus gold borders
   },
@@ -75,16 +107,16 @@ export const Colors = {
 
   // ── Backwards-compat shims (removed after full migration) ─────────────────
   // WHY: keeps existing call sites compiling while screens migrate to new keys.
-  /** @deprecated Use Colors.bg.void */
+  /** @deprecated Use Colors.paper.* */
   get background() {
     return {
-      void: this.bg.void,
-      surface: this.bg.surface,
+      void: this.paper.base,
+      surface: this.paper.raised,
       elevated: this.bg.elevated,
       overlay: this.bg.elevated,
-      scrim: 'rgba(0, 0, 0, 0.38)',
-      gradientStart: '#FFFFFF',
-      gradientEnd: '#FFF8F0',
+      scrim: 'rgba(28,24,20,0.40)', // warm scrim — a cool scrim greys the paper
+      gradientStart: this.paper.raised,
+      gradientEnd: this.paper.warm,
     };
   },
   /** @deprecated Use Colors.ink.* */
@@ -93,7 +125,7 @@ export const Colors = {
       primary: this.ink.primary,
       secondary: this.ink.tertiary,
       tertiary: this.ink.tertiary,
-      disabled: '#C7C7CC',
+      disabled: this.ink.faint, // was #C7C7CC (cool grey)
       inverse: this.ink.inverse,
       onAccent: this.ink.inverse,
     };
@@ -101,11 +133,11 @@ export const Colors = {
   /** @deprecated Use Colors.hair.* */
   get border() {
     return {
-      subtle: 'rgba(0,0,0,0.04)',
-      light: 'rgba(0,0,0,0.07)',
-      medium: 'rgba(0,0,0,0.11)',
-      strong: 'rgba(0,0,0,0.18)',
-      warm: '#EFECE8',
+      subtle: 'rgba(36,31,26,0.04)',
+      light: 'rgba(36,31,26,0.07)',
+      medium: 'rgba(36,31,26,0.11)',
+      strong: 'rgba(36,31,26,0.18)',
+      warm: '#EDE6DA', // was #EFECE8 (cool)
     };
   },
   /** @deprecated Use Colors.gold.* */
@@ -179,13 +211,21 @@ export const FontFamily = {
  * **Plus Jakarta Sans**. Optical tracking tightens as size grows.
  */
 export const Type = {
-  // Oversized editorial greeting — Fraunces Black, the loudest brand voice.
+  // Oversized editorial greeting — Fraunces Black (opsz 144 / SOFT 100 / WONK 1),
+  // the loudest brand voice. WHY 52 / -1.6 (Design v3 §3b): a display face wants
+  // leading BELOW its natural line (1.23× for Fraunces) so lines lock into a
+  // block of ink. Was 44/47/-1.2.
+  //
+  // WHY 50 and not the doc's 48: measured, not guessed. At 52pt Fraunces Black's
+  // Á tops out at 48.8pt of ink above the baseline (upm 2000, Aacute yMax 1876).
+  // A 48pt line box clips the accent — and "Álvaro" is the first word this app
+  // ever prints. 50pt is the tightest leading (0.96×) that clears it.
   heroDisplay: {
     fontFamily: Fonts.serifBlack,
-    fontSize: 44,
-    lineHeight: 47,
+    fontSize: 52,
+    lineHeight: 50,
     fontWeight: '900' as const,
-    letterSpacing: -1.2,
+    letterSpacing: -1.6,
   },
   // Editorial serif large-title — Fraunces SemiBold.
   title: {
@@ -244,12 +284,14 @@ export const Type = {
   micro: { fontFamily: Fonts.sansMedium, fontSize: 11, lineHeight: 14, fontWeight: '500' as const },
 
   // Editorial label — uppercase, tracked. The "CHAPTER 03" voice.
+  // WHY 10/2.4 (Design v3 §3b): smaller + wider tracking reads as a printed
+  // running head; 11/1.8 read as a UI label. Was 11/1.8.
   eyebrow: {
     fontFamily: Fonts.sansSemiBold,
-    fontSize: 11,
+    fontSize: 10,
     lineHeight: 14,
     fontWeight: '600' as const,
-    letterSpacing: 1.8,
+    letterSpacing: 2.4,
     textTransform: 'uppercase' as const,
   },
 
@@ -286,6 +328,16 @@ export const Type = {
     lineHeight: 16,
     fontWeight: '600' as const,
     fontVariant: ['tabular-nums'] as FontVariant[],
+  },
+
+  // Letterpress — a light highlight UNDER the glyph so ink looks pressed into
+  // the fibre. Spread onto headlines living on paper.warm / paper.deep only,
+  // and only at ≥22pt (below that it smears). It's a textShadow: invisible to
+  // VoiceOver, free on the GPU. (Design v3 §3f)
+  letterpress: {
+    textShadowColor: 'rgba(255,253,249,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 0,
   },
 } as const;
 
@@ -348,6 +400,9 @@ export const Spacing = {
     sections: 24,
     inline: 8,
     sets: 4,
+    // WHY (Design v3 §3d): air between NARRATIVE blocks is double the air
+    // between cards — that's what separates a magazine from a settings screen.
+    editorial: 40,
   },
 } as const;
 
@@ -376,35 +431,35 @@ export const Shadows = {
     elevation: 0,
   },
   subtle: {
-    shadowColor: '#1A1A2E',
+    shadowColor: '#4A3B28',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
   },
   card: {
-    shadowColor: '#1A1A2E',
+    shadowColor: '#4A3B28',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,
     shadowRadius: 12,
     elevation: 4,
   },
   icon: {
-    shadowColor: '#1A1A2E',
+    shadowColor: '#4A3B28',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 6,
   },
   elevated: {
-    shadowColor: '#1A1A2E',
+    shadowColor: '#4A3B28',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 18,
     elevation: 8,
   },
   modal: {
-    shadowColor: '#1A1A2E',
+    shadowColor: '#4A3B28',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.16,
     shadowRadius: 28,
@@ -420,7 +475,7 @@ export const Shadows = {
   },
   // WHY: deeper neutral shadow for cards held down (spec §3.5)
   pressed: {
-    shadowColor: '#1A1A2E',
+    shadowColor: '#4A3B28',
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.1,
     shadowRadius: 28,
@@ -439,6 +494,10 @@ export const Animation = {
     ios: { damping: 18, stiffness: 300, mass: 0.7 },
     tabIcon: { damping: 12, stiffness: 400, mass: 0.5 },
     drag: { damping: 14, stiffness: 220, mass: 0.65 },
+    // ── Material springs (Design v3 §3e) — mirror of springs.paper/ink/settle
+    paper: { damping: 17, stiffness: 170, mass: 1.0 },
+    ink: { damping: 26, stiffness: 210, mass: 0.9 },
+    settle: { damping: 30, stiffness: 140, mass: 1.2 },
   },
   duration: {
     instant: 100,

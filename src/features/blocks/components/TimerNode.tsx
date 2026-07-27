@@ -248,11 +248,10 @@ function TimerNodeInner({ node, onUpdate, onDelete, compact }: TimerNodeProps) {
 export default React.memo(TimerNodeInner);
 
 const styles = StyleSheet.create({
+  // No border: white on warm paper (v3 §3a).
   container: {
-    backgroundColor: Colors.background.surface,
+    backgroundColor: Colors.paper.raised,
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.border.warm,
     overflow: 'hidden',
     ...Shadows.subtle,
   },

@@ -10,8 +10,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, { LinearTransition, Easing } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { Colors, Type, Spacing, Radius } from '../../../theme/tokens';
+import PressableScale from '../../../components/PressableScale';
 import { CardShell } from './DayCardShared';
 import BlockPreview from './BlockPreview';
 import RecurrenceChip from './RecurrenceChip';
@@ -132,19 +132,16 @@ function PrimaryCTA({
   ghost?: boolean;
   accessibilityLabel?: string;
 }) {
-  const handle = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    onPress();
-  };
   return (
-    <Pressable
-      onPress={handle}
+    <PressableScale
+      onPress={onPress}
+      haptic="medium"
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      style={({ pressed }) => [ghost ? styles.ctaGhost : styles.cta, pressed && { opacity: 0.85 }]}
+      style={ghost ? styles.ctaGhost : styles.cta}
     >
       <Text style={ghost ? styles.ctaGhostText : styles.ctaText}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

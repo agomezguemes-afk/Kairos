@@ -28,6 +28,7 @@ import { useScheduleStore } from './scheduleStore';
 import { buildWeeklyRule } from '../features/planner/lib/rrule';
 import { todayISO } from '../features/planner/lib/dates';
 import { groupAssignmentsByBlock, toRRuleWeekday } from '../lib/routines/weekAssignments';
+import { restForSet } from '../features/workout/scoreboard/restForSet';
 import { ANALYTICS_EVENTS, track } from '../lib/analytics';
 // Type-only: erased at runtime, so no workoutStore ↔ onboardingSpace cycle.
 import type { OnboardingSpaceResult } from '../lib/ai/onboardingSpace';
@@ -176,6 +177,16 @@ interface WorkoutState {
     blockId: string,
     exerciseId: string,
     goal: { goalWeight?: number; goalReps?: number },
+  ) => void;
+  /**
+   * Merge values onto an already-completed set (rest-state correction). Does
+   * NOT touch `completed`, `completed_at`, `restTimer` or the current indices —
+   * the rest countdown keeps running and the pointer stays put.
+   */
+  editCompletedSetValues: (
+    exerciseId: string,
+    setId: string,
+    values: Record<string, FieldValue>,
   ) => void;
   /**
    * Patch metadata on a set inside the active workout (kind, rpe, notes).
@@ -507,7 +518,10 @@ export const useWorkoutStore = create<WorkoutState>()(
             nextSetIdx = aw.currentSetIndex; // pin to last
           }
 
-          const restDuration = currentEx.rest_seconds || 90;
+          // Rest depends on the kind of the set JUST completed (currentSetIndex
+          // still points at it here — advance happens in the returned state).
+          const completedSet = currentEx.sets[aw.currentSetIndex];
+          const restDuration = restForSet(completedSet?.kind ?? 'working', currentEx.rest_seconds);
 
           return {
             activeWorkout: {
@@ -690,6 +704,22 @@ export const useWorkoutStore = create<WorkoutState>()(
               ),
             },
           };
+        });
+      },
+
+      editCompletedSetValues: (exerciseId, setId, values) => {
+        set((state) => {
+          if (!state.activeWorkout) return state;
+          const exercises = state.activeWorkout.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex;
+            return {
+              ...ex,
+              sets: ex.sets.map((s) =>
+                s.id === setId ? { ...s, values: { ...s.values, ...values } } : s,
+              ),
+            };
+          });
+          return { activeWorkout: { ...state.activeWorkout, exercises } };
         });
       },
 

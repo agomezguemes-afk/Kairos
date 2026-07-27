@@ -7,6 +7,11 @@
 // config's `sources` glob). ActivityKit matches the activity to the widget
 // UI by this type's name and the encoded shape of ContentState, so the two
 // targets must agree byte-for-byte.
+//
+// The state is a MIRROR of the JS scoreboard payload (src/lib/liveActivity/
+// payload.ts). Deliberately dumb: no weight/reps, no units, no formatting —
+// `targetLine` arrives pre-composed by the same formatter the phone screen
+// uses, so running/mobility/hybrid sessions render as correctly as strength.
 
 import Foundation
 
@@ -15,33 +20,60 @@ import ActivityKit
 
 @available(iOS 16.2, *)
 public struct WorkoutActivityAttributes: ActivityAttributes {
+  /// Scoreboard state, mirrored from features/workout/scoreboard/machine.ts.
+  public enum Phase: String, Codable, Hashable {
+    case set
+    case rest
+    case change
+  }
+
   public struct ContentState: Codable, Hashable {
     /// Current exercise display name.
     public var exerciseName: String
+    /// The giant line: "60 kg × 6", "5 km · 5:30 min/km". Nil = no target.
+    public var targetLine: String?
     /// 1-based current set.
     public var setIndex: Int
     public var setTotal: Int
-    /// Planned weight for the current set (kg). Nil = bodyweight / no target.
-    public var targetWeight: Double?
-    public var targetReps: Int?
-    /// When the active rest finishes. Nil = lifting, not resting.
+    /// Rest window. Both nil unless a rest is actually running — the pair lets
+    /// ProgressView(timerInterval:) draw the bar without JS ticking it.
+    public var restStartedAt: Date?
     public var restEndsAt: Date?
+    /// "Siguiente" peek: next exercise, or the upcoming set during rest.
+    public var nextUp: String?
+    public var phase: Phase
 
     public init(
       exerciseName: String,
+      targetLine: String?,
       setIndex: Int,
       setTotal: Int,
-      targetWeight: Double?,
-      targetReps: Int?,
-      restEndsAt: Date?
+      restStartedAt: Date?,
+      restEndsAt: Date?,
+      nextUp: String?,
+      phase: Phase
     ) {
       self.exerciseName = exerciseName
+      self.targetLine = targetLine
       self.setIndex = setIndex
       self.setTotal = setTotal
-      self.targetWeight = targetWeight
-      self.targetReps = targetReps
+      self.restStartedAt = restStartedAt
       self.restEndsAt = restEndsAt
+      self.nextUp = nextUp
+      self.phase = phase
     }
+
+    /// The rest window, when one is running and still in the future. Everything
+    /// in the UI keys off this: `nil` means "lifting", and it turns nil on its
+    /// own the moment the countdown expires — no JS round-trip required.
+    public var restInterval: ClosedRange<Date>? {
+      guard let start = restStartedAt, let end = restEndsAt, end > .now, start < end else {
+        return nil
+      }
+      return start...end
+    }
+
+    public var isResting: Bool { restInterval != nil }
   }
 
   /// Immutable for the lifetime of the session.

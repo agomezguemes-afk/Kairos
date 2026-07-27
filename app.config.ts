@@ -94,6 +94,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       supportsTablet: true,
       bundleIdentifier: variant.iosBundleId,
       jsEngine: 'hermes',
+      infoPlist: {
+        // Without this key ActivityAuthorizationInfo().areActivitiesEnabled is
+        // false and Activity.request() throws — the Live Activity (the primary
+        // in-workout display: phone face-up on the bench, no unlocking) is dark.
+        // Only applied by `expo prebuild`; the checked-in ios/ project needs the
+        // same key added by hand. See docs/LIVE_ACTIVITY_SETUP.md.
+        NSSupportsLiveActivities: true,
+      },
     },
     android: {
       adaptiveIcon: {

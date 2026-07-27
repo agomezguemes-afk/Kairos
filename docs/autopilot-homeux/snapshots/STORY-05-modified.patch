@@ -1,0 +1,144 @@
+diff --git a/src/features/blocks/BlocksScreen.tsx b/src/features/blocks/BlocksScreen.tsx
+index 5a73419..736d2a6 100644
+--- a/src/features/blocks/BlocksScreen.tsx
++++ b/src/features/blocks/BlocksScreen.tsx
+@@ -1,5 +1,5 @@
+ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+-import { View, Text, FlatList, Pressable, StyleSheet, Alert, Platform } from 'react-native';
++import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+ import Animated, {
+   useSharedValue,
+   useAnimatedStyle,
+@@ -13,8 +13,8 @@ import * as Haptics from 'expo-haptics';
+ import { useNavigation } from '@react-navigation/native';
+ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+ 
+-import BlockCard from './components/BlockCard';
+ import CanvasGrid from './components/CanvasGrid';
++import FolderGrid from './components/FolderGrid';
+ import BlockCreationSheet, { type BlockCreationOptions } from '../../components/BlockCreationSheet';
+ import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
+ import KairosIcon from '../../components/KairosIcon';
+@@ -32,7 +32,6 @@ type ViewMode = 'canvas' | 'grid';
+ const VIEW_MODE_DEFAULT: ViewMode = 'canvas';
+ 
+ const H_PAD = Spacing.screen.horizontal;
+-const NUM_COLUMNS = 2;
+ 
+ export default function BlocksScreen({ route }: any) {
+   const insets = useSafeAreaInsets();
+@@ -48,7 +47,6 @@ export default function BlocksScreen({ route }: any) {
+   const { onBlockCreated } = useGamification();
+ 
+   const confettiRef = useRef<ConfettiRef | null>(null);
+-  const listRef = useRef<FlatList>(null);
+ 
+   const [showCreation, setShowCreation] = useState(false);
+   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+@@ -170,22 +168,6 @@ export default function BlocksScreen({ route }: any) {
+     transform: [{ scale: fabScale.value }],
+   }));
+ 
+-  // Render card
+-  const renderItem = useCallback(
+-    ({ item, index }: { item: WorkoutBlock; index: number }) => (
+-      <BlockCard
+-        block={item}
+-        index={index}
+-        onPress={() => handleOpenBlock(item)}
+-        onLongPress={() => handleBlockOptions(item)}
+-        isHighlighted={item.id === highlightTargetId}
+-      />
+-    ),
+-    [handleOpenBlock, handleBlockOptions, highlightTargetId],
+-  );
+-
+-  const keyExtractor = useCallback((item: WorkoutBlock) => item.id, []);
+-
+   const sortLabels: Record<SortMode, string> = {
+     recent: 'Recientes',
+     name: 'Nombre',
+@@ -253,7 +235,7 @@ export default function BlocksScreen({ route }: any) {
+         </View>
+       </Animated.View>
+ 
+-      {/* Canvas (widget-style) OR Grid (FlatList) OR empty state */}
++      {/* Canvas (widget-style) OR Grid (folders + cards) OR empty state */}
+       {sortedBlocks.length > 0 ? (
+         viewMode === 'canvas' ? (
+           <CanvasGrid
+@@ -264,15 +246,12 @@ export default function BlocksScreen({ route }: any) {
+             bottomInset={insets.bottom}
+           />
+         ) : (
+-          <FlatList
+-            ref={listRef}
+-            data={sortedBlocks}
+-            keyExtractor={keyExtractor}
+-            renderItem={renderItem}
+-            numColumns={NUM_COLUMNS}
+-            contentContainerStyle={[styles.gridContent, { paddingBottom: insets.bottom + 100 }]}
+-            showsVerticalScrollIndicator={false}
+-            removeClippedSubviews={Platform.OS === 'android'}
++          <FolderGrid
++            blocks={sortedBlocks}
++            onOpenBlock={handleOpenBlock}
++            onBlockOptions={handleBlockOptions}
++            highlightTargetId={highlightTargetId}
++            bottomInset={insets.bottom}
+           />
+         )
+       ) : (
+@@ -317,7 +296,9 @@ export default function BlocksScreen({ route }: any) {
+               fabScale.value = withSpring(0.88, springs.tap);
+             }}
+             onPressOut={() => {
+-              fabScale.value = withSpring(1, springs.bouncy);
++              // Matter: one soft bounce and it settles (v3 §3e). springs.bouncy
++              // overshot twice — a button, not a trampoline.
++              fabScale.value = withSpring(1, springs.paper);
+             }}
+             onPress={handleQuickCreate}
+             onLongPress={() => {
+@@ -407,11 +388,6 @@ const styles = StyleSheet.create({
+     color: Colors.accent.primary,
+   },
+ 
+-  gridContent: {
+-    paddingHorizontal: H_PAD - Spacing.gap.cards / 2,
+-    paddingTop: Spacing.sm,
+-  },
+-
+   welcome: {
+     flex: 1,
+     alignItems: 'center',
+diff --git a/src/features/blocks/components/CanvasWidget.tsx b/src/features/blocks/components/CanvasWidget.tsx
+index fedad78..14d8915 100644
+--- a/src/features/blocks/components/CanvasWidget.tsx
++++ b/src/features/blocks/components/CanvasWidget.tsx
+@@ -17,7 +17,9 @@ interface CanvasWidgetProps {
+   size: CanvasWidgetSize;
+ }
+ 
+-const ICON_FOR: Record<string, string> = {
++// Exported so DisciplineFolder's mini-preview reuses the same emoji map
++// (STORY-05 §3.2 — don't duplicate BlockCard's icon switch).
++export const ICON_FOR: Record<string, string> = {
+   strength: '\u{1F4AA}',
+   weightlifting: '\u{1F4AA}',
+   running: '\u{1F3C3}',
+@@ -133,12 +135,11 @@ function CanvasWidgetInner({ block, size }: CanvasWidgetProps) {
+ export default React.memo(CanvasWidgetInner);
+ 
+ const styles = StyleSheet.create({
++  // No border: white on warm paper is its own edge (v3 §3a).
+   shell: {
+     flex: 1,
+-    backgroundColor: Colors.bg.surface,
++    backgroundColor: Colors.paper.raised,
+     borderRadius: Radius.lg,
+-    borderWidth: 0.5,
+-    borderColor: Colors.hair.base,
+     overflow: 'hidden',
+     ...Shadows.card,
+   },

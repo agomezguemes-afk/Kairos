@@ -70,7 +70,9 @@ export default function CompletionCelebration({ block, onDismiss }: Props) {
   useEffect(() => {
     if (!block) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    cardScale.value = withSpring(1, springs.bouncy);
+    // Matter bounces once (springs.paper); the confetti carries the joy. The old
+    // springs.bouncy made the summary NUMBERS wobble — that's the toy tell (§3e).
+    cardScale.value = withSpring(1, springs.paper);
     cardOpacity.value = withTiming(1, { duration: 280 });
     const t = setTimeout(() => confettiRef.current?.burst(), 180);
     return () => clearTimeout(t);
@@ -319,7 +321,7 @@ function currentSessionFor(ex: ExerciseCard): {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: Colors.paper.scrimDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -353,8 +355,10 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: 6,
   },
+  // The number you earned, pressed into the warm card (§3f — ≥22pt only).
   heroValue: {
     ...Type.numHero,
+    ...Type.letterpress,
     fontSize: 64,
     lineHeight: 68,
     color: Colors.ink.primary,

@@ -4,11 +4,11 @@
 // main scoreboard. Same Modal + Reanimated sheet pattern as SetActionSheet —
 // @gorhom/bottom-sheet isn't installed and adding it needs a native rebuild.
 //
-// Edits flow through the parent's draftValues (onChange) so closing the sheet
-// and pressing HECHO commits exactly what the user saw. Metadata writes go
+// Edits flow through the parent's draftValues (onChange) so HECHO — here or on
+// the scoreboard — commits exactly what the user saw. Metadata writes go
 // straight to the store (updateSetMetadata), mirroring SetActionSheet.
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -32,6 +32,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 import SetInput from './SetInput';
+import { resolveSheetCommit } from '../../features/workout/scoreboard/commit';
+import { parseSpokenSet } from '../../features/workout/scoreboard/parseSpokenSet';
 import { Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
 import { useWorkoutStore } from '../../store/workoutStore';
 import type { FieldDefinition, FieldValue, SetKind } from '../../types/core';
@@ -49,6 +51,8 @@ interface Props {
   accent: string;
   tint: string;
   onClose: () => void;
+  /** HECHO from the sheet: commit the draft + advance to rest (≤2 taps/set). */
+  onCommit: () => void;
   /**
    * Nested modal slot (PlateCalculator). iOS can't present two sibling RN
    * Modals at once — nesting the inner Modal inside this one is the pattern
@@ -80,6 +84,7 @@ function SetCorrectionSheetImpl({
   accent,
   tint,
   onClose,
+  onCommit,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -96,14 +101,16 @@ function SetCorrectionSheetImpl({
   // Per-open UI state, keyed by the target set instead of synced via effect:
   // when the key doesn't match (fresh open / different set) the derived values
   // fall back to defaults, so no reset effect is needed.
-  const [ui, setUi] = useState<{ key: string | null; note: string; showMeta: boolean }>({
-    key: null,
-    note: '',
-    showMeta: false,
-  });
+  const [ui, setUi] = useState<{
+    key: string | null;
+    note: string;
+    showMeta: boolean;
+    quick: string;
+  }>({ key: null, note: '', showMeta: false, quick: '' });
   const isCurrentUi = visible && ui.key === setId;
   const noteDraft = isCurrentUi ? ui.note : (set?.notes ?? '');
   const showMeta = isCurrentUi ? ui.showMeta : false;
+  const quick = isCurrentUi ? ui.quick : '';
 
   const setNoteDraft = useCallback(
     (text: string) => {
@@ -111,13 +118,49 @@ function SetCorrectionSheetImpl({
         key: setId,
         note: text,
         showMeta: prev.key === setId ? prev.showMeta : false,
+        quick: prev.key === setId ? prev.quick : '',
       }));
     },
     [setId],
   );
 
+  const storedNote = set?.notes ?? '';
+  const setQuick = useCallback(
+    (text: string) => {
+      setUi((prev) =>
+        prev.key === setId
+          ? { ...prev, quick: text }
+          : { key: setId, note: storedNote, showMeta: false, quick: text },
+      );
+    },
+    [setId, storedNote],
+  );
+
   const kind: SetKind = set?.kind ?? 'working';
   const rpe = set?.rpe;
+
+  // Quick entry → same pipeline as the numpad: values feed the parent's
+  // draftValues (onChange), so the giant target and HECHO already reflect what
+  // was dictated. RPE/nota go straight to the store like the pills below.
+  const handleQuickSubmit = useCallback(() => {
+    const parsed = parseSpokenSet(quick, fields);
+    if (!parsed.matched) {
+      // Soft "didn't get that" — keep the text so the user can fix a typo.
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      return;
+    }
+    Object.entries(parsed.values).forEach(([id, v]) => onChange(id, v));
+    if (parsed.rpe != null) updateSetMetadata(exerciseId, setId, { rpe: parsed.rpe });
+    if (parsed.note) updateSetMetadata(exerciseId, setId, { notes: parsed.note });
+    Haptics.selectionAsync().catch(() => {});
+    // Mirror the note into the draft so a later flushNote doesn't undo it.
+    setUi((prev) => ({
+      key: setId,
+      note: parsed.note ?? (prev.key === setId ? prev.note : storedNote),
+      showMeta: prev.key === setId ? prev.showMeta : false,
+      quick: '',
+    }));
+  }, [quick, fields, onChange, exerciseId, setId, updateSetMetadata, storedNote]);
 
   const handleKind = useCallback(
     (next: SetKind) => {
@@ -147,10 +190,27 @@ function SetCorrectionSheetImpl({
     onClose();
   }, [flushNote, onClose]);
 
+  const handleCommit = useCallback(() => {
+    flushNote();
+    onCommit();
+  }, [flushNote, onCommit]);
+
+  // What HECHO will actually log — spoken so VoiceOver's hint matches the record.
+  const commitTarget = useMemo(
+    () => resolveSheetCommit({}, values, fields).target,
+    [values, fields],
+  );
+
   const toggleMeta = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
-    setUi((prev) => ({ ...prev, showMeta: !prev.showMeta }));
-  }, []);
+    // Key the state on first interaction — with a stale key the toggle would
+    // flip a value the render never reads (isCurrentUi is false).
+    setUi((prev) =>
+      prev.key === setId
+        ? { ...prev, showMeta: !prev.showMeta }
+        : { key: setId, note: storedNote, showMeta: true, quick: '' },
+    );
+  }, [setId, storedNote]);
 
   const metaSummary =
     (kind !== 'working' ? 1 : 0) + (rpe != null ? 1 : 0) + (noteDraft.length > 0 ? 1 : 0);
@@ -190,6 +250,26 @@ function SetCorrectionSheetImpl({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.body}
             >
+              {/* Quick entry — type (or, soon, dictate) the whole set in one
+                  line; parseSpokenSet routes it into the same draft the
+                  numpad edits. Optional: no autofocus, the numpad keeps the
+                  spotlight. */}
+              <View style={styles.quickWrap}>
+                <TextInput
+                  value={quick}
+                  onChangeText={setQuick}
+                  onSubmitEditing={handleQuickSubmit}
+                  returnKeyType="done"
+                  blurOnSubmit
+                  placeholder="Escribe la serie: 62.5 por 8"
+                  placeholderTextColor={Colors.ink.muted}
+                  autoCorrect={false}
+                  style={styles.quickInput}
+                  accessibilityLabel="Dictar o escribir la serie en lenguaje natural"
+                  accessibilityHint="Ejemplo: 62.5 por 8, rpe 9. Los valores rellenan los campos del set"
+                />
+              </View>
+
               {/* The numpad, exactly as it exists — field chips + keys. */}
               <SetInput
                 fields={fields}
@@ -298,15 +378,35 @@ function SetCorrectionSheetImpl({
               ) : null}
             </ScrollView>
 
-            {/* Ink pill — Design v2 primary. Gold stays out of this sheet. */}
+            {/* Ink pill — Design v2 primary. Gold stays out of this sheet.
+                HECHO here commits the corrected draft in the same gesture,
+                collapsing corregir+completar from 3 taps to 2. */}
             <Pressable
-              onPress={handleClose}
+              onPress={handleCommit}
               accessibilityRole="button"
-              accessibilityLabel="Listo, volver al marcador"
+              accessibilityLabel="Guardar y completar la serie"
+              accessibilityHint={
+                commitTarget
+                  ? `Registra ${commitTarget.spoken} y pasa al descanso`
+                  : 'Registra la serie y pasa al descanso'
+              }
               style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
             >
               <Text style={styles.ctaText} maxFontSizeMultiplier={1.4}>
-                Listo
+                HECHO
+              </Text>
+            </Pressable>
+
+            {/* Escape hatch: open the sheet just to peek at RPE/nota without
+                logging the set. Scrim and handle cancel the same way. */}
+            <Pressable
+              onPress={handleClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar sin guardar la serie"
+              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.6 }]}
+            >
+              <Text style={styles.ghostText} maxFontSizeMultiplier={1.6}>
+                Cerrar sin guardar
               </Text>
             </Pressable>
           </Animated.View>
@@ -350,6 +450,18 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingBottom: Spacing.md,
+  },
+  quickWrap: {
+    backgroundColor: Colors.bg.elevated,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  quickInput: {
+    ...Type.body,
+    color: Colors.ink.primary,
+    minHeight: 44,
+    padding: 0,
   },
   metaToggle: {
     minHeight: 44,
@@ -446,5 +558,17 @@ const styles = StyleSheet.create({
   ctaText: {
     ...Type.subheading,
     color: Colors.ink.inverse,
+  },
+  ghost: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  ghostText: {
+    ...Type.caption,
+    color: Colors.ink.tertiary,
+    fontWeight: '600',
   },
 });

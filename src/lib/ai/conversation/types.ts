@@ -11,6 +11,7 @@ import type { Discipline } from '../../../types/core';
 // Type-only: erased at runtime, so node tests that import the engine never pull
 // the Groq client (and its supabase side effects) into the graph.
 import type { GroqMessage } from '../client';
+import type { EquipmentPolicy } from './equipment';
 
 /** Where the conversation is right now. Drives the UI's status affordances. */
 export type ConversationPhase =
@@ -36,8 +37,15 @@ export interface SessionBrief {
   durationMin: number | null;
   location: 'casa' | 'gym' | 'aire_libre' | null;
   intensity: 'suave' | 'normal' | 'fuerte';
-  /** Free-form equipment words the user mentioned. */
+  /** Free-form equipment words the user mentioned, affirmatively. */
   equipment: string[];
+  /**
+   * The user's equipment intent as tags: what they NAMED (which becomes the
+   * allowed set, replacing the location baseline) and what they NEGATED ("sin
+   * barra"). Absent = they said nothing → the location baseline stands. Derived
+   * deterministically from their own words; see equipment.ts for the semantics.
+   */
+  equipmentPolicy?: EquipmentPolicy;
   /** Anything else worth carrying into generation. */
   notes: string | null;
 }

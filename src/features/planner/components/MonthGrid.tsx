@@ -105,7 +105,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.screen.horizontal,
+    // WHY (STORY-04): gutter now comes from the HomeFolder section, not here.
+    paddingHorizontal: 0,
     paddingBottom: Spacing.xs,
   },
   arrow: {
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   },
   weekdayHeader: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.screen.horizontal,
+    paddingHorizontal: 0,
     paddingBottom: Spacing.xs,
   },
   weekdayHeaderText: {
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: Spacing.screen.horizontal,
+    paddingHorizontal: 0,
   },
   cell: {
     width: `${100 / 7}%`,

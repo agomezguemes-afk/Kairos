@@ -333,7 +333,7 @@ function AdvancedView({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: Colors.paper.scrimSoft,
   },
   // Inline panel pinned at the bottom of the parent sheet so it feels like
   // the same surface, just deepened. Same paddings as the parent.

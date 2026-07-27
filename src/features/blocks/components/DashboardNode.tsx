@@ -483,11 +483,10 @@ function renderViz(
 export default React.memo(DashboardNodeInner);
 
 const styles = StyleSheet.create({
+  // No border: white on warm paper is its own edge (v3 §3a).
   card: {
-    backgroundColor: Colors.bg.surface,
+    backgroundColor: Colors.paper.raised,
     borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.hair.base,
     padding: Spacing.md,
     minWidth: 0,
     overflow: 'hidden',
@@ -670,7 +669,7 @@ const styles = StyleSheet.create({
   },
   configBackdropOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: Colors.paper.scrim,
   },
   configSheet: {
     backgroundColor: Colors.bg.surface,

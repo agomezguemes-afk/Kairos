@@ -9,6 +9,8 @@ import { GamificationProvider } from './src/context/GamificationContext';
 import { TreeProvider } from './src/context/TreeContext';
 import { MissionBridge } from './src/context/MissionBridge';
 import { useAuthStore, startAuthListener } from './src/store/useAuthStore';
+import { seedSyntheticData } from './src/dev/seedSyntheticData';
+import { syncDailyBiometricSample } from './src/lib/health/dailySync';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import FontGate from './src/theme/FontGate';
 
@@ -20,6 +22,12 @@ function AppContent() {
   useEffect(() => {
     // Restore existing Supabase session from AsyncStorage and load profile
     initialize();
+    // DEV demo data (no-op in release / when SEED_SYNTHETIC is off)
+    seedSyntheticData();
+    // Rolling HRV/sleep sample for the adaptive readiness engine — no-op
+    // until HealthKit is natively activated and the user has granted read
+    // permission.
+    syncDailyBiometricSample();
     // Listen for auth state changes (sign-in, sign-out, token refresh)
     const unsubscribe = startAuthListener();
     return unsubscribe;

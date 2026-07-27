@@ -267,7 +267,7 @@ export default function SetActionSheet({ visible, exerciseId, setId, onClose }: 
 const styles = StyleSheet.create({
   scrim: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.32)',
+    backgroundColor: Colors.paper.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {

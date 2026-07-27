@@ -180,7 +180,7 @@ function BulletRow({ icon, text }: { icon: keyof typeof Feather.glyphMap; text: 
 const styles = StyleSheet.create({
   scrim: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.38)',
+    backgroundColor: Colors.paper.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {
