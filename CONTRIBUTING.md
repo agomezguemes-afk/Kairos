@@ -8,42 +8,44 @@ bisectable. Read once; revisit when something below feels wrong.
 Three long-lived branches, one per environment:
 
 ```
-main      ← Production         (App Store / TestFlight External)
-            ↑ PR + approval
-staging   ← Pre-release QA      (TestFlight Internal, manual smoke test)
-            ↑ PR + green CI
-dev       ← Integration         (default working branch, every commit ships
-                                 to the development-env build)
-            ↑ PR (or direct push for hotfixes < 10 LOC)
-feature/* ← Feature work        (branch off dev, PR back to dev)
-hotfix/*  ← Urgent prod bug     (branch off main, PR to main + back-merge to staging + dev)
+Production  ← Producción        (App Store / TestFlight External — lo que usan
+                                 los usuarios finales)
+              ↑ PR + aprobación
+Testing     ← QA pre-release    (TestFlight Internal, smoke test manual)
+              ↑ PR + CI en verde
+Development ← Integración       (rama de trabajo por defecto: TODO cambio
+                                 manual se hace aquí primero)
+              ↑ PR (o push directo para hotfixes < 10 LOC)
+feature/*   ← Trabajo de feature (sale de Development, PR de vuelta a Development)
+hotfix/*    ← Bug urgente en prod (sale de Production, PR a Production +
+                                 back-merge a Testing y Development)
 ```
 
-Day-to-day:
+El día a día:
 
-1. `git switch dev && git pull`
-2. `git switch -c feature/<topic>`
-3. Work, commit, push, open PR targeting **`dev`**.
-4. Merge once CI is green.
+1. `git switch Development && git pull`
+2. `git switch -c feature/<tema>`
+3. Trabaja, commit, push, abre PR contra **`Development`**.
+4. Mergea cuando el CI esté verde.
 
-Promotion to staging:
+Promoción a Testing:
 
-1. When `dev` has a coherent set of changes ready for QA:
-   `git switch staging && git merge --no-ff dev` → push.
-2. CI runs the same gates; smoke-test the staging build on device.
+1. Cuando `Development` tenga un conjunto coherente de cambios listos para QA:
+   `git switch Testing && git merge --no-ff Development` → push.
+2. El CI corre las mismas puertas; smoke-test de la build de Testing en dispositivo.
 
-Promotion to main (release):
+Promoción a Production (release):
 
-1. When staging has been validated:
-   `git switch main && git merge --no-ff staging` → push.
-2. Tag the commit: `git tag -a v0.X.0 -m "..."` → push tag.
-3. CI builds the production variant (Fase 3 will automate this).
+1. Cuando Testing esté validado:
+   `git switch Production && git merge --no-ff Testing` → push.
+2. Etiqueta el commit: `git tag -a v0.X.0 -m "..."` → push del tag.
+3. El CI construye la variante de producción (Fase 3 lo automatizará).
 
 Hotfixes:
 
-1. Branch from `main`: `git switch -c hotfix/<topic> main`.
-2. PR to `main`. After merge, **back-merge to staging and dev** so the
-   fix doesn't get re-broken by the next promotion.
+1. Sale de `Production`: `git switch -c hotfix/<tema> Production`.
+2. PR a `Production`. Tras el merge, **back-merge a Testing y Development** para
+   que el fix no se rompa de nuevo en la siguiente promoción.
 
 Feature branches are short-lived. If a feature has not landed within
 ~2 weeks it either ships behind a flag or gets descoped.
@@ -72,7 +74,7 @@ Before opening a PR:
 - [ ] On-device smoke test if the change is visual / animation / gestural
 - [ ] PR description states the user-visible impact and any deferred follow-ups
 
-CI runs the same gates on every push. PRs targeting `main` cannot merge
+CI runs the same gates on every push. PRs targeting `Production` cannot merge
 with red CI.
 
 ## Commit conventions
@@ -123,7 +125,7 @@ is in place. Don't gate features on UI tests yet — relies on device QA.
 
 ## Releases
 
-1. Land everything into main via PR.
+1. Land everything into Production via PR (Development → Testing → Production).
 2. Update `CHANGELOG.md` under `## [Unreleased]`.
 3. Bump `package.json` and `app.json` versions.
 4. `git tag -a vX.Y.Z -m "..."` + push tag.

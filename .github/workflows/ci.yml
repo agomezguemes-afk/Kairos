@@ -1,7 +1,7 @@
 # Kairos — Continuous Integration
 #
-# Runs on every push to main and every PR targeting main. Quality gate
-# blocks merge until typecheck, lint, and the dev test suite all pass.
+# Runs on every push to Production and every PR targeting it. Quality gate
+# blocks merge until typecheck, lint, and the test suite all pass.
 #
 # Native iOS/Android builds and TestFlight distribution come in Fase 3
 # (EAS pipeline). This file focuses on JS/TS quality.
@@ -10,9 +10,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [dev, staging, main]
+    branches: [Development, Testing, Production]
   push:
-    branches: [dev, staging, main]
+    branches: [Development, Testing, Production]
   workflow_dispatch:
 
 # Cancel in-progress runs on the same ref when a new commit lands.
