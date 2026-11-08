@@ -31,6 +31,12 @@ export interface ParsedGoal {
   confidence: number;
   /** Words that drove the interpretation — shown so the user sees why. */
   matched: string[];
+  /** 'ai' only when an LLM refined the deterministic parse and passed validation. */
+  source?: 'rules' | 'ai';
+  /** One-line restatement of the goal in the user's language (AI only). */
+  summary?: string;
+  /** A single follow-up question when something decisive is missing (AI only). */
+  question?: string;
 }
 
 /** Targets are ranges, not orders: the user can always override in session. */

@@ -25,7 +25,8 @@ interface CoachState {
   sessions: SessionLog[];
   suggestions: Suggestion[];
 
-  draftFromGoal: (text: string) => PlanDraft;
+  /** `goal` is the (possibly AI-refined) interpretation; rules parse otherwise. */
+  draftFromGoal: (text: string, goal?: ParsedGoal) => PlanDraft;
   setDraftStatus: (draftSessionId: string, status: DraftStatus) => void;
   /** Saves a finished session, calibrates the plan, returns new suggestions. */
   recordSession: (log: SessionLog) => Suggestion[];
@@ -45,8 +46,8 @@ export const useCoachStore = create<CoachState>()(
     (set, get) => ({
       ...initial,
 
-      draftFromGoal: (text) => {
-        const goal = parseGoal(text);
+      draftFromGoal: (text, refined) => {
+        const goal = refined ?? parseGoal(text);
         const plan = draftPlan(goal);
         set({ goal, plan });
         return plan;

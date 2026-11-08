@@ -1,8 +1,9 @@
 // GoalComposer — the user says what they want in their own words; the
 // interpretation appears live underneath so they see what Kairos
-// understood before anything is drafted.
+// understood before anything is drafted. The rules parse is instant; when
+// an LLM is configured it refines the reading once the user pauses typing.
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -19,7 +20,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Animated, { FadeIn, FadeInDown, LinearTransition, ZoomIn } from 'react-native-reanimated';
 
 import type { RootStackParamList } from '../../types/navigation';
-import { parseGoal, QUALITY_LABEL, SPORT_LABEL } from '../../lib/adaptive';
+import { parseGoal, QUALITY_LABEL, SPORT_LABEL, type ParsedGoal } from '../../lib/adaptive';
+import { interpretGoal, isGoalAiAvailable } from '../../lib/ai/goalInterpreter';
 import { useCoachStore } from '../../store/coachStore';
 import { Coach, Colors, Radius, Spacing, Type } from '../../theme/tokens';
 import { feedback } from './feedback';
@@ -33,29 +35,77 @@ const EXAMPLES = [
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+const AI_DEBOUNCE_MS = 900;
+const AI_MIN_CHARS = 8;
+
 export default function GoalComposerScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const draftFromGoal = useCoachStore((s) => s.draftFromGoal);
   const [text, setText] = useState('');
+  const trimmed = text.trim();
+  const [aiOn] = useState(isGoalAiAvailable);
+  const [ai, setAi] = useState<{ text: string; goal: ParsedGoal } | null>(null);
+  const [thinkingFor, setThinkingFor] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const inflight = useRef<{ text: string; promise: Promise<ParsedGoal> } | null>(null);
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
 
-  const parsed = useMemo(() => (text.trim().length >= 3 ? parseGoal(text) : null), [text]);
-  const canDraft = !!parsed;
-  const vague = parsed && parsed.confidence < 0.5;
+  const parsed = useMemo(() => (trimmed.length >= 3 ? parseGoal(trimmed) : null), [trimmed]);
+  // An AI reading only counts for the exact text it was computed from.
+  const goal = ai && ai.text === trimmed && ai.goal.source === 'ai' ? ai.goal : parsed;
+  const thinking = thinkingFor !== null && thinkingFor === trimmed;
+  const canDraft = !!goal && !busy;
+  const vague = goal && goal.confidence < 0.5;
 
-  const onDraft = useCallback(() => {
-    if (!canDraft) return;
+  const refine = useCallback((t: string): Promise<ParsedGoal> => {
+    if (inflight.current?.text === t) return inflight.current.promise;
+    setThinkingFor(t);
+    const promise = interpretGoal(t).then((g) => {
+      if (mounted.current) {
+        setAi({ text: t, goal: g });
+        setThinkingFor((cur) => (cur === t ? null : cur));
+      }
+      return g;
+    });
+    inflight.current = { text: t, promise };
+    return promise;
+  }, []);
+
+  useEffect(() => {
+    if (!aiOn || trimmed.length < AI_MIN_CHARS || ai?.text === trimmed) return;
+    const timer = setTimeout(() => void refine(trimmed), AI_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [ai?.text, aiOn, refine, trimmed]);
+
+  const onDraft = useCallback(async () => {
+    if (!canDraft || !parsed) return;
+    let final: ParsedGoal = goal ?? parsed;
+    // Drafting before the pause-triggered refinement landed: wait for it
+    // (bounded by the interpreter's own timeout) rather than draft twice.
+    if (aiOn && ai?.text !== trimmed && trimmed.length >= AI_MIN_CHARS) {
+      setBusy(true);
+      final = await refine(trimmed);
+      if (!mounted.current) return;
+      setBusy(false);
+    }
     feedback.success();
-    draftFromGoal(text.trim());
+    draftFromGoal(trimmed, final);
     navigation.replace('CoachPlan');
-  }, [canDraft, draftFromGoal, navigation, text]);
+  }, [ai?.text, aiOn, canDraft, draftFromGoal, goal, navigation, parsed, refine, trimmed]);
 
-  const chips = parsed
+  const chips = goal
     ? [
-        ...parsed.sports.map((s) => ({ key: `s-${s}`, label: SPORT_LABEL[s], strong: true })),
-        ...parsed.qualities.map((q) => ({ key: `q-${q}`, label: QUALITY_LABEL[q], strong: false })),
-        { key: 'days', label: `${parsed.daysPerWeek} días/sem`, strong: false },
-        { key: 'weeks', label: `${parsed.horizonWeeks} semanas`, strong: false },
+        ...goal.sports.map((s) => ({ key: `s-${s}`, label: SPORT_LABEL[s], strong: true })),
+        ...goal.qualities.map((q) => ({ key: `q-${q}`, label: QUALITY_LABEL[q], strong: false })),
+        { key: 'days', label: `${goal.daysPerWeek} días/sem`, strong: false },
+        { key: 'weeks', label: `${goal.horizonWeeks} semanas`, strong: false },
       ]
     : [];
 
@@ -97,11 +147,11 @@ export default function GoalComposerScreen() {
           autoFocus
           returnKeyType="done"
           blurOnSubmit
-          onSubmitEditing={onDraft}
+          onSubmitEditing={() => void onDraft()}
           accessibilityLabel="Describe tu objetivo"
         />
 
-        {!parsed && (
+        {!goal && (
           <Animated.View entering={FadeIn.delay(200)} style={styles.examples}>
             {EXAMPLES.map((e) => (
               <Pressable
@@ -118,9 +168,25 @@ export default function GoalComposerScreen() {
           </Animated.View>
         )}
 
-        {parsed && (
+        {goal && (
           <Animated.View entering={FadeIn} layout={LinearTransition} style={styles.understood}>
-            <Text style={styles.understoodLabel}>Entiendo</Text>
+            <View style={styles.understoodRow}>
+              <Text style={styles.understoodLabel}>Entiendo</Text>
+              {thinking ? (
+                <Animated.Text entering={FadeIn} style={styles.aiThinking}>
+                  afinando…
+                </Animated.Text>
+              ) : goal.source === 'ai' ? (
+                <Animated.View entering={ZoomIn.springify().damping(14)} style={styles.aiTag}>
+                  <Text style={styles.aiTagText}>IA</Text>
+                </Animated.View>
+              ) : null}
+            </View>
+            {goal.summary && (
+              <Animated.Text entering={FadeIn} style={styles.summary}>
+                {goal.summary}
+              </Animated.Text>
+            )}
             <View style={styles.chips}>
               {chips.map((c, i) => (
                 <Animated.View
@@ -138,10 +204,14 @@ export default function GoalComposerScreen() {
                 </Animated.View>
               ))}
             </View>
-            {vague && (
-              <Text style={styles.hint}>
-                Dime el deporte o qué quieres mejorar y afino mucho más la propuesta.
-              </Text>
+            {goal.question ? (
+              <Text style={styles.question}>{goal.question}</Text>
+            ) : (
+              vague && (
+                <Text style={styles.hint}>
+                  Dime el deporte o qué quieres mejorar y afino mucho más la propuesta.
+                </Text>
+              )
             )}
           </Animated.View>
         )}
@@ -149,7 +219,7 @@ export default function GoalComposerScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
         <Pressable
-          onPress={onDraft}
+          onPress={() => void onDraft()}
           disabled={!canDraft}
           accessibilityRole="button"
           style={({ pressed }) => [
@@ -158,7 +228,7 @@ export default function GoalComposerScreen() {
             pressed && { transform: [{ scale: 0.98 }] },
           ]}
         >
-          <Text style={styles.ctaText}>Bocetear plan</Text>
+          <Text style={styles.ctaText}>{busy ? 'Interpretando…' : 'Bocetear plan'}</Text>
         </Pressable>
         <Text style={styles.footnote}>Será un borrador: tú decides qué se queda.</Text>
       </View>
@@ -195,6 +265,17 @@ const styles = StyleSheet.create({
   },
   exampleText: { ...Type.body, color: Colors.ink.secondary },
   understood: { marginTop: Spacing.xl, gap: Spacing.md },
+  understoodRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  aiThinking: { ...Type.caption, color: Colors.gold.deep, fontStyle: 'italic' },
+  aiTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.gold.base,
+  },
+  aiTagText: { fontSize: 11, fontWeight: '800', color: Coach.stage, letterSpacing: 0.6 },
+  summary: { ...Type.bodyEmph, color: Colors.ink.secondary },
+  question: { ...Type.body, color: Colors.gold.deep, fontWeight: '600' },
   understoodLabel: {
     ...Type.micro,
     color: Colors.ink.muted,
