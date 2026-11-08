@@ -7,10 +7,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -20,11 +18,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Animated, { FadeIn, FadeInDown, LinearTransition, ZoomIn } from 'react-native-reanimated';
 
 import type { RootStackParamList } from '../../types/navigation';
+import KIcon from '../../components/icons/KIcon';
 import { parseGoal, QUALITY_LABEL, SPORT_LABEL, type ParsedGoal } from '../../lib/adaptive';
 import { interpretGoal, isGoalAiAvailable } from '../../lib/ai/goalInterpreter';
 import { useCoachStore } from '../../store/coachStore';
-import { Coach, Colors, Radius, Spacing, Type } from '../../theme/tokens';
+import { Brut, Spacing } from '../../theme/tokens';
 import { feedback } from './feedback';
+import { BBox, BPress, BScreen, BTag, BText } from './ui/brut';
 
 const EXAMPLES = [
   'Mejorar al pádel en resistencia',
@@ -37,6 +37,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const AI_DEBOUNCE_MS = 900;
 const AI_MIN_CHARS = 8;
+const pad2 = (n: number) => String(n).padStart(2, '0');
 
 export default function GoalComposerScreen() {
   const insets = useSafeAreaInsets();
@@ -100,219 +101,265 @@ export default function GoalComposerScreen() {
     navigation.replace('CoachPlan');
   }, [ai?.text, aiOn, canDraft, draftFromGoal, goal, navigation, parsed, refine, trimmed]);
 
-  const chips = goal
+  const tiles = goal
     ? [
-        ...goal.sports.map((s) => ({ key: `s-${s}`, label: SPORT_LABEL[s], strong: true })),
-        ...goal.qualities.map((q) => ({ key: `q-${q}`, label: QUALITY_LABEL[q], strong: false })),
-        { key: 'days', label: `${goal.daysPerWeek} días/sem`, strong: false },
-        { key: 'weeks', label: `${goal.horizonWeeks} semanas`, strong: false },
+        ...goal.qualities.map((q, i) => ({
+          key: `q-${q}`,
+          label: i === 0 ? 'PRIMERO' : i === 1 ? 'DESPUÉS' : 'TAMBIÉN',
+          value: QUALITY_LABEL[q],
+        })),
+        { key: 'days', label: 'RITMO', value: `${goal.daysPerWeek} días/sem` },
+        { key: 'weeks', label: 'HORIZONTE', value: `${goal.horizonWeeks} semanas` },
       ]
     : [];
+  // The words that drove the reading, so the user sees it came from them.
+  const evidence = goal?.matched
+    .slice(0, 3)
+    .map((w) => `“${w}”`)
+    .join(' · ')
+    .toUpperCase();
+  const hint =
+    goal?.question ??
+    (vague ? 'Dime el deporte o qué quieres mejorar y afino mucho más la propuesta.' : null);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.lg }]}
-        keyboardShouldPersistTaps="handled"
+    <BScreen>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Cerrar"
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.md }]}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.close}>Cerrar</Text>
-        </Pressable>
+          <View style={styles.topRow}>
+            <BPress
+              onPress={() => navigation.goBack()}
+              radius={12}
+              contentStyle={styles.iconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+            >
+              <KIcon name="x" size={18} color={Brut.ink} strokeWidth={2.4} />
+            </BPress>
+            <BText variant="monoBold" size={11} style={{ letterSpacing: 2 }}>
+              NUEVO OBJETIVO
+            </BText>
+          </View>
 
-        <Animated.Text entering={FadeInDown.springify().damping(18)} style={styles.eyebrow}>
-          NUEVO OBJETIVO
-        </Animated.Text>
-        <Animated.Text
-          entering={FadeInDown.delay(60).springify().damping(18)}
-          style={styles.display}
-        >
-          ¿Qué quieres conseguir?
-        </Animated.Text>
-
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder="Escríbelo como se lo dirías a un entrenador…"
-          placeholderTextColor={Colors.ink.muted}
-          style={styles.input}
-          multiline
-          autoFocus
-          returnKeyType="done"
-          blurOnSubmit
-          onSubmitEditing={() => void onDraft()}
-          accessibilityLabel="Describe tu objetivo"
-        />
-
-        {!goal && (
-          <Animated.View entering={FadeIn.delay(200)} style={styles.examples}>
-            {EXAMPLES.map((e) => (
-              <Pressable
-                key={e}
-                onPress={() => {
-                  feedback.tick();
-                  setText(e);
-                }}
-                style={({ pressed }) => [styles.example, pressed && { opacity: 0.6 }]}
-              >
-                <Text style={styles.exampleText}>{e}</Text>
-              </Pressable>
-            ))}
+          <Animated.View entering={FadeInDown.duration(Brut.motion.reveal)}>
+            <BText variant="display" size={48} style={{ marginTop: Spacing.lg }}>
+              ¿QUÉ QUIERES{'\n'}CONSEGUIR?
+            </BText>
           </Animated.View>
-        )}
 
-        {goal && (
-          <Animated.View entering={FadeIn} layout={LinearTransition} style={styles.understood}>
-            <View style={styles.understoodRow}>
-              <Text style={styles.understoodLabel}>Entiendo</Text>
-              {thinking ? (
-                <Animated.Text entering={FadeIn} style={styles.aiThinking}>
-                  afinando…
-                </Animated.Text>
-              ) : goal.source === 'ai' ? (
-                <Animated.View entering={ZoomIn.springify().damping(14)} style={styles.aiTag}>
-                  <Text style={styles.aiTagText}>IA</Text>
-                </Animated.View>
-              ) : null}
-            </View>
-            {goal.summary && (
-              <Animated.Text entering={FadeIn} style={styles.summary}>
-                {goal.summary}
-              </Animated.Text>
-            )}
-            <View style={styles.chips}>
-              {chips.map((c, i) => (
-                <Animated.View
-                  key={c.key}
-                  entering={ZoomIn.delay(i * 40)
-                    .springify()
-                    .damping(16)}
-                  layout={LinearTransition}
+          <BText variant="monoBold" size={10} color={Brut.muted} style={styles.label}>
+            EN TUS PALABRAS
+          </BText>
+          <BBox style={{ marginTop: Spacing.sm }} contentStyle={styles.inputBox}>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder="Escríbelo como se lo dirías a un entrenador…"
+              placeholderTextColor={Brut.muted}
+              style={styles.input}
+              multiline
+              autoFocus
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={() => void onDraft()}
+              accessibilityLabel="Describe tu objetivo"
+              selectionColor={Brut.accent}
+            />
+          </BBox>
+
+          {!goal && (
+            <Animated.View entering={FadeIn.delay(200)} style={styles.examples}>
+              {EXAMPLES.map((e) => (
+                <BPress
+                  key={e}
+                  shadow={2}
+                  radius={12}
+                  onPress={() => {
+                    feedback.tick();
+                    setText(e);
+                  }}
+                  contentStyle={styles.example}
                 >
-                  <View style={[styles.chip, c.strong && styles.chipStrong]}>
-                    <Text style={[styles.chipText, c.strong && styles.chipTextStrong]}>
-                      {c.label}
-                    </Text>
-                  </View>
-                </Animated.View>
+                  <BText size={14}>{e}</BText>
+                </BPress>
               ))}
-            </View>
-            {goal.question ? (
-              <Text style={styles.question}>{goal.question}</Text>
-            ) : (
-              vague && (
-                <Text style={styles.hint}>
-                  Dime el deporte o qué quieres mejorar y afino mucho más la propuesta.
-                </Text>
-              )
-            )}
-          </Animated.View>
-        )}
-      </ScrollView>
+            </Animated.View>
+          )}
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-        <Pressable
-          onPress={() => void onDraft()}
-          disabled={!canDraft}
-          accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.cta,
-            !canDraft && styles.ctaDisabled,
-            pressed && { transform: [{ scale: 0.98 }] },
-          ]}
-        >
-          <Text style={styles.ctaText}>{busy ? 'Interpretando…' : 'Bocetear plan'}</Text>
-        </Pressable>
-        <Text style={styles.footnote}>Será un borrador: tú decides qué se queda.</Text>
-      </View>
-    </KeyboardAvoidingView>
+          {goal && (
+            <Animated.View entering={FadeIn} layout={LinearTransition} style={styles.reading}>
+              <View style={styles.readingHead}>
+                <BText variant="monoBold" size={10}>
+                  LECTURA
+                </BText>
+                {thinking ? (
+                  <BTag>AFINANDO…</BTag>
+                ) : (
+                  <BTag bg={goal.source === 'ai' ? Brut.accent : 'transparent'}>
+                    {`${goal.source === 'ai' ? 'IA' : 'REGLAS'} · ${goal.confidence
+                      .toFixed(2)
+                      .replace('.', ',')}`}
+                  </BTag>
+                )}
+              </View>
+
+              {goal.summary && (
+                <BText variant="bodySemi" size={16} style={{ marginTop: Spacing.sm }}>
+                  {goal.summary}
+                </BText>
+              )}
+
+              <Animated.View
+                entering={ZoomIn.duration(Brut.motion.reveal)}
+                layout={LinearTransition}
+              >
+                <BBox
+                  bg={Brut.accent}
+                  radius={Brut.radius.md}
+                  style={{ marginTop: Spacing.md }}
+                  contentStyle={styles.sportTile}
+                >
+                  <View style={{ gap: 4, flex: 1 }}>
+                    <BText variant="monoBold" size={10} color={Brut.onAccent}>
+                      01 DEPORTE
+                    </BText>
+                    <BText variant="display" size={32} color={Brut.onAccent}>
+                      {goal.sports.map((s) => SPORT_LABEL[s].toUpperCase()).join(' + ')}
+                    </BText>
+                  </View>
+                  {!!evidence && (
+                    <BText
+                      variant="monoBold"
+                      size={10}
+                      color={Brut.onAccent}
+                      style={styles.evidence}
+                    >
+                      {evidence}
+                    </BText>
+                  )}
+                </BBox>
+              </Animated.View>
+
+              <View style={styles.grid}>
+                {tiles.map((t, i) => (
+                  <Animated.View
+                    key={t.key}
+                    style={styles.cell}
+                    entering={ZoomIn.delay(60 + i * 50).duration(Brut.motion.reveal)}
+                    layout={LinearTransition}
+                  >
+                    <BBox radius={Brut.radius.md} contentStyle={styles.tile}>
+                      <BText variant="monoBold" size={10} color={Brut.muted}>
+                        {pad2(i + 2)} {t.label}
+                      </BText>
+                      <BText variant="display" size={22}>
+                        {t.value.toUpperCase()}
+                      </BText>
+                    </BBox>
+                  </Animated.View>
+                ))}
+                <View style={styles.cell}>
+                  <BBox dashed shadow={0} radius={Brut.radius.md} contentStyle={styles.tile}>
+                    <BText variant="monoBold" size={10} color={Brut.muted}>
+                      TU NIVEL
+                    </BText>
+                    <BText variant="bodyBold" size={14}>
+                      Lo aprendo en tus 3 primeras sesiones
+                    </BText>
+                  </BBox>
+                </View>
+              </View>
+
+              {hint && (
+                <BBox
+                  shadow={0}
+                  bg={Brut.accentSoft}
+                  style={{ marginTop: Spacing.md }}
+                  contentStyle={styles.note}
+                >
+                  <BText variant="bodySemi" size={15}>
+                    {hint}
+                  </BText>
+                </BBox>
+              )}
+            </Animated.View>
+          )}
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <BPress
+            onPress={() => void onDraft()}
+            disabled={!canDraft}
+            bg={Brut.ink}
+            shadowColor={Brut.accent}
+            shadow={Brut.shadow.md}
+            radius={Brut.radius.xl}
+            contentStyle={styles.cta}
+            accessibilityRole="button"
+          >
+            <BText variant="bodyBold" size={17} color={Brut.bg}>
+              {busy ? 'Interpretando…' : 'Bocetear mi semana'}
+            </BText>
+            <BText variant="bodyBold" size={20} color={Brut.bg} upright>
+              →
+            </BText>
+          </BPress>
+          <BText variant="mono" size={10} color={Brut.muted} style={styles.footnote}>
+            BORRADOR · TÚ DECIDES QUÉ SE QUEDA
+          </BText>
+        </View>
+      </KeyboardAvoidingView>
+    </BScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bg.void },
-  content: { paddingHorizontal: Spacing.xl, paddingBottom: 160 },
-  close: { ...Type.bodyEmph, color: Colors.ink.tertiary, marginBottom: Spacing['3xl'] },
-  eyebrow: { ...Type.micro, color: Colors.gold.deep, letterSpacing: 2, fontWeight: '700' },
-  display: { ...Coach.display, color: Colors.ink.primary, marginTop: Spacing.sm },
+  content: { paddingHorizontal: Spacing.lg, paddingBottom: 170 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  label: { marginTop: Spacing.xl, letterSpacing: 1.4 },
+  inputBox: { padding: Spacing.md, minHeight: 112 },
   input: {
-    marginTop: Spacing['2xl'],
-    fontSize: 26,
-    lineHeight: 34,
-    fontWeight: '600',
-    letterSpacing: -0.6,
-    color: Colors.ink.primary,
-    minHeight: 110,
+    fontFamily: Brut.font.bodySemi,
+    fontSize: 20,
+    lineHeight: 27,
+    color: Brut.ink,
+    minHeight: 84,
     textAlignVertical: 'top',
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', fontStyle: 'italic' } as object) : null),
   },
-  examples: { gap: Spacing.sm, marginTop: Spacing.lg },
-  example: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.bg.surface,
-    borderWidth: 1,
-    borderColor: Colors.hair.base,
-  },
-  exampleText: { ...Type.body, color: Colors.ink.secondary },
-  understood: { marginTop: Spacing.xl, gap: Spacing.md },
-  understoodRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  aiThinking: { ...Type.caption, color: Colors.gold.deep, fontStyle: 'italic' },
-  aiTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.gold.base,
-  },
-  aiTagText: { fontSize: 11, fontWeight: '800', color: Coach.stage, letterSpacing: 0.6 },
-  summary: { ...Type.bodyEmph, color: Colors.ink.secondary },
-  question: { ...Type.body, color: Colors.gold.deep, fontWeight: '600' },
-  understoodLabel: {
-    ...Type.micro,
-    color: Colors.ink.muted,
-    letterSpacing: 1.6,
-    textTransform: 'uppercase',
-    fontWeight: '700',
-  },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.bg.surface,
-    borderWidth: 1,
-    borderColor: Colors.hair.strong,
-  },
-  chipStrong: { backgroundColor: Coach.stage, borderColor: Coach.stage },
-  chipText: { ...Type.bodyEmph, color: Colors.ink.primary },
-  chipTextStrong: { color: Coach.stageInk },
-  hint: { ...Type.caption, color: Colors.ink.tertiary },
+  examples: { gap: Spacing.sm, marginTop: Spacing.lg, alignItems: 'flex-start' },
+  example: { paddingHorizontal: Spacing.md, paddingVertical: 10 },
+  reading: { marginTop: Spacing.xl },
+  readingHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sportTile: { padding: Spacing.md, flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm },
+  evidence: { maxWidth: '45%', textAlign: 'right' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: Spacing.sm, marginHorizontal: -3 },
+  cell: { width: '50%', padding: 3 },
+  tile: { padding: Spacing.md, gap: 8, minHeight: 82 },
+  note: { padding: Spacing.md },
   footer: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    backgroundColor: Colors.bg.void,
+    backgroundColor: Brut.bg,
     gap: Spacing.sm,
   },
   cta: {
-    backgroundColor: Coach.stage,
-    borderRadius: Radius.pill,
-    paddingVertical: 18,
+    height: 60,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
   },
-  ctaDisabled: { opacity: 0.25 },
-  ctaText: { fontSize: 17, fontWeight: '700', color: Coach.stageInk, letterSpacing: -0.2 },
-  footnote: { ...Type.caption, color: Colors.ink.muted, textAlign: 'center' },
+  footnote: { textAlign: 'center' },
 });

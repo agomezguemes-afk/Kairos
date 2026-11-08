@@ -1,7 +1,7 @@
 // Coach tab — the hub of the adaptive loop: goal → week → train → unlock.
 
-import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,30 +24,71 @@ import {
   type LoadBand,
 } from '../../lib/adaptive';
 import { useCoachStore } from '../../store/coachStore';
-import { Coach, Colors, Radius, Shadows, Spacing, Type } from '../../theme/tokens';
+import { Brut, Spacing } from '../../theme/tokens';
 import { feedback } from './feedback';
+import { BBox, BPress, BScreen, BTag, BText } from './ui/brut';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const BAND_COPY: Record<LoadBand, string> = {
-  baseline: 'Aprendiendo tu normal — en dos semanas comparo tu carga contigo mismo.',
+  baseline: 'Aprendiendo tu normal: en dos semanas comparo tu carga contigo mismo.',
   lighter: 'Semana más suave que tu media.',
   steady: 'Carga en tu rango habitual.',
   higher: 'Semana por encima de tu media.',
   spike: 'Carga muy por encima de lo habitual: escucha al cuerpo.',
 };
 
-function PulseDot() {
+const WEEK_MS = 7 * 24 * 3600 * 1000;
+const enter = (i: number) =>
+  FadeInDown.delay(i * 60)
+    .duration(Brut.motion.reveal)
+    .springify()
+    .damping(18);
+
+function PulseSquare() {
   const reduce = useReducedMotion();
-  const v = useSharedValue(0);
+  const v = useSharedValue(1);
   React.useEffect(() => {
-    if (!reduce) v.value = withRepeat(withTiming(1, { duration: 1100 }), -1, true);
+    if (!reduce) v.value = withRepeat(withTiming(0.2, { duration: 700 }), -1, true);
   }, [reduce, v]);
-  const style = useAnimatedStyle(() => ({
-    opacity: 0.4 + v.value * 0.6,
-    transform: [{ scale: 0.85 + v.value * 0.3 }],
-  }));
+  const style = useAnimatedStyle(() => ({ opacity: v.value }));
   return <Animated.View style={[styles.pulse, style]} />;
+}
+
+function Stat({
+  index,
+  label,
+  value,
+  unit,
+  hot,
+}: {
+  index: string;
+  label: string;
+  value: string;
+  unit?: string;
+  hot?: boolean;
+}) {
+  return (
+    <BBox
+      bg={hot ? Brut.accent : Brut.surface}
+      radius={Brut.radius.md}
+      style={{ flex: 1 }}
+      contentStyle={styles.stat}
+    >
+      <BText variant="monoBold" size={10} color={hot ? Brut.onAccent : Brut.muted}>
+        {index} {label}
+      </BText>
+      <BText variant="display" size={30}>
+        {value}
+        {unit ? (
+          <BText variant="mono" size={11} color={hot ? Brut.onAccent : Brut.muted}>
+            {' '}
+            {unit}
+          </BText>
+        ) : null}
+      </BText>
+    </BBox>
+  );
 }
 
 export default function CoachHomeScreen() {
@@ -67,314 +108,305 @@ export default function CoachHomeScreen() {
     [plan],
   );
   const trend = useMemo(() => loadTrend(sessions), [sessions]);
+  // Captured once per mount: the tab remounts often enough for a 7-day window.
+  const [now] = useState(() => Date.now());
+  const stats = useMemo(() => {
+    const since = now - WEEK_MS;
+    const thisWeek = sessions.filter((s) => new Date(s.endedAt).getTime() >= since).length;
+    const sets = sessions.reduce(
+      (n, s) => n + s.movements.reduce((m, mv) => m + mv.sets.filter((x) => x.completed).length, 0),
+      0,
+    );
+    return { thisWeek, sets };
+  }, [now, sessions]);
   const doneCount = (id: string) => sessions.filter((s) => s.draftSessionId === id).length;
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.xl }]}
-    >
-      <Text style={styles.eyebrow}>KAIROS COACH</Text>
-
-      {!plan ? (
-        <Animated.View entering={FadeInDown.springify().damping(18)}>
-          <Text style={styles.display}>Entrena a tu manera. Yo aprendo de ti.</Text>
-          <Text style={styles.lede}>
-            Dime qué quieres conseguir. Te propongo una semana, tú eliges qué se queda, y cada
-            entreno desbloquea el siguiente paso.
-          </Text>
-          <Pressable
-            onPress={() => {
-              feedback.light();
-              navigation.navigate('CoachGoal');
-            }}
-            style={({ pressed }) => [styles.heroCta, pressed && { transform: [{ scale: 0.98 }] }]}
-            accessibilityRole="button"
-          >
-            <Text style={styles.heroCtaEyebrow}>EMPEZAR</Text>
-            <Text style={styles.heroCtaTitle}>Cuéntame tu objetivo</Text>
-            <Text style={styles.heroCtaSub}>
-              «Mejorar al pádel en resistencia», «fuerza para escalar»…
-            </Text>
-          </Pressable>
-        </Animated.View>
-      ) : (
-        <>
-          <Animated.Text entering={FadeInDown.springify().damping(18)} style={styles.goal}>
-            «{plan.goal.raw}»
-          </Animated.Text>
-          <View style={styles.tags}>
-            {plan.goal.sports.map((s) => (
-              <Text key={s} style={styles.tagStrong}>
-                {SPORT_LABEL[s]}
-              </Text>
-            ))}
-            {plan.goal.qualities.map((q) => (
-              <Text key={q} style={styles.tag}>
-                {QUALITY_LABEL[q]}
-              </Text>
-            ))}
-          </View>
-
-          {pending > 0 && (
-            <Animated.View entering={FadeInDown.delay(60).springify().damping(18)}>
-              <Pressable
-                onPress={() => {
-                  feedback.light();
-                  navigation.navigate('SuggestionReveal');
-                }}
-                style={({ pressed }) => [
-                  styles.unlockBanner,
-                  pressed && { transform: [{ scale: 0.98 }] },
-                ]}
-                accessibilityRole="button"
-              >
-                <View style={styles.unlockIcon}>
-                  <KIcon name="lock" size={18} color={Colors.gold.base} />
-                  <PulseDot />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.unlockTitle}>
-                    {pending} {pending === 1 ? 'propuesta lista' : 'propuestas listas'}
-                  </Text>
-                  <Text style={styles.unlockSub}>Desbloquéalas cuando quieras</Text>
-                </View>
-                <Text style={styles.chev}>›</Text>
-              </Pressable>
-            </Animated.View>
+    <BScreen>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.md }]}>
+        <View style={styles.topRow}>
+          <BText variant="monoBold" size={11} style={styles.brand}>
+            KAIROS{' '}
+            <BText variant="mono" size={11} color={Brut.muted}>
+              / COACH
+            </BText>
+          </BText>
+          {plan && (
+            <BPress
+              onPress={() => navigation.navigate('CoachGoal')}
+              radius={12}
+              contentStyle={styles.newGoal}
+              accessibilityRole="button"
+              accessibilityLabel="Nuevo objetivo"
+            >
+              <KIcon name="plus" size={18} color={Brut.ink} strokeWidth={2.2} />
+            </BPress>
           )}
+        </View>
 
-          <View style={styles.sectionHead}>
-            <Text style={styles.section}>Tu semana</Text>
-            {undecided > 0 && (
-              <Pressable onPress={() => navigation.navigate('CoachPlan')} hitSlop={8}>
-                <Text style={styles.link}>{undecided} sin decidir</Text>
-              </Pressable>
+        {!plan ? (
+          <Animated.View entering={enter(0)}>
+            <BText variant="display" size={54} style={styles.hero}>
+              ENTRENA A TU MANERA.{'\n'}YO APRENDO DE TI.
+            </BText>
+            <BText color={Brut.muted} style={styles.lede}>
+              Dime qué quieres conseguir. Te propongo una semana, tú eliges qué se queda, y cada
+              entreno desbloquea el siguiente paso.
+            </BText>
+            <BPress
+              onPress={() => {
+                feedback.light();
+                navigation.navigate('CoachGoal');
+              }}
+              bg={Brut.accent}
+              shadow={Brut.shadow.md}
+              radius={Brut.radius.xl}
+              style={{ marginTop: Spacing['2xl'] }}
+              contentStyle={styles.heroCta}
+              accessibilityRole="button"
+            >
+              <BText variant="monoBold" size={10} color={Brut.onAccent}>
+                01 · EMPEZAR
+              </BText>
+              <BText variant="display" size={34} color={Brut.onAccent} style={{ marginTop: 6 }}>
+                CUÉNTAME TU OBJETIVO
+              </BText>
+              <BText size={14} color={Brut.onAccent} style={{ marginTop: 6 }}>
+                «Mejorar al pádel en resistencia», «fuerza para escalar»…
+              </BText>
+            </BPress>
+          </Animated.View>
+        ) : (
+          <>
+            <Animated.View entering={enter(0)}>
+              <BText variant="display" size={44} style={styles.hero}>
+                {week.length ? 'TU SEMANA' : 'TU BORRADOR'}
+              </BText>
+              <BText variant="mono" size={11} color={Brut.muted} style={{ marginTop: 4 }}>
+                {[
+                  ...plan.goal.sports.map((s) => SPORT_LABEL[s]),
+                  plan.goal.qualities.map((q) => QUALITY_LABEL[q]).join(' → '),
+                  `${plan.goal.daysPerWeek} DÍAS/SEM`,
+                ]
+                  .join(' · ')
+                  .toUpperCase()}
+              </BText>
+            </Animated.View>
+
+            <Animated.View entering={enter(1)} style={styles.stats}>
+              <Stat
+                index="01"
+                label="SEMANA"
+                value={`${stats.thisWeek}`}
+                unit={`/${plan.goal.daysPerWeek}`}
+                hot
+              />
+              <Stat index="02" label="CARGA" value={`${trend.acute}`} unit="UA" />
+              <Stat index="03" label="DATOS" value={`${stats.sets}`} unit="SERIES" />
+            </Animated.View>
+
+            {pending > 0 && (
+              <Animated.View entering={enter(2)}>
+                <BPress
+                  onPress={() => {
+                    feedback.light();
+                    navigation.navigate('SuggestionReveal');
+                  }}
+                  shadow={Brut.shadow.md}
+                  radius={Brut.radius.xl}
+                  style={{ marginTop: Spacing.lg }}
+                  contentStyle={styles.unlock}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${pending} propuestas por desbloquear`}
+                >
+                  <View style={styles.unlockIcon}>
+                    <KIcon name="lock" size={20} color={Brut.onAccent} strokeWidth={2.2} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.row}>
+                      <PulseSquare />
+                      <BText variant="monoBold" size={10}>
+                        SELLADAS · BASADAS EN TUS DATOS
+                      </BText>
+                    </View>
+                    <BText variant="display" size={26} style={{ marginTop: 2 }}>
+                      {pending} {pending === 1 ? 'PROPUESTA LISTA' : 'PROPUESTAS LISTAS'}
+                    </BText>
+                  </View>
+                  <KIcon name="unlock" size={20} color={Brut.ink} strokeWidth={2} />
+                </BPress>
+              </Animated.View>
             )}
-          </View>
 
-          {week.length === 0 ? (
-            <Pressable onPress={() => navigation.navigate('CoachPlan')} style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Elige tus sesiones</Text>
-              <Text style={styles.lede}>Tu borrador está esperando.</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.week}>
-              {week.map((s, i) => {
-                const n = doneCount(s.id);
-                return (
-                  <Animated.View
-                    key={s.id}
-                    entering={FadeInDown.delay(100 + i * 60)
-                      .springify()
-                      .damping(18)}
-                  >
-                    <View style={styles.sessionCard}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.sessionMeta}>
-                          DÍA {s.slot + 1} · {s.durationMin} MIN{n ? ` · ${n}× HECHA` : ''}
-                        </Text>
-                        <Text style={styles.sessionTitle}>{s.title}</Text>
-                        <Text style={styles.sessionMoves} numberOfLines={1}>
-                          {s.movements
-                            .map((m) => getMovement(m.movementId)?.name)
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </Text>
-                      </View>
-                      <Pressable
+            <View style={styles.sectionHead}>
+              <BText variant="monoBold" size={11}>
+                SESIONES
+              </BText>
+              {undecided > 0 && (
+                <BPress
+                  onPress={() => navigation.navigate('CoachPlan')}
+                  shadow={2}
+                  radius={8}
+                  contentStyle={styles.smallBtn}
+                >
+                  <BText variant="monoBold" size={10}>
+                    {undecided} SIN DECIDIR →
+                  </BText>
+                </BPress>
+              )}
+            </View>
+
+            {week.length === 0 ? (
+              <BPress
+                onPress={() => navigation.navigate('CoachPlan')}
+                contentStyle={styles.empty}
+                style={{ marginTop: Spacing.sm }}
+              >
+                <BText variant="display" size={24}>
+                  ELIGE TUS SESIONES
+                </BText>
+                <BText color={Brut.muted}>Tu borrador está esperando.</BText>
+              </BPress>
+            ) : (
+              <View style={styles.week}>
+                {week.map((s, i) => {
+                  const n = doneCount(s.id);
+                  return (
+                    <Animated.View key={s.id} entering={enter(3 + i)}>
+                      <BPress
                         onPress={() => {
                           feedback.heavy();
                           navigation.navigate('LiveSession', { draftSessionId: s.id });
                         }}
-                        style={({ pressed }) => [
-                          styles.go,
-                          pressed && { transform: [{ scale: 0.94 }] },
-                        ]}
+                        contentStyle={styles.session}
                         accessibilityRole="button"
                         accessibilityLabel={`Empezar ${s.title}`}
                       >
-                        <Text style={styles.goText}>▶</Text>
-                      </Pressable>
-                    </View>
-                  </Animated.View>
-                );
-              })}
-            </View>
-          )}
+                        <View
+                          style={[
+                            styles.code,
+                            { backgroundColor: i === 0 ? Brut.accent : Brut.accentSoft },
+                          ]}
+                        >
+                          <BText variant="monoBold" size={12} color={Brut.onAccent}>
+                            D{s.slot + 1}
+                          </BText>
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <BText variant="bodyBold" size={16}>
+                            {s.title}
+                          </BText>
+                          <BText variant="mono" size={10} color={Brut.muted} numberOfLines={1}>
+                            {s.durationMin} MIN{n ? ` · ${n}× HECHA` : ''} ·{' '}
+                            {s.movements
+                              .map((m) => getMovement(m.movementId)?.name)
+                              .filter(Boolean)
+                              .join(' · ')
+                              .toUpperCase()}
+                          </BText>
+                        </View>
+                        <View style={styles.play}>
+                          <BText variant="bodyBold" size={14} upright color={Brut.onAccent}>
+                            ▶
+                          </BText>
+                        </View>
+                      </BPress>
+                    </Animated.View>
+                  );
+                })}
+              </View>
+            )}
 
-          {sessions.length > 0 && (
-            <View style={styles.loadCard}>
-              <Text style={styles.loadLabel}>CARGA 7 DÍAS</Text>
-              <Text style={styles.loadValue}>
-                {trend.acute}
-                <Text style={styles.loadUnit}>
-                  {' '}
-                  UA{trend.ratio !== null ? ` · ${trend.ratio}× tu media` : ''}
-                </Text>
-              </Text>
-              <Text style={styles.lede}>{BAND_COPY[trend.band]}</Text>
-            </View>
-          )}
-
-          <Pressable
-            onPress={() => navigation.navigate('CoachGoal')}
-            hitSlop={8}
-            style={{ marginTop: Spacing.xl }}
-          >
-            <Text style={styles.link}>Nuevo objetivo</Text>
-          </Pressable>
-        </>
-      )}
-    </ScrollView>
+            {sessions.length > 0 && (
+              <BBox style={{ marginTop: Spacing.xl }} contentStyle={styles.load}>
+                <View style={styles.row}>
+                  <BText variant="monoBold" size={10} color={Brut.muted}>
+                    CARGA 7 DÍAS
+                  </BText>
+                  {trend.ratio !== null && <BTag>{`${trend.ratio}× TU MEDIA`}</BTag>}
+                </View>
+                <BText variant="display" size={40} style={{ marginTop: 4 }}>
+                  {trend.acute}
+                  <BText variant="mono" size={12} color={Brut.muted}>
+                    {' '}
+                    UA
+                  </BText>
+                </BText>
+                <BText size={14} color={Brut.muted}>
+                  {BAND_COPY[trend.band]}
+                </BText>
+              </BBox>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </BScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bg.void },
-  content: { paddingHorizontal: Spacing.xl, paddingBottom: 120 },
-  eyebrow: { ...Type.micro, color: Colors.gold.deep, letterSpacing: 2, fontWeight: '700' },
-  display: { ...Coach.display, color: Colors.ink.primary, marginTop: Spacing.sm },
-  lede: { ...Type.body, color: Colors.ink.tertiary, marginTop: Spacing.sm },
-  heroCta: {
-    marginTop: Spacing['2xl'],
-    backgroundColor: Coach.stage,
-    borderRadius: 28,
-    padding: Spacing['2xl'],
-    ...Shadows.elevated,
-  },
-  heroCtaEyebrow: { ...Type.micro, color: Colors.gold.base, letterSpacing: 2, fontWeight: '700' },
-  heroCtaTitle: {
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: '800',
-    letterSpacing: -1,
-    color: Coach.stageInk,
-    marginTop: Spacing.sm,
-  },
-  heroCtaSub: { ...Type.body, color: Coach.stageMuted, marginTop: Spacing.sm },
-  goal: {
-    fontSize: 32,
-    lineHeight: 36,
-    fontWeight: '800',
-    letterSpacing: -1.1,
-    color: Colors.ink.primary,
-    marginTop: Spacing.sm,
-  },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: Spacing.md },
-  tag: {
-    ...Type.caption,
-    color: Colors.ink.secondary,
-    borderWidth: 1,
-    borderColor: Colors.hair.strong,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    overflow: 'hidden',
-  },
-  tagStrong: {
-    ...Type.caption,
-    fontWeight: '700',
-    color: Coach.stageInk,
-    backgroundColor: Coach.stage,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    overflow: 'hidden',
-  },
-  unlockBanner: {
-    marginTop: Spacing.xl,
+  content: { paddingHorizontal: Spacing.lg, paddingBottom: 140 },
+  topRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: Spacing.lg,
-    backgroundColor: Coach.stage,
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.gold.base,
-    ...Shadows.elevated,
+    minHeight: 48,
   },
+  brand: { letterSpacing: 2 },
+  newGoal: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  hero: { marginTop: Spacing.md },
+  lede: { marginTop: Spacing.md, lineHeight: 22 },
+  heroCta: { padding: Spacing.xl },
+  stats: { flexDirection: 'row', gap: 6, marginTop: Spacing.lg },
+  stat: { padding: 10, gap: 10 },
+  unlock: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
   unlockIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(201,169,110,0.14)',
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: Brut.border,
+    borderColor: Brut.ink,
+    backgroundColor: Brut.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pulse: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: Colors.gold.base,
+    width: 8,
+    height: 8,
+    backgroundColor: Brut.accent,
+    borderWidth: 1,
+    borderColor: Brut.ink,
   },
-  unlockTitle: { fontSize: 18, fontWeight: '800', color: Coach.stageInk, letterSpacing: -0.3 },
-  unlockSub: { ...Type.caption, color: Coach.stageMuted },
-  chev: { fontSize: 28, color: Colors.gold.base },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
   sectionHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginTop: Spacing['3xl'],
-  },
-  section: { fontSize: 22, fontWeight: '800', letterSpacing: -0.6, color: Colors.ink.primary },
-  link: { ...Type.bodyEmph, color: Colors.gold.deep },
-  week: { gap: Spacing.md, marginTop: Spacing.md },
-  sessionCard: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.lg,
-    backgroundColor: Colors.bg.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.hair.base,
-    ...Shadows.card,
+    marginTop: Spacing['2xl'],
   },
-  sessionMeta: { ...Type.micro, color: Colors.ink.muted, letterSpacing: 1.2, fontWeight: '700' },
-  sessionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    color: Colors.ink.primary,
-    marginTop: 4,
-  },
-  sessionMoves: { ...Type.caption, color: Colors.ink.tertiary, marginTop: 4 },
-  go: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: Coach.stage,
+  smallBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  week: { gap: Spacing.sm, marginTop: Spacing.sm },
+  session: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
+  code: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: Brut.border,
+    borderColor: Brut.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  goText: { color: Colors.gold.base, fontSize: 18, marginLeft: 3 },
-  emptyCard: {
-    marginTop: Spacing.md,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: Colors.hair.strong,
+  play: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: Brut.border,
+    borderColor: Brut.ink,
+    backgroundColor: Brut.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 2,
   },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: Colors.ink.primary },
-  loadCard: {
-    marginTop: Spacing['2xl'],
-    paddingTop: Spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: Colors.hair.base,
-  },
-  loadLabel: { ...Type.micro, color: Colors.ink.muted, letterSpacing: 1.6, fontWeight: '700' },
-  loadValue: {
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -1,
-    color: Colors.ink.primary,
-    marginTop: 4,
-    fontVariant: ['tabular-nums'],
-  },
-  loadUnit: { fontSize: 14, fontWeight: '600', color: Colors.ink.tertiary },
+  empty: { padding: Spacing.xl, gap: 4 },
+  load: { padding: Spacing.lg },
 });
