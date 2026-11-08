@@ -10,7 +10,7 @@
 //   node scripts/use-env.mjs staging
 //   node scripts/use-env.mjs production
 
-import { existsSync, lstatSync, unlinkSync, symlinkSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, unlinkSync, symlinkSync, readFileSync, copyFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const target = (process.argv[2] ?? '').trim();
@@ -37,13 +37,23 @@ if (existsSync(envFile) || lstatSync(envFile, { throwIfNoEntry: false })) {
   unlinkSync(envFile);
 }
 
-symlinkSync(targetFile, envFile);
+// Windows refuses symlinks unless Developer Mode or admin is on, so fall
+// back to a copy there. A copy goes stale if the source is edited —
+// re-run the env:* script after changing .env.<target>.
+let mode = 'symlink';
+try {
+  symlinkSync(targetFile, envFile);
+} catch (err) {
+  if (process.platform !== 'win32' || err?.code !== 'EPERM') throw err;
+  copyFileSync(targetPath, envFile);
+  mode = 'copy';
+}
 
 // Surface the active project so the user knows what they're about to build.
 const contents = readFileSync(targetPath, 'utf-8');
 const urlMatch = contents.match(/^EXPO_PUBLIC_SUPABASE_URL=(.+)$/m);
 const supabaseUrl = urlMatch?.[1]?.trim() ?? '(unset)';
 
-console.log(`✓ .env → ${targetFile}`);
+console.log(`✓ .env → ${targetFile}${mode === 'copy' ? ' (copied; re-run after edits)' : ''}`);
 console.log(`  APP_ENV=${target}`);
 console.log(`  Supabase: ${supabaseUrl}`);
