@@ -1,36 +1,32 @@
-// KAIROS — Tab Bar v3 (floating capsule, simplified active state)
-// Spec: docs/superpowers/specs/2026-04-27-kairos-visual-refinement-design.md §4.1
+// KAIROS — Tab Bar v4 (direction "D · Bloque", 2026-11-09)
 //
-// Design:
-//   - Floating capsule with BlurView + warm overlay, hairline border, elevated shadow.
-//   - Single animated gold glow pill tracks the active tab (springs.indicator).
-//   - Icon-only. accessibilityLabel carries the human name for VoiceOver.
-//   - Active icon: strokeWidth 2, gold. Inactive: strokeWidth 1.6, ink.muted.
-//     Color and weight swap on focus change (no cross-fade — Apple-style snap).
-//   - Pop on focus: scale 1.0 → 1.12 → 1.0 in 240ms via spring (springs.tap).
-//   - Haptic on tab change: selectionAsync.
+// A brutalist capsule: 2px ink outline + hard offset shadow. The active tab
+// grows into a gold pill that shows its label; inactive tabs are icons.
+// Width and label animate together so the eye follows where focus went.
 
-import React, { useEffect, useRef, useCallback } from 'react';
-import { View, Pressable, StyleSheet, LayoutChangeEvent } from 'react-native';
+import React, { useEffect } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import Animated, {
-  useSharedValue,
+  Easing,
+  interpolate,
+  interpolateColor,
   useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
   useReducedMotion,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import KIcon, { type KIconName } from './icons/KIcon';
-import { Colors, Radius, Shadows, Spacing } from '../theme/tokens';
-import { springs, timings } from '../theme/animations';
+import { Brut, Spacing } from '../theme/tokens';
+import { BText } from '../features/coach/ui/brut';
 
-const BAR_HEIGHT = 56;
-const PILL_SIZE = 36;
+const BAR_HEIGHT = 58;
+const TAB_SIZE = 44;
+const ACTIVE_W = 112;
+const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 
 const TAB_ICONS: Record<string, KIconName> = {
   CoachTab: 'unlock',
@@ -48,135 +44,77 @@ const TAB_LABELS: Record<string, string> = {
   ProfileTab: 'Perfil',
 };
 
-interface TabIconProps {
-  name: KIconName;
+interface TabProps {
+  icon: KIconName;
+  label: string;
   focused: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
 }
 
-/**
- * Tab icon with snap color/weight switch on focus and a subtle scale-pop
- * to reinforce the change. No cross-fade layer — the gold pill behind
- * the icon already carries the spatial motion; the icon itself reads as
- * a discrete state change, which is faster and matches iOS conventions.
- */
-const TabIcon = React.memo(function TabIcon({ name, focused }: TabIconProps) {
-  const reduceMotion = useReducedMotion();
-  const scale = useSharedValue(1);
+const Tab = React.memo(function Tab({ icon, label, focused, onPress, onLongPress }: TabProps) {
+  const reduce = useReducedMotion();
+  const t = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {
-    if (!focused || reduceMotion) return;
-    // Pop only when becoming focused. Inactive→inactive shouldn't fire.
-    scale.value = withSequence(
-      withSpring(1.12, { ...springs.tap, mass: 0.4 }),
-      withSpring(1.0, springs.tap),
-    );
-  }, [focused, reduceMotion, scale]);
+    t.value = reduce
+      ? focused
+        ? 1
+        : 0
+      : withTiming(focused ? 1 : 0, { duration: Brut.motion.tab, easing: EASE });
+  }, [focused, reduce, t]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+  const pill = useAnimatedStyle(() => ({
+    width: interpolate(t.value, [0, 1], [TAB_SIZE, ACTIVE_W]),
+    backgroundColor: interpolateColor(t.value, [0, 1], ['rgba(201,169,110,0)', Brut.accent]),
+    borderColor: interpolateColor(t.value, [0, 1], ['rgba(18,18,17,0)', Brut.ink]),
+  }));
+  // The label fades in after the pill has started opening, so it never
+  // renders squashed inside a pill that is still too narrow.
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(t.value, [0.45, 1], [0, 1], 'clamp'),
+    maxWidth: interpolate(t.value, [0, 1], [0, ACTIVE_W - 40]),
   }));
 
   return (
-    <Animated.View style={[iconStyles.wrapper, animatedStyle]}>
-      <KIcon
-        name={name}
-        size={22}
-        color={focused ? Colors.gold.base : Colors.ink.muted}
-        strokeWidth={focused ? 2 : 1.6}
-      />
-    </Animated.View>
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: focused }}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      hitSlop={4}
+    >
+      <Animated.View style={[styles.tab, pill]}>
+        <KIcon name={icon} size={20} color={Brut.ink} strokeWidth={focused ? 2.2 : 1.8} />
+        <Animated.View style={[styles.labelWrap, labelStyle]}>
+          <BText variant="bodyBold" size={13} numberOfLines={1}>
+            {label}
+          </BText>
+        </Animated.View>
+      </Animated.View>
+    </Pressable>
   );
-});
-
-const iconStyles = StyleSheet.create({
-  wrapper: {
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 });
 
 export default function KairosTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
-  // Layout of the bar — needed to position the pill.
-  const tabWidthsRef = useRef<number[]>([]);
-  const tabXsRef = useRef<number[]>([]);
-  const pillX = useSharedValue(0);
-  const pillVisible = useSharedValue(0);
-
-  const updatePill = useCallback(
-    (index: number) => {
-      const x = tabXsRef.current[index];
-      const w = tabWidthsRef.current[index];
-      if (x === undefined || w === undefined) return;
-      // Center the pill within the tab.
-      pillX.value = withSpring(x + (w - PILL_SIZE) / 2, springs.indicator);
-    },
-    [pillX],
-  );
-
-  // When tabs are laid out, record positions and snap pill to initial active tab.
-  const handleTabLayout = useCallback(
-    (event: LayoutChangeEvent, index: number) => {
-      const { x, width } = event.nativeEvent.layout;
-      tabXsRef.current[index] = x;
-      tabWidthsRef.current[index] = width;
-
-      // Once we have all tab positions, position the pill.
-      if (tabXsRef.current.filter(Boolean).length === state.routes.length) {
-        pillVisible.value = withTiming(1, timings.fast);
-        updatePill(state.index);
-      }
-    },
-    [state.routes.length, state.index, pillVisible, updatePill],
-  );
-
-  // Animate pill when active index changes.
-  useEffect(() => {
-    updatePill(state.index);
-  }, [state.index, updatePill]);
-
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pillX.value }],
-    opacity: pillVisible.value,
-  }));
-
   return (
     <View
-      style={[
-        styles.container,
-        {
-          bottom: insets.bottom + 16,
-        },
-      ]}
+      style={[styles.container, { bottom: insets.bottom + Spacing.md }]}
       pointerEvents="box-none"
     >
-      {/* Floating capsule */}
+      <View style={styles.shadow} pointerEvents="none" />
       <View style={styles.capsule}>
-        {/* Blur layer */}
-        <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
-        {/* Warm overlay on top of blur */}
-        <View style={[StyleSheet.absoluteFill, styles.warmOverlay]} />
-
-        {/* Animated gold pill — sits below icons */}
-        <Animated.View style={[styles.pill, pillStyle]} pointerEvents="none" />
-
-        {/* Tabs */}
         {state.routes.map((route, idx) => {
           const focused = state.index === idx;
-          const icon = TAB_ICONS[route.name] ?? 'note';
-          const label = TAB_LABELS[route.name] ?? route.name;
-
           return (
-            <Pressable
+            <Tab
               key={route.key}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              accessibilityState={focused ? { selected: true } : undefined}
-              hitSlop={8}
-              onLayout={(e) => handleTabLayout(e, idx)}
+              icon={TAB_ICONS[route.name] ?? 'note'}
+              label={TAB_LABELS[route.name] ?? route.name}
+              focused={focused}
               onPress={() => {
                 Haptics.selectionAsync().catch(() => {});
                 const event = navigation.emit({
@@ -188,10 +126,8 @@ export default function KairosTabBar({ state, navigation }: BottomTabBarProps) {
                   navigation.navigate(route.name as never);
                 }
               }}
-              style={styles.tab}
-            >
-              <TabIcon name={icon} focused={focused} />
-            </Pressable>
+              onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
+            />
           );
         })}
       </View>
@@ -203,36 +139,37 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     left: Spacing.lg,
-    right: Spacing.lg,
-    // bottom set inline using insets
+    right: Spacing.lg + Brut.shadow.sm,
+  },
+  shadow: {
+    position: 'absolute',
+    top: Brut.shadow.sm,
+    left: Brut.shadow.sm,
+    right: -Brut.shadow.sm,
+    height: BAR_HEIGHT,
+    borderRadius: BAR_HEIGHT / 2,
+    backgroundColor: Brut.ink,
   },
   capsule: {
     height: BAR_HEIGHT,
-    borderRadius: Radius['3xl'],
+    borderRadius: BAR_HEIGHT / 2,
+    borderWidth: Brut.border,
+    borderColor: Brut.ink,
+    backgroundColor: Brut.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.hair.base,
-    ...Shadows.elevated,
-  },
-  warmOverlay: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    borderRadius: Radius['3xl'],
-  },
-  pill: {
-    position: 'absolute',
-    top: (BAR_HEIGHT - PILL_SIZE) / 2,
-    left: 0,
-    width: PILL_SIZE,
-    height: PILL_SIZE,
-    borderRadius: PILL_SIZE / 2,
-    backgroundColor: Colors.gold.glow,
+    justifyContent: 'space-between',
+    paddingHorizontal: 5,
   },
   tab: {
-    flex: 1,
-    height: BAR_HEIGHT,
+    height: TAB_SIZE,
+    borderRadius: TAB_SIZE / 2,
+    borderWidth: Brut.border,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    overflow: 'hidden',
   },
+  labelWrap: { overflow: 'hidden' },
 });
