@@ -437,3 +437,40 @@ export const Coach = {
     fontVariant: ['tabular-nums'] as FontVariant[],
   },
 } as const;
+
+// ── Brut — direction "D · Bloque" (2026-11-09) ─────────────────────────
+// Neo-brutalist boxes (2px ink outline + hard offset shadow) with a tech
+// layer (mono labels, dot grid). Type: Anton display, Space Grotesk body,
+// Space Mono labels, all slanted. Gold stays a fill: as text on white it
+// fails contrast, so text on gold is always ink.
+export const Brut = {
+  bg: '#F4F2EC',
+  surface: '#FFFFFF',
+  ink: '#121211',
+  accent: '#C9A96E',
+  accentSoft: '#EFE4CC',
+  onAccent: '#121211',
+  muted: '#5D5A52',
+  dot: 'rgba(18,18,17,0.08)',
+  night: {
+    bg: '#0E0E0D',
+    surface: '#1A1A18',
+    ink: '#F2F0EA',
+    muted: '#A9A59B',
+    dot: 'rgba(242,240,234,0.06)',
+  },
+  border: 2,
+  shadow: { sm: 3, md: 4 },
+  radius: { sm: 10, md: 14, lg: 16, xl: 18 },
+  font: {
+    display: 'Anton_400Regular',
+    body: 'SpaceGrotesk_500Medium',
+    bodySemi: 'SpaceGrotesk_600SemiBold',
+    bodyBold: 'SpaceGrotesk_700Bold',
+    mono: 'SpaceMono_400Regular_Italic',
+    monoBold: 'SpaceMono_700Bold_Italic',
+  },
+  /** Anton and Space Grotesk ship no italic; native gets a skew instead. */
+  slantDeg: -8,
+  motion: { press: 120, tab: 320, reveal: 340 },
+} as const;

@@ -10,6 +10,17 @@ import { TreeProvider } from './src/context/TreeContext';
 import { MissionBridge } from './src/context/MissionBridge';
 import { useAuthStore, startAuthListener } from './src/store/useAuthStore';
 import { ThemeProvider } from './src/theme/ThemeContext';
+import { useFonts } from 'expo-font';
+import { Anton_400Regular } from '@expo-google-fonts/anton';
+import {
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
+import {
+  SpaceMono_400Regular_Italic,
+  SpaceMono_700Bold_Italic,
+} from '@expo-google-fonts/space-mono';
 
 // Separate component so useAuthStore hook runs inside the React tree
 // (after GestureHandlerRootView / SafeAreaProvider are mounted).
@@ -42,6 +53,18 @@ function AppContent() {
 }
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({
+    Anton_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    SpaceMono_400Regular_Italic,
+    SpaceMono_700Bold_Italic,
+  });
+  // A font load failure must not brick the app: system fonts are an
+  // acceptable fallback, so only wait while loading is still pending.
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
