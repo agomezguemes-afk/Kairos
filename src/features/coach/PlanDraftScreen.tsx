@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  rule: { borderTopWidth: 1.5, borderTopColor: Brut.ink },
+  rule: { borderTopWidth: 1, borderTopColor: Brut.ink },
   moveName: { flexGrow: 1, flexBasis: '50%', flexShrink: 0 },
   moveTarget: { flexShrink: 1, textAlign: 'right' },
   cardActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg },

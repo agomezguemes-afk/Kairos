@@ -459,9 +459,11 @@ export const Brut = {
     muted: '#A9A59B',
     dot: 'rgba(242,240,234,0.06)',
   },
-  border: 2,
-  shadow: { sm: 3, md: 4 },
-  radius: { sm: 10, md: 14, lg: 16, xl: 18 },
+  // Softened 2026-11-09: thinner lines and shorter shadows keep the
+  // brutalist read without shouting.
+  border: 1.5,
+  shadow: { sm: 2, md: 3 },
+  radius: { sm: 12, md: 16, lg: 18, xl: 20 },
   font: {
     display: 'Anton_400Regular',
     body: 'SpaceGrotesk_500Medium',

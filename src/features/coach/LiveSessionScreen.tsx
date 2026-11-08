@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   extraValue: { ...bt.display(30), color: N.ink, fontVariant: ['tabular-nums'] },
   extraUnit: { ...bt.mono(11), color: N.muted },
   zoneBar: { flexDirection: 'row', gap: 4, marginTop: Spacing.md },
-  zoneSeg: { flex: 1, height: 10, borderRadius: 2, borderWidth: 1.5, borderColor: N.ink },
+  zoneSeg: { flex: 1, height: 10, borderRadius: 2, borderWidth: 1, borderColor: N.ink },
   sources: { gap: Spacing.sm, paddingVertical: Spacing.lg },
   source: {
     flexDirection: 'row',
