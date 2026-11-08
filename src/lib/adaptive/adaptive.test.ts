@@ -101,6 +101,14 @@ describe('draftPlan', () => {
     expect(ids.some((id) => ['max_hang', 'pull_up'].includes(id))).toBe(true);
   });
 
+  it('alternates steady and interval endurance sessions by count, not weekday', () => {
+    const plan = draftPlan(parseGoal('padel resistencia y potencia 3 dias'), NOW);
+    const endurance = plan.sessions.filter((s) => s.focus === 'endurance');
+    expect(endurance).toHaveLength(2);
+    const kinds = endurance.map((s) => getMovement(s.movements[0].movementId)?.kind);
+    expect(kinds).toEqual(['steady', 'interval']);
+  });
+
   it('alternates sports for multi-sport goals', () => {
     const plan = draftPlan(parseGoal('resistencia para padel y running 4 dias'), NOW);
     expect(plan.sessions.map((s) => s.sport)).toEqual(['padel', 'running', 'padel', 'running']);
@@ -187,6 +195,22 @@ describe('generateSuggestions — strength', () => {
     expect(swap?.replacementMovementId).toBeDefined();
     expect(swap?.rarity).toBe('epic');
     expect(swap?.confidence).toBe('solid');
+  });
+});
+
+describe('generateSuggestions — load-less movements', () => {
+  it('never suggests adding kg to plyometrics', () => {
+    const jumps: MovementLog = {
+      movementId: 'box_jump',
+      target: { sets: 4, repsMin: 3, repsMax: 5, rir: 3, loadKg: 0 },
+      sets: Array.from({ length: 4 }, () => ({ reps: 5, loadKg: 0, rir: 3, completed: true })),
+    };
+    const out = generateSuggestions({
+      session: session({ movements: [jumps] }),
+      history: [],
+      now: NOW,
+    });
+    expect(out.some((s) => s.kind === 'increase_load')).toBe(false);
   });
 });
 

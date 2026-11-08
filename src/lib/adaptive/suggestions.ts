@@ -152,8 +152,10 @@ function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
     return out;
   }
 
-  if (!suppressIncrease && hitTop(last.log) && load !== undefined) {
-    const inc = m.incrementKg ?? 2.5;
+  // No increment defined = load isn't the progression lever (plyometrics,
+  // core holds); suggesting "add kg" to a box jump would be nonsense.
+  if (!suppressIncrease && m.incrementKg !== undefined && hitTop(last.log) && load !== undefined) {
+    const inc = m.incrementKg;
     const next = roundTo(load + inc, inc > 1 ? inc / 2 : inc);
     const bestBefore = Math.max(0, ...occ.slice(0, -1).map((o) => bestSetE1rm(o.log.sets) ?? 0));
     const projected =

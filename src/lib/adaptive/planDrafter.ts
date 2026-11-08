@@ -16,6 +16,20 @@ import type {
 
 const WARMUP_MIN = 8;
 
+const ENDURANCE_WHY: Record<Sport, string> = {
+  padel: 'es lo que te deja llegar entero al tercer set.',
+  tennis: 'es lo que te deja llegar entero al tercer set.',
+  climbing: 'acelera la recuperación entre vías y bloques.',
+  hiking: 'es lo que te permite aguantar la última subida de la ruta.',
+  running: 'es la base sobre la que se construye cualquier ritmo.',
+  cycling: 'es la base sobre la que se construye cualquier ritmo.',
+  football: 'es lo que te mantiene presente en los últimos minutos del partido.',
+  basketball: 'es lo que te mantiene presente en los últimos minutos del partido.',
+  swimming: 'mejora la eficiencia y te deja nadar más con menos esfuerzo.',
+  strength: 'mejora la recuperación entre series y sesiones.',
+  general: 'mejora tu capacidad de recuperarte de cualquier esfuerzo.',
+};
+
 export function estimateMovementMinutes(m: Movement, t: MovementTarget): number {
   switch (m.kind) {
     case 'strength':
@@ -67,6 +81,8 @@ function buildSession(
   sport: Sport,
   focus: Quality,
   slot: number,
+  /** How many sessions with this same focus came before this one. */
+  ordinal: number,
   used: Set<string>,
   idPrefix: string,
 ): DraftSession {
@@ -80,14 +96,16 @@ function buildSession(
       break;
     case 'endurance': {
       // Alternate steady and interval days so aerobic base and tolerance both grow.
-      const kind: Movement['kind'] = slot % 2 === 0 ? 'steady' : 'interval';
+      // Alternate by endurance-session count, not weekday, so even a
+      // 3-day week with two endurance days gets one of each.
+      const kind: Movement['kind'] = ordinal % 2 === 0 ? 'steady' : 'interval';
       movements = [
         ...pick(sport, 'endurance', 1, used, [kind]),
         ...pick(sport, 'strength', 1, used, ['strength']),
       ];
       rationale =
         kind === 'steady'
-          ? 'Base aeróbica en zona 2: es lo que te permite aguantar el final del partido o de la ruta.'
+          ? `Base aeróbica en zona 2: ${ENDURANCE_WHY[sport]}`
           : 'Intervalos para tolerar esfuerzos altos repetidos y recuperar más rápido entre ellos.';
       break;
     }
@@ -137,9 +155,12 @@ export function draftPlan(goal: ParsedGoal, now: Date = new Date()): PlanDraft {
   const id = `plan-${now.getTime().toString(36)}`;
   const focuses = distributeFocus(goal.qualities, goal.daysPerWeek);
   const used = new Set<string>();
+  const seen: Partial<Record<Quality, number>> = {};
   const sessions = focuses.map((focus, slot) => {
     const sport = goal.sports[slot % goal.sports.length];
-    return buildSession(goal, sport, focus, slot, used, id);
+    const ordinal = seen[focus] ?? 0;
+    seen[focus] = ordinal + 1;
+    return buildSession(goal, sport, focus, slot, ordinal, used, id);
   });
   return { id, goal, createdAt: now.toISOString(), sessions };
 }
