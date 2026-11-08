@@ -89,7 +89,20 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     web: {
       favicon: './assets/favicon.png',
     },
-    plugins: ['expo-font'],
+    plugins: [
+      'expo-font',
+      // Standard BLE sensors (HR straps, cadence/RPM pods, power meters)
+      // for live sessions. Foreground only: a workout is on screen.
+      [
+        'react-native-ble-plx',
+        {
+          isBackgroundEnabled: false,
+          modes: [],
+          bluetoothAlwaysPermission:
+            'Kairos se conecta a tu banda de pulso, sensor de cadencia o potenciómetro para medir tu entreno en tiempo real.',
+        },
+      ],
+    ],
     // Surface the active variant to the JS bundle so the UI can render
     // a subtle environment chip in non-prod builds (next sprint).
     extra: {
