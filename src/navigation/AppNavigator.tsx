@@ -31,6 +31,11 @@ import ProgressTreeScreen from '../screens/ProgressTreeScreen';
 import AIChatScreen from '../screens/AIChatScreen';
 import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
 import KairosTabBar from '../components/KairosTabBar';
+import CoachHomeScreen from '../features/coach/CoachHomeScreen';
+import GoalComposerScreen from '../features/coach/GoalComposerScreen';
+import PlanDraftScreen from '../features/coach/PlanDraftScreen';
+import LiveSessionScreen from '../features/coach/LiveSessionScreen';
+import SuggestionRevealScreen from '../features/coach/SuggestionRevealScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 
 import { useAuthStore } from '../store/useAuthStore';
@@ -55,11 +60,47 @@ function DashboardTabs() {
         tabBarStyle: { position: 'absolute' },
       }}
     >
+      <Tab.Screen name="CoachTab" component={CoachHomeScreen} />
       <Tab.Screen name="HomeTab" component={HomeTab} />
       <Tab.Screen name="WorkoutTab" component={BlocksScreen} />
       <Tab.Screen name="ProgressTab" component={ProgressTab} />
       <Tab.Screen name="ProfileTab" component={ProfileTab} />
     </Tab.Navigator>
+  );
+}
+
+// ======================== COACH SCREENS ========================
+// Rendered inside every authenticated branch so the adaptive loop is
+// reachable regardless of how the user signed in.
+
+function coachScreens() {
+  return (
+    <>
+      <Stack.Screen
+        name="CoachGoal"
+        component={GoalComposerScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="CoachPlan"
+        component={PlanDraftScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="LiveSession"
+        component={LiveSessionScreen}
+        options={{
+          presentation: 'fullScreenModal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="SuggestionReveal"
+        component={SuggestionRevealScreen}
+        options={{ animation: 'fade', gestureEnabled: false }}
+      />
+    </>
   );
 }
 
@@ -82,6 +123,7 @@ export default function AppNavigator() {
           {onboarded ? (
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Dashboard" component={DashboardTabs} />
+              {coachScreens()}
               <Stack.Screen
                 name="BlockDetail"
                 component={BlockEditorScreen}
@@ -117,6 +159,7 @@ export default function AppNavigator() {
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Onboarding" component={OnboardingScreen} />
               <Stack.Screen name="Dashboard" component={DashboardTabs} />
+              {coachScreens()}
               <Stack.Screen
                 name="BlockDetail"
                 component={BlockEditorScreen}
@@ -187,6 +230,7 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="Dashboard" component={DashboardTabs} />
+            {coachScreens()}
             <Stack.Screen
               name="BlockDetail"
               component={BlockEditorScreen}
@@ -201,6 +245,7 @@ export default function AppNavigator() {
         ) : (
           <>
             <Stack.Screen name="Dashboard" component={DashboardTabs} />
+            {coachScreens()}
             <Stack.Screen
               name="BlockDetail"
               component={BlockEditorScreen}

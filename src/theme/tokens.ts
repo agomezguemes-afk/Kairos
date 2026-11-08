@@ -402,3 +402,38 @@ export const Animation = {
     slow: 480,
   },
 } as const;
+
+// ── Coach surfaces ───────────────────────────────────────────────────────────
+// WHY: the adaptive coach needs a "performance" register — live sessions and
+// suggestion reveals sit on a deep ink stage so numbers and the gold accent
+// carry all the emphasis. Same gold, same ink family; just inverted.
+
+export const Coach = {
+  stage: '#0F0F11', // live session / reveal background
+  stageRaised: '#1A1A1D', // cards on stage
+  stageLine: 'rgba(255,255,255,0.08)',
+  stageInk: '#F5F5F2',
+  stageMuted: 'rgba(245,245,242,0.56)',
+  stageFaint: 'rgba(245,245,242,0.28)',
+  zone: ['#7C8B9A', '#3FB27F', '#E3B341', '#E8793A', '#E2483D'] as const,
+  rarity: {
+    common: { edge: 'rgba(245,245,242,0.18)', glow: 'rgba(245,245,242,0.06)', label: 'Ajuste' },
+    rare: { edge: '#C9A96E', glow: 'rgba(201,169,110,0.22)', label: 'Mejora' },
+    epic: { edge: '#E8D5B7', glow: 'rgba(232,213,183,0.32)', label: 'Desbloqueo' },
+  },
+  display: {
+    fontFamily: 'System',
+    fontSize: 44,
+    lineHeight: 46,
+    fontWeight: '800' as const,
+    letterSpacing: -1.6,
+  },
+  displayNum: {
+    fontFamily: 'System',
+    fontSize: 72,
+    lineHeight: 76,
+    fontWeight: '800' as const,
+    letterSpacing: -3,
+    fontVariant: ['tabular-nums'] as FontVariant[],
+  },
+} as const;

@@ -6,6 +6,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 // ======================== TAB PARAMS ========================
 
 export type DashboardTabParamList = {
+  CoachTab: undefined;
   HomeTab: undefined;
   WorkoutTab: { highlightBlockId?: string } | undefined;
   ProgressTab: undefined;
@@ -38,4 +39,9 @@ export type RootStackParamList = {
   ProgressTree: undefined;
   AIChat: undefined;
   AILabScreen: undefined;
+  // Adaptive coach
+  CoachGoal: undefined;
+  CoachPlan: undefined;
+  LiveSession: { draftSessionId: string };
+  SuggestionReveal: { sessionId?: string } | undefined;
 };

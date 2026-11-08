@@ -33,6 +33,7 @@ const BAR_HEIGHT = 56;
 const PILL_SIZE = 36;
 
 const TAB_ICONS: Record<string, KIconName> = {
+  CoachTab: 'unlock',
   HomeTab: 'note',
   WorkoutTab: 'zap',
   ProgressTab: 'chart',
@@ -40,6 +41,7 @@ const TAB_ICONS: Record<string, KIconName> = {
 };
 
 const TAB_LABELS: Record<string, string> = {
+  CoachTab: 'Coach',
   HomeTab: 'Hoy',
   WorkoutTab: 'Bloques',
   ProgressTab: 'Progreso',
