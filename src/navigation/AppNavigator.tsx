@@ -42,7 +42,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useWorkoutStore } from '../store/workoutStore';
 import { Colors } from '../theme/index';
-import { SKIP_AUTH } from '../config/constants';
+import { SKIP_AUTH, SKIP_ONBOARDING } from '../config/constants';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<DashboardTabParamList>();
@@ -110,7 +110,7 @@ export default function AppNavigator() {
   const { session, isInitialized } = useAuthStore();
   const { isLoading: profileLoading, isOnboardingComplete } = useUserProfile();
   const userName = useWorkoutStore((s) => s.userName);
-  const onboarded = userName.trim().length > 0;
+  const onboarded = SKIP_ONBOARDING || userName.trim().length > 0;
 
   // Splash overlay state — shown once on launch
   const [splashVisible, setSplashVisible] = useState(true);
