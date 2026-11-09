@@ -10,17 +10,18 @@ import type { FontVariant } from 'react-native/Libraries/StyleSheet/StyleSheetTy
 
 export const Colors = {
   bg: {
-    void: '#F7F7F5', // primary screen background (warm off-white)
+    // v4 (2026-11-09): direction "D · Bloque" — bone ground, ink lines.
+    void: '#F4F2EC', // primary screen background (bone)
     surface: '#FFFFFF', // cards, sheets, modals
-    elevated: '#F2F0EC', // raised surfaces, pressed states
-    warm: '#FAF6EE', // "premium" zones — hero cards, PR badges
-    warm2: '#F5EFE2', // deeper warm — PR celebration, editorial blocks
+    elevated: '#ECE9E1', // raised surfaces, pressed states
+    warm: '#F7F1E3', // "premium" zones — hero cards, PR badges
+    warm2: '#EFE4CC', // deeper warm — PR celebration, editorial blocks
   },
   ink: {
-    primary: '#1C1C1E', // headlines, body (Apple HIG deep charcoal)
-    secondary: '#3A3A3C', // emphasized secondary
-    tertiary: '#636366', // metadata
-    muted: '#9B9B9E', // labels, placeholders
+    primary: '#121211', // headlines, body
+    secondary: '#2B2A27', // emphasized secondary
+    tertiary: '#5D5A52', // metadata
+    muted: '#8A867C', // labels, placeholders
     inverse: '#FFFFFF', // text on dark/gold surfaces
   },
   gold: {
@@ -30,9 +31,10 @@ export const Colors = {
     glow: 'rgba(201,169,110,0.18)', // halos, ripples, pill backgrounds
   },
   hair: {
-    subtle: 'rgba(28,28,30,0.06)', // section dividers
-    base: 'rgba(28,28,30,0.08)', // card borders (default)
-    strong: 'rgba(28,28,30,0.14)', // pressed borders, dividers in white
+    // Card borders are ink lines now (brutalist); dividers stay faint.
+    subtle: 'rgba(18,18,17,0.12)', // section dividers
+    base: 'rgba(18,18,17,0.72)', // card borders (default)
+    strong: '#121211', // pressed borders, emphasized outlines
   },
   discipline: {
     strength: '#E84545',
@@ -143,11 +145,22 @@ export function buildThemeColors(_mode?: ThemeMode): ThemeColors {
 
 // ── Typography ───────────────────────────────────────────────────────────────
 
+// v4: Space Grotesk body, Anton display (in the old "serif" slot, which was
+// already reserved for large titles and hero numerals), Space Mono labels.
+// Faces are loaded in App.tsx; each name is one weight, so presets below
+// keep fontWeight at '400' to stop web from synthesising a second bold.
 export const FontFamily = {
-  sans: 'System',
-  serif: Platform.select({ ios: 'New York', android: 'serif', default: 'Georgia' }),
-  mono: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+  sans: 'SpaceGrotesk_500Medium',
+  sansSemi: 'SpaceGrotesk_600SemiBold',
+  sansBold: 'SpaceGrotesk_700Bold',
+  serif: 'Anton_400Regular',
+  mono: 'SpaceMono_400Regular_Italic',
+  monoBold: 'SpaceMono_700Bold_Italic',
 } as const;
+
+// Display faces have no italic; web can slant per glyph, native stays
+// upright here (screens on the Brut primitives get a skew instead).
+const DISPLAY_SLANT = Platform.OS === 'web' ? ({ fontStyle: 'italic' } as const) : {};
 
 /**
  * Type presets — v3.
@@ -155,58 +168,60 @@ export const FontFamily = {
  * hero stat numerals, and editorial cards. Everywhere else: system sans.
  */
 export const Type = {
-  // Editorial serif — reserved per spec §3.2
+  // Display (Anton) — large titles
   title: {
     fontFamily: FontFamily.serif,
-    fontSize: 32,
-    lineHeight: 36,
-    fontWeight: '600' as const,
-    letterSpacing: -0.6,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '400' as const,
+    letterSpacing: 0.2,
+    ...DISPLAY_SLANT,
   },
   titleSmall: {
     fontFamily: FontFamily.serif,
-    fontSize: 22,
+    fontSize: 24,
     lineHeight: 28,
-    fontWeight: '600' as const,
-    letterSpacing: -0.3,
+    fontWeight: '400' as const,
+    letterSpacing: 0.2,
+    ...DISPLAY_SLANT,
   },
 
-  // System sans — workhorse
+  // Space Grotesk — workhorse
   heading: {
-    fontFamily: FontFamily.sans,
+    fontFamily: FontFamily.sansBold,
     fontSize: 22,
     lineHeight: 28,
-    fontWeight: '700' as const,
-    letterSpacing: -0.2,
+    fontWeight: '400' as const,
+    letterSpacing: -0.3,
   },
   subheading: {
-    fontFamily: FontFamily.sans,
+    fontFamily: FontFamily.sansSemi,
     fontSize: 17,
     lineHeight: 24,
-    fontWeight: '600' as const,
+    fontWeight: '400' as const,
   },
   body: { fontFamily: FontFamily.sans, fontSize: 15, lineHeight: 22, fontWeight: '400' as const },
   bodyEmph: {
-    fontFamily: FontFamily.sans,
+    fontFamily: FontFamily.sansSemi,
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '600' as const,
+    fontWeight: '400' as const,
   },
   caption: {
     fontFamily: FontFamily.sans,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '500' as const,
+    fontWeight: '400' as const,
   },
-  micro: { fontFamily: FontFamily.sans, fontSize: 11, lineHeight: 14, fontWeight: '500' as const },
+  micro: { fontFamily: FontFamily.mono, fontSize: 11, lineHeight: 14, fontWeight: '400' as const },
 
-  // Editorial label — uppercase, tracked. The "CHAPTER 03" voice.
+  // Mono label — uppercase, tracked. The "01 · SEMANA" voice.
   eyebrow: {
-    fontFamily: FontFamily.sans,
+    fontFamily: FontFamily.monoBold,
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: '600' as const,
-    letterSpacing: 1.6,
+    fontWeight: '400' as const,
+    letterSpacing: 1.4,
     textTransform: 'uppercase' as const,
   },
 
@@ -214,32 +229,34 @@ export const Type = {
   // WHY: fontVariant cast to FontVariant[] (RN's mutable type) so StyleSheet.create accepts it.
   numHero: {
     fontFamily: FontFamily.serif,
-    fontSize: 56,
-    lineHeight: 60,
-    fontWeight: '500' as const,
-    letterSpacing: -2,
+    fontSize: 60,
+    lineHeight: 64,
+    fontWeight: '400' as const,
+    letterSpacing: 0,
     fontVariant: ['tabular-nums'] as FontVariant[],
+    ...DISPLAY_SLANT,
   },
   numLarge: {
-    fontFamily: FontFamily.sans,
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '700' as const,
-    letterSpacing: -0.5,
+    fontFamily: FontFamily.serif,
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '400' as const,
+    letterSpacing: 0.2,
     fontVariant: ['tabular-nums'] as FontVariant[],
+    ...DISPLAY_SLANT,
   },
   numMedium: {
-    fontFamily: FontFamily.sans,
+    fontFamily: FontFamily.sansBold,
     fontSize: 18,
     lineHeight: 22,
-    fontWeight: '700' as const,
+    fontWeight: '400' as const,
     fontVariant: ['tabular-nums'] as FontVariant[],
   },
   numSmall: {
-    fontFamily: FontFamily.sans,
+    fontFamily: FontFamily.sansSemi,
     fontSize: 13,
     lineHeight: 16,
-    fontWeight: '600' as const,
+    fontWeight: '400' as const,
     fontVariant: ['tabular-nums'] as FontVariant[],
   },
 } as const;
@@ -322,6 +339,8 @@ export const Radius = {
 
 // ── Shadows ──────────────────────────────────────────────────────────────────
 
+// v4: hard offset shadows (no blur) — the brutalist depth cue. Android
+// elevation can't draw these, so it gets none rather than a soft blur.
 export const Shadows = {
   none: {
     shadowColor: 'transparent',
@@ -331,55 +350,53 @@ export const Shadows = {
     elevation: 0,
   },
   subtle: {
-    shadowColor: '#1C1C1E',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: '#121211',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
   },
   card: {
-    shadowColor: '#1C1C1E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor: '#121211',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
   },
   icon: {
-    shadowColor: '#1C1C1E',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#121211',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
   },
   elevated: {
-    shadowColor: '#1C1C1E',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowColor: '#121211',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
   },
   modal: {
-    shadowColor: '#1C1C1E',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.16,
-    shadowRadius: 28,
-    elevation: 14,
+    shadowColor: '#121211',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
   },
-  // WHY: gold-tinted shadow for V06 press depth bloom (spec §3.5)
   cardWarm: {
     shadowColor: '#C9A96E',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    elevation: 4,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
   },
-  // WHY: deeper neutral shadow for cards held down (spec §3.5)
   pressed: {
-    shadowColor: '#1C1C1E',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.1,
-    shadowRadius: 28,
-    elevation: 8,
+    shadowColor: '#121211',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
   },
 } as const;
 
