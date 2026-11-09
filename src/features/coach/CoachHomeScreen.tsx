@@ -19,10 +19,22 @@ import KIcon from '../../components/icons/KIcon';
 import {
   getMovement,
   loadTrend,
+  needsWeeklyCheckIn,
+  objectiveCheck,
   QUALITY_LABEL,
+  readiness,
   SPORT_LABEL,
+  type Experiment,
   type LoadBand,
 } from '../../lib/adaptive';
+import {
+  ExperimentResult,
+  ExperimentReviewCard,
+  ExperimentRow,
+  PreCheckInCard,
+  ReadinessBar,
+  WeeklyCheckInCard,
+} from './components/Loop';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Spacing } from '../../theme/tokens';
 import { feedback } from './feedback';
@@ -97,6 +109,11 @@ export default function CoachHomeScreen() {
   const plan = useCoachStore((s) => s.plan);
   const sessions = useCoachStore((s) => s.sessions);
   const suggestions = useCoachStore((s) => s.suggestions);
+  const experiments = useCoachStore((s) => s.experiments);
+  const checkins = useCoachStore((s) => s.checkins);
+  const submitCheckIn = useCoachStore((s) => s.submitCheckIn);
+  const reviewExperiment = useCoachStore((s) => s.reviewExperiment);
+  const [lastClosed, setLastClosed] = useState<Experiment | null>(null);
 
   const pending = useMemo(
     () => suggestions.filter((s) => s.status === 'locked').length,
@@ -119,6 +136,33 @@ export default function CoachHomeScreen() {
     );
     return { thisWeek, sets };
   }, [now, sessions]);
+  const ready = useMemo(
+    () => readiness(checkins, sessions, new Date(now)),
+    [checkins, now, sessions],
+  );
+  const preToday = useMemo(
+    () =>
+      checkins.some(
+        (c) => c.kind === 'pre' && new Date(c.at).toDateString() === new Date(now).toDateString(),
+      ),
+    [checkins, now],
+  );
+  // Ask for the weekly check-in once the plan has had time to be lived.
+  const weeklyDue = useMemo(
+    () =>
+      !!plan &&
+      needsWeeklyCheckIn(checkins, new Date(now)) &&
+      (sessions.length > 0 || now - new Date(plan.createdAt).getTime() > 3 * 86_400_000),
+    [checkins, now, plan, sessions.length],
+  );
+  const inReview = useMemo(() => experiments.filter((e) => e.status === 'review'), [experiments]);
+  const running = useMemo(() => experiments.filter((e) => e.status === 'running'), [experiments]);
+
+  const onWeekly = (c: Parameters<typeof submitCheckIn>[0]) => {
+    const fresh = submitCheckIn(c);
+    if (fresh.length) navigation.navigate('SuggestionReveal');
+  };
+
   const doneCount = (id: string) => sessions.filter((s) => s.draftSessionId === id).length;
 
   return (
@@ -204,6 +248,36 @@ export default function CoachHomeScreen() {
               <Stat index="02" label="CARGA" value={`${trend.acute}`} unit="UA" />
               <Stat index="03" label="DATOS" value={`${stats.sets}`} unit="SERIES" />
             </Animated.View>
+
+            {week.length > 0 && (
+              <View style={{ marginTop: Spacing.lg }}>
+                {preToday ? (
+                  <ReadinessBar r={ready} />
+                ) : (
+                  <PreCheckInCard onSubmit={submitCheckIn} />
+                )}
+              </View>
+            )}
+
+            {lastClosed && (
+              <View style={{ marginTop: Spacing.md }}>
+                <ExperimentResult e={lastClosed} />
+              </View>
+            )}
+            {inReview.map((e) => (
+              <View key={e.id} style={{ marginTop: Spacing.md }}>
+                <ExperimentReviewCard
+                  e={e}
+                  onSubmit={(a) => setLastClosed(reviewExperiment(e.id, a))}
+                />
+              </View>
+            ))}
+
+            {weeklyDue && (
+              <View style={{ marginTop: Spacing.md }}>
+                <WeeklyCheckInCard onSubmit={onWeekly} />
+              </View>
+            )}
 
             {pending > 0 && (
               <Animated.View entering={enter(2)}>
@@ -315,6 +389,27 @@ export default function CoachHomeScreen() {
                   );
                 })}
               </View>
+            )}
+
+            {running.length > 0 && (
+              <BBox style={{ marginTop: Spacing.xl }} contentStyle={styles.load}>
+                <View style={styles.row}>
+                  <BText variant="monoBold" size={10}>
+                    EN PRUEBA
+                  </BText>
+                  <BTag>{`${running.length}`}</BTag>
+                </View>
+                <BText size={13} color={Brut.muted} style={{ marginTop: 4 }}>
+                  Cada cambio que aceptas se comprueba con tus sesiones antes de darlo por bueno.
+                </BText>
+                {running.map((e) => (
+                  <ExperimentRow
+                    key={e.id}
+                    e={e}
+                    exposures={objectiveCheck(e, sessions).exposures}
+                  />
+                ))}
+              </BBox>
             )}
 
             {sessions.length > 0 && (
