@@ -66,6 +66,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: variant.name,
     slug: variant.slug,
+    owner: 'alvarogg',
     scheme: variant.scheme,
     version: '1.0.0',
     orientation: 'portrait',
