@@ -1,21 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Alert,
-  Dimensions,
-  Platform,
-} from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  FadeIn,
-  FadeInDown,
-} from 'react-native-reanimated';
+import { View, FlatList, StyleSheet, Alert, Platform } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -25,20 +10,18 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import BlockCard from './components/BlockCard';
 import BlockCreationSheet, { type BlockCreationOptions } from '../../components/BlockCreationSheet';
 import ConfettiBurst, { type ConfettiRef } from '../../components/ConfettiParticles';
-import KairosIcon from '../../components/KairosIcon';
 import TemplatePickerSheet from './components/TemplatePickerSheet';
 
 import type { WorkoutBlock } from '../../types/core';
 import type { RootStackParamList } from '../../types/navigation';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../../theme/index';
-import { springs } from '../../theme/animations';
+import { Brut, Spacing } from '../../theme/tokens';
+import { BBox, BPress, BScreen, BText } from '../coach/ui/brut';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { useGamification } from '../../context/GamificationContext';
 
 type SortMode = 'recent' | 'name' | 'status' | 'favorite';
 
-const SCREEN_W = Dimensions.get('window').width;
-const H_PAD = Spacing.screen.horizontal;
+const H_PAD = Spacing.lg;
 const NUM_COLUMNS = 2;
 
 export default function BlocksScreen({ route }: any) {
@@ -169,12 +152,6 @@ export default function BlocksScreen({ route }: any) {
     [storeAddBlock, storeDeleteBlock, clearHighlight],
   );
 
-  // FAB
-  const fabScale = useSharedValue(1);
-  const fabStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: fabScale.value }],
-  }));
-
   // Render card
   const renderItem = useCallback(
     ({ item, index }: { item: WorkoutBlock; index: number }) => (
@@ -199,41 +176,69 @@ export default function BlocksScreen({ route }: any) {
   };
 
   return (
-    <View style={styles.screen}>
+    <BScreen>
       <ConfettiBurst confettiRef={confettiRef} />
 
-      {/* Header */}
       <Animated.View
-        entering={FadeInDown.delay(60).duration(350)}
-        style={[styles.header, { paddingTop: insets.top + 8 }]}
+        entering={FadeInDown.duration(Brut.motion.reveal)}
+        style={[styles.header, { paddingTop: insets.top + Spacing.md }]}
       >
-        <View>
-          <Text style={styles.brand}>Bloques</Text>
-          <Text style={styles.subtitle}>
-            {sortedBlocks.length === 0
-              ? 'Tu espacio de entrenamiento'
-              : `${sortedBlocks.length} ${sortedBlocks.length === 1 ? 'bloque' : 'bloques'}`}
-          </Text>
-        </View>
-
-        {/* Sort button */}
-        {sortedBlocks.length > 1 && (
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              const modes: SortMode[] = ['recent', 'name', 'status', 'favorite'];
-              const nextIdx = (modes.indexOf(sortMode) + 1) % modes.length;
-              setSortMode(modes[nextIdx]);
+        <View style={styles.topRow}>
+          <BText variant="monoBold" size={11} style={{ letterSpacing: 2 }}>
+            KAIROS{' '}
+            <BText variant="mono" size={11} color={Brut.muted}>
+              / BLOQUES
+            </BText>
+          </BText>
+          {/* "+" lives in the header: a floating button would collide with the
+              tab bar's start button. Tap = quick block, hold = full sheet. */}
+          <BPress
+            onPress={handleQuickCreate}
+            onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowCreation(true);
             }}
-            style={styles.sortBtn}
+            radius={12}
+            contentStyle={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Nuevo bloque"
+            accessibilityHint="Mantén pulsado para elegir disciplina, color e icono"
           >
-            <Feather name="sliders" size={14} color={Colors.accent.primary} />
-            <Text style={styles.sortText}>{sortLabels[sortMode]}</Text>
-          </Pressable>
-        )}
+            <Feather name="plus" size={20} color={Brut.ink} />
+          </BPress>
+        </View>
+        <View style={styles.titleRow}>
+          <BText variant="display" size={44}>
+            BLOQUES
+          </BText>
+          {sortedBlocks.length > 1 && (
+            <BPress
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const modes: SortMode[] = ['recent', 'name', 'status', 'favorite'];
+                const nextIdx = (modes.indexOf(sortMode) + 1) % modes.length;
+                setSortMode(modes[nextIdx]);
+              }}
+              shadow={2}
+              radius={10}
+              contentStyle={styles.sortBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Ordenar: ${sortLabels[sortMode]}`}
+            >
+              <Feather name="sliders" size={13} color={Brut.ink} />
+              <BText variant="monoBold" size={10}>
+                {sortLabels[sortMode].toUpperCase()}
+              </BText>
+            </BPress>
+          )}
+        </View>
+        <BText variant="mono" size={11} color={Brut.muted}>
+          {sortedBlocks.length === 0
+            ? 'TU ESPACIO DE ENTRENAMIENTO'
+            : `${sortedBlocks.length} ${sortedBlocks.length === 1 ? 'BLOQUE' : 'BLOQUES'}`}
+        </BText>
       </Animated.View>
 
-      {/* Grid or empty state */}
       {sortedBlocks.length > 0 ? (
         <FlatList
           ref={listRef}
@@ -241,74 +246,69 @@ export default function BlocksScreen({ route }: any) {
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           numColumns={NUM_COLUMNS}
-          contentContainerStyle={[styles.gridContent, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[styles.gridContent, { paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={Platform.OS === 'android'}
         />
       ) : (
-        <Animated.View entering={FadeIn.delay(200).duration(500)} style={styles.welcome}>
-          <View style={styles.welcomeAvatarRing}>
-            <KairosIcon name="assistant" size={38} color={Colors.accent.primary} />
-          </View>
-          <Text style={styles.welcomeHeadline}>Tu espacio de bloques</Text>
-          <Text style={styles.welcomeBody}>
-            Crea bloques de entrenamiento personalizados.{'\n'}
-            Cada bloque contiene ejercicios con series y repeticiones que puedes rastrear.
-          </Text>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setTemplatePickerOpen(true);
-            }}
-            style={({ pressed }) => [styles.welcomeBtn, pressed && { opacity: 0.82 }]}
-          >
-            <Feather name="zap" size={18} color={Colors.text.inverse} />
-            <Text style={styles.welcomeBtnText}>Empezar con plantilla</Text>
-          </Pressable>
-          <Pressable
-            onPress={handleQuickCreate}
-            style={({ pressed }) => [styles.welcomeBtnSecondary, pressed && { opacity: 0.7 }]}
-          >
-            <Text style={styles.welcomeBtnSecondaryText}>O crear bloque en blanco</Text>
-          </Pressable>
+        <Animated.View
+          entering={FadeIn.delay(150).duration(Brut.motion.reveal)}
+          style={styles.welcome}
+        >
+          <BBox contentStyle={styles.welcomeCard}>
+            <BText variant="monoBold" size={10} color={Brut.muted}>
+              00 · VACÍO
+            </BText>
+            <BText variant="display" size={32} style={{ marginTop: 6 }}>
+              TU ESPACIO DE BLOQUES
+            </BText>
+            <BText size={14} color={Brut.muted} style={{ marginTop: 6 }}>
+              Crea bloques de entrenamiento a tu medida. Cada bloque guarda ejercicios con las
+              series y métricas que tú decidas registrar.
+            </BText>
+            <BPress
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setTemplatePickerOpen(true);
+              }}
+              bg={Brut.accent}
+              radius={Brut.radius.md}
+              style={{ marginTop: Spacing.lg }}
+              contentStyle={styles.welcomeBtn}
+              accessibilityRole="button"
+            >
+              <Feather name="zap" size={17} color={Brut.ink} />
+              <BText variant="bodyBold" size={15}>
+                Empezar con plantilla
+              </BText>
+            </BPress>
+            <BPress
+              onPress={handleQuickCreate}
+              radius={Brut.radius.md}
+              shadow={2}
+              style={{ marginTop: Spacing.sm }}
+              contentStyle={styles.welcomeBtn}
+              accessibilityRole="button"
+            >
+              <BText variant="bodyBold" size={15}>
+                Crear bloque en blanco
+              </BText>
+            </BPress>
+          </BBox>
           <View style={styles.hintRow}>
-            <HintChip icon="grid" label="Organiza tu rutina" />
-            <HintChip icon="check-circle" label="Registra cada serie" />
-            <HintChip icon="trending-up" label="Analiza tu progreso" />
+            <HintChip index="01" label="Organiza tu rutina" />
+            <HintChip index="02" label="Registra cada serie" />
+            <HintChip index="03" label="Analiza tu progreso" />
           </View>
         </Animated.View>
       )}
 
-      {/* FAB — tap: quick-create, long-press: full sheet */}
-      {sortedBlocks.length > 0 && (
-        <Animated.View style={[styles.fab, fabStyle, { bottom: insets.bottom + 20 }]}>
-          <Pressable
-            onPressIn={() => {
-              fabScale.value = withSpring(0.88, springs.tap);
-            }}
-            onPressOut={() => {
-              fabScale.value = withSpring(1, springs.bouncy);
-            }}
-            onPress={handleQuickCreate}
-            onLongPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setShowCreation(true);
-            }}
-            style={styles.fabInner}
-          >
-            <Feather name="plus" size={24} color={Colors.text.inverse} />
-          </Pressable>
-        </Animated.View>
-      )}
-
-      {/* Creation sheet */}
       <BlockCreationSheet
         visible={showCreation}
         onClose={() => setShowCreation(false)}
         onCreate={handleCreateBlock}
       />
 
-      {/* Template picker — empty-state activator */}
       <TemplatePickerSheet
         visible={templatePickerOpen}
         onClose={() => setTemplatePickerOpen(false)}
@@ -321,165 +321,60 @@ export default function BlocksScreen({ route }: any) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }}
       />
-    </View>
+    </BScreen>
   );
 }
 
-function HintChip({ icon, label }: { icon: string; label: string }) {
+function HintChip({ index, label }: { index: string; label: string }) {
   return (
     <View style={styles.hintChip}>
-      <Feather name={icon as any} size={13} color={Colors.accent.primary} />
-      <Text style={styles.hintLabel}>{label}</Text>
+      <BText variant="monoBold" size={10} color={Brut.muted}>
+        {index}
+      </BText>
+      <BText variant="bodySemi" size={12}>
+        {label}
+      </BText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Colors.background.void,
-  },
-  header: {
-    paddingHorizontal: H_PAD,
-    paddingBottom: Spacing.lg,
+  header: { paddingHorizontal: H_PAD, paddingBottom: Spacing.md, gap: 4 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    marginTop: Spacing.sm,
   },
-  brand: {
-    fontSize: Typography.size.title,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-    letterSpacing: Typography.tracking.tight,
-  },
-  subtitle: {
-    fontSize: Typography.size.caption,
-    color: Colors.text.tertiary,
-    marginTop: 2,
-  },
+  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   sortBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingVertical: Spacing.xs + 1,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.accent.dim,
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
-  sortText: {
-    fontSize: Typography.size.micro,
-    fontWeight: Typography.weight.medium,
-    color: Colors.accent.primary,
-  },
-
-  gridContent: {
-    paddingHorizontal: H_PAD - Spacing.gap.cards / 2,
-    paddingTop: Spacing.sm,
-  },
-
-  welcome: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: H_PAD + 8,
-  },
-  welcomeAvatarRing: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: Colors.accent.dim,
-    borderWidth: 1.5,
-    borderColor: Colors.accent.light,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-    ...Shadows.subtle,
-  },
-  welcomeHeadline: {
-    fontSize: Typography.size.heading,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-    letterSpacing: -0.3,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  welcomeBody: {
-    fontSize: Typography.size.body,
-    color: Colors.text.secondary,
-    textAlign: 'center',
-    lineHeight: Typography.size.body * 1.65,
-    marginBottom: Spacing['2xl'],
-  },
+  gridContent: { paddingHorizontal: H_PAD - Spacing.gap.cards / 2, paddingTop: Spacing.sm },
+  welcome: { flex: 1, paddingHorizontal: H_PAD, paddingTop: Spacing.lg },
+  welcomeCard: { padding: Spacing.lg },
   welcomeBtn: {
+    height: 50,
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.accent.primary,
-    paddingVertical: Spacing.md + 2,
-    paddingHorizontal: Spacing['2xl'],
-    borderRadius: Radius.full,
-    marginBottom: Spacing['2xl'],
-    shadowColor: Colors.accent.primary,
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  welcomeBtnText: {
-    fontSize: Typography.size.body,
-    fontWeight: Typography.weight.semibold,
-    color: Colors.text.inverse,
-  },
-  welcomeBtnSecondary: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    marginTop: -Spacing.xl,
-    marginBottom: Spacing['2xl'],
-  },
-  welcomeBtnSecondaryText: {
-    fontSize: Typography.size.caption,
-    fontWeight: Typography.weight.medium,
-    color: Colors.text.secondary,
-  },
-  hintRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
+    alignItems: 'center',
     justifyContent: 'center',
   },
+  hintRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.lg },
   hintChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.background.surface,
-    borderWidth: 1,
-    borderColor: Colors.border.warm,
-    borderRadius: Radius.full,
-    paddingVertical: 5,
-    paddingHorizontal: Spacing.md,
-    ...Shadows.subtle,
-  },
-  hintLabel: {
-    fontSize: Typography.size.micro,
-    color: Colors.text.secondary,
-    fontWeight: Typography.weight.medium,
-  },
-
-  fab: {
-    position: 'absolute',
-    right: 20,
-  },
-  fabInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.accent.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.accent.primary,
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    elevation: 10,
+    gap: 6,
+    borderWidth: Brut.border,
+    borderColor: Brut.ink,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: Brut.surface,
   },
 });
