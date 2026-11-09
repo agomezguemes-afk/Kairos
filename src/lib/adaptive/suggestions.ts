@@ -17,7 +17,9 @@ import type {
   Rarity,
   SessionLog,
   Suggestion,
+  SuggestionKind,
 } from './types';
+import { affinityOf, isUnresponsive, responseProfile, type Experiment } from './experiments';
 
 const MAX_SUGGESTIONS = 3;
 const DAY_MS = 86_400_000;
@@ -29,6 +31,8 @@ export interface EngineInput {
   goal?: ParsedGoal;
   plan?: PlanDraft;
   now?: Date;
+  /** Past and running experiments: shape what gets proposed and in which order. */
+  experiments?: Experiment[];
 }
 
 interface Occurrence {
@@ -120,7 +124,10 @@ export function fatigueSignals(
 
 // ── Rules ───────────────────────────────────────────────────────────
 
-type Draft = Omit<Suggestion, 'id' | 'createdAt' | 'status' | 'sessionId' | 'draftSessionId'>;
+type Draft = Omit<Suggestion, 'id' | 'createdAt' | 'status' | 'sessionId' | 'draftSessionId'> & {
+  /** Planned set count, so personalise() can swap load for volume. */
+  sets?: number;
+};
 
 function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
   const last = occ[occ.length - 1];
@@ -169,6 +176,7 @@ function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
       from: { label: 'Carga', value: load, unit: 'kg' },
       to: { label: 'Carga', value: next, unit: 'kg' },
       patch: { loadKg: next },
+      sets: last.log.target.sets,
       rationale: `Completaste todas las series en el tope (${last.log.target.repsMax} reps) con margen. Toca subir carga y volver a ${last.log.target.repsMin} reps: progresión doble.`,
       evidence: last.log.sets
         .filter((s) => s.completed)
@@ -326,6 +334,68 @@ function qualityGapRule(input: EngineInput, now: Date): Draft[] {
 
 const RARITY_RANK: Record<Rarity, number> = { epic: 0, rare: 1, common: 2 };
 
+const KIND_LABEL: Partial<Record<SuggestionKind, string>> = {
+  increase_load: 'subir carga',
+  add_set: 'añadir series',
+  extend_duration: 'alargar la sesión',
+  extend_distance: 'sumar distancia',
+  add_interval: 'añadir intervalos',
+  new_movement: 'cambiar de ejercicio',
+};
+
+/**
+ * Personalisation pass over the rule drafts:
+ *  - never stack a second change on a movement that is mid-experiment
+ *    (its outcome would become unreadable), safety kinds excepted;
+ *  - when load increases have repeatedly failed for this person, offer
+ *    the volume lever (one more set) instead;
+ *  - cite the person's own track record for the kind being proposed.
+ */
+function personalise(drafts: Draft[], experiments: Experiment[] | undefined): Draft[] {
+  if (!experiments?.length) return drafts;
+  const profile = responseProfile(experiments);
+  const busy = new Set(
+    experiments
+      .filter((e) => e.status === 'running' || e.status === 'review')
+      .map((e) => e.movementId),
+  );
+  const out: Draft[] = [];
+  for (const d of drafts) {
+    const safety = d.kind === 'hold' || d.kind === 'deload';
+    if (!safety && d.movementId && busy.has(d.movementId)) continue;
+    let draft = d;
+    if (d.kind === 'increase_load' && isUnresponsive(profile, 'increase_load')) {
+      const sets = d.sets ?? 3;
+      if (sets < 5) {
+        const k = profile.increase_load!;
+        draft = {
+          ...d,
+          kind: 'add_set',
+          title: d.title
+            .replace(/^Sube /, 'Una serie más en ')
+            .replace(/^Añade lastre en /, 'Una serie más en '),
+          from: { label: 'Series', value: sets, unit: 'series' },
+          to: { label: 'Series', value: sets + 1, unit: 'series' },
+          patch: { sets: sets + 1 },
+          rationale: `Las subidas de carga te han funcionado ${k.worked} de ${k.tried} veces. Probamos por volumen: misma carga, una serie más.`,
+        };
+      }
+    }
+    const k = profile[draft.kind];
+    if (k && k.tried > 0 && draft.kind !== 'hold') {
+      draft = {
+        ...draft,
+        evidence: [
+          ...draft.evidence,
+          `Tu historial: ${KIND_LABEL[draft.kind] ?? 'este cambio'} te ha funcionado ${k.worked} de ${k.tried} veces`,
+        ],
+      };
+    }
+    out.push(draft);
+  }
+  return out;
+}
+
 export function generateSuggestions(input: EngineInput): Suggestion[] {
   const now = input.now ?? new Date();
   const { session, history } = input;
@@ -358,16 +428,18 @@ export function generateSuggestions(input: EngineInput): Suggestion[] {
   }
   if (!suppress) drafts.push(...qualityGapRule(input, now));
 
-  const ordered = drafts
+  const profile = input.experiments ? responseProfile(input.experiments) : undefined;
+  const ordered = personalise(drafts, input.experiments)
     .map((d, i) => ({ d, i }))
     .sort((a, b) => {
       const ka = a.d.kind === 'hold' || a.d.kind === 'deload' ? -1 : RARITY_RANK[a.d.rarity];
       const kb = b.d.kind === 'hold' || b.d.kind === 'deload' ? -1 : RARITY_RANK[b.d.rarity];
-      return ka - kb || a.i - b.i;
+      // Within a tier, kinds that have worked for this person come first.
+      return ka - kb || affinityOf(profile, b.d.kind) - affinityOf(profile, a.d.kind) || a.i - b.i;
     })
     .slice(0, MAX_SUGGESTIONS);
 
-  return ordered.map(({ d }) => ({
+  return ordered.map(({ d: { sets: _sets, ...d } }) => ({
     ...d,
     id: `${session.id}:${d.kind}:${d.movementId || 'session'}`,
     sessionId: session.id,
@@ -435,6 +507,9 @@ export function applySuggestion(
       };
     }
     if (s.kind === 'hold') return ds;
+    // Paused, not deleted: it reappears under "sin decidir" to re-enable.
+    if (s.kind === 'reduce_days')
+      return ds.id === s.draftSessionId ? { ...ds, status: 'pending' as const } : ds;
     return {
       ...ds,
       movements: ds.movements.map((pm) =>

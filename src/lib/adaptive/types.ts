@@ -143,7 +143,9 @@ export type SuggestionKind =
   | 'add_interval'
   | 'new_movement'
   | 'deload'
-  | 'hold';
+  | 'hold'
+  /** Plan-level: pause one kept session (weekly check-in). */
+  | 'reduce_days';
 
 export type Confidence = 'early' | 'emerging' | 'solid';
 

@@ -22,3 +22,27 @@ export {
   confidenceFor,
 } from './suggestions';
 export type { EngineInput, FatigueSignals } from './suggestions';
+export {
+  startExperiment,
+  objectiveCheck,
+  isDueForReview,
+  resolveExperiment,
+  revertPatch,
+  responseProfile,
+  affinityOf,
+  isUnresponsive,
+  REVIEW_DAYS,
+  MIN_EXPOSURES,
+} from './experiments';
+export type {
+  Experiment,
+  ExperimentAnswers,
+  ExperimentStatus,
+  ObjectiveResult,
+  ResponseProfile,
+  KindStats,
+  Verdict,
+  Feel,
+} from './experiments';
+export { readiness, needsWeeklyCheckIn, weeklySuggestions } from './checkins';
+export type { CheckIn, WeekFeel, Readiness, ReadinessBand, WeeklyInput } from './checkins';
