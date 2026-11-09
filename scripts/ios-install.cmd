@@ -12,16 +12,16 @@ call npx.cmd --yes eas-cli whoami >nul 2>&1 || call npx.cmd --yes eas-cli login 
 
 echo.
 echo === 2/4  Vincular el proyecto a tu cuenta de Expo ===
-call npx.cmd --yes eas-cli init --non-interactive --force || goto :fail
+call npx.cmd --yes eas-cli init --non-interactive || goto :fail
 
 echo.
 echo === 3/4  Registrar tu iPhone (abre el enlace o QR en el iPhone) ===
 call npx.cmd --yes eas-cli device:create || goto :fail
 
 echo.
-echo === 4/4  Build de iOS (preview: app completa, sin Metro) ===
+echo === 4/4  Build de iOS (app completa, sin Metro) ===
 echo Si es la primera vez, te pedira tu Apple ID para los certificados.
-call npx.cmd --yes eas-cli build --platform ios --profile preview || goto :fail
+call npx.cmd --yes eas-cli build --platform ios --profile device || goto :fail
 
 echo.
 echo Listo: abre en el iPhone el enlace de instalacion que aparece arriba.

@@ -29,6 +29,8 @@ interface VariantConfig {
   iosBundleId: string;
   androidPackage: string;
   scheme: string;
+  /** EAS project for this slug; each variant is its own Expo project. */
+  easProjectId?: string;
 }
 
 const VARIANTS: Record<AppEnv, VariantConfig> = {
@@ -38,6 +40,7 @@ const VARIANTS: Record<AppEnv, VariantConfig> = {
     iosBundleId: 'com.alvaro.kairos.dev',
     androidPackage: 'com.kairos.app.dev',
     scheme: 'kairos-dev',
+    easProjectId: '6e36dddd-483d-4c57-9a22-98db49a49e7f',
   },
   staging: {
     name: 'Kairos β',
@@ -107,6 +110,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     // a subtle environment chip in non-prod builds (next sprint).
     extra: {
       appEnv: env,
+      ...(variant.easProjectId ? { eas: { projectId: variant.easProjectId } } : {}),
     },
   };
 };
