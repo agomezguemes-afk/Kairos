@@ -185,3 +185,53 @@ Cada fase sigue este orden: pensar → planificar → construir → revisar → 
 - El precio del premium y si habrá prueba gratuita.
 - Qué deportes priorizar en el árbol para el lanzamiento: ¿pádel, escalada, running y fuerza?
 - Si los ejercicios creados por la IA pueden compartirse entre usuarios.
+
+## Piloto automático: líneas de desarrollo
+
+_Actualizado 2026-11-09._
+
+### Hecho en esta tanda
+
+- **Diseño D en toda la app.**
+  - Tokens globales: fondo hueso, bordes de tinta, sombras duras y Anton / Space Grotesk / Space Mono.
+  - Pestañas Coach, Bloques, Progreso y Tú rehechas con los componentes Brut.
+  - Barra de 4 grupos con botón de empezar entreno.
+- **Bucle de experimentos (fase 3, núcleo diferencial).**
+  - Cada propuesta aceptada es un experimento con fecha de revisión.
+  - En la revisión, los registros y 3 respuestas rápidas deciden si el cambio se mantiene o se revierte en el plan.
+- **Perfil de respuesta.**
+  - El motor aprende qué *tipo* de cambio funciona a cada persona.
+  - Con ese aprendizaje ordena las propuestas, cita tu historial y cambia de vía: si las subidas de carga fallan, propone volumen.
+- **Check-ins.**
+  - Antes de entrenar (sueño y agujetas) para calcular la disposición.
+  - Revisión semanal que genera propuestas sin necesidad de haber entrenado.
+- **«Lo que Kairos sabe de ti»** en la pestaña Tú.
+
+### Siguientes líneas (por orden)
+
+1. **Biblioteca de ejercicios (fase 1).**
+   - Esquema y grafo de variantes.
+   - Importación de un dataset abierto, con la licencia verificada antes.
+   - SQLite local con búsqueda.
+   - El borrador elige por material y nivel.
+2. **Árbol de capacidades.**
+   - Modelo derivado de sesiones, experimentos y pruebas.
+   - Visualización en Progreso.
+   - Ramas que se desbloquean.
+3. **Onboarding v2.**
+   - Objetivo, material y pruebas de partida de 5 minutos.
+   - Calibra el árbol desde el día 1. Mientras tanto, `SKIP_ONBOARDING` sigue activo.
+4. **Nivel solo-iPhone.**
+   - GPS para correr y montaña.
+   - Apple Salud (pasos, distancia).
+5. **Resto de pantallas en Brut:** editor de bloques, entreno activo, insignias, AI Lab.
+6. **Backend.**
+   - Sincronización con Supabase.
+   - Proxy de IA con cuotas.
+   - RevenueCat.
+
+### Pendiente de verificar
+
+- **Nada probado aún en iPhone:** falta `eas login`.
+- **Deslizar en la barra de pestañas:** pendiente de probarlo con el dedo.
+- **Pantallas antiguas en iOS:** la cursiva solo se ve en web; en nativo, las pantallas que no usan Brut van rectas.
