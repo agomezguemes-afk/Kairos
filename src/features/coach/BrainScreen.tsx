@@ -130,7 +130,11 @@ function BrainGraph({
               onPress={() => onPick(active === h.id ? null : h.id)}
             />
             <SvgText
-              x={h.x}
+              // Mono labels are ~5.5 px per character at 9 px: keep them inside.
+              x={Math.min(
+                width - h.short.length * 2.8 - 2,
+                Math.max(h.short.length * 2.8 + 2, h.x),
+              )}
               y={h.y + (h.y > cy ? 28 : -20)}
               fontSize={9}
               fontFamily={Brut.font.monoBold}
