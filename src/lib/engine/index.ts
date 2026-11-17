@@ -44,3 +44,5 @@ export {
   LOSS_RATIO,
 } from './decision';
 export type { LoadChoice, Arm, ArmContext, ArmOutcome } from './decision';
+export { brainSnapshot } from './brain';
+export type { BrainNode, BrainSnapshot, BrainGroup, BrainOrigin } from './brain';
