@@ -9,8 +9,6 @@ import {
   FlatList,
   ScrollView,
   type ListRenderItem,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   Keyboard,
   Platform,
   KeyboardAvoidingView,
@@ -20,6 +18,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedScrollHandler,
+  useAnimatedReaction,
   withTiming,
   withDelay,
   withSequence,
@@ -99,10 +98,14 @@ export default function OnboardingScreen() {
     scrollX.value = e.contentOffset.x;
   });
 
-  const handleMomentumEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
-    setPage(idx);
-  }, []);
+  // Derive the page from the live offset rather than onMomentumScrollEnd:
+  // react-native-web never fires momentum events, so `page` froze at 0 on web.
+  useAnimatedReaction(
+    () => Math.round(scrollX.value / SCREEN_W),
+    (idx, prev) => {
+      if (idx !== prev) runOnJS(setPage)(idx);
+    },
+  );
 
   const goToPage = useCallback((idx: number) => {
     listRef.current?.scrollToOffset({ offset: idx * SCREEN_W, animated: true });
@@ -248,7 +251,6 @@ export default function OnboardingScreen() {
             bounces={false}
             keyboardShouldPersistTaps="handled"
             onScroll={onScroll}
-            onMomentumScrollEnd={handleMomentumEnd}
             scrollEventThrottle={16}
             getItemLayout={(_d, i) => ({ length: SCREEN_W, offset: SCREEN_W * i, index: i })}
           />
