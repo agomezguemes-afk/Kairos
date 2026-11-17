@@ -35,8 +35,10 @@ Each commit should be one logical change — renames separate from rewrites, inf
 npm start          # Start Expo dev server
 npm run ios        # Run on iOS simulator
 npm run android    # Run on Android emulator
-npm run web        # Run on web
+npm run web        # Run on web (live preview for iPad / cloud sessions)
 ```
+
+Web is a preview target, not a shipping platform: native-only visuals (blur, video, haptics) degrade on web. Validate feel on-device before calling a UI change done.
 
 No test or lint scripts are configured yet.
 
