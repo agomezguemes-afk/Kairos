@@ -2,6 +2,9 @@ import React, { useMemo } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../types/navigation';
 
 import { useUserProfile } from '../../context/UserProfileContext';
 import { useWorkoutStore } from '../../store/workoutStore';
@@ -12,6 +15,7 @@ import { BBox, BPress, BScreen, BTag, BText } from '../../features/coach/ui/brut
 
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile, resetProfile } = useUserProfile();
   const notificationsEnabled = useWorkoutStore((s) => s.notificationsEnabled);
   const setNotificationsEnabled = useWorkoutStore((s) => s.setNotificationsEnabled);
@@ -118,6 +122,18 @@ export default function ProfileTab() {
             Cada propuesta sale de estos datos. Nada se inventa ni sale de tu móvil sin que lo
             decidas.
           </BText>
+          <BPress
+            onPress={() => navigation.navigate('Brain')}
+            bg={Brut.accent}
+            radius={12}
+            style={{ marginTop: Spacing.md }}
+            contentStyle={styles.action}
+            accessibilityRole="button"
+          >
+            <BText variant="bodyBold" size={15}>
+              Ver tu cerebro
+            </BText>
+          </BPress>
         </BBox>
 
         <BBox style={{ marginTop: Spacing.md }} contentStyle={[styles.card, styles.row]}>

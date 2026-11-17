@@ -44,4 +44,5 @@ export type RootStackParamList = {
   CoachPlan: undefined;
   LiveSession: { draftSessionId: string };
   SuggestionReveal: { sessionId?: string } | undefined;
+  Brain: undefined;
 };
