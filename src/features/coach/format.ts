@@ -31,6 +31,7 @@ export function describeTarget(m: Movement, t: MovementTarget): string {
       if (t.loadKg) parts.push(`${formatValue(t.loadKg, 'kg')}`);
       else if (t.loadKg === 0) parts.push('peso corporal');
       if (t.rir !== undefined) parts.push(`RIR ${t.rir}`);
+      if (t.restSec) parts.push(`descanso ${fmtSec(t.restSec)}`);
       break;
     }
     case 'interval': {

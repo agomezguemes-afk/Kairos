@@ -15,7 +15,7 @@ export const HAZARD = 1 / 10;
 /** Below this rate (% per exposure) a regime counts as a plateau. */
 export const PLATEAU_RATE = 0.5;
 
-function logGamma(z: number): number {
+export function logGamma(z: number): number {
   // Lanczos approximation (g = 7), accurate to ~1e-13 for z > 0.
   const c = [
     0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
@@ -53,7 +53,7 @@ function update(p: NIG, x: number): NIG {
 }
 
 /** Student-t CDF via the regularized incomplete beta (continued fraction). */
-function tCdf(t: number, nu: number): number {
+export function tCdf(t: number, nu: number): number {
   const x = nu / (nu + t * t);
   const ib = incBeta(x, nu / 2, 0.5);
   return t >= 0 ? 1 - 0.5 * ib : 0.5 * ib;

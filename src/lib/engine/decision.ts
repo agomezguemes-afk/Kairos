@@ -10,6 +10,13 @@ import { normCdf } from './fitnessFatigue';
 export const LOSS_RATIO = 1.5;
 
 /** Epley corrected by reps in reserve: the load's true rep capacity. */
+/**
+ * λ grows with the chance of pain coming back: λ = 1.5·(1 + 2·risk). At a
+ * 25 % two-week risk a single step needs p > 0.69 instead of 0.6.
+ */
+export const lossRatioFor = (painRisk = 0) =>
+  LOSS_RATIO * (1 + 2 * Math.max(0, Math.min(1, painRisk)));
+
 export const capacityOf = (load: number, reps: number, rir = 0) => load * (1 + (reps + rir) / 30);
 
 export interface LoadChoice {
@@ -34,8 +41,11 @@ export function chooseLoad(opts: {
   history?: number[];
   repsMin: number;
   rirTarget: number;
+  /** Cost of a failed step vs a won one; rises with pain-recurrence risk. */
+  lossRatio?: number;
 }): LoadChoice {
   const { current, increment, lastSets, history = [], repsMin, rirTarget } = opts;
+  const lossRatio = opts.lossRatio ?? LOSS_RATIO;
   const caps = lastSets
     .filter((s) => s.completed && s.reps !== undefined && (s.reps ?? 0) <= 12)
     .map((s) => capacityOf(s.loadKg ?? current, s.reps!, s.rir ?? 0));
@@ -61,7 +71,7 @@ export function chooseLoad(opts: {
     const load = current + delta * increment;
     const required = capacityOf(load, repsMin, rirTarget);
     const probability = 1 - normCdf((required - mean) / sd);
-    const utility = delta === 0 ? 0 : delta * (probability - LOSS_RATIO * (1 - probability));
+    const utility = delta === 0 ? 0 : delta * (probability - lossRatio * (1 - probability));
     return { load, probability, utility };
   });
   const best = candidates.reduce((a, b) => (b.utility > a.utility ? b : a));

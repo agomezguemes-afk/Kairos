@@ -54,6 +54,8 @@ export interface MovementTarget {
   intervals?: { reps: number; workSec: number; restSec: number };
   /** Bike cadence target, for RPM sensors. */
   cadenceRpm?: number;
+  /** Rest between sets (s); set by silent n-of-1 trials. */
+  restSec?: number;
 }
 
 export interface Movement {
