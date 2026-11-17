@@ -150,11 +150,48 @@ La escala 1–5 es ordinal: no se promedia. Se usa una **forma monótona fija** 
 6. La disposición baja si la siguiente sesión carga una región sin recuperar y no cambia si carga otra.
 7. El dolor sigue forzando "descanso".
 
+## Fase 4 — Detección de cambios y decisión
+
+### Ritmo de progresión con detección online de cambios (BOCPD, Adams & MacKay 2007)
+
+- Serie: incrementos del e1RM entre exposiciones consecutivas de un ejercicio, en % del valor anterior: `x_i = 100·(e_i/e_{i−1} − 1)`.
+- Modelo por segmento: `x ~ N(μ, σ²)` con prior Normal-Inversa-Gamma `μ0 = 0.5 %` por exposición, `κ0 = 1`, `α0 = 1`, `β0 = 1`; el predictivo es una t de Student.
+- Hazard constante `H = 1/10`: se espera un cambio de régimen cada ~10 exposiciones.
+- Se calcula el posterior de la longitud de racha `P(r_t | x_1:t)` y, con él, la mezcla del posterior de `μ` del régimen actual.
+- **Estancamiento**: `P(μ < 0.5 % | régimen actual) > 0.75` y al menos 3 incrementos en el régimen. Sustituye al umbral fijo de Theil-Sen.
+- **Cambio de tendencia**: `P(r_t ≤ 1) > 0.5`. Se muestra como evidencia («tu progresión cambió»).
+
+### Decisión de carga con pérdida asimétrica
+
+- Capacidad actual: `C ~ N(ĉ, s²)`, con `ĉ = carga·(1 + (reps + RIR)/30)`, que es Epley corregido por las repeticiones en reserva. Se toma la mejor serie de la última exposición.
+- La desviación `s` es la mayor entre el 2,5 % de `ĉ` y la DE de los residuos de las últimas 4 exposiciones.
+- Carga candidata `L` (actual, +1 y +2 incrementos). Lo que exige: `R(L) = L·(1 + (reps_min + RIR_obj)/30)`, y `p(L) = P(C ≥ R(L))`.
+- Utilidad `U(L) = Δ·(p − λ·(1 − p))`, donde Δ es el número de incrementos y `λ = 1.5`. Fallar una progresión cuesta 1,5 veces lo que se gana al acertar, porque supone sesiones perdidas, frustración y riesgo de lesión.
+- Se elige la `L` de mayor utilidad. Con un solo incremento, solo se sube si `p > λ/(1+λ) = 0.6`.
+- La probabilidad de completar se muestra en la evidencia de la propuesta.
+
+### Tipo de progresión: muestreo de Thompson contextual
+
+- Brazos para fuerza: `increase_load` (más carga) y `add_set` (más volumen).
+- Contexto al iniciar cada experimento: banda de disposición (`go`, `easy`, `rest`) y deuda de sueño (`< 2 h` o `≥ 2 h`).
+- Modelo jerárquico Beta-Bernoulli:
+  - Por brazo: `Beta(1 + éxitos, 1 + fracasos)`.
+  - Por (brazo, contexto): se parte del posterior del brazo, reducido a la mitad (pooling parcial), y se suman los datos de ese contexto.
+- Decisión: una muestra de cada brazo en el contexto actual, con generador pseudoaleatorio sembrado por el id de sesión, de modo que sea reproducible. Se elige el mayor.
+- Barrera de seguridad: si un brazo ha fallado ≥ 3 veces con afinidad < 0.4, se descarta sin muestrear.
+
+### Tests de aceptación (fase 4)
+
+1. Serie plana de 3 incrementos → estancamiento; serie con +2 %/exposición → no.
+2. Tras un cambio de régimen (+2 % ×4 y luego ~0), el detector sitúa la frontera y baja el ritmo estimado. Hacen falta ~6 exposiciones estancadas (no 4) para declarar estancamiento, porque la propia frontera es incierta (con 4: P = 0.73; con 6: P = 0.87).
+3. 8×3 a 60 kg con RIR 2 y objetivo 6–8 → se sube a 62,5 kg (p > 0.6) y no a 65.
+4. Con mucha incertidumbre en la capacidad, no se sube.
+5. Thompson: reproducible con la misma semilla; prefiere el brazo con más éxitos en ese contexto; el pooling hace que un contexto sin datos herede el posterior global.
+
 ## Fases siguientes
 
 | Fase | Contenido | Métodos |
 |---|---|---|
-| 4 | Detección y decisión | Detección online de cambios de tendencia (BOCPD, Adams y MacKay 2007) en lugar del umbral Theil-Sen; bandido contextual con muestreo de Thompson para el tipo de progresión; pérdida asimétrica (pasarse cuesta más que quedarse corto) |
 | 5 | Causalidad y adherencia | Experimentos n-of-1 ABAB con estimación bayesiana del efecto; DAG fisiológico para evitar condicionar en colisionadores; supervivencia (Cox o Weibull) para abandono y recaída de molestias |
 | 6 | Segundo cerebro | Grafo de conocimiento (nodos = estados y parámetros); hipótesis de la capa neuronal validadas por factor de Bayes; consolidación nocturna; pantalla «Tu cerebro» |
 | Continuo | Calibración | Diagrama de fiabilidad: si dice 70 %, ¿acierta el 70 %? Se muestra al usuario |
