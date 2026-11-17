@@ -188,12 +188,85 @@ La escala 1–5 es ordinal: no se promedia. Se usa una **forma monótona fija** 
 4. Con mucha incertidumbre en la capacidad, no se sube.
 5. Thompson: reproducible con la misma semilla; prefiere el brazo con más éxitos en ese contexto; el pooling hace que un contexto sin datos herede el posterior global.
 
+## Fase 5 — Causalidad, adherencia y pensamiento en segundo plano
+
+El motor no se enseña: piensa mientras el usuario descansa y solo le llegan sus decisiones (el descanso que toca, una sesión más ligera, una propuesta). La pantalla «Tu cerebro» queda como inspector de desarrollo (`SHOW_ENGINE_DEBUG`).
+
+### DAG fisiológico (Pearl 2009; Greenland, Pearl y Robins 1999)
+
+- Nodos: tratamiento (condición de una prueba), carga, forma y fatiga (latentes), sueño, estrés (no medido), agujetas, dolor, rendimiento y adherencia.
+- Aristas: tratamiento → {carga, rendimiento}; carga → {forma, fatiga, agujetas, dolor}; forma y fatiga → rendimiento; sueño → {rendimiento, agujetas}; estrés → {sueño, rendimiento, adherencia}; agujetas, dolor y rendimiento → adherencia; agujetas y dolor → rendimiento.
+- La d-separación se calcula sobre el grafo ancestral moralizado.
+- **Covariables seguras** en una prueba aleatorizada: solo las que no descienden del tratamiento. Entra el sueño; las agujetas no, porque son colisionador y mediador.
+- **Conjuntos de puerta trasera**:
+  - agujetas → rendimiento: {carga, sueño}. El modelo de Banister ya ajusta la carga.
+  - sueño → rendimiento: no identificable, por el estrés no medido. La sensibilidad al sueño es una asociación personal, no un efecto causal, y así se trata.
+
+### Supervivencia bayesiana (Weibull con riesgos proporcionales)
+
+- `h(t|x) = θ·k·t^(k−1)·e^(βx)`. Dados `k` y `β`, `θ ~ Gamma` es conjugada, así que se integra de forma exacta en una rejilla (k, β), con prior log-normal sobre `k` y normal sobre `β`.
+- La censura por la derecha (el hueco que sigue abierto) solo entra en la exposición `Σ t^k e^(βx)`.
+- **Adherencia**:
+  - Huecos entre sesiones, con una covariable: si la última sesión fue muy dura (RPE ≥ 8).
+  - Prior: mediana `7/días por semana`, `k` centrado en 1,5 (el riesgo sube con el tiempo).
+  - Salidas: P(entrenar en 3 y en 7 días), riesgo de que el hueco llegue a 14 días (*lapse*) y razón de riesgos de una sesión dura.
+  - Si el riesgo de *lapse* supera 0,5, la revisión semanal propone un plan más ligero aunque la semana no haya sido corta.
+- **Recaída de molestias**:
+  - Episodios de dolor (check-ins y experimentos), fusionados si están a menos de 7 días.
+  - Prior: `k` centrado en 0,8 (el riesgo es máximo justo después) y mediana de 120 días. **Revisar con un experto.**
+  - Salida: P(nuevo episodio en 14 días).
+- **Pérdida asimétrica dependiente del riesgo**: `λ = 1.5·(1 + 2·riesgo14)`. Con un 25 % de riesgo, un escalón de carga necesita `p > 0.69` en vez de 0,6.
+
+### Pruebas n-of-1 ABAB silenciosas (Duan, Kravitz y Schmid 2013)
+
+- Para elecciones reversibles. La primera es el descanso entre series: 2 min frente a 3,5 min (Grgic et al. 2018).
+- Diseño: 4 pares aleatorizados (AB o BA, con semilla), 8 exposiciones. Se aplica en el plan sin pedir nada al usuario.
+- Resultado por exposición: capacidad media de las series corregida por RIR, en % frente a la mediana de las 3 exposiciones previas.
+- Modelo: `y = μ + γ·tendencia + δ·(B − ½) + β·sueño + ε`, con prior Normal-Inversa-Gamma (σ ≈ 2 %, DE a priori de δ ≈ 2 %).
+  - ε AR(1) mediante Prais–Winsten en la rejilla ρ ∈ {0, 0.2, 0.4, 0.6}, ponderada por verosimilitud marginal más el jacobiano `½·ln(1 − ρ²)`.
+  - El posterior de δ es una mezcla de t de Student.
+- Decisión (ROPE ±1 %, Kruschke 2018), con al menos 2 exposiciones por brazo:
+  - Gana B si `P(δ > 1 %) ≥ 0.9`.
+  - Gana A si `P(δ < −1 %) ≥ 0.9`.
+  - «Da igual» si `P(|δ| < 1 %) ≥ 0.9`.
+  - Al terminar el calendario sin decisión, queda el descanso corto, que ahorra tiempo sin pérdida demostrada.
+- Factor de Bayes de Savage–Dickey (Wagenmakers et al. 2010) como evidencia adicional.
+
+### Consolidación en segundo plano
+
+- Es un paso puro: avanza o cierra las pruebas y parchea el plan, inicia una prueba nueva (una a la vez, en el ejercicio de fuerza con más historial, a partir de 3 exposiciones), y recalcula la adherencia y el riesgo de dolor.
+- También pre-planifica la siguiente sesión: la disposición prevista para ahora, o para mañana a las 9:00 si ya es de noche.
+- Se ejecuta tras cada sesión, check-in o cambio de plan, al pasar la app a segundo plano y al volver tras más de 3 h.
+- En la sesión en vivo:
+  - Se usa el plan previo si se hizo para ese momento (±6 h); si no, se recalcula.
+  - Banda «suave» o «descanso»: una serie menos por ejercicio de fuerza (nunca menos de 2), con una línea que explica por qué.
+  - Al marcar una serie se inicia la cuenta atrás del descanso que toca.
+- Pendiente: ejecución real en segundo plano del sistema (BGTaskScheduler, vía `expo-background-task`). Requiere módulo nativo y build.
+
+### Tests de aceptación (fase 5)
+
+1. Condicionar en agujetas abre el camino carga–sueño (colisionador). Solo el sueño es covariable segura del tratamiento. Puerta trasera de agujetas → rendimiento = {carga, sueño}; de sueño → rendimiento = ninguna.
+2. Weibull: sin datos, la mediana es la del prior. La censura reduce el riesgo estimado.
+3. Adherencia: un usuario regular entrena en 7 días con P > 0,8, y un hueco largo sube el riesgo de *lapse*.
+4. Dolor: los episodios cercanos se fusionan, y el riesgo es mayor justo después que 4 meses más tarde.
+5. Con riesgo de dolor alto, el mismo caso que sube a 62,5 kg se queda en 60.
+6. ABAB:
+   - Un efecto real de +5 % se detecta (veredicto B, BF > 3).
+   - Con ruido puro no se declara ganador.
+   - Una tendencia sola no se confunde con un efecto.
+   - No se decide sin 2 exposiciones por brazo.
+7. Consolidación:
+   - Inicia una prueba y parchea el descanso, y es idempotente.
+   - Un dolor reciente da un día de descanso con nota.
+   - El recorte nunca baja de 2 series.
+   - Fuera de su momento, el plan previo se recalcula.
+
 ## Fases siguientes
 
 | Fase | Contenido | Métodos |
 |---|---|---|
-| 5 | Causalidad y adherencia | Experimentos n-of-1 ABAB con estimación bayesiana del efecto; DAG fisiológico para evitar condicionar en colisionadores; supervivencia (Cox o Weibull) para abandono y recaída de molestias |
-| 6 | Segundo cerebro | Grafo de conocimiento (nodos = estados y parámetros); hipótesis de la capa neuronal validadas por factor de Bayes; consolidación nocturna; pantalla «Tu cerebro» |
+| BG | Segundo plano real | `expo-background-task` (BGTaskScheduler) para consolidar de noche sin abrir la app; notificación adaptativa según el riesgo de *lapse* |
+| 6 | Segundo cerebro | Grafo de conocimiento (nodos = estados y parámetros); hipótesis de la capa neuronal validadas por factor de Bayes; consolidación nocturna; inspector interno, no visible |
 | Continuo | Calibración | Diagrama de fiabilidad: si dice 70 %, ¿acierta el 70 %? Se muestra al usuario |
 
 ## Tests de aceptación (fase 2)
@@ -225,3 +298,11 @@ La escala 1–5 es ordinal: no se promedia. Se usa una **forma monótona fija** 
 - Bishop PA, Jones E, Woods AK (2008). *Recovery from training: a brief review.* J Strength Cond Res.
 - Helms ER et al. (2016). *Application of the repetitions in reserve-based RPE scale for resistance training.* Strength Cond J.
 - Adams RP, MacKay DJC (2007). *Bayesian online changepoint detection.* arXiv:0710.3742.
+- Pearl J (2009). *Causality* (2nd ed.). Cambridge University Press.
+- Greenland S, Pearl J, Robins JM (1999). *Causal diagrams for epidemiologic research.* Epidemiology.
+- Ibrahim JG, Chen MH, Sinha D (2001). *Bayesian Survival Analysis.* Springer.
+- da Silva T et al. (2019). *Recurrence of low back pain is common: a prospective inception cohort study.* J Physiother.
+- Duan N, Kravitz RL, Schmid CH (2013). *Single-patient (n-of-1) trials: a pragmatic clinical decision methodology for patient-centered comparative effectiveness research.* J Clin Epidemiol.
+- Grgic J et al. (2018). *Effects of rest interval duration in resistance training on measures of muscular strength: a systematic review.* Sports Med.
+- Kruschke JK (2018). *Rejecting or accepting parameter values in Bayesian estimation.* Adv Methods Pract Psychol Sci.
+- Wagenmakers EJ et al. (2010). *Bayesian hypothesis testing for psychologists: a tutorial on the Savage–Dickey method.* Cogn Psychol.
