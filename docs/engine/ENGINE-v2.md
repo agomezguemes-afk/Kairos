@@ -103,11 +103,57 @@ tensión   = carga semanal · monotonía
 
 Se calculan con los días sin entrenar incluidos (carga 0). El cociente agudo/crónico (ACWR) **no** se usa para predecir lesiones, porque su validez está discutida (Impellizzeri 2020).
 
+## Fase 3 — Sueño, recuperación por región y sensibilidad personal
+
+Todas las señales se expresan en **unidades de rendimiento (%)** y desplazan la media predictiva del modelo forma-fatiga; la disposición se calcula después con `Φ`. Así cada efecto es interpretable ("−2,1 % por el sueño") y su incertidumbre se suma a la varianza predictiva, en lugar de sumar log-odds arbitrarios.
+
+```
+μ_hoy = p̂_FF + Σ efectos_i            σ²_hoy = σ²_FF + Σ var(efectos_i)
+P(rinde ≥ nivel − SWC) = 1 − Φ((nivel − SWC − μ_hoy) / σ_hoy)
+```
+
+### Deuda de sueño (proceso homeostático, Borbély 1982)
+
+- Horas por noche: `sleepHours` si existe (HealthKit, más adelante); si no, se estiman desde la escala 1–5 con `{1: 4.5, 2: 5.75, 3: 6.75, 4: 7.5, 5: 8.25}` h y una incertidumbre de ±1 h (σ = 1).
+- Necesidad: `N ~ N(8, 0.5²)` h. Consenso de ≥ 7 h en adultos, más en deportistas (Watson 2015).
+- Deuda acumulada con recuperación incompleta (Belenky 2003): `D_t = D_{t−1}·e^(−1/4) + max(0, N − h_t)`. Las noches sin dato no suman ni restan; solo decae lo que ya había.
+- Efecto: `−γ·D`, con `γ ~ N(0.35, 0.15²)` % por hora de deuda y un tope de −6 %.
+
+### Efecto agudo de la última noche y de las agujetas (efecto monótono con escala personal)
+
+La escala 1–5 es ordinal: no se promedia. Se usa una **forma monótona fija** tomada de la literatura y un **factor de escala personal β** (efecto monótono, análogo a `mo()` de Bürkner & Charpentier 2020):
+
+| Nivel | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| `s_sueño(k)` | −1.00 | −0.55 | −0.15 | 0 | +0.10 |
+| `s_agujetas(k)` | 0 | 0 | −0.20 | −0.55 | −1.00 |
+
+- `efecto = β·s(k)`, con priors `β_sueño ~ N(3.0, 1.5²)` % y `β_agujetas ~ N(3.0, 1.5²)` %. Con estos priors, dormir 1/5 resta ≈ 3 % (Fullagar 2015; Craven 2022) y agujetas 5/5 restan ≈ 3 % (Cheung 2003).
+- **Aprendizaje personal**: cada sesión con fuerza observada y check-in previo da un residuo `r = y − p̂_FF`. Se actualizan β conjugadamente (regresión bayesiana en 2D sobre `[s_sueño, s_agujetas]`, ruido `σ_y`). Restricción: β ≥ 0, porque dormir peor nunca mejora el rendimiento.
+
+### Recuperación por región muscular
+
+- Regiones: `piernas`, `cadena posterior`, `tracción`, `empuje`, `core`, `agarre`, `pantorrillas`. Cada movimiento del catálogo tiene un mapa de pesos por región (0–1).
+- Daño de una sesión en la región *r*: `Σ series · w_r · i(RIR)`, donde `i(RIR) = 1 + 0.15·max(0, 3 − RIR)`, porque cerca del fallo el daño es mayor (Helms 2016). Los ejercicios pliométricos y excéntricos suman un 20 % más.
+- Fatiga residual: `F_r(t) = Σ_sesiones D·e^(−Δt/τ_r)`, con `τ_r = m · 24 h · (1 + 0.25·ln(1 + series))`. A más volumen, recuperación más lenta. Base de 48–72 h hasta ~90 % (McLester 2003; Bishop 2008).
+- Recuperado: `R_r = 1 − min(1, F_r / F_ref)`, con `F_ref` = daño de una sesión dura típica (12 series a RIR 1).
+- **Ritmo personal** `m ~ LogNormal(0, 0.3²)`: posterior en rejilla `m ∈ {0.6 … 1.8}`. La verosimilitud viene de los check-ins de agujetas mediante un modelo **logit acumulativo** (umbrales fijos y pendiente 4) sobre la fatiga predicha de la región más castigada. Si reportas agujetas cuando el modelo te creía recuperado, `m` sube (recuperas más lento), y al revés.
+- Efecto en la disposición: si la siguiente sesión carga una región con `R < 0.7`, `−4 %·(0.7 − R)/0.7` ponderado por el peso de esa región en la sesión.
+
+### Tests de aceptación (fase 3)
+
+1. Tres noches a 2/5 acumulan deuda; dos noches buenas la reducen sin borrarla.
+2. Forma monótona: peor sueño ⇒ efecto ≤; más agujetas ⇒ efecto ≤.
+3. Atleta sintético con β_sueño real = 6 %: el posterior se mueve de 3 hacia 6 y su varianza baja.
+4. Sentadilla pesada ayer ⇒ piernas < 70 %; a las 96 h > 90 %; el doble de series recupera más lento.
+5. Agujetas 5/5 con el modelo creyéndote recuperado ⇒ `m` sube.
+6. La disposición baja si la siguiente sesión carga una región sin recuperar y no cambia si carga otra.
+7. El dolor sigue forzando "descanso".
+
 ## Fases siguientes
 
 | Fase | Contenido | Métodos |
 |---|---|---|
-| 3 | Sueño y recuperación | Deuda de sueño con el modelo de dos procesos (Borbély 1982); recuperación por grupo muscular, exponencial con constante dependiente del volumen (48–72 h); check-ins 1–5 con regresión logística ordinal (logit acumulativo) |
 | 4 | Detección y decisión | Detección online de cambios de tendencia (BOCPD, Adams y MacKay 2007) en lugar del umbral Theil-Sen; bandido contextual con muestreo de Thompson para el tipo de progresión; pérdida asimétrica (pasarse cuesta más que quedarse corto) |
 | 5 | Causalidad y adherencia | Experimentos n-of-1 ABAB con estimación bayesiana del efecto; DAG fisiológico para evitar condicionar en colisionadores; supervivencia (Cox o Weibull) para abandono y recaída de molestias |
 | 6 | Segundo cerebro | Grafo de conocimiento (nodos = estados y parámetros); hipótesis de la capa neuronal validadas por factor de Bayes; consolidación nocturna; pantalla «Tu cerebro» |
@@ -135,4 +181,10 @@ Se calculan con los días sin entrenar incluidos (carga 0). El cociente agudo/cr
 - Cheung K, Hume P, Maxwell L (2003). *Delayed onset muscle soreness.* Sports Med.
 - Impellizzeri FM et al. (2020). *Acute:chronic workload ratio: conceptual issues and fundamental pitfalls.* Int J Sports Physiol Perform.
 - Borbély AA (1982). *A two process model of sleep regulation.* Hum Neurobiol.
+- Watson NF et al. (2015). *Recommended amount of sleep for a healthy adult.* Sleep.
+- Belenky G et al. (2003). *Patterns of performance degradation and restoration during sleep restriction and subsequent recovery.* J Sleep Res.
+- Bürkner PC, Charpentier E (2020). *Modelling monotonic effects of ordinal predictors in Bayesian regression models.* Br J Math Stat Psychol.
+- McLester JR et al. (2003). *A series of studies—a practical protocol for testing muscular endurance recovery.* J Strength Cond Res.
+- Bishop PA, Jones E, Woods AK (2008). *Recovery from training: a brief review.* J Strength Cond Res.
+- Helms ER et al. (2016). *Application of the repetitions in reserve-based RPE scale for resistance training.* Strength Cond J.
 - Adams RP, MacKay DJC (2007). *Bayesian online changepoint detection.* arXiv:0710.3742.
