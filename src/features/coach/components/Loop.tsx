@@ -12,10 +12,10 @@ import {
   type Experiment,
   type ExperimentAnswers,
   type Feel,
-  type Readiness,
   type Verdict,
   type WeekFeel,
 } from '../../../lib/adaptive';
+import type { ReadinessV2 } from '../../../lib/engine';
 import { Brut, Spacing } from '../../../theme/tokens';
 import { feedback } from '../feedback';
 import { formatValue } from '../format';
@@ -69,24 +69,66 @@ const BAND = {
   rest: { label: 'HOY TOCA DESCANSAR', bg: Brut.surface },
 } as const;
 
-export function ReadinessBar({ r }: { r: Readiness }) {
+export function ReadinessBar({ r }: { r: ReadinessV2 }) {
   const b = BAND[r.band];
+  const [open, setOpen] = useState(false);
+  const pct = Math.round(r.probability * 100);
+  const reasons = r.evidence.filter((e) => e.delta !== 0);
   return (
-    <BBox bg={b.bg} shadow={2} radius={12} contentStyle={styles.readiness}>
-      <View style={{ flex: 1 }}>
-        <BText variant="monoBold" size={10}>
-          {b.label}
-          {r.informed ? '' : ' · ESTIMADO'}
-        </BText>
-        {r.reasons.length > 0 && (
-          <BText size={13} style={{ marginTop: 2 }}>
-            Porque {r.reasons.join(' y ')}.
+    <BBox bg={b.bg} shadow={2} radius={12} contentStyle={styles.readinessCol}>
+      <Pressable
+        onPress={() => setOpen((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={`${b.label}, ${pct} por ciento. Ver en qué se basa`}
+        style={styles.readiness}
+      >
+        <View style={{ flex: 1 }}>
+          <BText variant="monoBold" size={10}>
+            {b.label}
+            {r.informed ? '' : ' · SEGÚN ESTUDIOS'}
           </BText>
-        )}
-      </View>
-      <BText variant="display" size={28}>
-        {r.score}
-      </BText>
+          <BText size={13} style={{ marginTop: 2 }}>
+            {reasons.length
+              ? r.band === 'go' && reasons.every((e) => e.delta < 0)
+                ? `Pese a que ${reasons.map((e) => e.label).join(' y ')}, tu forma va por delante.`
+                : `Porque ${reasons.map((e) => e.label).join(' y ')}.`
+              : r.form.mean < 0
+                ? 'Tu fatiga reciente pesa más que tu forma.'
+                : 'Tu forma compensa tu fatiga reciente.'}
+          </BText>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <BText variant="display" size={28}>
+            {pct}%
+          </BText>
+          <BText variant="mono" size={9}>
+            {open ? '− DATOS' : '+ DATOS'}
+          </BText>
+        </View>
+      </Pressable>
+      {open && (
+        <Animated.View entering={FadeIn.duration(180)} style={styles.evidenceBox}>
+          <BText variant="mono" size={10}>
+            {`PROB. DE RENDIR A TU NIVEL: ${pct}% (MODELO ${Math.round(r.modelProbability * 100)}%)`}
+          </BText>
+          <BText variant="mono" size={10}>
+            {`FORMA NETA: ${r.form.mean >= 0 ? '+' : ''}${r.form.mean.toFixed(1)}% ± ${r.form.sd.toFixed(1)}`}
+          </BText>
+          <BText variant="mono" size={10}>
+            {`CONSTANTES: FORMA ${r.taus.tau1} D · FATIGA ${r.taus.tau2} D · ${r.observations} OBS.`}
+          </BText>
+          {r.load.monotony !== null && (
+            <BText variant="mono" size={10}>
+              {`MONOTONÍA ${r.load.monotony.toFixed(1)} · CARGA SEMANAL ${r.load.weekly} UA`}
+            </BText>
+          )}
+          {r.evidence.map((e) => (
+            <BText key={e.label} variant="mono" size={10} color={Brut.muted}>
+              {`${e.label.toUpperCase()}${e.delta ? ` (${e.delta > 0 ? '+' : ''}${e.delta})` : ''} · ${e.source}`}
+            </BText>
+          ))}
+        </Animated.View>
+      )}
     </BBox>
   );
 }
@@ -370,6 +412,8 @@ const styles = StyleSheet.create({
   },
   choiceOn: { backgroundColor: Brut.accent },
   submit: { height: 46, alignItems: 'center', justifyContent: 'center' },
+  readinessCol: { paddingHorizontal: 12, paddingVertical: 10 },
+  evidenceBox: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: Brut.ink, gap: 3 },
   readiness: {
     flexDirection: 'row',
     alignItems: 'center',

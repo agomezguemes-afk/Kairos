@@ -22,7 +22,6 @@ import {
   needsWeeklyCheckIn,
   objectiveCheck,
   QUALITY_LABEL,
-  readiness,
   SPORT_LABEL,
   type Experiment,
   type LoadBand,
@@ -35,6 +34,7 @@ import {
   ReadinessBar,
   WeeklyCheckInCard,
 } from './components/Loop';
+import { readinessV2 } from '../../lib/engine';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Spacing } from '../../theme/tokens';
 import { feedback } from './feedback';
@@ -137,7 +137,7 @@ export default function CoachHomeScreen() {
     return { thisWeek, sets };
   }, [now, sessions]);
   const ready = useMemo(
-    () => readiness(checkins, sessions, new Date(now)),
+    () => readinessV2(sessions, checkins, new Date(now)),
     [checkins, now, sessions],
   );
   const preToday = useMemo(
