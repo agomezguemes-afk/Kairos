@@ -1,8 +1,8 @@
-// Engine v2 · probabilistic readiness. Spec: docs/engine/ENGINE-v2.md.
+// Engine v2 · readiness (phases 2–3). Spec: docs/engine/ENGINE-v2.md.
 //
-// P(today's performance ≥ recent level − SWC) from the fitness-fatigue
-// predictive, then adjusted in log-odds space by check-in likelihood ratios
-// taken from the literature (personalised in phase 3).
+// Every signal is an effect in performance units (%) on top of the
+// fitness-fatigue predictive, with its own variance. Readiness is then
+// P(today ≥ recent level − SWC) under that shifted, widened predictive.
 
 import type { CheckIn } from '../adaptive/checkins';
 import type { SessionLog } from '../adaptive/types';
@@ -12,50 +12,66 @@ import {
   dayIndex,
   fitTaus,
   normCdf,
+  OBS_VAR,
   strengthObservations,
-  type FFResult,
 } from './fitnessFatigue';
+import { checkInEffect, learnSensitivity, preByDay, type Sensitivity } from './personal';
+import {
+  recoveryRate,
+  recoveryStatus,
+  sessionRegions,
+  type RatePosterior,
+  type RegionStatus,
+} from './recovery';
+import { debtEffect, sleepDebt, type SleepDebt } from './sleep';
 
 export interface Evidence {
   label: string;
-  /** Log-odds contribution (negative lowers readiness). */
+  /** Effect on expected performance today (%); 0 = informative only. */
   delta: number;
+  /** SD of that effect (%). */
+  sd: number;
   source: string;
 }
 
 export type ReadinessBandV2 = 'go' | 'easy' | 'rest';
 
 export interface ReadinessV2 {
-  /** 0–1 probability of performing at or above the recent level. */
   probability: number;
   band: ReadinessBandV2;
-  /** Model-only probability before check-ins. */
+  /** Fitness-fatigue only, before any other effect. */
   modelProbability: number;
-  /** Net training form today (%), with its standard deviation. */
   form: { mean: number; sd: number };
+  /** Expected performance today vs recent level (%), all effects included. */
+  expected: { mean: number; sd: number };
   evidence: Evidence[];
-  /** False while the estimate rests on literature priors, not the person. */
   informed: boolean;
   observations: number;
   taus: { tau1: number; tau2: number };
   load: LoadPattern;
+  sleep: SleepDebt;
+  sensitivity: Sensitivity;
+  recovery: { regions: RegionStatus[]; rate: RatePosterior };
 }
 
 export interface LoadPattern {
   weekly: number;
   monotony: number | null;
   strain: number | null;
-  /** Strain above the person's own 90th percentile (needs ≥ 4 weeks). */
   highStrain: boolean;
+}
+
+export interface ReadinessOptions {
+  /** Movement ids of the session the person is about to do. */
+  nextMovements?: string[];
 }
 
 const PRE_VALID_MS = 18 * 3_600_000;
 const DAY_MS = 86_400_000;
-/** Minimum observations before the posterior is considered personal. */
 const INFORMED_MIN = 3;
-
-const logit = (p: number) => Math.log(p / (1 - p));
-const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
+/** SWC = 0.2 × between-day SD (Hopkins 2004). */
+const SWC = 0.2 * Math.sqrt(OBS_VAR);
+const clampP = (p: number) => Math.min(0.9, Math.max(0.1, p));
 
 /** Foster 1998: monotony = mean/SD of daily load (rest days count as 0). */
 export function loadPattern(sessions: SessionLog[], now: Date): LoadPattern {
@@ -90,89 +106,141 @@ export function loadPattern(sessions: SessionLog[], now: Date): LoadPattern {
   return { weekly: Math.round(cur.sum), monotony, strain, highStrain };
 }
 
-/** Check-in likelihood ratios (spec table). */
-function checkInEvidence(checkins: CheckIn[], now: Date): { ev: Evidence[]; pain: boolean } {
-  const t = now.getTime();
-  const pre = [...checkins]
-    .filter((c) => c.kind === 'pre' && t - new Date(c.at).getTime() <= PRE_VALID_MS)
-    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())[0];
-  const pain = checkins.some((c) => c.pain && t - new Date(c.at).getTime() <= 3 * DAY_MS);
-  const ev: Evidence[] = [];
-  const SLEEP = 'Fullagar 2015; Craven 2022';
-  const DOMS = 'Cheung, Hume & Maxwell 2003';
-  if (pre?.sleep === 1) ev.push({ label: 'dormiste muy mal', delta: -0.8, source: SLEEP });
-  else if (pre?.sleep === 2) ev.push({ label: 'dormiste mal', delta: -0.5, source: SLEEP });
-  else if (pre?.sleep === 5) ev.push({ label: 'dormiste muy bien', delta: 0.2, source: SLEEP });
-  if (pre?.soreness === 5)
-    ev.push({ label: 'tienes agujetas muy fuertes', delta: -0.9, source: DOMS });
-  else if (pre?.soreness === 4)
-    ev.push({ label: 'tienes agujetas fuertes', delta: -0.5, source: DOMS });
-  if (pain)
-    ev.push({
-      label: 'marcaste dolor en los últimos 3 días',
-      delta: -1.5,
-      source: 'Regla de seguridad',
-    });
-  return { ev, pain };
-}
-
 export function readinessV2(
   sessions: SessionLog[],
   checkins: CheckIn[],
   now: Date = new Date(),
-  fitted?: FFResult,
+  opts: ReadinessOptions = {},
 ): ReadinessV2 {
   const today = dayIndex(now);
-  const ff =
-    fitted ??
-    fitTaus(dailyImpulses(sessions, dayIndex), strengthObservations(sessions, dayIndex), today);
-  const days = ff.days;
-  const todayState = days[days.length - 1];
-  const recent = days.slice(-15, -1);
+  const ff = fitTaus(
+    dailyImpulses(sessions, dayIndex),
+    strengthObservations(sessions, dayIndex),
+    today,
+  );
+  const todayState = ff.days[ff.days.length - 1];
+  const recent = ff.days.slice(-15, -1);
+  const level = recent.length
+    ? recent.reduce((a, d) => a + d.mean, 0) / recent.length
+    : (todayState?.mean ?? 0);
+  const ffMean = todayState?.mean ?? 0;
+  const ffVar = todayState?.variance ?? OBS_VAR;
+  const modelProbability = clampP(1 - normCdf((level - SWC - ffMean) / Math.sqrt(ffVar)));
 
-  let modelProbability = 0.65;
-  let formSd = 0;
-  if (todayState && recent.length) {
-    const level = recent.reduce((a, d) => a + d.mean, 0) / recent.length;
-    // SWC = 0.2 × between-day SD (Hopkins 2004); the observation noise is
-    // that SD here, so SWC = 0.2 × 4 % = 0.8 %.
-    const swc = 0.2 * Math.sqrt(16);
-    const sd = Math.sqrt(todayState.variance);
-    modelProbability = 1 - normCdf((level - swc - todayState.mean) / sd);
-    formSd = Math.sqrt(Math.max(0, todayState.variance - 16));
-  }
-  // Day-to-day noise (~4 %) makes certainty dishonest: the model alone never
-  // claims more than 90 % either way; check-ins can move it further.
-  modelProbability = Math.min(0.9, Math.max(0.1, modelProbability));
-
-  const { ev, pain } = checkInEvidence(checkins, now);
-  const load = loadPattern(sessions, now);
-  if (load.highStrain && load.monotony !== null && load.monotony > 2) {
-    ev.push({ label: 'semana muy cargada y monótona', delta: -0.4, source: 'Foster 1998' });
-  }
   const evidence: Evidence[] = [
     {
       label:
-        todayState && todayState.form < 0
-          ? 'fatiga acumulada por encima de tu forma'
-          : 'balance forma-fatiga',
+        (todayState?.form ?? 0) < 0
+          ? 'tu fatiga reciente pesa más que tu forma'
+          : 'tu forma compensa tu fatiga reciente',
       delta: 0,
-      source: 'Banister 1975 (modelo forma-fatiga)',
+      sd: 0,
+      source: 'Banister 1975 (forma-fatiga)',
     },
-    ...ev,
   ];
-  let probability = sigmoid(logit(modelProbability) + ev.reduce((a, e) => a + e.delta, 0));
-  if (pain) probability = Math.min(probability, 0.35);
+  const t = now.getTime();
+
+  // Last night + soreness, scaled by the person's learned sensitivity.
+  const sensitivity = learnSensitivity(ff.days, checkins);
+  const pre = preByDay(checkins).get(today);
+  const preFresh = pre && t - new Date(pre.at).getTime() <= PRE_VALID_MS ? pre : undefined;
+  const ci = checkInEffect(preFresh, sensitivity);
+  const personal = sensitivity.samples >= 3 ? ' · ajustado a ti' : '';
+  if (ci.sleep.mean !== 0) {
+    evidence.push({
+      label: ci.sleep.mean < 0 ? 'dormiste mal anoche' : 'dormiste muy bien',
+      delta: ci.sleep.mean,
+      sd: Math.sqrt(ci.sleep.variance),
+      source: `Fullagar 2015; Craven 2022${personal}`,
+    });
+  }
+  if (ci.soreness.mean !== 0) {
+    evidence.push({
+      label: 'tienes agujetas',
+      delta: ci.soreness.mean,
+      sd: Math.sqrt(ci.soreness.variance),
+      source: `Cheung 2003${personal}`,
+    });
+  }
+
+  // Accumulated sleep debt (excluding nothing: debt and last night are
+  // distinct mechanisms — chronic vs acute).
+  const sleep = sleepDebt(checkins, today);
+  const de = debtEffect(sleep);
+  if (sleep.hours >= 1) {
+    evidence.push({
+      label: `llevas ${sleep.hours.toFixed(1).replace('.', ',')} h de deuda de sueño`,
+      delta: de.mean,
+      sd: Math.sqrt(de.variance),
+      source: 'Borbély 1982; Belenky 2003',
+    });
+  }
+
+  // Region recovery for the session about to be done.
+  const rate = recoveryRate(sessions, checkins);
+  const regions = recoveryStatus(sessions, now, rate.mean);
+  if (opts.nextMovements?.length) {
+    const load = sessionRegions(opts.nextMovements);
+    let worst: { status: RegionStatus; effect: number } | null = null;
+    for (const r of regions) {
+      const w = load[r.region] ?? 0;
+      if (!w || r.recovered >= 0.7) continue;
+      const effect = -4 * ((0.7 - r.recovered) / 0.7) * w;
+      if (!worst || effect < worst.effect) worst = { status: r, effect };
+    }
+    if (worst) {
+      evidence.push({
+        label: `la recuperación de ${worst.status.label.toLowerCase()} va al ${Math.round(worst.status.recovered * 100)} %`,
+        delta: worst.effect,
+        sd: Math.abs(worst.effect) * 0.5,
+        source: `Bishop 2008; McLester 2003 · ritmo personal ×${rate.mean.toFixed(2).replace('.', ',')}`,
+      });
+    }
+  }
+
+  const load = loadPattern(sessions, now);
+  if (load.highStrain && load.monotony !== null && load.monotony > 2) {
+    evidence.push({
+      label: 'semana muy cargada y monótona',
+      delta: -1.5,
+      sd: 1,
+      source: 'Foster 1998',
+    });
+  }
+
+  const shift = evidence.reduce((a, e) => a + e.delta, 0);
+  const extraVar = evidence.reduce((a, e) => a + e.sd ** 2, 0);
+  const mean = ffMean + shift;
+  const sd = Math.sqrt(ffVar + extraVar);
+  let probability = clampP(1 - normCdf((level - SWC - mean) / sd));
+
+  const pain = checkins.some((c) => c.pain && t - new Date(c.at).getTime() <= 3 * DAY_MS);
+  if (pain) {
+    evidence.push({
+      label: 'marcaste dolor en los últimos 3 días',
+      delta: 0,
+      sd: 0,
+      source: 'Regla de seguridad',
+    });
+    probability = Math.min(probability, 0.35);
+  }
 
   return {
     probability,
     band: probability >= 0.65 ? 'go' : probability >= 0.4 ? 'easy' : 'rest',
     modelProbability,
-    form: { mean: todayState?.form ?? 0, sd: formSd },
+    form: {
+      mean: todayState?.form ?? 0,
+      sd: Math.sqrt(Math.max(0, (todayState?.variance ?? OBS_VAR) - OBS_VAR)),
+    },
+    expected: { mean: mean - level, sd },
     evidence,
     informed: ff.observations >= INFORMED_MIN,
     observations: ff.observations,
     taus: ff.params,
     load,
+    sleep,
+    sensitivity,
+    recovery: { regions, rate },
   };
 }

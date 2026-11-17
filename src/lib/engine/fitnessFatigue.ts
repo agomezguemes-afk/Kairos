@@ -105,6 +105,9 @@ export interface DayState {
   /** Net form k1·g − k2·h (%), the part training controls. */
   form: number;
   observed?: number;
+  /** Prediction made before this day's observation (one step ahead). */
+  predicted: number;
+  predictedVar: number;
 }
 
 export interface FFResult {
@@ -148,6 +151,10 @@ export function runFitnessFatigue(
     h = h * d2 + w;
     for (let i = 0; i < 3; i++) P[i][i] += Q_DIAG[i];
     const phi: Vec3 = [1, g, -h];
+    // One-step-ahead prediction, before today's observation updates θ:
+    // the honest residual for learning check-in effects (phase 3).
+    const predicted = dot(phi, theta);
+    const predictedVar = dot(phi, matVec(P, phi)) + OBS_VAR;
 
     for (const y of obsByDay.get(day) ?? []) {
       const Pphi = matVec(P, phi);
@@ -176,6 +183,8 @@ export function runFitnessFatigue(
       variance: varTheta + OBS_VAR,
       form: theta[1] * g - theta[2] * h,
       observed: obsByDay.get(day)?.[0],
+      predicted,
+      predictedVar,
     });
   }
   return { params, theta, cov: P, days, observations: n, logLik };

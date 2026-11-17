@@ -17,6 +17,8 @@ export interface CheckIn {
   kind: 'pre' | 'weekly';
   /** 1 (awful) – 5 (great). */
   sleep?: number;
+  /** Measured hours (HealthKit, wearable); preferred over the 1–5 scale. */
+  sleepHours?: number;
   /** 1 (none) – 5 (very sore). */
   soreness?: number;
   pain?: boolean;
