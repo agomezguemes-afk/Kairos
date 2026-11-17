@@ -36,6 +36,25 @@ import {
 } from '../lib/engine';
 import type { ArmContext } from '../lib/engine/decision';
 
+// Writes are tracked so a background task can wait for them before the OS
+// suspends the app; otherwise a night's consolidation could be lost.
+let pendingWrite: Promise<void> = Promise.resolve();
+const trackedStorage = {
+  getItem: (k: string) => AsyncStorage.getItem(k),
+  setItem: (k: string, v: string) => {
+    const write = pendingWrite.then(() => AsyncStorage.setItem(k, v));
+    // A failed write must not block the ones after it; persist still sees the error.
+    pendingWrite = write.catch((e) => console.warn('[coach] persist write failed', e));
+    return write;
+  },
+  removeItem: (k: string) => AsyncStorage.removeItem(k),
+};
+
+/** Resolves once every persisted write issued so far has reached disk. */
+export function flushCoachStorage(): Promise<void> {
+  return pendingWrite;
+}
+
 interface CoachState {
   goal: ParsedGoal | null;
   plan: PlanDraft | null;
@@ -275,7 +294,7 @@ export const useCoachStore = create<CoachState>()(
     }),
     {
       name: 'kairos-coach-v1',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => trackedStorage),
       version: 1,
       partialize: (s) => ({
         goal: s.goal,

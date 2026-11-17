@@ -95,6 +95,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       'expo-font',
+      // OS-scheduled background work (BGTaskScheduler): the engine
+      // consolidates overnight. Adds only Info.plist keys, no entitlement,
+      // so it signs with a free Personal Team.
+      'expo-background-task',
       // Standard BLE sensors (HR straps, cadence/RPM pods, power meters)
       // for live sessions. Foreground only: a workout is on screen.
       [

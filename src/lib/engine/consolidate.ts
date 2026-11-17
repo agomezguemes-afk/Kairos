@@ -169,11 +169,16 @@ function maybeStartTrial(
   };
 }
 
-/** Forecast for the next session: tomorrow morning when it is already evening. */
-function forecastDate(now: Date): Date {
-  if (now.getHours() < 18) return now;
+/**
+ * When the next session will probably happen: now during the day; 9:00
+ * the next morning in the evening; 9:00 today when the engine runs at
+ * night (the OS wakes it while the phone charges).
+ */
+export function forecastDate(now: Date): Date {
+  const h = now.getHours();
+  if (h >= 7 && h < 18) return now;
   const d = new Date(now);
-  d.setDate(d.getDate() + 1);
+  if (h >= 18) d.setDate(d.getDate() + 1);
   d.setHours(9, 0, 0, 0);
   return d;
 }

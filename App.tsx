@@ -12,6 +12,8 @@ import { useAuthStore, startAuthListener } from './src/store/useAuthStore';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { useFonts } from 'expo-font';
 import { useBackgroundThinking } from './src/features/coach/useBackgroundThinking';
+// Side effect: defines the overnight engine task before anything renders.
+import './src/features/coach/backgroundEngine';
 import { Anton_400Regular } from '@expo-google-fonts/anton';
 import {
   SpaceGrotesk_500Medium,

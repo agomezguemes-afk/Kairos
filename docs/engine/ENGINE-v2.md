@@ -241,7 +241,11 @@ El motor no se enseña: piensa mientras el usuario descansa y solo le llegan sus
   - Se usa el plan previo si se hizo para ese momento (±6 h); si no, se recalcula.
   - Banda «suave» o «descanso»: una serie menos por ejercicio de fuerza (nunca menos de 2), con una línea que explica por qué.
   - Al marcar una serie se inicia la cuenta atrás del descanso que toca.
-- Pendiente: ejecución real en segundo plano del sistema (BGTaskScheduler, vía `expo-background-task`). Requiere módulo nativo y build.
+- **Turno de noche**: tarea del sistema con `expo-background-task` (BGTaskScheduler en iOS, WorkManager en Android), con intervalo mínimo de 6 h. iOS la lanza cuando quiere, normalmente de noche mientras carga.
+  - La tarea rehidrata el estado, consolida y espera a que el guardado llegue a disco antes de que el sistema suspenda la app.
+  - De madrugada la previsión es para las 9:00 de ese día.
+  - Si el usuario desactiva «Actualización en segundo plano» o activa el modo de bajo consumo, se mantienen las pasadas en primer plano.
+  - Solo añade claves al Info.plist, sin entitlements, así que firma con Personal Team gratuita.
 
 ### Tests de aceptación (fase 5)
 
@@ -265,7 +269,7 @@ El motor no se enseña: piensa mientras el usuario descansa y solo le llegan sus
 
 | Fase | Contenido | Métodos |
 |---|---|---|
-| BG | Segundo plano real | `expo-background-task` (BGTaskScheduler) para consolidar de noche sin abrir la app; notificación adaptativa según el riesgo de *lapse* |
+| BG | Aviso adaptativo | Notificación local a la hora de mayor probabilidad de entrenar cuando sube el riesgo de *lapse* (requiere `expo-notifications`, que añade entitlement de push: comprobar con Personal Team) |
 | 6 | Segundo cerebro | Grafo de conocimiento (nodos = estados y parámetros); hipótesis de la capa neuronal validadas por factor de Bayes; consolidación nocturna; inspector interno, no visible |
 | Continuo | Calibración | Diagrama de fiabilidad: si dice 70 %, ¿acierta el 70 %? Se muestra al usuario |
 

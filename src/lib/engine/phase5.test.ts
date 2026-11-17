@@ -318,3 +318,15 @@ describe('session adjustment', () => {
     expect(fresh.band).toBe('rest');
   });
 });
+
+describe('forecast moment', () => {
+  it('plans for now by day, tomorrow 9:00 in the evening, today 9:00 at night', async () => {
+    const { forecastDate } = await import('./consolidate');
+    const at = (h: number) => new Date(2026, 10, 17, h, 30);
+    expect(forecastDate(at(11)).getTime()).toBe(at(11).getTime());
+    const evening = forecastDate(at(21));
+    expect([evening.getDate(), evening.getHours()]).toEqual([18, 9]);
+    const night = forecastDate(at(3));
+    expect([night.getDate(), night.getHours()]).toEqual([17, 9]);
+  });
+});
