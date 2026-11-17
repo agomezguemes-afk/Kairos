@@ -11,6 +11,7 @@ import { MissionBridge } from './src/context/MissionBridge';
 import { useAuthStore, startAuthListener } from './src/store/useAuthStore';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { useFonts } from 'expo-font';
+import { useBackgroundThinking } from './src/features/coach/useBackgroundThinking';
 import { Anton_400Regular } from '@expo-google-fonts/anton';
 import {
   SpaceGrotesk_500Medium,
@@ -26,6 +27,7 @@ import {
 // (after GestureHandlerRootView / SafeAreaProvider are mounted).
 function AppContent() {
   const initialize = useAuthStore((s) => s.initialize);
+  useBackgroundThinking();
 
   useEffect(() => {
     // Restore existing Supabase session from AsyncStorage and load profile

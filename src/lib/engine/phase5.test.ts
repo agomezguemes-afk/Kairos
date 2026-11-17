@@ -239,3 +239,82 @@ function session(daysAgo: number, load: number): SessionLog {
     ],
   };
 }
+
+describe('signals reach the proposals', () => {
+  it('a high lapse risk offers a lighter plan even when the week was not short', async () => {
+    const { weeklySuggestions } = await import('../adaptive');
+    const ds = (id: string, slot: number) => ({
+      id,
+      title: id,
+      focus: 'strength' as const,
+      sport: 'strength' as const,
+      slot,
+      durationMin: 45,
+      rationale: '',
+      status: 'accepted' as const,
+      movements: [],
+    });
+    const plan: PlanDraft = {
+      id: 'p',
+      createdAt: ago(30),
+      goal: {
+        raw: '',
+        sports: ['strength'],
+        qualities: ['strength'],
+        daysPerWeek: 2,
+        horizonWeeks: 8,
+        confidence: 1,
+        matched: [],
+      },
+      sessions: [ds('a', 0), ds('b', 1)],
+    };
+    const checkin: CheckIn = {
+      id: 'w',
+      at: NOW.toISOString(),
+      kind: 'weekly',
+      offAppSessions: 2,
+      weekFeel: 'normal',
+    };
+    const base = { checkin, plan, sessions: [], experiments: [], now: NOW };
+    expect(weeklySuggestions(base)).toHaveLength(0);
+    const out = weeklySuggestions({ ...base, lapseRisk: 0.7 });
+    expect(out[0]?.kind).toBe('reduce_days');
+    expect(out[0]?.evidence.join(' ')).toMatch(/70 %/);
+  });
+});
+
+describe('session adjustment', () => {
+  it('uses the background plan near its moment and recomputes otherwise', async () => {
+    const { sessionAdjustment } = await import('./consolidate');
+    const draft = {
+      id: 'ds1',
+      title: 'F',
+      focus: 'strength' as const,
+      sport: 'strength' as const,
+      slot: 0,
+      durationMin: 50,
+      rationale: '',
+      status: 'accepted' as const,
+      movements: [
+        { movementId: 'back_squat', target: { sets: 3, repsMin: 5, repsMax: 5, loadKg: 80 } },
+      ],
+    };
+    const planned = {
+      draftSessionId: 'ds1',
+      forDate: NOW.toISOString(),
+      band: 'easy' as const,
+      probability: 0.4,
+      trimSets: true,
+      note: 'x',
+    };
+    expect(sessionAdjustment(planned, draft, [], [], [], NOW)).toBe(planned);
+    const tomorrow = {
+      ...planned,
+      forDate: new Date(NOW.getTime() + 13 * 3_600_000).toISOString(),
+    };
+    const pain: CheckIn[] = [{ id: 'p', at: ago(0.1), kind: 'weekly', pain: true }];
+    const fresh = sessionAdjustment(tomorrow, draft, [], pain, [], NOW);
+    expect(fresh).not.toBe(tomorrow);
+    expect(fresh.band).toBe('rest');
+  });
+});

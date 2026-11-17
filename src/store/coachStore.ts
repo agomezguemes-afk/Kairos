@@ -27,7 +27,13 @@ import {
   type SessionLog,
   type Suggestion,
 } from '../lib/adaptive';
-import { readinessV2 } from '../lib/engine';
+import {
+  consolidate as consolidatePass,
+  readinessV2,
+  type DayPlan,
+  type Signals,
+  type Trial,
+} from '../lib/engine';
 import type { ArmContext } from '../lib/engine/decision';
 
 interface CoachState {
@@ -37,6 +43,13 @@ interface CoachState {
   suggestions: Suggestion[];
   experiments: Experiment[];
   checkins: CheckIn[];
+  /** Silent n-of-1 trials the engine runs on the plan. */
+  trials: Trial[];
+  /** The next session as the engine pre-planned it while you rested. */
+  dayPlan: DayPlan | null;
+  /** Adherence and pain-recurrence risk from the last consolidation. */
+  signals: Signals | null;
+  consolidatedAt: string | null;
 
   /** `goal` is the (possibly AI-refined) interpretation; rules parse otherwise. */
   draftFromGoal: (text: string, goal?: ParsedGoal) => PlanDraft;
@@ -53,6 +66,8 @@ interface CoachState {
   submitCheckIn: (c: CheckIn) => Suggestion[];
   /** Closes an experiment in review: keeps the change or reverts the plan. */
   reviewExperiment: (id: string, answers: ExperimentAnswers) => Experiment | null;
+  /** Background pass: steps trials, pre-plans the next session, refreshes risks. */
+  consolidate: (now?: Date) => void;
   reset: () => void;
 }
 
@@ -63,6 +78,10 @@ const initial = {
   suggestions: [],
   experiments: [],
   checkins: [],
+  trials: [],
+  dayPlan: null,
+  signals: null,
+  consolidatedAt: null,
 };
 
 /** The value the user settled on when adjusting, for the experiment target. */
@@ -104,6 +123,7 @@ export const useCoachStore = create<CoachState>()(
             sessions: plan.sessions.map((s) => (s.id === draftSessionId ? { ...s, status } : s)),
           },
         });
+        get().consolidate();
       },
 
       recordSession: (log) => {
@@ -115,6 +135,7 @@ export const useCoachStore = create<CoachState>()(
           plan: plan ?? undefined,
           experiments,
           context: contextNow(sessions, checkins),
+          painRisk: get().signals?.pain?.risk14,
         });
         // Re-running on the same session must not duplicate cards.
         const known = new Set(suggestions.map((s) => s.id));
@@ -125,6 +146,7 @@ export const useCoachStore = create<CoachState>()(
           suggestions: [...suggestions, ...fresh.filter((s) => !known.has(s.id))],
           experiments: promote(experiments, all, new Date()),
         });
+        get().consolidate();
         return fresh;
       },
 
@@ -157,6 +179,7 @@ export const useCoachStore = create<CoachState>()(
                 ]
               : experiments,
         });
+        if (applied) get().consolidate();
       },
 
       submitCheckIn: (c) => {
@@ -164,7 +187,14 @@ export const useCoachStore = create<CoachState>()(
         const now = new Date();
         const fresh =
           c.kind === 'weekly'
-            ? weeklySuggestions({ checkin: c, plan, sessions, experiments, now })
+            ? weeklySuggestions({
+                checkin: c,
+                plan,
+                sessions,
+                experiments,
+                now,
+                lapseRisk: get().signals?.adherence?.lapseRisk,
+              })
             : [];
         const known = new Set(suggestions.map((s) => s.id));
         set({
@@ -173,6 +203,7 @@ export const useCoachStore = create<CoachState>()(
           // Time alone can open a review window; a check-in is a good moment.
           experiments: promote(experiments, sessions, now),
         });
+        get().consolidate(now);
         return fresh;
       },
 
@@ -215,7 +246,29 @@ export const useCoachStore = create<CoachState>()(
           experiments: experiments.map((x) => (x.id === id ? closed : x)),
           plan: nextPlan,
         });
+        get().consolidate();
         return closed;
+      },
+
+      consolidate: (now = new Date()) => {
+        const { plan, sessions, checkins, experiments, trials, goal } = get();
+        const c = consolidatePass({
+          plan,
+          sessions,
+          checkins,
+          experiments,
+          trials,
+          daysPerWeek: goal?.daysPerWeek,
+          now,
+        });
+        set({
+          plan: c.plan,
+          trials: c.trials,
+          dayPlan: c.dayPlan,
+          signals: c.signals,
+          consolidatedAt: c.at,
+          experiments: promote(experiments, sessions, now),
+        });
       },
 
       reset: () => set(initial),
@@ -231,6 +284,10 @@ export const useCoachStore = create<CoachState>()(
         suggestions: s.suggestions,
         experiments: s.experiments,
         checkins: s.checkins,
+        trials: s.trials,
+        dayPlan: s.dayPlan,
+        signals: s.signals,
+        consolidatedAt: s.consolidatedAt,
       }),
     },
   ),

@@ -24,6 +24,7 @@ import { increments, isPlateau, progressionState } from '../engine/changepoint';
 import {
   capacityOf,
   chooseLoad,
+  lossRatioFor,
   seededRng,
   thompsonChoice,
   type ArmContext,
@@ -44,6 +45,8 @@ export interface EngineInput {
   experiments?: Experiment[];
   /** Today's context (readiness band, sleep debt) for contextual choices. */
   context?: ArmContext;
+  /** P(pain comes back within 14 days): makes load steps more cautious. */
+  painRisk?: number;
 }
 
 interface Occurrence {
@@ -140,7 +143,7 @@ type Draft = Omit<Suggestion, 'id' | 'createdAt' | 'status' | 'sessionId' | 'dra
   sets?: number;
 };
 
-function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
+function strengthRules(occ: Occurrence[], suppressIncrease: boolean, painRisk = 0): Draft[] {
   const last = occ[occ.length - 1];
   const m = getMovement(last.log.movementId);
   if (!m || m.kind !== 'strength') return [];
@@ -194,6 +197,7 @@ function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
             history,
             repsMin: last.log.target.repsMin ?? 6,
             rirTarget: last.log.target.rir ?? 2,
+            lossRatio: lossRatioFor(painRisk),
           })
         : null;
     const next = choice ? choice.load : roundTo(load + inc, inc > 1 ? inc / 2 : inc);
@@ -222,7 +226,7 @@ function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
             ),
           ...(choice
             ? [
-                `Probabilidad de completar ${last.log.target.repsMin} reps a ${next} kg: ${Math.round(choice.probability * 100)} % (solo subo por encima del 60 %)`,
+                `Probabilidad de completar ${last.log.target.repsMin} reps a ${next} kg: ${Math.round(choice.probability * 100)} % (solo subo por encima del ${Math.round((100 * lossRatioFor(painRisk)) / (1 + lossRatioFor(painRisk)))} %)`,
               ]
             : []),
         ],
@@ -501,7 +505,7 @@ export function generateSuggestions(input: EngineInput): Suggestion[] {
 
   for (const ml of session.movements) {
     const occ = occurrences(ml.movementId, all);
-    drafts.push(...strengthRules(occ, suppress));
+    drafts.push(...strengthRules(occ, suppress, input.painRisk));
     drafts.push(...enduranceRules(occ, suppress));
   }
   if (!suppress) drafts.push(...qualityGapRule(input, now));

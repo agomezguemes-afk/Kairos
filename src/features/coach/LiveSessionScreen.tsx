@@ -33,6 +33,7 @@ import {
   type SensorAvailability,
   type SensorSource,
 } from '../../lib/sensors';
+import { sessionAdjustment, trimTargets } from '../../lib/engine';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Coach, Colors, Spacing } from '../../theme/tokens';
 import { bt } from './ui/brut';
@@ -103,7 +104,16 @@ export default function LiveSessionScreen() {
   const plan = useCoachStore((s) => s.plan);
   const history = useCoachStore((s) => s.sessions);
   const recordSession = useCoachStore((s) => s.recordSession);
+  const dayPlan = useCoachStore((s) => s.dayPlan);
+  const checkins = useCoachStore((s) => s.checkins);
+  const experiments = useCoachStore((s) => s.experiments);
   const draft = plan?.sessions.find((s) => s.id === params.draftSessionId);
+  // The engine pre-planned this session while you rested; a light day
+  // arrives already trimmed, with one line saying why.
+  const [adjust] = useState(() =>
+    draft ? sessionAdjustment(dayPlan, draft, history, checkins, experiments) : null,
+  );
+  const light = !!adjust?.trimSets;
 
   const previous = useMemo(
     () => [...history].reverse().find((h) => h.draftSessionId === params.draftSessionId),
@@ -112,8 +122,9 @@ export default function LiveSessionScreen() {
     [],
   );
   const [logs, setLogs] = useState<MovementLog[]>(() =>
-    draft ? initialLogs(draft, previous) : [],
+    draft ? initialLogs(light ? trimTargets(draft) : draft, previous) : [],
   );
+  const [restLeft, setRestLeft] = useState(0);
   const [index, setIndex] = useState(0);
   const [startedAt] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
@@ -216,8 +227,18 @@ export default function LiveSessionScreen() {
     return () => clearTimeout(t);
   }, [current, index, markSet, phase]);
 
+  useEffect(() => {
+    if (restLeft <= 0) return;
+    const t = setTimeout(() => {
+      if (restLeft === 1) feedback.heavy();
+      setRestLeft((s) => s - 1);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [restLeft]);
+
   const goTo = (i: number) => {
     feedback.tick();
+    setRestLeft(0);
     setPhase({ kind: 'idle', left: 0 });
     setIndex(i);
   };
@@ -270,6 +291,7 @@ export default function LiveSessionScreen() {
           {draft.title}
         </Text>
       </View>
+      {light && adjust?.note && <Text style={styles.dayNote}>{adjust.note}</Text>}
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 140 }}
@@ -369,6 +391,11 @@ export default function LiveSessionScreen() {
           </Text>
           <Text style={styles.movementName}>{movement.name}</Text>
           <Text style={styles.target}>{describeTarget(movement, current.target)}</Text>
+          {restLeft > 0 && (
+            <Text style={styles.restClock} accessibilityLiveRegion="polite">
+              DESCANSO {fmtSec(restLeft)}
+            </Text>
+          )}
           <Text style={styles.cue}>{movement.cue}</Text>
 
           {movement.kind === 'strength' && (
@@ -380,7 +407,11 @@ export default function LiveSessionScreen() {
                   set={s}
                   onChange={(patch) => markSet(index, j, patch)}
                   onToggle={() => {
-                    if (!s.completed) feedback.heavy();
+                    if (!s.completed) {
+                      feedback.heavy();
+                      const left = current.sets.filter((x, k) => k !== j && !x.completed).length;
+                      if (current.target.restSec && left > 0) setRestLeft(current.target.restSec);
+                    }
                     markSet(index, j, { completed: !s.completed });
                   }}
                 />
@@ -692,6 +723,13 @@ const styles = StyleSheet.create({
   counter: { ...bt.mono(10, true), color: Brut.accent, letterSpacing: 1.6 },
   movementName: { ...bt.display(34), color: N.ink, marginTop: Spacing.sm },
   target: { ...bt.mono(12, true), color: N.ink, marginTop: Spacing.xs },
+  restClock: { ...bt.mono(16, true), color: Brut.accent, marginTop: Spacing.sm, letterSpacing: 1 },
+  dayNote: {
+    ...bt.body(13),
+    color: Brut.accent,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.xs,
+  },
   cue: { ...bt.body(14), color: N.muted, marginTop: Spacing.sm },
   sets: { gap: Spacing.sm, marginTop: Spacing.lg },
   setRow: {

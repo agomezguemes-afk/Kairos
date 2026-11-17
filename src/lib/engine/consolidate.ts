@@ -178,16 +178,14 @@ function forecastDate(now: Date): Date {
   return d;
 }
 
-function dayPlanFor(
-  plan: PlanDraft | null,
+/** Readiness-based plan for one draft session at one moment. */
+export function dayPlanAt(
+  next: DraftSession,
   sessions: SessionLog[],
   checkins: CheckIn[],
   pain: PainRecurrence | null,
-  now: Date,
-): DayPlan | null {
-  const next = nextDraftSession(plan, sessions);
-  if (!next) return null;
-  const when = forecastDate(now);
+  when: Date,
+): DayPlan {
   const r = readinessV2(sessions, checkins, when, {
     nextMovements: next.movements.map((m) => m.movementId),
   });
@@ -207,6 +205,42 @@ function dayPlanFor(
     trimSets: r.band !== 'go',
     note,
   };
+}
+
+function dayPlanFor(
+  plan: PlanDraft | null,
+  sessions: SessionLog[],
+  checkins: CheckIn[],
+  pain: PainRecurrence | null,
+  now: Date,
+): DayPlan | null {
+  const next = nextDraftSession(plan, sessions);
+  return next ? dayPlanAt(next, sessions, checkins, pain, forecastDate(now)) : null;
+}
+
+/** A pre-planned forecast is used only near the moment it was made for. */
+const PLAN_VALID_MS = 6 * 3_600_000;
+
+/**
+ * The adjustment for a session starting now: the background plan when it
+ * was made for this session and this moment, a fresh forecast otherwise
+ * (an evening session after the engine already planned for tomorrow).
+ */
+export function sessionAdjustment(
+  dayPlan: DayPlan | null,
+  draft: DraftSession,
+  sessions: SessionLog[],
+  checkins: CheckIn[],
+  experiments: Experiment[],
+  now: Date = new Date(),
+): DayPlan {
+  if (
+    dayPlan &&
+    dayPlan.draftSessionId === draft.id &&
+    Math.abs(now.getTime() - new Date(dayPlan.forDate).getTime()) <= PLAN_VALID_MS
+  )
+    return dayPlan;
+  return dayPlanAt(draft, sessions, checkins, painRecurrence(checkins, experiments, now), now);
 }
 
 export function consolidate(input: ConsolidationInput): Consolidation {

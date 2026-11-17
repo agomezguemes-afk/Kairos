@@ -97,6 +97,8 @@ export interface WeeklyInput {
   sessions: SessionLog[];
   experiments: Experiment[];
   now?: Date;
+  /** P(the current gap becomes a two-week lapse), from the adherence model. */
+  lapseRisk?: number;
 }
 
 /**
@@ -138,8 +140,15 @@ export function weeklySuggestions(input: WeeklyInput): Suggestion[] {
 
   // Missing most of the plan for a hard week: the plan is too big, not the
   // person too weak. Offer to pause the last kept session.
-  if (kept.length >= 2 && done < kept.length * 0.6 && checkin.weekFeel !== 'easy') {
+  // A high lapse risk is the same signal seen early: the plan is costing
+  // more than the person can give right now.
+  const lapsing = (input.lapseRisk ?? 0) > 0.5;
+  if (kept.length >= 2 && (done < kept.length * 0.6 || lapsing) && checkin.weekFeel !== 'easy') {
     const last = [...kept].sort((a, b) => b.slot - a.slot)[0];
+    if (lapsing)
+      evidence.push(
+        `Riesgo de cortar la racha dos semanas: ${Math.round(input.lapseRisk! * 100)} %`,
+      );
     return [
       {
         ...base,

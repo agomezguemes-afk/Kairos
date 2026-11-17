@@ -71,6 +71,12 @@ export {
   TRIAL_SWC,
 } from './trial';
 export type { Trial, TrialAnalysis, TrialPoint, TrialVerdict, Condition } from './trial';
-export { consolidate, nextDraftSession, trimTargets } from './consolidate';
+export {
+  consolidate,
+  nextDraftSession,
+  trimTargets,
+  sessionAdjustment,
+  dayPlanAt,
+} from './consolidate';
 export type { Consolidation, DayPlan, Signals } from './consolidate';
 export type { BrainNode, BrainSnapshot, BrainGroup, BrainOrigin } from './brain';
