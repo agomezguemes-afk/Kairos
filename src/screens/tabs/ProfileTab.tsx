@@ -11,6 +11,7 @@ import { useWorkoutStore } from '../../store/workoutStore';
 import { useCoachStore } from '../../store/coachStore';
 import { QUALITY_LABEL, SPORT_LABEL } from '../../lib/adaptive';
 import { Brut, Spacing } from '../../theme/tokens';
+import { SHOW_ENGINE_DEBUG } from '../../config/constants';
 import { BBox, BPress, BScreen, BTag, BText } from '../../features/coach/ui/brut';
 
 export default function ProfileTab() {
@@ -122,18 +123,20 @@ export default function ProfileTab() {
             Cada propuesta sale de estos datos. Nada se inventa ni sale de tu móvil sin que lo
             decidas.
           </BText>
-          <BPress
-            onPress={() => navigation.navigate('Brain')}
-            bg={Brut.accent}
-            radius={12}
-            style={{ marginTop: Spacing.md }}
-            contentStyle={styles.action}
-            accessibilityRole="button"
-          >
-            <BText variant="bodyBold" size={15}>
-              Ver tu cerebro
-            </BText>
-          </BPress>
+          {SHOW_ENGINE_DEBUG && (
+            <BPress
+              onPress={() => navigation.navigate('Brain')}
+              bg={Brut.accent}
+              radius={12}
+              style={{ marginTop: Spacing.md }}
+              contentStyle={styles.action}
+              accessibilityRole="button"
+            >
+              <BText variant="bodyBold" size={15}>
+                Ver tu cerebro
+              </BText>
+            </BPress>
+          )}
         </BBox>
 
         <BBox style={{ marginTop: Spacing.md }} contentStyle={[styles.card, styles.row]}>

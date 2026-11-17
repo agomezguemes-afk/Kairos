@@ -37,6 +37,7 @@ import {
 import { readinessV2 } from '../../lib/engine';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Spacing } from '../../theme/tokens';
+import { SHOW_ENGINE_DEBUG } from '../../config/constants';
 import { feedback } from './feedback';
 import { BBox, BPress, BScreen, BTag, BText } from './ui/brut';
 
@@ -257,31 +258,33 @@ export default function CoachHomeScreen() {
               <Stat index="03" label="DATOS" value={`${stats.sets}`} unit="SERIES" />
             </Animated.View>
 
-            <BPress
-              onPress={() => {
-                feedback.light();
-                navigation.navigate('Brain');
-              }}
-              radius={Brut.radius.md}
-              shadow={2}
-              style={{ marginTop: Spacing.md }}
-              contentStyle={styles.brainLink}
-              accessibilityRole="button"
-              accessibilityLabel="Ver tu cerebro: lo que Kairos sabe de ti"
-            >
-              <View style={styles.brainDot} />
-              <View style={{ flex: 1 }}>
-                <BText variant="monoBold" size={10}>
-                  TU CEREBRO
+            {SHOW_ENGINE_DEBUG && (
+              <BPress
+                onPress={() => {
+                  feedback.light();
+                  navigation.navigate('Brain');
+                }}
+                radius={Brut.radius.md}
+                shadow={2}
+                style={{ marginTop: Spacing.md }}
+                contentStyle={styles.brainLink}
+                accessibilityRole="button"
+                accessibilityLabel="Ver tu cerebro: lo que Kairos sabe de ti"
+              >
+                <View style={styles.brainDot} />
+                <View style={{ flex: 1 }}>
+                  <BText variant="monoBold" size={10}>
+                    TU CEREBRO
+                  </BText>
+                  <BText size={13} color={Brut.muted}>
+                    Lo que sé de ti, lo seguro que estoy y de dónde sale.
+                  </BText>
+                </View>
+                <BText variant="bodyBold" size={18} upright>
+                  →
                 </BText>
-                <BText size={13} color={Brut.muted}>
-                  Lo que sé de ti, lo seguro que estoy y de dónde sale.
-                </BText>
-              </View>
-              <BText variant="bodyBold" size={18} upright>
-                →
-              </BText>
-            </BPress>
+              </BPress>
+            )}
 
             {week.length > 0 && (
               <View style={{ marginTop: Spacing.lg }}>
