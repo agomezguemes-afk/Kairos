@@ -90,8 +90,8 @@ export function ReadinessBar({ r }: { r: ReadinessV2 }) {
           <BText size={13} style={{ marginTop: 2 }}>
             {reasons.length
               ? r.band === 'go' && reasons.every((e) => e.delta < 0)
-                ? `Pese a que ${reasons.map((e) => e.label).join(' y ')}, tu forma va por delante.`
-                : `Porque ${reasons.map((e) => e.label).join(' y ')}.`
+                ? `Pese a que ${listEs(reasons.map((e) => e.label))}, tu forma va por delante.`
+                : `Porque ${listEs(reasons.map((e) => e.label))}.`
               : r.form.mean < 0
                 ? 'Tu fatiga reciente pesa más que tu forma.'
                 : 'Tu forma compensa tu fatiga reciente.'}
@@ -112,19 +112,38 @@ export function ReadinessBar({ r }: { r: ReadinessV2 }) {
             {`PROB. DE RENDIR A TU NIVEL: ${pct}% (MODELO ${Math.round(r.modelProbability * 100)}%)`}
           </BText>
           <BText variant="mono" size={10}>
-            {`FORMA NETA: ${r.form.mean >= 0 ? '+' : ''}${r.form.mean.toFixed(1)}% ± ${r.form.sd.toFixed(1)}`}
+            {`FORMA NETA: ${r.form.mean >= 0 ? '+' : ''}${dec(r.form.mean)} % ± ${dec(r.form.sd)}`}
           </BText>
           <BText variant="mono" size={10}>
             {`CONSTANTES: FORMA ${r.taus.tau1} D · FATIGA ${r.taus.tau2} D · ${r.observations} OBS.`}
           </BText>
+          <BText variant="mono" size={10}>
+            {`HOY ESPERADO: ${pctFmt(r.expected.mean)} ± ${r.expected.sd.toFixed(1).replace('.', ',')} SOBRE TU NIVEL`}
+          </BText>
+          {r.sleep.nights > 0 && (
+            <BText variant="mono" size={10}>
+              {`DEUDA DE SUEÑO: ${dec(r.sleep.hours)} ± ${dec(r.sleep.sd)} H (${r.sleep.nights} NOCHES)`}
+            </BText>
+          )}
+          <BText variant="mono" size={10}>
+            {`RECUPERACIÓN (RITMO ×${dec(r.recovery.rate.mean, 2)}): ${
+              r.recovery.regions
+                .filter((x) => x.recovered < 0.99)
+                .map(
+                  (x) =>
+                    `${x.label.toUpperCase()} ${Math.round(x.recovered * 100)}%${x.hoursToReady ? ` (${x.hoursToReady} H)` : ''}`,
+                )
+                .join(' · ') || 'TODO RECUPERADO'
+            }`}
+          </BText>
           {r.load.monotony !== null && (
             <BText variant="mono" size={10}>
-              {`MONOTONÍA ${r.load.monotony.toFixed(1)} · CARGA SEMANAL ${r.load.weekly} UA`}
+              {`MONOTONÍA ${dec(r.load.monotony)} · CARGA SEMANAL ${r.load.weekly} UA`}
             </BText>
           )}
           {r.evidence.map((e) => (
             <BText key={e.label} variant="mono" size={10} color={Brut.muted}>
-              {`${e.label.toUpperCase()}${e.delta ? ` (${e.delta > 0 ? '+' : ''}${e.delta})` : ''} · ${e.source}`}
+              {`${e.label.toUpperCase()}${e.delta ? ` ${pctFmt(e.delta)} ± ${e.sd.toFixed(1).replace('.', ',')}` : ''} · ${e.source}`}
             </BText>
           ))}
         </Animated.View>
@@ -134,6 +153,13 @@ export function ReadinessBar({ r }: { r: ReadinessV2 }) {
 }
 
 // ── Pre-session check-in ────────────────────────────────────────────
+
+const dec = (v: number, d = 1) => v.toFixed(d).replace('.', ',');
+/** "a, b y c" — Spanish list joining. */
+const listEs = (xs: string[]) =>
+  xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`;
+const pctFmt = (v: number) =>
+  `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1).replace('.', ',')} %`;
 
 const SCALE = [1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }));
 

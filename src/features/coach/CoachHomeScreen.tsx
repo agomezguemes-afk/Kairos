@@ -136,9 +136,17 @@ export default function CoachHomeScreen() {
     );
     return { thisWeek, sets };
   }, [now, sessions]);
+  // Readiness is for the session you'd start next: the kept one done
+  // fewest times (same choice as the tab bar's start button).
+  const nextMovements = useMemo(() => {
+    const kept = plan?.sessions.filter((s) => s.status === 'accepted') ?? [];
+    const done = (id: string) => sessions.filter((s) => s.draftSessionId === id).length;
+    const next = [...kept].sort((a, b) => done(a.id) - done(b.id) || a.slot - b.slot)[0];
+    return next?.movements.map((m) => m.movementId);
+  }, [plan, sessions]);
   const ready = useMemo(
-    () => readinessV2(sessions, checkins, new Date(now)),
-    [checkins, now, sessions],
+    () => readinessV2(sessions, checkins, new Date(now), { nextMovements }),
+    [checkins, nextMovements, now, sessions],
   );
   const preToday = useMemo(
     () =>
