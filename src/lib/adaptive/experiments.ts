@@ -41,6 +41,8 @@ export interface Experiment {
   baseline?: ValueSnapshot;
   target?: ValueSnapshot;
   status: ExperimentStatus;
+  /** Context when it started (readiness band, sleep debt), for contextual learning. */
+  context?: { band: 'go' | 'easy' | 'rest'; debtHigh: boolean };
   objective?: ObjectiveResult;
   answers?: ExperimentAnswers;
   success?: boolean;
@@ -62,6 +64,7 @@ export function startExperiment(
   s: Suggestion,
   now: Date = new Date(),
   adjustedTo?: number,
+  context?: Experiment['context'],
 ): Experiment {
   const target = s.to && adjustedTo !== undefined ? { ...s.to, value: adjustedTo } : s.to;
   // A hold is a one-week recovery bet; everything else gets two exposures.
@@ -78,6 +81,7 @@ export function startExperiment(
     baseline: s.from,
     target,
     status: 'running',
+    context,
   };
 }
 

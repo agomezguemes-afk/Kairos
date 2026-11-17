@@ -7,7 +7,7 @@
 //   - Back off only when ≥2 independent signals agree (never one metric).
 
 import { findMovements, getMovement } from './catalog';
-import { bestSetE1rm, loadTrend, roundTo, theilSenSlope } from './metrics';
+import { bestSetE1rm, loadTrend, roundTo } from './metrics';
 import type {
   Confidence,
   MovementLog,
@@ -20,6 +20,15 @@ import type {
   SuggestionKind,
 } from './types';
 import { affinityOf, isUnresponsive, responseProfile, type Experiment } from './experiments';
+import { increments, isPlateau, progressionState } from '../engine/changepoint';
+import {
+  capacityOf,
+  chooseLoad,
+  seededRng,
+  thompsonChoice,
+  type ArmContext,
+  type ArmOutcome,
+} from '../engine/decision';
 
 const MAX_SUGGESTIONS = 3;
 const DAY_MS = 86_400_000;
@@ -33,6 +42,8 @@ export interface EngineInput {
   now?: Date;
   /** Past and running experiments: shape what gets proposed and in which order. */
   experiments?: Experiment[];
+  /** Today's context (readiness band, sleep debt) for contextual choices. */
+  context?: ArmContext;
 }
 
 interface Occurrence {
@@ -163,30 +174,61 @@ function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
   // core holds); suggesting "add kg" to a box jump would be nonsense.
   if (!suppressIncrease && m.incrementKg !== undefined && hitTop(last.log) && load !== undefined) {
     const inc = m.incrementKg;
-    const next = roundTo(load + inc, inc > 1 ? inc / 2 : inc);
+    // Bodyweight (load 0) has no capacity scale without body mass: keep the
+    // plain double-progression step there.
+    const history = occ
+      .slice(0, -1)
+      .map((o) => {
+        const caps = o.log.sets
+          .filter((x) => x.completed && x.reps !== undefined)
+          .map((x) => capacityOf(x.loadKg ?? 0, x.reps!, x.rir ?? 0));
+        return caps.length ? Math.max(...caps) : 0;
+      })
+      .filter((v) => v > 0);
+    const choice =
+      load > 0
+        ? chooseLoad({
+            current: load,
+            increment: inc,
+            lastSets: last.log.sets,
+            history,
+            repsMin: last.log.target.repsMin ?? 6,
+            rirTarget: last.log.target.rir ?? 2,
+          })
+        : null;
+    const next = choice ? choice.load : roundTo(load + inc, inc > 1 ? inc / 2 : inc);
     const bestBefore = Math.max(0, ...occ.slice(0, -1).map((o) => bestSetE1rm(o.log.sets) ?? 0));
     const projected =
       bestSetE1rm([{ loadKg: next, reps: last.log.target.repsMin, completed: true }]) ?? 0;
     const rarity: Rarity = bestBefore > 0 && projected > bestBefore ? 'rare' : 'common';
-    out.push({
-      kind: 'increase_load',
-      movementId: m.id,
-      title:
-        load === 0 ? `Añade lastre en ${m.name.toLowerCase()}` : `Sube ${m.name.toLowerCase()}`,
-      from: { label: 'Carga', value: load, unit: 'kg' },
-      to: { label: 'Carga', value: next, unit: 'kg' },
-      patch: { loadKg: next },
-      sets: last.log.target.sets,
-      rationale: `Completaste todas las series en el tope (${last.log.target.repsMax} reps) con margen. Toca subir carga y volver a ${last.log.target.repsMin} reps: progresión doble.`,
-      evidence: last.log.sets
-        .filter((s) => s.completed)
-        .map(
-          (s, i) =>
-            `Serie ${i + 1}: ${s.reps} × ${s.loadKg ?? load} kg${s.rir !== undefined ? ` · RIR ${s.rir}` : ''}`,
-        ),
-      confidence,
-      rarity,
-    });
+    // Waiting a session is cheaper than failing one: no step if p <= 0.6.
+    if (next > load)
+      out.push({
+        kind: 'increase_load',
+        movementId: m.id,
+        title:
+          load === 0 ? `Añade lastre en ${m.name.toLowerCase()}` : `Sube ${m.name.toLowerCase()}`,
+        from: { label: 'Carga', value: load, unit: 'kg' },
+        to: { label: 'Carga', value: next, unit: 'kg' },
+        patch: { loadKg: next },
+        sets: last.log.target.sets,
+        rationale: `Completaste todas las series en el tope (${last.log.target.repsMax} reps) con margen. Toca subir carga y volver a ${last.log.target.repsMin} reps: progresión doble.`,
+        evidence: [
+          ...last.log.sets
+            .filter((s) => s.completed)
+            .map(
+              (s, i) =>
+                `Serie ${i + 1}: ${s.reps} × ${s.loadKg ?? load} kg${s.rir !== undefined ? ` · RIR ${s.rir}` : ''}`,
+            ),
+          ...(choice
+            ? [
+                `Probabilidad de completar ${last.log.target.repsMin} reps a ${next} kg: ${Math.round(choice.probability * 100)} % (solo subo por encima del 60 %)`,
+              ]
+            : []),
+        ],
+        confidence,
+        rarity,
+      });
   }
 
   // Plateau: e1RM flat across ≥4 exposures relative to its own noise.
@@ -194,8 +236,10 @@ function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
     const series = occ.map((o) => bestSetE1rm(o.log.sets)).filter((v): v is number => v !== null);
     if (series.length >= 4) {
       const mean = series.reduce((a, b) => a + b, 0) / series.length;
-      const slope = theilSenSlope(series);
-      if (slope <= mean * 0.0025) {
+      // Bayesian online changepoint detection on the progression rate:
+      // the plateau is judged within the current regime only.
+      const state = progressionState(increments(series));
+      if (isPlateau(state)) {
         const quality = m.qualities[0];
         const sport = last.session.sport;
         const alt = findMovements(sport, quality).find((c) => c.id !== m.id && c.kind === m.kind);
@@ -206,7 +250,10 @@ function strengthRules(occ: Occurrence[], suppressIncrease: boolean): Draft[] {
             replacementMovementId: alt.id,
             title: `Nuevo estímulo: ${alt.name}`,
             rationale: `Tu 1RM estimado en ${m.name.toLowerCase()} lleva ${series.length} sesiones plano (≈${mean.toFixed(1)} kg). Una variante cambia el estímulo sin perder lo ganado.`,
-            evidence: series.map((v, i) => `Sesión ${i + 1}: e1RM ${v} kg`),
+            evidence: [
+              ...series.map((v, i) => `Sesión ${i + 1}: e1RM ${v} kg`),
+              `Ritmo actual ${state.rate.toFixed(2).replace('.', ',')} %/sesión · P(estancado) ${Math.round(state.plateauProbability * 100)} %`,
+            ],
             confidence,
             rarity: 'epic',
           });
@@ -351,8 +398,37 @@ const KIND_LABEL: Partial<Record<SuggestionKind, string>> = {
  *    the volume lever (one more set) instead;
  *  - cite the person's own track record for the kind being proposed.
  */
-function personalise(drafts: Draft[], experiments: Experiment[] | undefined): Draft[] {
+function toVolume(d: Draft, rationale: string): Draft | null {
+  const sets = d.sets ?? 3;
+  if (sets >= 5) return null;
+  return {
+    ...d,
+    kind: 'add_set',
+    title: d.title
+      .replace(/^Sube /, 'Una serie más en ')
+      .replace(/^Añade lastre en /, 'Una serie más en '),
+    from: { label: 'Series', value: sets, unit: 'series' },
+    to: { label: 'Series', value: sets + 1, unit: 'series' },
+    patch: { sets: sets + 1 },
+    rationale,
+  };
+}
+
+function personalise(
+  drafts: Draft[],
+  experiments: Experiment[] | undefined,
+  context: ArmContext | undefined,
+  seed: string,
+): Draft[] {
   if (!experiments?.length) return drafts;
+  const outcomes: ArmOutcome[] = experiments
+    .filter(
+      (e) =>
+        (e.status === 'kept' || e.status === 'reverted') &&
+        (e.kind === 'increase_load' || e.kind === 'add_set'),
+    )
+    .map((e) => ({ arm: e.kind as ArmOutcome['arm'], context: e.context, success: !!e.success }));
+  const rng = seededRng(seed);
   const profile = responseProfile(experiments);
   const busy = new Set(
     experiments
@@ -365,20 +441,22 @@ function personalise(drafts: Draft[], experiments: Experiment[] | undefined): Dr
     if (!safety && d.movementId && busy.has(d.movementId)) continue;
     let draft = d;
     if (d.kind === 'increase_load' && isUnresponsive(profile, 'increase_load')) {
-      const sets = d.sets ?? 3;
-      if (sets < 5) {
-        const k = profile.increase_load!;
-        draft = {
-          ...d,
-          kind: 'add_set',
-          title: d.title
-            .replace(/^Sube /, 'Una serie más en ')
-            .replace(/^Añade lastre en /, 'Una serie más en '),
-          from: { label: 'Series', value: sets, unit: 'series' },
-          to: { label: 'Series', value: sets + 1, unit: 'series' },
-          patch: { sets: sets + 1 },
-          rationale: `Las subidas de carga te han funcionado ${k.worked} de ${k.tried} veces. Probamos por volumen: misma carga, una serie más.`,
-        };
+      // Safety barrier: a lever that has clearly failed isn't sampled.
+      const k = profile.increase_load!;
+      draft =
+        toVolume(
+          d,
+          `Las subidas de carga te han funcionado ${k.worked} de ${k.tried} veces. Probamos por volumen: misma carga, una serie más.`,
+        ) ?? d;
+    } else if (d.kind === 'increase_load' && context && outcomes.length >= 2) {
+      // Contextual Thompson sampling between the load and volume levers.
+      const pick = thompsonChoice(['increase_load', 'add_set'], outcomes, context, rng);
+      if (pick.arm === 'add_set') {
+        draft =
+          toVolume(
+            d,
+            'En días parecidos a hoy, sumar volumen te ha funcionado mejor que subir carga. Misma carga, una serie más.',
+          ) ?? d;
       }
     }
     const k = profile[draft.kind];
@@ -429,7 +507,7 @@ export function generateSuggestions(input: EngineInput): Suggestion[] {
   if (!suppress) drafts.push(...qualityGapRule(input, now));
 
   const profile = input.experiments ? responseProfile(input.experiments) : undefined;
-  const ordered = personalise(drafts, input.experiments)
+  const ordered = personalise(drafts, input.experiments, input.context, session.id)
     .map((d, i) => ({ d, i }))
     .sort((a, b) => {
       const ka = a.d.kind === 'hold' || a.d.kind === 'deload' ? -1 : RARITY_RANK[a.d.rarity];

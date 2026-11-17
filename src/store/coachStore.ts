@@ -27,6 +27,8 @@ import {
   type SessionLog,
   type Suggestion,
 } from '../lib/adaptive';
+import { readinessV2 } from '../lib/engine';
+import type { ArmContext } from '../lib/engine/decision';
 
 interface CoachState {
   goal: ParsedGoal | null;
@@ -68,6 +70,12 @@ function adjustedValue(o?: Partial<MovementTarget>): number | undefined {
   return o?.loadKg ?? o?.durationMin ?? o?.distanceKm ?? o?.sets ?? o?.intervals?.reps;
 }
 
+/** Today's context for contextual learning: readiness band + sleep debt. */
+function contextNow(sessions: SessionLog[], checkins: CheckIn[]): ArmContext {
+  const r = readinessV2(sessions, checkins);
+  return { band: r.band, debtHigh: r.sleep.hours >= 2 };
+}
+
 /** Running experiments whose review window has opened move to 'review'. */
 function promote(experiments: Experiment[], sessions: SessionLog[], now: Date): Experiment[] {
   return experiments.map((e) =>
@@ -99,13 +107,14 @@ export const useCoachStore = create<CoachState>()(
       },
 
       recordSession: (log) => {
-        const { sessions, plan, goal, suggestions, experiments } = get();
+        const { sessions, plan, goal, suggestions, experiments, checkins } = get();
         const fresh = generateSuggestions({
           session: log,
           history: sessions,
           goal: goal ?? undefined,
           plan: plan ?? undefined,
           experiments,
+          context: contextNow(sessions, checkins),
         });
         // Re-running on the same session must not duplicate cards.
         const known = new Set(suggestions.map((s) => s.id));
@@ -127,7 +136,7 @@ export const useCoachStore = create<CoachState>()(
         }),
 
       resolveSuggestion: (id, outcome, override) => {
-        const { suggestions, plan, experiments } = get();
+        const { suggestions, plan, experiments, sessions, checkins } = get();
         const s = suggestions.find((x) => x.id === id);
         if (!s) return;
         const applied = outcome !== 'dismissed';
@@ -137,7 +146,15 @@ export const useCoachStore = create<CoachState>()(
           // Every applied change becomes a hypothesis with a review date.
           experiments:
             applied && !experiments.some((e) => e.suggestionId === s.id)
-              ? [...experiments, startExperiment(s, new Date(), adjustedValue(override))]
+              ? [
+                  ...experiments,
+                  startExperiment(
+                    s,
+                    new Date(),
+                    adjustedValue(override),
+                    contextNow(sessions, checkins),
+                  ),
+                ]
               : experiments,
         });
       },

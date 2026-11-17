@@ -32,3 +32,15 @@ export {
   REGION_LABEL,
 } from './recovery';
 export type { Region, RegionStatus, RatePosterior } from './recovery';
+export { progressionState, increments, isPlateau, PLATEAU_RATE, HAZARD } from './changepoint';
+export type { ProgressionState, NIG } from './changepoint';
+export {
+  chooseLoad,
+  capacityOf,
+  thompsonChoice,
+  armPosterior,
+  sampleBeta,
+  seededRng,
+  LOSS_RATIO,
+} from './decision';
+export type { LoadChoice, Arm, ArmContext, ArmOutcome } from './decision';
