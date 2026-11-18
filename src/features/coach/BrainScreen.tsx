@@ -22,6 +22,8 @@ import { brainSnapshot, type BrainGroup, type BrainNode, type BrainOrigin } from
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Spacing } from '../../theme/tokens';
 import { feedback } from './feedback';
+import { ExpertPanelCard } from './components/ExpertPanel';
+import { useTodayPanel } from './useTodayPanel';
 import { BBox, BPress, BScreen, BTag, BText } from './ui/brut';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -250,6 +252,7 @@ export default function BrainScreen() {
   const experiments = useCoachStore((s) => s.experiments);
   const [now] = useState(() => new Date());
   const [active, setActive] = useState<BrainGroup | null>(null);
+  const today = useTodayPanel(now.getTime());
 
   const brain = useMemo(
     () => brainSnapshot(sessions, checkins, experiments, now),
@@ -299,6 +302,11 @@ export default function BrainScreen() {
             {`${brain.totals.sessions} SESIONES · ${brain.totals.checkins} CHECK-INS · ${brain.totals.experiments} EXPERIMENTOS`}
           </BText>
         </Animated.View>
+
+        {/* How the engine decided today: four perspectives with their track record. */}
+        <View style={{ marginTop: Spacing.lg }}>
+          <ExpertPanelCard panel={today.panel} r={today.readiness} />
+        </View>
 
         <Animated.View entering={FadeIn.delay(120).duration(Brut.motion.reveal)}>
           <BBox style={{ marginTop: Spacing.lg }} contentStyle={styles.graphBox}>

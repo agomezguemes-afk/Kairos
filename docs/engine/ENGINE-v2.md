@@ -422,7 +422,7 @@ El motor razona como un profesional con formación en biotecnología, fisioterap
 
 - **Decisión.** Manda la postura más prudente; en caso de empate, el orden es tejido → estado → hábito → progreso. `rest` → descanso, `ease` → una serie menos y `push`/`steady` → sesión normal. Si una perspectiva está dos niveles por encima del veredicto, se dice una vez («Fisiología te ve bien (82 %), pero manda fisioterapia»).
 - **Plan del día.** `DayPlan` guarda `lead` y `stance`, y `probability` es la disposición ya corregida (con tope de 0,35 si hay dolor).
-- **Qué ve el usuario.** En Hoy, «Cuatro miradas sobre hoy»: una línea por perspectiva y, al tocarla, sus hallazgos con fuentes, la previsión corregida y su fiabilidad («Cuando digo 70 %, pasa el 68 % · 24 comprobaciones»). El funcionamiento interno sigue oculto.
+- **Qué ve el usuario.** Solo el veredicto: «Listo para entrenar», «Hoy, suave» o «Hoy toca descansar», y una frase sin números cuando cambia el plan (por ejemplo, «Versión ligera: una serie menos por ejercicio»). Las perspectivas, los hallazgos, las previsiones y su fiabilidad son para que el motor decida: solo aparecen en el inspector interno (`SHOW_ENGINE_DEBUG`).
 
 ### Tests de aceptación (calibración y panel)
 

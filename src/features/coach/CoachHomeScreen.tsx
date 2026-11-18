@@ -33,8 +33,8 @@ import {
   PreCheckInCard,
   WeeklyCheckInCard,
 } from './components/Loop';
-import { expertPanel, readinessV2 } from '../../lib/engine';
-import { ExpertPanelCard } from './components/ExpertPanel';
+import { TodayVerdict } from './components/ExpertPanel';
+import { useTodayPanel } from './useTodayPanel';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Spacing } from '../../theme/tokens';
 import { SHOW_ENGINE_DEBUG } from '../../config/constants';
@@ -112,9 +112,6 @@ export default function CoachHomeScreen() {
   const suggestions = useCoachStore((s) => s.suggestions);
   const experiments = useCoachStore((s) => s.experiments);
   const checkins = useCoachStore((s) => s.checkins);
-  const biometrics = useCoachStore((s) => s.biometrics);
-  const signals = useCoachStore((s) => s.signals);
-  const calibration = useCoachStore((s) => s.calibration);
   const submitCheckIn = useCoachStore((s) => s.submitCheckIn);
   const reviewExperiment = useCoachStore((s) => s.reviewExperiment);
   const [lastClosed, setLastClosed] = useState<Experiment | null>(null);
@@ -140,35 +137,7 @@ export default function CoachHomeScreen() {
     );
     return { thisWeek, sets };
   }, [now, sessions]);
-  // Readiness is for the session you'd start next: the kept one done
-  // fewest times (same choice as the tab bar's start button).
-  const nextMovements = useMemo(() => {
-    const kept = plan?.sessions.filter((s) => s.status === 'accepted') ?? [];
-    const done = (id: string) => sessions.filter((s) => s.draftSessionId === id).length;
-    const next = [...kept].sort((a, b) => done(a.id) - done(b.id) || a.slot - b.slot)[0];
-    return next?.movements.map((m) => m.movementId);
-  }, [plan, sessions]);
-  const ready = useMemo(
-    () => readinessV2(sessions, checkins, new Date(now), { nextMovements, biometrics }),
-    [biometrics, checkins, nextMovements, now, sessions],
-  );
-  // Same panel the background pass decides with, on live data.
-  const panel = useMemo(
-    () =>
-      expertPanel({
-        readiness: ready,
-        sessions,
-        nextMovements: nextMovements ?? [],
-        adherence: signals?.adherence ?? null,
-        pain: signals?.pain ?? null,
-        painNow:
-          !!signals?.pain?.active ||
-          checkins.some((c) => c.pain && now - new Date(c.at).getTime() <= 3 * 86_400_000),
-        calibration,
-        now: new Date(now),
-      }),
-    [calibration, checkins, nextMovements, now, ready, sessions, signals],
-  );
+  const { panel } = useTodayPanel(now);
   const preToday = useMemo(
     () =>
       checkins.some(
@@ -309,7 +278,7 @@ export default function CoachHomeScreen() {
             {week.length > 0 && (
               <View style={{ marginTop: Spacing.lg }}>
                 {preToday ? (
-                  <ExpertPanelCard panel={panel} r={ready} />
+                  <TodayVerdict verdict={panel.verdict} />
                 ) : (
                   <PreCheckInCard onSubmit={submitCheckIn} />
                 )}

@@ -151,8 +151,8 @@ function physiologyLens(i: PanelInput): Lens {
     stance === 'push'
       ? `Disposición estimada ${pct(p)}: tu cuerpo está para entrenar.`
       : stance === 'ease'
-        ? `Versión ligera: una serie menos por ejercicio. Disposición estimada ${pct(p)}.`
-        : `Mejor descansar: tu disposición estimada es ${pct(p)}. Si entrenas, versión ligera.`;
+        ? 'Versión ligera: una serie menos por ejercicio.'
+        : 'Mejor descansar hoy. Si entrenas, versión ligera.';
   return {
     id: 'physiology',
     title: LENS_TITLE.physiology,
@@ -202,13 +202,13 @@ function clinicalLens(i: PanelInput): Lens {
     reason = 'Has marcado dolor hace poco: hoy, solo movilidad o descanso.';
   } else if (worst && worst.recovered < 0.5) {
     stance = 'ease';
-    reason = `Versión ligera: ${worst.label.toLowerCase()} va al ${pct(worst.recovered)} de recuperación.`;
+    reason = `Versión ligera: ${worst.label.toLowerCase()} aún se está recuperando.`;
   } else if (trend.band === 'spike') {
     stance = 'ease';
-    reason = `Versión ligera: llevas ${fmt(trend.ratio ?? 0)}× tu carga habitual esta semana.`;
+    reason = 'Versión ligera: llevas una semana más cargada de lo habitual.';
   } else if (risk !== null && risk >= 0.25) {
     stance = 'steady';
-    reason = `Riesgo de recaída ${pct(risk)}: entrena, pero sin subir carga.`;
+    reason = 'Entrena, pero sin subir carga.';
   }
   return {
     id: 'clinical',
@@ -258,7 +258,7 @@ function behaviourLens(i: PanelInput): Lens {
     title: LENS_TITLE.behaviour,
     stance: lapsing ? 'ease' : 'push',
     reason: lapsing
-      ? `Llevas ${Math.floor(a.gapDays)} días sin entrenar: hoy vale más una sesión corta que ninguna.`
+      ? 'Hoy vale más una sesión corta que ninguna.'
       : 'Ritmo constante: el hábito está de tu lado.',
     findings,
     forecast: { label: 'Entrenar en 7 días', p: within7, raw: a.within7 },

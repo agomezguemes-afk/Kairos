@@ -1,13 +1,13 @@
-// Today, seen from four angles. The verdict sits on top; each perspective
-// says one line, and opens to what it's based on and how often it has
-// been right. The engine's inner workings stay hidden: this is what a
-// coach would tell you, with their receipts.
+// Two faces of the expert panel. The person sees only TodayVerdict: what
+// to do today, in one line. ExpertPanelCard (the four perspectives, their
+// evidence and track record) lives in the internal inspector: it is how
+// the engine decides, not something the person needs to read.
 
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
-import type { Lens, Panel, ReadinessV2, Stance } from '../../../lib/engine';
+import type { Lens, Panel, PanelVerdict, ReadinessV2, Stance } from '../../../lib/engine';
 import { Brut, Spacing } from '../../../theme/tokens';
 import { feedback } from '../feedback';
 import { BBox, BTag, BText } from '../ui/brut';
@@ -27,6 +27,29 @@ const STANCE: Record<Stance, string> = {
 };
 
 const pct = (p: number) => `${Math.round(p * 100)}%`;
+
+/** What the person sees: the day's call, and a reason only when it changes the plan. */
+export const TodayVerdict = React.memo(function TodayVerdict({
+  verdict,
+}: {
+  verdict: PanelVerdict;
+}) {
+  const b = BAND[verdict.band];
+  return (
+    <BBox bg={b.bg} shadow={2} radius={12} contentStyle={styles.verdict}>
+      <View style={{ flex: 1 }}>
+        <BText variant="monoBold" size={10} color={b.ink}>
+          {b.label}
+        </BText>
+        {verdict.note && (
+          <BText size={13} color={b.ink} style={{ marginTop: 2 }}>
+            {verdict.note}
+          </BText>
+        )}
+      </View>
+    </BBox>
+  );
+});
 
 function LensRow({ lens, r, lead }: { lens: Lens; r: ReadinessV2; lead: boolean }) {
   const [open, setOpen] = useState(false);
