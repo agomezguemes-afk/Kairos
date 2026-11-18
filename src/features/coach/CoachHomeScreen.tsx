@@ -112,6 +112,7 @@ export default function CoachHomeScreen() {
   const suggestions = useCoachStore((s) => s.suggestions);
   const experiments = useCoachStore((s) => s.experiments);
   const checkins = useCoachStore((s) => s.checkins);
+  const biometrics = useCoachStore((s) => s.biometrics);
   const submitCheckIn = useCoachStore((s) => s.submitCheckIn);
   const reviewExperiment = useCoachStore((s) => s.reviewExperiment);
   const [lastClosed, setLastClosed] = useState<Experiment | null>(null);
@@ -146,8 +147,8 @@ export default function CoachHomeScreen() {
     return next?.movements.map((m) => m.movementId);
   }, [plan, sessions]);
   const ready = useMemo(
-    () => readinessV2(sessions, checkins, new Date(now), { nextMovements }),
-    [checkins, nextMovements, now, sessions],
+    () => readinessV2(sessions, checkins, new Date(now), { nextMovements, biometrics }),
+    [biometrics, checkins, nextMovements, now, sessions],
   );
   const preToday = useMemo(
     () =>

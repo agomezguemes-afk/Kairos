@@ -9,13 +9,18 @@ import { AppState } from 'react-native';
 
 import { useCoachStore } from '../../store/coachStore';
 import { registerBackgroundEngine } from './backgroundEngine';
+import { syncHealth } from './healthSync';
 
 /** Coming back after this long, the forecast is stale (sleep, a new day). */
 const STALE_MS = 3 * 3_600_000;
 
 function runIfStale() {
   const { consolidatedAt, consolidate } = useCoachStore.getState();
-  if (!consolidatedAt || Date.now() - new Date(consolidatedAt).getTime() > STALE_MS) consolidate();
+  const stale = !consolidatedAt || Date.now() - new Date(consolidatedAt).getTime() > STALE_MS;
+  // A sync that brings anything new consolidates on its own; otherwise think if stale.
+  syncHealth().then((r) => {
+    if (r.status !== 'synced' && stale) consolidate();
+  });
 }
 
 export function useBackgroundThinking() {

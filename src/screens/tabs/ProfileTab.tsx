@@ -13,6 +13,7 @@ import { QUALITY_LABEL, SPORT_LABEL } from '../../lib/adaptive';
 import { Brut, Spacing } from '../../theme/tokens';
 import { SHOW_ENGINE_DEBUG } from '../../config/constants';
 import { BBox, BPress, BScreen, BTag, BText } from '../../features/coach/ui/brut';
+import { HealthCard } from '../../features/coach/HealthCard';
 
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
@@ -115,7 +116,7 @@ export default function ProfileTab() {
             <Known index="01" label="SESIONES" value={sessions.length} />
             <Known index="02" label="SERIES" value={known.sets} />
             <Known index="03" label="MINUTOS" value={known.minutes} />
-            <Known index="04" label="CON SENSOR" value={known.withSensors} />
+            <Known index="04" label="CON PULSO" value={known.withSensors} />
             <Known index="05" label="PROPUESTAS" value={suggestions.length} />
             <Known index="06" label="APLICADAS" value={known.applied} />
           </View>
@@ -138,6 +139,8 @@ export default function ProfileTab() {
             </BPress>
           )}
         </BBox>
+
+        <HealthCard />
 
         <BBox style={{ marginTop: Spacing.md }} contentStyle={[styles.card, styles.row]}>
           <View style={styles.iconBox}>
@@ -169,7 +172,7 @@ export default function ProfileTab() {
               Sensores
             </BText>
             <BText size={13} color={Brut.muted}>
-              Banda de pulso, cadencia y potencia por Bluetooth. Apple Watch, con la app de watchOS.
+              Banda de pulso, cadencia y potencia por Bluetooth, en directo durante la sesión.
             </BText>
           </View>
         </BBox>

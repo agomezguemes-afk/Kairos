@@ -11,6 +11,7 @@ import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 
 import { flushCoachStorage, useCoachStore } from '../../store/coachStore';
+import { syncHealth } from './healthSync';
 
 export const ENGINE_TASK = 'kairos-engine-consolidate';
 /** A minimum, not a schedule: the OS picks the window (minutes). */
@@ -21,7 +22,10 @@ const supported = Platform.OS === 'ios' || Platform.OS === 'android';
 /** Load persisted state if this is a cold, headless launch; then think and save. */
 export async function runConsolidation(now: Date = new Date()): Promise<void> {
   if (!useCoachStore.persist.hasHydrated()) await useCoachStore.persist.rehydrate();
-  useCoachStore.getState().consolidate(now);
+  // Health data is unreadable while the phone is locked; then the pass
+  // runs on what is already stored and the morning open catches up.
+  const synced = await syncHealth(now);
+  if (synced.status !== 'synced') useCoachStore.getState().consolidate(now);
   await flushCoachStorage();
 }
 

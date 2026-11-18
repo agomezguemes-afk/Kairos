@@ -28,12 +28,18 @@ import {
   type Suggestion,
 } from '../lib/adaptive';
 import {
+  buildBioDays,
   consolidate as consolidatePass,
+  dayIndex,
+  mergeBioDays,
   readinessV2,
+  type Biometrics,
   type DayPlan,
   type Signals,
   type Trial,
 } from '../lib/engine';
+import { estimateHrMax, mergeWatchWorkouts } from '../lib/health/workoutImport';
+import type { HealthPull } from '../lib/health/appleHealth';
 import type { ArmContext } from '../lib/engine/decision';
 
 // Writes are tracked so a background task can wait for them before the OS
@@ -69,6 +75,9 @@ interface CoachState {
   /** Adherence and pain-recurrence risk from the last consolidation. */
   signals: Signals | null;
   consolidatedAt: string | null;
+  /** Watch-measured sleep, HRV and resting HR, one row per day. */
+  biometrics: Biometrics | null;
+  health: HealthLink;
 
   /** `goal` is the (possibly AI-refined) interpretation; rules parse otherwise. */
   draftFromGoal: (text: string, goal?: ParsedGoal) => PlanDraft;
@@ -87,7 +96,21 @@ interface CoachState {
   reviewExperiment: (id: string, answers: ExperimentAnswers) => Experiment | null;
   /** Background pass: steps trials, pre-plans the next session, refreshes risks. */
   consolidate: (now?: Date) => void;
+  setHealthConnected: (connected: boolean) => void;
+  /** Merges a HealthKit pull: watch workouts become sessions, biometrics refresh. */
+  ingestHealth: (pull: HealthPull, now?: Date) => { added: number; enriched: number };
+  setHealthError: (error: string | null) => void;
   reset: () => void;
+}
+
+export interface HealthLink {
+  connected: boolean;
+  /** HealthKit anchor: the next workout query continues from here. */
+  anchor?: string;
+  lastSyncAt?: string;
+  /** Watch workouts imported so far. */
+  imported: number;
+  lastError?: string | null;
 }
 
 const initial = {
@@ -101,6 +124,8 @@ const initial = {
   dayPlan: null,
   signals: null,
   consolidatedAt: null,
+  biometrics: null,
+  health: { connected: false, imported: 0 } as HealthLink,
 };
 
 /** The value the user settled on when adjusting, for the experiment target. */
@@ -109,8 +134,12 @@ function adjustedValue(o?: Partial<MovementTarget>): number | undefined {
 }
 
 /** Today's context for contextual learning: readiness band + sleep debt. */
-function contextNow(sessions: SessionLog[], checkins: CheckIn[]): ArmContext {
-  const r = readinessV2(sessions, checkins);
+function contextNow(
+  sessions: SessionLog[],
+  checkins: CheckIn[],
+  biometrics?: Biometrics | null,
+): ArmContext {
+  const r = readinessV2(sessions, checkins, new Date(), { biometrics });
   return { band: r.band, debtHigh: r.sleep.hours >= 2 };
 }
 
@@ -153,7 +182,7 @@ export const useCoachStore = create<CoachState>()(
           goal: goal ?? undefined,
           plan: plan ?? undefined,
           experiments,
-          context: contextNow(sessions, checkins),
+          context: contextNow(sessions, checkins, get().biometrics),
           painRisk: get().signals?.pain?.risk14,
         });
         // Re-running on the same session must not duplicate cards.
@@ -193,7 +222,7 @@ export const useCoachStore = create<CoachState>()(
                     s,
                     new Date(),
                     adjustedValue(override),
-                    contextNow(sessions, checkins),
+                    contextNow(sessions, checkins, get().biometrics),
                   ),
                 ]
               : experiments,
@@ -278,6 +307,7 @@ export const useCoachStore = create<CoachState>()(
           experiments,
           trials,
           daysPerWeek: goal?.daysPerWeek,
+          biometrics: get().biometrics,
           now,
         });
         set({
@@ -289,6 +319,48 @@ export const useCoachStore = create<CoachState>()(
           experiments: promote(experiments, sessions, now),
         });
       },
+
+      setHealthConnected: (connected) =>
+        set({ health: { ...get().health, connected, lastError: null } }),
+
+      ingestHealth: (pull, now = new Date()) => {
+        const { sessions, biometrics, health } = get();
+        const observedMax = Math.max(
+          biometrics?.hrMax ?? 0,
+          ...pull.workouts.map((w) => w.hrMax ?? 0),
+        );
+        const hrMax = estimateHrMax(observedMax || undefined);
+        const merged = mergeWatchWorkouts(sessions, pull.workouts, {
+          ownBundle: pull.ownBundle,
+          hrMax,
+          deletedUuids: pull.deletedUuids,
+        });
+        const today = dayIndex(now);
+        set({
+          sessions: merged.sessions,
+          biometrics: {
+            days: mergeBioDays(
+              biometrics?.days ?? [],
+              buildBioDays(pull.sleep, pull.hrv, pull.rhr),
+              today,
+            ),
+            hrMax: observedMax || biometrics?.hrMax,
+            updatedAt: now.toISOString(),
+          },
+          health: {
+            ...health,
+            anchor: pull.anchor,
+            lastSyncAt: now.toISOString(),
+            imported: health.imported + merged.added,
+            lastError: null,
+          },
+        });
+        // New nights and sessions change tomorrow's plan: think again now.
+        get().consolidate(now);
+        return { added: merged.added, enriched: merged.enriched };
+      },
+
+      setHealthError: (error) => set({ health: { ...get().health, lastError: error } }),
 
       reset: () => set(initial),
     }),
@@ -307,6 +379,8 @@ export const useCoachStore = create<CoachState>()(
         dayPlan: s.dayPlan,
         signals: s.signals,
         consolidatedAt: s.consolidatedAt,
+        biometrics: s.biometrics,
+        health: s.health,
       }),
     },
   ),

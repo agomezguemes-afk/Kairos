@@ -99,6 +99,20 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       // consolidates overnight. Adds only Info.plist keys, no entitlement,
       // so it signs with a free Personal Team.
       'expo-background-task',
+      // Apple Watch via HealthKit: imports watch workouts (with HR), sleep,
+      // HRV and resting HR; writes Kairos sessions back. Background
+      // delivery is off: overnight reads happen in the task above, and it
+      // keeps the entitlement set to plain HealthKit.
+      [
+        '@kingstinct/react-native-healthkit',
+        {
+          background: false,
+          NSHealthShareUsageDescription:
+            'Kairos lee los entrenos de tu Apple Watch, tu sueño, tu variabilidad cardiaca y tu pulso en reposo para ajustar cada sesión a cómo estás.',
+          NSHealthUpdateUsageDescription:
+            'Kairos guarda tus sesiones en Salud para que cuenten en tus anillos de actividad.',
+        },
+      ],
       // Standard BLE sensors (HR straps, cadence/RPM pods, power meters)
       // for live sessions. Foreground only: a workout is on screen.
       [

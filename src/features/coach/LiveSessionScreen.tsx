@@ -34,6 +34,7 @@ import {
   type SensorSource,
 } from '../../lib/sensors';
 import { sessionAdjustment, trimTargets } from '../../lib/engine';
+import { exportSession } from './healthSync';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Coach, Colors, Spacing } from '../../theme/tokens';
 import { bt } from './ui/brut';
@@ -107,11 +108,14 @@ export default function LiveSessionScreen() {
   const dayPlan = useCoachStore((s) => s.dayPlan);
   const checkins = useCoachStore((s) => s.checkins);
   const experiments = useCoachStore((s) => s.experiments);
+  const biometrics = useCoachStore((s) => s.biometrics);
   const draft = plan?.sessions.find((s) => s.id === params.draftSessionId);
   // The engine pre-planned this session while you rested; a light day
   // arrives already trimmed, with one line saying why.
   const [adjust] = useState(() =>
-    draft ? sessionAdjustment(dayPlan, draft, history, checkins, experiments) : null,
+    draft
+      ? sessionAdjustment(dayPlan, draft, history, checkins, experiments, new Date(), biometrics)
+      : null,
   );
   const light = !!adjust?.trimSets;
 
@@ -257,9 +261,11 @@ export default function LiveSessionScreen() {
       rpe,
       movements: logs,
       sensors: connected.length ? hub.summary() : undefined,
+      source: 'kairos',
     };
     hub.stopAll();
     recordSession(log);
+    exportSession(log);
     feedback.success();
     navigation.replace('SuggestionReveal', { sessionId: log.id });
   };
