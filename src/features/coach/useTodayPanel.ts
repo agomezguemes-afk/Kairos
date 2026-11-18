@@ -8,6 +8,8 @@ import {
   expertPanel,
   nextDraftSession,
   readinessV2,
+  weekAt,
+  weekNote,
   type Panel,
   type PanelVerdict,
   type ReadinessV2,
@@ -71,6 +73,7 @@ const PLAN_VALID_MS = 6 * 3_600_000;
  */
 export function useTodayVerdict(now: number): Pick<PanelVerdict, 'band' | 'note'> | null {
   const dayPlan = useCoachStore((s) => s.dayPlan);
+  const block = useCoachStore((s) => s.block);
   const plan = useCoachStore((s) => s.plan);
   const sessions = useCoachStore((s) => s.sessions);
   const checkins = useCoachStore((s) => s.checkins);
@@ -93,7 +96,7 @@ export function useTodayVerdict(now: number): Pick<PanelVerdict, 'band' | 'note'
       nextMovements,
       biometrics,
     });
-    return expertPanel({
+    const verdict = expertPanel({
       readiness,
       sessions,
       nextMovements,
@@ -107,5 +110,9 @@ export function useTodayVerdict(now: number): Pick<PanelVerdict, 'band' | 'note'
       checkins,
       now: new Date(now),
     }).verdict;
-  }, [biometrics, calibration, checkins, dayPlan, memory, now, plan, sessions, signals]);
+    return {
+      band: verdict.band,
+      note: verdict.note ?? weekNote(weekAt(block, new Date(now))?.phase),
+    };
+  }, [biometrics, block, calibration, checkins, dayPlan, memory, now, plan, sessions, signals]);
 }

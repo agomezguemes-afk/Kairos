@@ -35,7 +35,7 @@ import {
   type SensorAvailability,
   type SensorSource,
 } from '../../lib/sensors';
-import { sessionAdjustment, trimTargets } from '../../lib/engine';
+import { sessionAdjustment, shapeSession } from '../../lib/engine';
 import { exportSession } from './healthSync';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Coach, Colors, Spacing } from '../../theme/tokens';
@@ -76,6 +76,7 @@ export default function LiveSessionScreen() {
   const biometrics = useCoachStore((s) => s.biometrics);
   const calibration = useCoachStore((s) => s.calibration);
   const memory = useCoachStore((s) => s.memory);
+  const block = useCoachStore((s) => s.block);
   const adherenceSignal = useCoachStore((s) => s.signals?.adherence ?? null);
   const draft = plan?.sessions.find((s) => s.id === params.draftSessionId);
   // The engine pre-planned this session while you rested; a light day
@@ -86,6 +87,7 @@ export default function LiveSessionScreen() {
           adherence: adherenceSignal,
           calibration,
           memory,
+          block,
         })
       : null,
   );
@@ -98,7 +100,8 @@ export default function LiveSessionScreen() {
     [],
   );
   const [logs, setLogs] = useState<MovementLog[]>(() =>
-    draft ? initialLogs(light ? trimTargets(draft) : draft, previous) : [],
+    // The block week's dose, then today's trim.
+    draft ? initialLogs(shapeSession(draft, adjust), previous) : [],
   );
   const [restLeft, setRestLeft] = useState(0);
   const [index, setIndex] = useState(0);

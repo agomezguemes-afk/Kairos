@@ -538,6 +538,63 @@ El motor funciona como un modelo ligero entrenado en local: cada sesión pasada 
 5. Con 1000 sesiones, una pasada con una sesión nueva tarda < 400 ms (en la práctica ~60 ms).
 6. Lo plegado vuelve como tramos ponderados, con lo antiguo más ligero; los días parecidos se funden y los distintos no.
 
+## Planificación por bloques
+
+El motor piensa en semanas, no solo en días. Como un entrenador, organiza las próximas semanas (la carga sube y una semana ligera la convierte en forma), las orienta a una fecha si la hay y rehace el plan cuando la realidad se desvía. Cada cambio queda registrado con su motivo. Es interno: el usuario solo ve una línea en semanas de descarga o de prueba, y la duración de sus sesiones ajustada.
+
+### Estructura (`src/lib/engine/block.ts`)
+
+- **Sin fecha:** 3 semanas de carga (`build`, `build`, `push`) y 1 de descarga (3:1).
+- **Con fecha:** un objetivo con palabra de evento (carrera, torneo, 10k…) y horizonte explícito («en 8 semanas») fija la fecha en `createdAt` + `horizonWeeks`. Se encadenan ciclos 3:1 que terminan en `taper` y en la semana de la prueba (`peak`), sin descarga justo antes del taper.
+- **Énfasis:**
+  - `volume` (acumulación): suma series y acerca al fallo semana a semana.
+  - `intensity` (intensificación): mismas series, menos repeticiones en reserva.
+  - Los bloques alternan (Issurin 2008). Con menos de 24 sesiones de fuerza se queda en volumen, porque la progresión lineal aún funciona.
+- **Dosis por semana** (sobre los objetivos del plan, sin modificarlo):
+
+| Semana | Series | RIR | Resistencia |
+|---|---|---|---|
+| Volumen 1 / 2 / 3 | ×1 / +1 / +1 | +1 / 0 / −1 | ×1 / ×1,1 / ×1,15 |
+| Intensidad 1 / 2 / 3 | ×1 / ×1 / ×0,85 | 0 / −1 / −1 | ×1 / ×1,05 / ×1,05 |
+| Descarga | ×0,6 | +2 | ×0,6 |
+| Taper / Prueba | ×0,6 / ×0,5 | +1 | ×0,6 / ×0,5 |
+
+- **Límites:** series ≥ 2, RIR entre 1 y 4. La carga en kg no cambia: en descarga y taper se baja volumen y se mantiene la intensidad (Bosquet 2007; Pritchard 2015). La progresión de resistencia es de ≤ 10–15 % por semana. La duración de la sesión baja en semanas ligeras.
+
+### Revisión semanal
+
+En cada pasada, sin estado oculto (mismo bloque + mismos datos = mismo bloque), el motor lee:
+
+- disposición media antes de las sesiones de los últimos 10 días (< 0,45);
+- forma neta claramente negativa;
+- pico de carga aguda:crónica;
+- semana cargada y monótona;
+- dolor o riesgo de recaída ≥ 30 %;
+- mitad o más de los ejercicios estancados (BOCPD).
+
+Y decide:
+
+- **Descarga anticipada:** en una semana de carga, con 2 señales o con dolor, la semana pasa a descarga en el acto y el bloque termina tras ella.
+- **Semana extra:** al empezar una descarga prevista sin fecha, si no hay ninguna señal, la disposición reciente es ≥ 0,7, no hay estancamiento y la forma es ≥ 0, se añade una semana de carga más (máximo 5 seguidas). Se decide una vez por semana (`reviewedWeek`), sin vaivenes.
+- **Bloque nuevo:** al acabar el bloque o cambiar de objetivo.
+- **Prueba silenciosa:** las pruebas n-of-1 solo empiezan en semanas de carga, porque una semana ligera confundiría la comparación.
+
+### Aplicación
+
+- `DayPlan` lleva la fase y la dosis de la semana.
+- `shapeSession` aplica la dosis y después el recorte del día. La usan la sesión del iPhone, el reloj (dosis en todas las sesiones de la semana, recorte solo en la de hoy) y la duración que muestra Hoy.
+- Nota del día: la del panel si la hay; si no, una línea en semanas de descarga, taper o prueba.
+
+### Tests de aceptación (bloques)
+
+1. Sin fecha: carga, carga, carga dura y descarga. Con fecha a 10 semanas: termina en taper y prueba, descarga en la cuarta y nunca antes del taper.
+2. La fecha solo se fija con palabra de evento y horizonte explícito.
+3. La descarga recorta series, minutos y esfuerzo, y mantiene el peso. Las semanas de carga suben series o bajan RIR, dentro de los límites.
+4. Con fatiga acumulada la descarga se adelanta y se registra el motivo; el dolor basta por sí solo.
+5. Si se asimila bien, se añade una semana de carga, decidida una sola vez.
+6. El siguiente bloque alterna el énfasis; los principiantes siguen en volumen. Un objetivo nuevo empieza un bloque nuevo.
+7. El plan del día lleva la semana y las sesiones se adaptan a ella; en semanas ligeras no empiezan pruebas.
+
 ## Fases siguientes
 
 | Fase | Contenido | Métodos |

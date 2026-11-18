@@ -48,6 +48,7 @@ import type { ArmContext } from '../lib/engine/decision';
 import type { CalibrationSet } from '../lib/engine/backtest';
 import type { EngineCache } from '../lib/engine/cache';
 import type { Archive } from '../lib/engine/archive';
+import type { Block } from '../lib/engine/block';
 
 // Writes are tracked so a background task can wait for them before the OS
 // suspends the app; otherwise a night's consolidation could be lost.
@@ -94,6 +95,8 @@ interface CoachState {
   archive: Archive | null;
   /** A pass left part of the past for later (not persisted). */
   enginePending: boolean;
+  /** The training block the engine is running: the weeks ahead and why they changed. */
+  block: Block | null;
   /** Watch-measured sleep, HRV and resting HR, one row per day. */
   biometrics: Biometrics | null;
   health: HealthLink;
@@ -150,6 +153,7 @@ const initial = {
   engineCache: null as EngineCache | null,
   archive: null as Archive | null,
   enginePending: false,
+  block: null as Block | null,
   biometrics: null,
   health: { connected: false, imported: 0 } as HealthLink,
 };
@@ -194,7 +198,12 @@ function journal(s: CoachState, log: SessionLog): Advice[] {
     s.experiments,
     new Date(log.startedAt),
     s.biometrics,
-    { adherence: s.signals?.adherence, calibration: s.calibration, memory: s.memory },
+    {
+      adherence: s.signals?.adherence,
+      calibration: s.calibration,
+      memory: s.memory,
+      block: s.block,
+    },
   );
   const entry: Advice = {
     sessionId: log.id,
@@ -393,6 +402,7 @@ export const useCoachStore = create<CoachState>()(
           advice: get().advice,
           cache: get().engineCache,
           archive: get().archive,
+          block: get().block,
           // In the foreground a pass never holds the UI for more than a frame or three.
           ...(opts.background ? { budget: Infinity } : { budgetMs: FOREGROUND_BUDGET_MS }),
           now,
@@ -407,6 +417,7 @@ export const useCoachStore = create<CoachState>()(
           engineCache: c.cache,
           archive: c.archive,
           enginePending: c.pending,
+          block: c.block,
           consolidatedAt: c.at,
           experiments: promote(experiments, sessions, now),
         });
@@ -479,6 +490,7 @@ export const useCoachStore = create<CoachState>()(
         consolidatedAt: s.consolidatedAt,
         engineCache: s.engineCache,
         archive: s.archive,
+        block: s.block,
         biometrics: s.biometrics,
         health: s.health,
       }),

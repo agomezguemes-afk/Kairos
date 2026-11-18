@@ -21,7 +21,7 @@ import {
   type SessionLog,
   type Sport,
 } from '../adaptive';
-import { trimTargets, type DayPlan } from '../engine';
+import { shapeSession, type DayPlan } from '../engine';
 
 export const WATCH_PROTOCOL_VERSION = 1;
 
@@ -85,7 +85,8 @@ function watchSession(
 ): WatchSession {
   const today = day?.draftSessionId === draft.id ? day : null;
   const light = !!today?.trimSets;
-  const shaped = light ? trimTargets(draft) : draft;
+  // The week's dose applies to every session; the day's trim only to today's.
+  const shaped = shapeSession(draft, day, today !== null);
   const logs = initialLogs(shaped, previousLog(history, draft.id));
   return {
     id: draft.id,

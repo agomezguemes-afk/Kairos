@@ -82,6 +82,7 @@ export {
   consolidate,
   nextDraftSession,
   trimTargets,
+  shapeSession,
   sessionAdjustment,
   dayPlanAt,
 } from './consolidate';
@@ -150,3 +151,24 @@ export {
 } from './archive';
 export type { Archive, FamilyArchive, Prototype } from './archive';
 export { PASS_BUDGET } from './consolidate';
+export {
+  applyDose,
+  eventDate,
+  layoutWeeks,
+  readFatigue,
+  reviewBlock,
+  weekAt,
+  weekIndex,
+  weekNote,
+  LOADING_WEEKS,
+  MAX_LOADING_WEEKS,
+} from './block';
+export type {
+  Block,
+  BlockChange,
+  BlockWeek,
+  Emphasis,
+  FatigueRead,
+  WeekDose,
+  WeekPhase,
+} from './block';

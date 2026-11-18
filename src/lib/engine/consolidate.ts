@@ -11,7 +11,16 @@ import type { CheckIn } from '../adaptive/checkins';
 import type { Experiment } from '../adaptive/experiments';
 import { getMovement } from '../adaptive/catalog';
 import type { DraftSession, MovementTarget, PlanDraft, SessionLog } from '../adaptive/types';
-import { readinessV2 , READINESS_SWC } from './readiness';
+import {
+  applyDose,
+  reviewBlock,
+  weekAt,
+  weekNote,
+  type Block,
+  type WeekDose,
+  type WeekPhase,
+} from './block';
+import { readinessV2, READINESS_SWC, type ReadinessV2 } from './readiness';
 import type { Biometrics } from './biometrics';
 import { adherence, painRecurrence, type Adherence, type PainRecurrence } from './survival';
 import {
@@ -56,6 +65,9 @@ export interface DayPlan {
   /** The perspective that decided the day (lenses.ts). */
   lead?: LensId;
   stance?: Stance;
+  /** The block week in force: its dose shapes every session that week. */
+  phase?: WeekPhase;
+  dose?: WeekDose;
 }
 
 export interface Signals {
@@ -78,6 +90,8 @@ export interface ConsolidationInput {
   cache?: EngineCache | null;
   /** The compressed long-term past (archive.ts). */
   archive?: Archive | null;
+  /** The training block in force (block.ts). */
+  block?: Block | null;
   /** Fresh past-session computations allowed this pass. */
   budget?: number;
   /** Time allowed for fresh computations this pass (ms). */
@@ -96,6 +110,7 @@ export interface Consolidation {
   memory: Episode[];
   cache: EngineCache;
   archive: Archive;
+  block: Block | null;
   /** True when part of the past is still to be distilled: run another pass soon. */
   pending: boolean;
   at: string;
@@ -237,6 +252,10 @@ export interface PanelContext {
   adherence?: Adherence | null;
   calibration?: CalibrationSet | null;
   memory?: Episode[] | null;
+  /** The current training block (block.ts). */
+  block?: Block | null;
+  /** Readiness already computed for this moment, to avoid redoing it. */
+  readiness?: ReadinessV2;
 }
 
 /** Pain is "now" for 3 days after it was marked (same rule as readiness). */
@@ -253,7 +272,7 @@ export function dayPlanAt(
   ctx: PanelContext = {},
 ): DayPlan {
   const nextMovements = next.movements.map((m) => m.movementId);
-  const r = readinessV2(sessions, checkins, when, { biometrics, nextMovements });
+  const r = ctx.readiness ?? readinessV2(sessions, checkins, when, { biometrics, nextMovements });
   const t = when.getTime();
   const painNow =
     !!pain?.active || checkins.some((c) => c.pain && t - new Date(c.at).getTime() <= PAIN_NOW_MS);
@@ -271,31 +290,19 @@ export function dayPlanAt(
   });
   const p = panel.lenses.find((l) => l.id === 'physiology')?.forecast?.p ?? r.probability;
   const { band, note, lead, stance } = panel.verdict;
+  const week = weekAt(ctx.block, when);
   return {
     draftSessionId: next.id,
     forDate: when.toISOString(),
     band,
     probability: painNow ? Math.min(p, 0.35) : p,
     trimSets: band !== 'go',
-    note,
+    // Today's call first; on an ordinary day, what the week is about.
+    note: note ?? weekNote(week?.phase),
     lead,
     stance,
+    ...(week ? { phase: week.phase, dose: week.dose } : {}),
   };
-}
-
-function dayPlanFor(
-  plan: PlanDraft | null,
-  sessions: SessionLog[],
-  checkins: CheckIn[],
-  pain: PainRecurrence | null,
-  now: Date,
-  biometrics?: Biometrics | null,
-  ctx: PanelContext = {},
-): DayPlan | null {
-  const next = nextDraftSession(plan, sessions);
-  return next
-    ? dayPlanAt(next, sessions, checkins, pain, forecastDate(now), biometrics, ctx)
-    : null;
 }
 
 /** A pre-planned forecast is used only near the moment it was made for. */
@@ -338,7 +345,12 @@ export function consolidate(input: ConsolidationInput): Consolidation {
   const t = now.getTime();
   const { sessions, checkins, experiments } = input;
   const stepped = stepTrials(input.plan, input.trials, sessions, checkins, now);
-  const started = maybeStartTrial(stepped.plan, stepped.trials, sessions, experiments, now);
+  // A light week would confound a trial's comparison: start new ones only in loading weeks.
+  const phase = weekAt(input.block, now)?.phase;
+  const started =
+    !phase || phase === 'build' || phase === 'push'
+      ? maybeStartTrial(stepped.plan, stepped.trials, sessions, experiments, now)
+      : stepped;
   const pain = painRecurrence(checkins, experiments, now);
   const signals = { adherence: adherence(sessions, now, input.daysPerWeek ?? 3), pain };
 
@@ -368,14 +380,43 @@ export function consolidate(input: ConsolidationInput): Consolidation {
   });
   const recent = buildEpisodes(cases, sessions, checkins, input.advice ?? [], now);
   const memory = [...prototypeEpisodes(archive.prototypes, t), ...recent];
+
+  // The weeks ahead, reviewed against how the person is absorbing them.
+  const next = nextDraftSession(started.plan, sessions);
+  const when = forecastDate(now);
+  const readiness = next
+    ? readinessV2(sessions, checkins, when, {
+        biometrics: input.biometrics,
+        nextMovements: next.movements.map((m) => m.movementId),
+      })
+    : null;
+  const block =
+    started.plan && readiness
+      ? reviewBlock(input.block, {
+          readiness,
+          cases,
+          sessions,
+          painNow:
+            !!pain?.active ||
+            checkins.some((c) => c.pain && t - new Date(c.at).getTime() <= PAIN_NOW_MS),
+          painRisk: pain?.risk14 ?? null,
+          plan: started.plan,
+          now,
+        })
+      : (input.block ?? null);
   return {
     plan: started.plan,
     trials: started.trials,
-    dayPlan: dayPlanFor(started.plan, sessions, checkins, pain, now, input.biometrics, {
-      adherence: signals.adherence,
-      calibration: run.set,
-      memory,
-    }),
+    dayPlan: next
+      ? dayPlanAt(next, sessions, checkins, pain, when, input.biometrics, {
+          adherence: signals.adherence,
+          calibration: run.set,
+          memory,
+          block,
+          readiness: readiness ?? undefined,
+        })
+      : null,
+    block,
     signals,
     calibration: run.set,
     memory,
@@ -444,4 +485,13 @@ export function trimTargets(ds: DraftSession): DraftSession {
         : pm,
     ),
   };
+}
+
+/**
+ * A planned session as it should be done: the block week's dose, then the
+ * day's trim. `today` = the session the day plan was made for.
+ */
+export function shapeSession(ds: DraftSession, day: DayPlan | null, today = true): DraftSession {
+  const dosed = applyDose(ds, day?.dose);
+  return today && day?.trimSets ? trimTargets(dosed) : dosed;
 }

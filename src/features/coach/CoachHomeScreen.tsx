@@ -28,6 +28,7 @@ import {
   PreCheckInCard,
   WeeklyCheckInCard,
 } from './components/Loop';
+import { shapeSession } from '../../lib/engine';
 import { TodayVerdict } from './components/ExpertPanel';
 import { useTodayVerdict } from './useTodayPanel';
 import { useCoachStore } from '../../store/coachStore';
@@ -58,6 +59,7 @@ export default function CoachHomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const plan = useCoachStore((s) => s.plan);
+  const dayPlan = useCoachStore((s) => s.dayPlan);
   const sessions = useCoachStore((s) => s.sessions);
   const suggestions = useCoachStore((s) => s.suggestions);
   const experiments = useCoachStore((s) => s.experiments);
@@ -321,7 +323,7 @@ export default function CoachHomeScreen() {
                             {s.title}
                           </BText>
                           <BText variant="mono" size={10} color={Brut.muted} numberOfLines={1}>
-                            {s.durationMin} MIN
+                            {shapeSession(s, dayPlan, false).durationMin} MIN
                           </BText>
                         </View>
                         <View style={styles.play}>
