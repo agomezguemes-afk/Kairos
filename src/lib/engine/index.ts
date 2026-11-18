@@ -17,7 +17,14 @@ export type {
   LoadPattern,
   ReadinessOptions,
 } from './readiness';
-export { sleepDebt, sleepNights, debtEffect, SLEEP_SHAPE, SORENESS_SHAPE } from './sleep';
+export {
+  sleepDebt,
+  sleepNights,
+  debtEffect,
+  scaleFromHours,
+  SLEEP_SHAPE,
+  SORENESS_SHAPE,
+} from './sleep';
 export type { SleepDebt, SleepNight } from './sleep';
 export { learnSensitivity, checkInEffect, SENSITIVITY_PRIOR } from './personal';
 export type { Sensitivity } from './personal';
@@ -79,4 +86,15 @@ export {
   dayPlanAt,
 } from './consolidate';
 export type { Consolidation, DayPlan, Signals } from './consolidate';
+export {
+  buildBioDays,
+  mergeBioDays,
+  sleepByNight,
+  measuredNights,
+  hrvSignal,
+  rhrSignal,
+  autonomicEvidence,
+  nightOf,
+} from './biometrics';
+export type { BioDay, Biometrics, BioSignal, SleepSample, ValueSample } from './biometrics';
 export type { BrainNode, BrainSnapshot, BrainGroup, BrainOrigin } from './brain';

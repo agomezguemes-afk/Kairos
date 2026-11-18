@@ -134,6 +134,12 @@ export interface SessionLog {
   rpe: number;
   movements: MovementLog[];
   sensors?: SensorSummary;
+  /** 'watch' = recorded on the Apple Watch and imported from HealthKit. */
+  source?: 'kairos' | 'watch';
+  /** HealthKit workout UUID this session came from or was matched to. */
+  externalId?: string;
+  distanceKm?: number;
+  energyKcal?: number;
 }
 
 export type SuggestionKind =

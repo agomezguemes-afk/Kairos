@@ -12,6 +12,7 @@ import type { Experiment } from '../adaptive/experiments';
 import { getMovement } from '../adaptive/catalog';
 import type { DraftSession, MovementTarget, PlanDraft, SessionLog } from '../adaptive/types';
 import { readinessV2 } from './readiness';
+import type { Biometrics } from './biometrics';
 import { adherence, painRecurrence, type Adherence, type PainRecurrence } from './survival';
 import {
   analyseTrial,
@@ -47,6 +48,8 @@ export interface ConsolidationInput {
   experiments: Experiment[];
   trials: Trial[];
   daysPerWeek?: number;
+  /** Watch-measured sleep, HRV and resting HR, when connected. */
+  biometrics?: Biometrics | null;
   now?: Date;
 }
 
@@ -190,8 +193,10 @@ export function dayPlanAt(
   checkins: CheckIn[],
   pain: PainRecurrence | null,
   when: Date,
+  biometrics?: Biometrics | null,
 ): DayPlan {
   const r = readinessV2(sessions, checkins, when, {
+    biometrics,
     nextMovements: next.movements.map((m) => m.movementId),
   });
   const pct = Math.round(r.probability * 100);
@@ -218,9 +223,10 @@ function dayPlanFor(
   checkins: CheckIn[],
   pain: PainRecurrence | null,
   now: Date,
+  biometrics?: Biometrics | null,
 ): DayPlan | null {
   const next = nextDraftSession(plan, sessions);
-  return next ? dayPlanAt(next, sessions, checkins, pain, forecastDate(now)) : null;
+  return next ? dayPlanAt(next, sessions, checkins, pain, forecastDate(now), biometrics) : null;
 }
 
 /** A pre-planned forecast is used only near the moment it was made for. */
@@ -238,6 +244,7 @@ export function sessionAdjustment(
   checkins: CheckIn[],
   experiments: Experiment[],
   now: Date = new Date(),
+  biometrics?: Biometrics | null,
 ): DayPlan {
   if (
     dayPlan &&
@@ -245,7 +252,14 @@ export function sessionAdjustment(
     Math.abs(now.getTime() - new Date(dayPlan.forDate).getTime()) <= PLAN_VALID_MS
   )
     return dayPlan;
-  return dayPlanAt(draft, sessions, checkins, painRecurrence(checkins, experiments, now), now);
+  return dayPlanAt(
+    draft,
+    sessions,
+    checkins,
+    painRecurrence(checkins, experiments, now),
+    now,
+    biometrics,
+  );
 }
 
 export function consolidate(input: ConsolidationInput): Consolidation {
@@ -257,7 +271,7 @@ export function consolidate(input: ConsolidationInput): Consolidation {
   return {
     plan: started.plan,
     trials: started.trials,
-    dayPlan: dayPlanFor(started.plan, sessions, checkins, pain, now),
+    dayPlan: dayPlanFor(started.plan, sessions, checkins, pain, now, input.biometrics),
     signals: { adherence: adherence(sessions, now, input.daysPerWeek ?? 3), pain },
     at: now.toISOString(),
   };

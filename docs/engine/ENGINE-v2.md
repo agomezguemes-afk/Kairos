@@ -265,6 +265,74 @@ El motor no se enseña: piensa mientras el usuario descansa y solo le llegan sus
    - El recorte nunca baja de 2 series.
    - Fuera de su momento, el plan previo se recalcula.
 
+## Biometría — Apple Watch vía HealthKit
+
+El Apple Watch no necesita app propia para alimentar al motor. Ya guarda en Salud los entrenos (manuales o detectados), el pulso, el sueño, la VFC y el pulso en reposo, y Kairos los lee con `@kingstinct/react-native-healthkit`.
+
+### Flujo
+
+- `src/lib/health/appleHealth.ts` es el puente nativo. Se carga de forma perezosa, así que en web y en tests no hace nada. Lee:
+  - Entrenos con consulta anclada: la primera vez, los últimos 60 días; después, solo los nuevos y los borrados.
+  - El pulso de cada entreno.
+  - Sueño (21 días).
+  - VFC SDNN y pulso en reposo (35 días).
+- También escribe cada sesión de Kairos en Salud como `HKWorkout`, para que cuente en los anillos.
+- `src/features/coach/healthSync.ts` sincroniza al abrir la app, al volver tras más de 3 h y en la tarea nocturna. Si HealthKit está cifrado (iPhone bloqueado), lo salta y consolida con lo que ya hay.
+- Cada sincronización con datos nuevos lanza una consolidación, así que el plan de mañana ya usa la noche de hoy.
+
+### Entrenos del reloj → sesiones (`src/lib/health/workoutImport.ts`)
+
+- El deporte sale de `HKWorkoutActivityType`. **Los paseos no se importan**: el reloj los detecta todos y contarlos como entreno ocultaría una caída real de la adherencia.
+- El RPE de sesión se estima desde el %FCmáx, con anclas 60 % ≈ 2, 80 % ≈ 5,5 y 90 % ≈ 8 (Foster 2001):
+  - En fuerza tiene un suelo de 6, porque el pulso subestima el esfuerzo de las series.
+  - Sin pulso, el RPE es 5.
+- La FCmáx es la máxima observada en entrenos (si es ≥ 160). Si no, Tanaka 2001 (208 − 0,7·edad), o 190.
+- Deduplicación:
+  - Los entrenos que escribió el propio Kairos se reconocen por su bundle id y se saltan.
+  - Un entreno del reloj que se solapa ≥ 50 % con una sesión de Kairos solo le añade el pulso.
+  - Los entrenos borrados en Salud se eliminan.
+  - Los de menos de 5 min se ignoran.
+
+### Biometría → disposición (`src/lib/engine/biometrics.ts`)
+
+- **Sueño**:
+  - La noche pertenece al día en que te despiertas: todo lo que termina antes de las 14:00.
+  - Los intervalos dormidos (core, profundo, REM, sin especificar) de todas las fuentes se unen antes de sumar, así que nada cuenta dos veces.
+  - Menos de 2 h no es una noche.
+  - Una noche medida sustituye a la respuesta 1–5 en la deuda de sueño (sd 0,3 h) y alimenta el efecto agudo de anoche con la sensibilidad aprendida de la persona.
+- **VFC** (Plews 2013; Kiviniemi 2007):
+  - `ln(SDNN)` se compara con la línea base propia de los 30 días anteriores, que necesita ≥ 10 días.
+  - Solo cuenta por debajo de −1 SD. El efecto es `1,5·(z + 0,5)` %, con un tope de −3 %.
+  - Una VFC alta nunca suma: no es motivo para apretar más.
+- **Pulso en reposo** (Buchheit 2014):
+  - Cuenta si está `max(5 lpm, 1,5 SD)` por encima de la línea base de 30 días.
+  - El efecto es `−0,2 %` por lpm, con un tope de −2,5 %.
+- VFC y pulso en reposo miden el mismo estado autonómico. La señal más fuerte cuenta entera y la otra a la mitad, para no contar dos veces la misma evidencia.
+
+### Restricciones
+
+- El único entitlement es `com.apple.developer.healthkit`. La entrega en segundo plano está desactivada (`background: false`); ese trabajo lo hace la tarea nocturna. Se cree que HealthKit básico firma con un Personal Team gratuito, pero **Apple no lo confirma**; hay que comprobarlo en el primer build desde el Mac.
+- iOS no dice si se denegó la lectura. Una sincronización vacía es la única señal.
+- Pendiente: app nativa de watchOS (SwiftUI con `HKWorkoutSession`, vía `@bacons/apple-targets`) para registrar series desde la muñeca y ver el pulso en directo en la sesión.
+
+### Tests de aceptación (biometría)
+
+1. Una noche registrada por el reloj y el iPhone con fases solapadas suma 8 h, no 16. Un fragmento de 1 h no es una noche.
+2. Una noche medida de 5 h genera 3 h de deuda aunque el check-in dijera «5 · genial».
+3. VFC:
+   - Sin línea base de 10 días, no hay señal.
+   - Una mañana normal no dice nada.
+   - Una caída baja la disposición.
+   - Una VFC alta no suma.
+4. Pulso en reposo +2 lpm es ruido; +10 lpm es señal. VFC y pulso en reposo juntos cuentan menos que su suma.
+5. Entrenos del reloj:
+   - Una carrera se convierte en sesión con su pulso.
+   - La fuerza mantiene un RPE ≥ 6.
+   - Los paseos y los entrenos de menos de 5 min no se importan.
+   - Nada se importa dos veces, tampoco los entrenos del propio Kairos.
+   - Un entreno solapado enriquece la sesión existente en vez de duplicarla.
+   - Un entreno borrado en Salud desaparece.
+
 ## Fases siguientes
 
 | Fase | Contenido | Métodos |
@@ -310,3 +378,8 @@ El motor no se enseña: piensa mientras el usuario descansa y solo le llegan sus
 - Grgic J et al. (2018). *Effects of rest interval duration in resistance training on measures of muscular strength: a systematic review.* Sports Med.
 - Kruschke JK (2018). *Rejecting or accepting parameter values in Bayesian estimation.* Adv Methods Pract Psychol Sci.
 - Wagenmakers EJ et al. (2010). *Bayesian hypothesis testing for psychologists: a tutorial on the Savage–Dickey method.* Cogn Psychol.
+- Plews DJ et al. (2013). *Training adaptation and heart rate variability in elite endurance athletes: opening the door to effective monitoring.* Sports Med.
+- Kiviniemi AM et al. (2007). *Endurance training guided individually by daily heart rate variability measurements.* Eur J Appl Physiol.
+- Buchheit M (2014). *Monitoring training status with HR measures: do all roads lead to Rome?* Front Physiol.
+- Foster C et al. (2001). *A new approach to monitoring exercise training.* J Strength Cond Res.
+- Tanaka H, Monahan KD, Seals DR (2001). *Age-predicted maximal heart rate revisited.* J Am Coll Cardiol.

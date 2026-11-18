@@ -13,6 +13,14 @@ export const HOURS_FROM_SCALE: Record<number, number> = {
   5: 8.25,
 };
 const HOURS_SD_FROM_SCALE = 1;
+
+/** Inverse of HOURS_FROM_SCALE: the 1–5 level whose hours are closest. */
+export function scaleFromHours(h: number): number {
+  let best = 1;
+  for (const [k, v] of Object.entries(HOURS_FROM_SCALE))
+    if (Math.abs(v - h) < Math.abs(HOURS_FROM_SCALE[best] - h)) best = Number(k);
+  return best;
+}
 /** Sleep need prior: ≥7 h consensus, athletes more (Watson 2015). */
 export const SLEEP_NEED = { mean: 8, sd: 0.5 };
 /** Debt decays ~e-fold every 4 nights: recovery is incomplete (Belenky 2003). */
@@ -32,8 +40,11 @@ export interface SleepNight {
   sd: number;
 }
 
-/** One value per night: the latest pre check-in of that day wins. */
-export function sleepNights(checkins: CheckIn[]): SleepNight[] {
+/**
+ * One value per night: the latest pre check-in of that day wins, and a
+ * night measured by the watch beats anything typed by hand.
+ */
+export function sleepNights(checkins: CheckIn[], measured: SleepNight[] = []): SleepNight[] {
   const byDay = new Map<number, { at: number; night: SleepNight }>();
   for (const c of checkins) {
     if (c.kind !== 'pre') continue;
@@ -49,7 +60,9 @@ export function sleepNights(checkins: CheckIn[]): SleepNight[] {
       });
     }
   }
-  return [...byDay.values()].map((v) => v.night).sort((a, b) => a.day - b.day);
+  const nights = new Map([...byDay].map(([d, v]) => [d, v.night]));
+  for (const m of measured) nights.set(m.day, m);
+  return [...nights.values()].sort((a, b) => a.day - b.day);
 }
 
 export interface SleepDebt {
@@ -59,8 +72,14 @@ export interface SleepDebt {
   nights: number;
 }
 
-export function sleepDebt(checkins: CheckIn[], today: number): SleepDebt {
-  const nights = sleepNights(checkins).filter((n) => n.day <= today && n.day > today - 21);
+export function sleepDebt(
+  checkins: CheckIn[],
+  today: number,
+  measured: SleepNight[] = [],
+): SleepDebt {
+  const nights = sleepNights(checkins, measured).filter(
+    (n) => n.day <= today && n.day > today - 21,
+  );
   const decay = Math.exp(-1 / DEBT_TAU_NIGHTS);
   let debt = 0;
   let variance = 0;

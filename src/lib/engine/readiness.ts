@@ -23,7 +23,8 @@ import {
   type RatePosterior,
   type RegionStatus,
 } from './recovery';
-import { debtEffect, sleepDebt, type SleepDebt } from './sleep';
+import { debtEffect, scaleFromHours, sleepDebt, type SleepDebt } from './sleep';
+import { autonomicEvidence, lastNightHours, measuredNights, type Biometrics } from './biometrics';
 
 export interface Evidence {
   label: string;
@@ -64,6 +65,8 @@ export interface LoadPattern {
 export interface ReadinessOptions {
   /** Movement ids of the session the person is about to do. */
   nextMovements?: string[];
+  /** Watch-measured sleep, HRV and resting HR (HealthKit). */
+  biometrics?: Biometrics | null;
 }
 
 const PRE_VALID_MS = 18 * 3_600_000;
@@ -144,11 +147,24 @@ export function readinessV2(
   const sensitivity = learnSensitivity(ff.days, checkins);
   const pre = preByDay(checkins).get(today);
   const preFresh = pre && t - new Date(pre.at).getTime() <= PRE_VALID_MS ? pre : undefined;
-  const ci = checkInEffect(preFresh, sensitivity);
+  // Measured hours beat the 1–5 answer; the learned scale still applies.
+  const watched = lastNightHours(opts.biometrics, today);
+  const acute: CheckIn | undefined =
+    watched !== null
+      ? {
+          id: 'watch',
+          at: now.toISOString(),
+          kind: 'pre',
+          ...preFresh,
+          sleep: scaleFromHours(watched),
+        }
+      : preFresh;
+  const ci = checkInEffect(acute, sensitivity);
   const personal = sensitivity.samples >= 3 ? ' · ajustado a ti' : '';
   if (ci.sleep.mean !== 0) {
+    const hours = watched !== null ? ` (${watched.toFixed(1).replace('.', ',')} h)` : '';
     evidence.push({
-      label: ci.sleep.mean < 0 ? 'dormiste mal anoche' : 'dormiste muy bien',
+      label: (ci.sleep.mean < 0 ? 'dormiste mal anoche' : 'dormiste muy bien') + hours,
       delta: ci.sleep.mean,
       sd: Math.sqrt(ci.sleep.variance),
       source: `Fullagar 2015; Craven 2022${personal}`,
@@ -165,7 +181,7 @@ export function readinessV2(
 
   // Accumulated sleep debt (excluding nothing: debt and last night are
   // distinct mechanisms — chronic vs acute).
-  const sleep = sleepDebt(checkins, today);
+  const sleep = sleepDebt(checkins, today, measuredNights(opts.biometrics));
   const de = debtEffect(sleep);
   if (sleep.hours >= 1) {
     evidence.push({
@@ -197,6 +213,9 @@ export function readinessV2(
       });
     }
   }
+
+  for (const b of autonomicEvidence(opts.biometrics, today))
+    evidence.push({ label: b.label, delta: b.delta, sd: b.sd, source: b.source });
 
   const load = loadPattern(sessions, now);
   if (load.highStrain && load.monotony !== null && load.monotony > 2) {
