@@ -31,10 +31,10 @@ import {
   ExperimentReviewCard,
   ExperimentRow,
   PreCheckInCard,
-  ReadinessBar,
   WeeklyCheckInCard,
 } from './components/Loop';
-import { readinessV2 } from '../../lib/engine';
+import { expertPanel, readinessV2 } from '../../lib/engine';
+import { ExpertPanelCard } from './components/ExpertPanel';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Spacing } from '../../theme/tokens';
 import { SHOW_ENGINE_DEBUG } from '../../config/constants';
@@ -113,6 +113,8 @@ export default function CoachHomeScreen() {
   const experiments = useCoachStore((s) => s.experiments);
   const checkins = useCoachStore((s) => s.checkins);
   const biometrics = useCoachStore((s) => s.biometrics);
+  const signals = useCoachStore((s) => s.signals);
+  const calibration = useCoachStore((s) => s.calibration);
   const submitCheckIn = useCoachStore((s) => s.submitCheckIn);
   const reviewExperiment = useCoachStore((s) => s.reviewExperiment);
   const [lastClosed, setLastClosed] = useState<Experiment | null>(null);
@@ -149,6 +151,23 @@ export default function CoachHomeScreen() {
   const ready = useMemo(
     () => readinessV2(sessions, checkins, new Date(now), { nextMovements, biometrics }),
     [biometrics, checkins, nextMovements, now, sessions],
+  );
+  // Same panel the background pass decides with, on live data.
+  const panel = useMemo(
+    () =>
+      expertPanel({
+        readiness: ready,
+        sessions,
+        nextMovements: nextMovements ?? [],
+        adherence: signals?.adherence ?? null,
+        pain: signals?.pain ?? null,
+        painNow:
+          !!signals?.pain?.active ||
+          checkins.some((c) => c.pain && now - new Date(c.at).getTime() <= 3 * 86_400_000),
+        calibration,
+        now: new Date(now),
+      }),
+    [calibration, checkins, nextMovements, now, ready, sessions, signals],
   );
   const preToday = useMemo(
     () =>
@@ -290,7 +309,7 @@ export default function CoachHomeScreen() {
             {week.length > 0 && (
               <View style={{ marginTop: Spacing.lg }}>
                 {preToday ? (
-                  <ReadinessBar r={ready} />
+                  <ExpertPanelCard panel={panel} r={ready} />
                 ) : (
                   <PreCheckInCard onSubmit={submitCheckIn} />
                 )}
