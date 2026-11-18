@@ -29,7 +29,7 @@ import {
   WeeklyCheckInCard,
 } from './components/Loop';
 import { TodayVerdict } from './components/ExpertPanel';
-import { useTodayPanel } from './useTodayPanel';
+import { useTodayVerdict } from './useTodayPanel';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Spacing } from '../../theme/tokens';
 import { SHOW_ENGINE_DEBUG } from '../../config/constants';
@@ -77,7 +77,7 @@ export default function CoachHomeScreen() {
   );
   // Captured once per mount: the tab remounts often enough for a 7-day window.
   const [now] = useState(() => Date.now());
-  const { panel } = useTodayPanel(now);
+  const verdict = useTodayVerdict(now);
   const preToday = useMemo(
     () =>
       checkins.some(
@@ -203,7 +203,7 @@ export default function CoachHomeScreen() {
             {week.length > 0 && (
               <View style={{ marginTop: Spacing.lg }}>
                 {preToday ? (
-                  <TodayVerdict verdict={panel.verdict} />
+                  verdict && <TodayVerdict verdict={verdict} />
                 ) : (
                   <PreCheckInCard onSubmit={submitCheckIn} />
                 )}

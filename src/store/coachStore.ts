@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { InteractionManager } from 'react-native';
 import {
   applySuggestion,
   calibratePlan,
@@ -45,6 +46,8 @@ import { estimateHrMax, mergeWatchWorkouts } from '../lib/health/workoutImport';
 import type { HealthPull } from '../lib/health/appleHealth';
 import type { ArmContext } from '../lib/engine/decision';
 import type { CalibrationSet } from '../lib/engine/backtest';
+import type { EngineCache } from '../lib/engine/cache';
+import type { Archive } from '../lib/engine/archive';
 
 // Writes are tracked so a background task can wait for them before the OS
 // suspends the app; otherwise a night's consolidation could be lost.
@@ -85,6 +88,12 @@ interface CoachState {
   /** Sessions remembered as cases (context, action, outcome) for recall. */
   memory: Episode[];
   consolidatedAt: string | null;
+  /** Past work the engine reuses between passes (never shown). */
+  engineCache: EngineCache | null;
+  /** The compressed long-term past: old sessions keep counting, with less weight. */
+  archive: Archive | null;
+  /** A pass left part of the past for later (not persisted). */
+  enginePending: boolean;
   /** Watch-measured sleep, HRV and resting HR, one row per day. */
   biometrics: Biometrics | null;
   health: HealthLink;
@@ -105,7 +114,8 @@ interface CoachState {
   /** Closes an experiment in review: keeps the change or reverts the plan. */
   reviewExperiment: (id: string, answers: ExperimentAnswers) => Experiment | null;
   /** Background pass: steps trials, pre-plans the next session, refreshes risks. */
-  consolidate: (now?: Date) => void;
+  /** `background`: no time budget (the OS task has time; the UI is not waiting). */
+  consolidate: (now?: Date, opts?: { background?: boolean }) => void;
   setHealthConnected: (connected: boolean) => void;
   /** Merges a HealthKit pull: watch workouts become sessions, biometrics refresh. */
   ingestHealth: (pull: HealthPull, now?: Date) => { added: number; enriched: number };
@@ -137,9 +147,34 @@ const initial = {
   advice: [] as Advice[],
   memory: [] as Episode[],
   consolidatedAt: null,
+  engineCache: null as EngineCache | null,
+  archive: null as Archive | null,
+  enginePending: false,
   biometrics: null,
   health: { connected: false, imported: 0 } as HealthLink,
 };
+
+/** Check-ins kept: years of daily use; the models weigh old ones less. */
+const CHECKINS_MAX = 2000;
+const PENDING_DELAY_MS = 400;
+const FOREGROUND_BUDGET_MS = 50;
+
+let soonTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Runs a pass after the current interaction finishes (tap feedback,
+ * navigation, animations), coalescing bursts of changes into one pass.
+ * Saving a session or a check-in returns at once; the plan follows.
+ */
+export function consolidateSoon(delayMs = 0): void {
+  if (soonTimer) return;
+  soonTimer = setTimeout(() => {
+    InteractionManager.runAfterInteractions(() => {
+      soonTimer = null;
+      useCoachStore.getState().consolidate();
+    });
+  }, delayMs);
+}
 
 /** Journal entries kept: older advice no longer describes this engine. */
 const ADVICE_MAX = 300;
@@ -215,7 +250,7 @@ export const useCoachStore = create<CoachState>()(
             sessions: plan.sessions.map((s) => (s.id === draftSessionId ? { ...s, status } : s)),
           },
         });
-        get().consolidate();
+        consolidateSoon();
       },
 
       recordSession: (log) => {
@@ -240,7 +275,7 @@ export const useCoachStore = create<CoachState>()(
           suggestions: [...suggestions, ...fresh.filter((s) => !known.has(s.id))],
           experiments: promote(experiments, all, new Date()),
         });
-        get().consolidate();
+        consolidateSoon();
         return fresh;
       },
 
@@ -273,7 +308,7 @@ export const useCoachStore = create<CoachState>()(
                 ]
               : experiments,
         });
-        if (applied) get().consolidate();
+        if (applied) consolidateSoon();
       },
 
       submitCheckIn: (c) => {
@@ -292,12 +327,13 @@ export const useCoachStore = create<CoachState>()(
             : [];
         const known = new Set(suggestions.map((s) => s.id));
         set({
-          checkins: [...checkins, c].slice(-120),
+          // Every check-in keeps counting (the models weigh old ones less).
+          checkins: [...checkins, c].slice(-CHECKINS_MAX),
           suggestions: [...suggestions, ...fresh.filter((s) => !known.has(s.id))],
           // Time alone can open a review window; a check-in is a good moment.
           experiments: promote(experiments, sessions, now),
         });
-        get().consolidate(now);
+        consolidateSoon();
         return fresh;
       },
 
@@ -340,11 +376,11 @@ export const useCoachStore = create<CoachState>()(
           experiments: experiments.map((x) => (x.id === id ? closed : x)),
           plan: nextPlan,
         });
-        get().consolidate();
+        consolidateSoon();
         return closed;
       },
 
-      consolidate: (now = new Date()) => {
+      consolidate: (now = new Date(), opts = {}) => {
         const { plan, sessions, checkins, experiments, trials, goal } = get();
         const c = consolidatePass({
           plan,
@@ -355,6 +391,10 @@ export const useCoachStore = create<CoachState>()(
           daysPerWeek: goal?.daysPerWeek,
           biometrics: get().biometrics,
           advice: get().advice,
+          cache: get().engineCache,
+          archive: get().archive,
+          // In the foreground a pass never holds the UI for more than a frame or three.
+          ...(opts.background ? { budget: Infinity } : { budgetMs: FOREGROUND_BUDGET_MS }),
           now,
         });
         set({
@@ -364,9 +404,15 @@ export const useCoachStore = create<CoachState>()(
           signals: c.signals,
           calibration: c.calibration,
           memory: c.memory,
+          engineCache: c.cache,
+          archive: c.archive,
+          enginePending: c.pending,
           consolidatedAt: c.at,
           experiments: promote(experiments, sessions, now),
         });
+        // A cold start (first launch after an update, a restore) is spread
+        // over short passes so the app never stalls on it.
+        if (c.pending) consolidateSoon(PENDING_DELAY_MS);
       },
 
       setHealthConnected: (connected) =>
@@ -431,6 +477,8 @@ export const useCoachStore = create<CoachState>()(
         advice: s.advice,
         memory: s.memory,
         consolidatedAt: s.consolidatedAt,
+        engineCache: s.engineCache,
+        archive: s.archive,
         biometrics: s.biometrics,
         health: s.health,
       }),

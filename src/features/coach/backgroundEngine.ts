@@ -17,6 +17,8 @@ import { ingestWatchSessions, pushPlanToWatch } from './watchSync';
 export const ENGINE_TASK = 'kairos-engine-consolidate';
 /** A minimum, not a schedule: the OS picks the window (minutes). */
 const MIN_INTERVAL_MIN = 6 * 60;
+/** Upper bound on catch-up passes in one background run. */
+const MAX_NIGHT_PASSES = 20;
 
 const supported = Platform.OS === 'ios' || Platform.OS === 'android';
 
@@ -26,7 +28,10 @@ export async function runConsolidation(now: Date = new Date()): Promise<void> {
   // Health data is unreadable while the phone is locked; then the pass
   // runs on what is already stored and the morning open catches up.
   const synced = await syncHealth(now);
-  if (synced.status !== 'synced') useCoachStore.getState().consolidate(now);
+  if (synced.status !== 'synced') useCoachStore.getState().consolidate(now, { background: true });
+  // At night there is time: finish distilling the past (no time budget).
+  for (let i = 0; i < MAX_NIGHT_PASSES && useCoachStore.getState().enginePending; i++)
+    useCoachStore.getState().consolidate(now, { background: true });
   // Sessions logged on the wrist with the app closed; then the morning plan to the watch.
   ingestWatchSessions();
   pushPlanToWatch();

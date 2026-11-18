@@ -32,7 +32,7 @@ const pct = (p: number) => `${Math.round(p * 100)}%`;
 export const TodayVerdict = React.memo(function TodayVerdict({
   verdict,
 }: {
-  verdict: PanelVerdict;
+  verdict: Pick<PanelVerdict, 'band' | 'note'>;
 }) {
   const b = BAND[verdict.band];
   return (
