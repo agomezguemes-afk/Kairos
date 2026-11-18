@@ -187,7 +187,13 @@ describe('expert panel', () => {
 
   it('every perspective speaks, in decision order', () => {
     const p = expertPanel(base());
-    expect(p.lenses.map((l) => l.id)).toEqual(['clinical', 'physiology', 'behaviour', 'training']);
+    expect(p.lenses.map((l) => l.id)).toEqual([
+      'clinical',
+      'physiology',
+      'memory',
+      'behaviour',
+      'training',
+    ]);
     for (const l of p.lenses) expect(l.reason.length).toBeGreaterThan(0);
   });
 

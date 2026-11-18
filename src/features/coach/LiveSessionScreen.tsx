@@ -75,6 +75,7 @@ export default function LiveSessionScreen() {
   const experiments = useCoachStore((s) => s.experiments);
   const biometrics = useCoachStore((s) => s.biometrics);
   const calibration = useCoachStore((s) => s.calibration);
+  const memory = useCoachStore((s) => s.memory);
   const adherenceSignal = useCoachStore((s) => s.signals?.adherence ?? null);
   const draft = plan?.sessions.find((s) => s.id === params.draftSessionId);
   // The engine pre-planned this session while you rested; a light day
@@ -84,6 +85,7 @@ export default function LiveSessionScreen() {
       ? sessionAdjustment(dayPlan, draft, history, checkins, experiments, new Date(), biometrics, {
           adherence: adherenceSignal,
           calibration,
+          memory,
         })
       : null,
   );

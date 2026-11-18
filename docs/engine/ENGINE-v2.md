@@ -437,6 +437,59 @@ El motor razona como un profesional con formación en biotecnología, fisioterap
 9. Con dolor reciente decide fisioterapia y el día es de descanso. Tras un hueco largo, el hábito pide sesión corta. Con un estancamiento se mantiene la carga sin recortar series.
 10. Un historial de exceso de confianza acerca a 50 % la previsión de fisiología y lo dice.
 
+## Memoria de decisiones
+
+Un entrenador con experiencia no razona solo con fórmulas: recuerda cómo te fue las últimas veces que llegaste igual. El motor guarda cada sesión como un caso y, ante un día nuevo, recupera los más parecidos.
+
+### Caso (`src/lib/engine/memory.ts`)
+
+- **Contexto** al empezar, reconstruido solo con lo anterior:
+  - disposición sin el tope de dolor;
+  - deuda de sueño;
+  - recuperación de la región menos recuperada que carga la sesión;
+  - carga aguda:crónica;
+  - días desde la sesión anterior;
+  - agujetas del check-in de ese día.
+- **Acción:** lo que hiciste de verdad, no lo que se aconsejó. Es `full` si completaste ≥ 90 % de las series previstas y `reduced` si no.
+- **Resultado:**
+  - rendimiento frente a tu nivel, cuando la sesión da una observación de fuerza;
+  - dolor marcado en las 72 h siguientes.
+  - Es `bad` si quedaste por debajo de nivel − SWC o hubo dolor.
+  - Hasta que pasan 72 h no se sabe si hubo dolor, así que el caso espera.
+  - Una sesión sin observación ni dolor no dice cómo fue el día y no se guarda.
+- **Diario:** al guardar una sesión se apunta lo que el motor aconsejó (`Advice`: banda, postura, perspectiva que decidió y nota). Se reconstruye con la misma función y las mismas entradas que usó la pantalla de la sesión. Cada caso lleva su consejo, para comprobar qué pasó cuando se siguió y cuando no.
+- La repetición del pasado (`replayStates`) es la misma que usa la calibración: se calcula una sola vez por consolidación.
+
+### Recuerdo
+
+- **Similitud:** exp(−½·Σ((x − xᵢ)/sₖ)²), con escalas fijas de dominio:
+  - disposición 0,15;
+  - deuda 2 h;
+  - recuperación 0,2;
+  - ratio de carga 0,3;
+  - hueco 2 días;
+  - agujetas 1.
+  - Son fijas para que unas pocas sesiones no cambien qué cuenta como «parecido».
+- **P(mal resultado | acción, contexto):** regresión de núcleo (Nadaraya–Watson) con una Beta cuyo prior está centrado en tu tasa base, con peso 2. Tamaño efectivo de Kish.
+
+### Perspectiva «Experiencia» en el panel
+
+- Con menos de 3 casos efectivos no opina.
+- `ease` si P(mal | completa) ≥ 0,5 y supera tu tasa base en ≥ 15 puntos.
+- `push` con `relax` si P(mal | completa) ≤ 0,2.
+- **Prioridad:** tejido → estado → experiencia → hábito → progreso.
+- **Relajar:** si la única que pide prudencia es fisiología, con `ease`, y la experiencia dice que en días así sueles rendir bien, manda la experiencia y la sesión va completa. Nunca relaja un descanso, el dolor ni lo que pidan otras perspectivas.
+- Como todo el panel, es interno: el usuario solo ve el veredicto.
+
+### Tests de aceptación (memoria)
+
+1. El recuerdo responde con los casos cercanos, no con todo el historial; con otra acción sin casos responde el prior.
+2. Los casos esperan 72 h; el dolor posterior convierte la sesión en un caso malo.
+3. El consejo del diario queda unido a su sesión.
+4. Sin días parecidos, la experiencia no opina.
+5. Si los días parecidos salieron mal, pide versión ligera.
+6. Si fisiología pide suave pero los días parecidos salieron bien, la sesión va completa y decide la experiencia; nunca por encima del dolor.
+
 ## Fases siguientes
 
 | Fase | Contenido | Métodos |

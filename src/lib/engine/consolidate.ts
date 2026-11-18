@@ -14,7 +14,8 @@ import type { DraftSession, MovementTarget, PlanDraft, SessionLog } from '../ada
 import { readinessV2 } from './readiness';
 import type { Biometrics } from './biometrics';
 import { adherence, painRecurrence, type Adherence, type PainRecurrence } from './survival';
-import { calibrate, type CalibrationSet } from './backtest';
+import { calibrate, replayStates, type CalibrationSet } from './backtest';
+import { buildEpisodes, type Advice, type Episode } from './memory';
 import { expertPanel, type LensId, type Stance } from './lenses';
 import {
   analyseTrial,
@@ -55,6 +56,8 @@ export interface ConsolidationInput {
   daysPerWeek?: number;
   /** Watch-measured sleep, HRV and resting HR, when connected. */
   biometrics?: Biometrics | null;
+  /** What the engine advised for each saved session (the decision journal). */
+  advice?: Advice[];
   now?: Date;
 }
 
@@ -65,6 +68,8 @@ export interface Consolidation {
   signals: Signals;
   /** The engine's track record per forecast family. */
   calibration: CalibrationSet;
+  /** Remembered sessions with context, action and outcome. */
+  memory: Episode[];
   at: string;
 }
 
@@ -197,6 +202,7 @@ export function forecastDate(now: Date): Date {
 export interface PanelContext {
   adherence?: Adherence | null;
   calibration?: CalibrationSet | null;
+  memory?: Episode[] | null;
 }
 
 /** Pain is "now" for 3 days after it was marked (same rule as readiness). */
@@ -225,6 +231,8 @@ export function dayPlanAt(
     pain,
     painNow,
     calibration: ctx.calibration,
+    memory: ctx.memory ?? [],
+    checkins,
     now: when,
   });
   const p = panel.lenses.find((l) => l.id === 'physiology')?.forecast?.p ?? r.probability;
@@ -298,24 +306,32 @@ export function consolidate(input: ConsolidationInput): Consolidation {
   const started = maybeStartTrial(stepped.plan, stepped.trials, sessions, experiments, now);
   const pain = painRecurrence(checkins, experiments, now);
   const signals = { adherence: adherence(sessions, now, input.daysPerWeek ?? 3), pain };
+  // One replay of the past feeds both the track record and the memory.
+  const states = replayStates(sessions, checkins, input.biometrics);
   // Every forecast family is judged against what happened before it is trusted today.
-  const calibration = calibrate({
-    sessions,
-    checkins,
-    experiments,
-    biometrics: input.biometrics,
-    daysPerWeek: input.daysPerWeek,
-    now,
-  });
+  const calibration = calibrate(
+    {
+      sessions,
+      checkins,
+      experiments,
+      biometrics: input.biometrics,
+      daysPerWeek: input.daysPerWeek,
+      now,
+    },
+    states,
+  );
+  const memory = buildEpisodes(states, checkins, input.advice ?? [], now);
   return {
     plan: started.plan,
     trials: started.trials,
     dayPlan: dayPlanFor(started.plan, sessions, checkins, pain, now, input.biometrics, {
       adherence: signals.adherence,
       calibration,
+      memory,
     }),
     signals,
     calibration,
+    memory,
     at: now.toISOString(),
   };
 }

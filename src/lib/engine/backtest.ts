@@ -19,7 +19,7 @@ import {
 } from './calibration';
 import { capacityOf, chooseLoad } from './decision';
 import { dayIndex, DAY_MS, strengthObservations } from './fitnessFatigue';
-import { READINESS_SWC, readinessV2 } from './readiness';
+import { READINESS_SWC, readinessV2, type ReadinessV2 } from './readiness';
 import { adherence, painEpisodes, painRecurrence } from './survival';
 
 export type ForecastFamily = 'readiness' | 'load' | 'adherence' | 'pain';
@@ -50,6 +50,53 @@ function biometricsUntil(b: Biometrics | null | undefined, day: number): Biometr
   return { ...b, days: b.days.filter((d) => d.day <= day) };
 }
 
+/** One past session as the engine saw it just before it started. */
+export interface ReplayState {
+  session: SessionLog;
+  /** Sessions finished before it started. */
+  before: SessionLog[];
+  /** Check-ins made before it started. */
+  checkins: CheckIn[];
+  r: ReadinessV2;
+  /** Its performance observation (%), when it produced one. */
+  y: number | null;
+}
+
+/**
+ * Readiness re-made before each of the last `max` sessions with only what
+ * existed then. Calibration and the decision memory both read from it, so
+ * the expensive part runs once per consolidation.
+ */
+export function replayStates(
+  sessions: SessionLog[],
+  checkins: CheckIn[],
+  biometrics?: Biometrics | null,
+  max = REPLAY_MAX,
+): ReplayState[] {
+  const sorted = [...sessions].sort(byStart);
+  const ys: (number | null)[] = [];
+  let count = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const obs = strengthObservations(sorted.slice(0, i + 1), dayIndex);
+    ys.push(obs.length > count ? obs[obs.length - 1].y : null);
+    count = obs.length;
+  }
+  const out: ReplayState[] = [];
+  for (let index = Math.max(0, sorted.length - max); index < sorted.length; index++) {
+    const s = sorted[index];
+    const t = ms(s.startedAt);
+    const before = sorted.slice(0, index).filter((x) => ms(x.endedAt) <= t);
+    if (!before.length) continue;
+    const past = checkins.filter((c) => ms(c.at) <= t);
+    const r = readinessV2(before, past, new Date(t), {
+      biometrics: biometricsUntil(biometrics, dayIndex(s.startedAt)),
+      nextMovements: s.movements.map((m) => m.movementId),
+    });
+    out.push({ session: s, before, checkins: past, r, y: ys[index] });
+  }
+  return out;
+}
+
 /**
  * Readiness, as it would have been shown before each session that produced
  * a performance observation: P(performance ≥ level − SWC), plus the
@@ -60,34 +107,13 @@ export function replayReadiness(
   checkins: CheckIn[],
   biometrics?: Biometrics | null,
   max = REPLAY_MAX,
+  states: ReplayState[] = replayStates(sessions, checkins, biometrics, max),
 ): { forecasts: Forecast[]; intervals: IntervalForecast[] } {
-  const sorted = [...sessions].sort(byStart);
-  // Which sessions produce an observation, computed once in one pass.
-  const observed: { index: number; y: number }[] = [];
-  let count = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    const obs = strengthObservations(sorted.slice(0, i + 1), dayIndex);
-    if (obs.length > count) observed.push({ index: i, y: obs[obs.length - 1].y });
-    count = obs.length;
-  }
   const forecasts: Forecast[] = [];
   const intervals: IntervalForecast[] = [];
-  for (const { index, y } of observed.slice(-max)) {
-    const s = sorted[index];
-    const t = ms(s.startedAt);
-    const before = sorted.slice(0, index).filter((x) => ms(x.endedAt) <= t);
-    if (!before.length) continue;
-    const r = readinessV2(
-      before,
-      checkins.filter((c) => ms(c.at) <= t),
-      new Date(t),
-      {
-        biometrics: biometricsUntil(biometrics, dayIndex(s.startedAt)),
-        nextMovements: s.movements.map((m) => m.movementId),
-      },
-    );
+  for (const { session: s, r, y } of states) {
     // Without observations the forecast is the prior; scoring it says nothing.
-    if (!r.informed) continue;
+    if (y === null || !r.informed) continue;
     forecasts.push({
       at: s.startedAt,
       p: r.predictive,
@@ -237,9 +263,15 @@ export interface CalibrationInput {
 }
 
 /** The engine's track record, one report per perspective's forecast. */
-export function calibrate(input: CalibrationInput): CalibrationSet {
+export function calibrate(input: CalibrationInput, states?: ReplayState[]): CalibrationSet {
   const now = input.now ?? new Date();
-  const r = replayReadiness(input.sessions, input.checkins, input.biometrics);
+  const r = replayReadiness(
+    input.sessions,
+    input.checkins,
+    input.biometrics,
+    REPLAY_MAX,
+    states ?? replayStates(input.sessions, input.checkins, input.biometrics),
+  );
   return {
     readiness: calibrationReport(r.forecasts),
     performance: intervalReport(r.intervals),

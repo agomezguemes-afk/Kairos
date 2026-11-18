@@ -16,8 +16,10 @@ import { DAY_MS } from './fitnessFatigue';
 import type { ReadinessV2 } from './readiness';
 import { MOVEMENT_REGIONS, REGION_LABEL, sessionRegions, type Region } from './recovery';
 import type { Adherence, PainRecurrence } from './survival';
+import type { CheckIn } from '../adaptive/checkins';
+import { decisionContext, recall, type Episode } from './memory';
 
-export type LensId = 'clinical' | 'physiology' | 'behaviour' | 'training';
+export type LensId = 'clinical' | 'physiology' | 'memory' | 'behaviour' | 'training';
 
 /** Ordered by how much they hold the session back. */
 export type Stance = 'push' | 'steady' | 'ease' | 'rest';
@@ -46,6 +48,8 @@ export interface Lens {
   /** The calibrated forecast the lens rests on, when it has one. */
   forecast?: { label: string; p: number; raw: number };
   track: TrackRecord | null;
+  /** Memory only: strong evidence that today's caution on state alone is overdone. */
+  relax?: boolean;
 }
 
 export interface PanelVerdict {
@@ -73,19 +77,24 @@ export interface PanelInput {
   /** Pain marked in the last 3 days (check-in or experiment). */
   painNow: boolean;
   calibration?: CalibrationSet | null;
+  /** Remembered sessions with how they went (memory.ts). */
+  memory?: Episode[];
+  /** For today's soreness in the remembered context. */
+  checkins?: CheckIn[];
   now: Date;
 }
 
 export const LENS_TITLE: Record<LensId, string> = {
   clinical: 'Fisioterapia',
   physiology: 'Fisiología',
+  memory: 'Experiencia',
   behaviour: 'Hábito',
   training: 'Preparación física',
 };
 
 const SEVERITY: Record<Stance, number> = { push: 0, steady: 1, ease: 2, rest: 3 };
-/** Tissue, then state, then habit, then progress: the order a clinician decides in. */
-const PRIORITY: LensId[] = ['clinical', 'physiology', 'behaviour', 'training'];
+/** Tissue, then state, then experience, then habit, then progress: the order a clinician decides in. */
+const PRIORITY: LensId[] = ['clinical', 'physiology', 'memory', 'behaviour', 'training'];
 
 const pct = (p: number) => `${Math.round(p * 100)} %`;
 const fmt = (v: number, d = 1) => v.toFixed(d).replace('.', ',');
@@ -383,20 +392,103 @@ function trainingLens(i: PanelInput): Lens {
   };
 }
 
+// ── Experience: what happened the last times you came in like this ───
+
+/** Cases needed before experience speaks; fewer is anecdote. */
+const MEMORY_MIN_CASES = 3;
+const fmtDay = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+
+function describe(e: Episode): string {
+  const how = e.pain
+    ? 'apareció dolor después'
+    : e.bad
+      ? 'rendiste por debajo de tu nivel'
+      : 'rendiste a tu nivel';
+  const advised = e.advised && e.advised.band !== 'go' ? ' (te había propuesto suave)' : '';
+  return `${fmtDay(e.at)}: sesión ${e.action === 'full' ? 'completa' : 'recortada'}, ${how}${advised}.`;
+}
+
+function memoryLens(i: PanelInput): Lens {
+  const base: Omit<Lens, 'stance' | 'reason' | 'findings'> = {
+    id: 'memory',
+    title: LENS_TITLE.memory,
+    track: null,
+  };
+  const eps = i.memory ?? [];
+  const ctx = decisionContext(i.readiness, i.sessions, i.checkins ?? [], i.nextMovements, i.now);
+  const full = recall(ctx, eps, 'full');
+  if (!full || full.nEff < MEMORY_MIN_CASES)
+    return {
+      ...base,
+      stance: 'push',
+      reason: 'Aún no hay días parecidos que recordar.',
+      findings: [],
+    };
+  const source = 'Razonamiento basado en casos (Aamodt y Plaza 1994) · tus sesiones';
+  const findings: Finding[] = full.similar.map((e) => ({ text: describe(e), source }));
+  // Did following, or ignoring, a cautious call work out?
+  const ignored = eps.filter((e) => e.advised && e.advised.band !== 'go' && e.action === 'full');
+  if (ignored.length >= 3)
+    findings.push({
+      text: `Cuando propuse suave y entrenaste completo, salió mal ${ignored.filter((e) => e.bad).length} de ${ignored.length} veces.`,
+      source: 'Diario de decisiones',
+    });
+  const forecast = { label: 'Que una sesión completa salga mal', p: full.pBad, raw: full.pBad };
+  if (full.pBad >= 0.5 && full.pBad - full.base >= 0.15)
+    return {
+      ...base,
+      stance: 'ease',
+      reason: 'Versión ligera: los días que llegaste así, la sesión completa no te salió bien.',
+      findings,
+      forecast,
+    };
+  if (full.pBad <= 0.2)
+    return {
+      ...base,
+      stance: 'push',
+      reason: 'En días como hoy sueles rendir bien.',
+      findings,
+      forecast,
+      relax: true,
+    };
+  return {
+    ...base,
+    stance: 'push',
+    reason: 'Días parecidos salieron con normalidad.',
+    findings,
+    forecast,
+  };
+}
+
 // ── The decision ────────────────────────────────────────────────────
 
 export function expertPanel(input: PanelInput): Panel {
   const lenses = [
     clinicalLens(input),
     physiologyLens(input),
+    memoryLens(input),
     behaviourLens(input),
     trainingLens(input),
   ];
   const byId = (id: LensId) => lenses.find((l) => l.id === id)!;
   // The most cautious lens decides; ties go to the earlier one in PRIORITY.
-  const lead = PRIORITY.map(byId).reduce((a, b) =>
-    SEVERITY[b.stance] > SEVERITY[a.stance] ? b : a,
-  );
+  const strictest = (ids: LensId[]) =>
+    ids.map(byId).reduce((a, b) => (SEVERITY[b.stance] > SEVERITY[a.stance] ? b : a));
+  let lead = strictest(PRIORITY);
+  // A coach who has seen you lift well on many days like this one doesn't
+  // shorten the session on a state estimate alone. Only that case: never
+  // over pain, a rest day, or another lens asking for less.
+  const others = PRIORITY.filter((id) => id !== 'physiology');
+  if (
+    lead.id === 'physiology' &&
+    lead.stance === 'ease' &&
+    byId('memory').relax &&
+    SEVERITY[strictest(others).stance] <= SEVERITY.steady
+  ) {
+    const second = strictest(others);
+    lead = second.stance === 'push' ? byId('memory') : second;
+  }
   const stance = lead.stance;
   const band = stance === 'rest' ? 'rest' : stance === 'ease' ? 'easy' : 'go';
   const note = stance === 'push' ? undefined : lead.reason;

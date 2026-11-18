@@ -16,6 +16,7 @@ export function useTodayPanel(now: number): { panel: Panel; readiness: Readiness
   const biometrics = useCoachStore((s) => s.biometrics);
   const signals = useCoachStore((s) => s.signals);
   const calibration = useCoachStore((s) => s.calibration);
+  const memory = useCoachStore((s) => s.memory);
 
   // The kept session done fewest times (same choice as the start button).
   const nextMovements = useMemo(() => {
@@ -42,9 +43,11 @@ export function useTodayPanel(now: number): { panel: Panel; readiness: Readiness
           !!signals?.pain?.active ||
           checkins.some((c) => c.pain && now - new Date(c.at).getTime() <= PAIN_NOW_MS),
         calibration,
+        memory,
+        checkins,
         now: new Date(now),
       }),
-    [calibration, checkins, nextMovements, now, readiness, sessions, signals],
+    [calibration, checkins, memory, nextMovements, now, readiness, sessions, signals],
   );
 
   return { panel, readiness };

@@ -129,3 +129,14 @@ export type {
   Stance,
   TrackRecord,
 } from './lenses';
+export {
+  buildEpisodes,
+  completionOf,
+  decisionContext,
+  recall,
+  similarity,
+  MEMORY_MAX,
+} from './memory';
+export type { Advice, DecisionContext, Episode, Recall } from './memory';
+export { replayStates } from './backtest';
+export type { ReplayState } from './backtest';

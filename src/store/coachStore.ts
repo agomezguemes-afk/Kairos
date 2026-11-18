@@ -33,7 +33,10 @@ import {
   dayIndex,
   mergeBioDays,
   readinessV2,
+  sessionAdjustment,
+  type Advice,
   type Biometrics,
+  type Episode,
   type DayPlan,
   type Signals,
   type Trial,
@@ -77,6 +80,10 @@ interface CoachState {
   signals: Signals | null;
   /** How often each kind of forecast came true; corrects them before use. */
   calibration: CalibrationSet | null;
+  /** What the engine advised for each saved session: the decision journal. */
+  advice: Advice[];
+  /** Sessions remembered as cases (context, action, outcome) for recall. */
+  memory: Episode[];
   consolidatedAt: string | null;
   /** Watch-measured sleep, HRV and resting HR, one row per day. */
   biometrics: Biometrics | null;
@@ -127,10 +134,43 @@ const initial = {
   dayPlan: null,
   signals: null,
   calibration: null as CalibrationSet | null,
+  advice: [] as Advice[],
+  memory: [] as Episode[],
   consolidatedAt: null,
   biometrics: null,
   health: { connected: false, imported: 0 } as HealthLink,
 };
+
+/** Journal entries kept: older advice no longer describes this engine. */
+const ADVICE_MAX = 300;
+
+/**
+ * What the engine advised for a session, reconstructed exactly as the live
+ * screen got it (same function, same inputs, at the session's start).
+ */
+function journal(s: CoachState, log: SessionLog): Advice[] {
+  const draft = s.plan?.sessions.find((d) => d.id === log.draftSessionId);
+  if (!draft || s.advice.some((a) => a.sessionId === log.id)) return s.advice;
+  const adj = sessionAdjustment(
+    s.dayPlan,
+    draft,
+    s.sessions,
+    s.checkins,
+    s.experiments,
+    new Date(log.startedAt),
+    s.biometrics,
+    { adherence: s.signals?.adherence, calibration: s.calibration, memory: s.memory },
+  );
+  const entry: Advice = {
+    sessionId: log.id,
+    at: log.startedAt,
+    band: adj.band,
+    stance: adj.stance,
+    lead: adj.lead,
+    note: adj.note,
+  };
+  return [...s.advice, entry].slice(-ADVICE_MAX);
+}
 
 /** The value the user settled on when adjusting, for the experiment target. */
 function adjustedValue(o?: Partial<MovementTarget>): number | undefined {
@@ -194,6 +234,7 @@ export const useCoachStore = create<CoachState>()(
         const known = new Set(suggestions.map((s) => s.id));
         const all = [...sessions, log];
         set({
+          advice: journal(get(), log),
           sessions: all,
           plan: plan ? calibratePlan(plan, log) : plan,
           suggestions: [...suggestions, ...fresh.filter((s) => !known.has(s.id))],
@@ -313,6 +354,7 @@ export const useCoachStore = create<CoachState>()(
           trials,
           daysPerWeek: goal?.daysPerWeek,
           biometrics: get().biometrics,
+          advice: get().advice,
           now,
         });
         set({
@@ -321,6 +363,7 @@ export const useCoachStore = create<CoachState>()(
           dayPlan: c.dayPlan,
           signals: c.signals,
           calibration: c.calibration,
+          memory: c.memory,
           consolidatedAt: c.at,
           experiments: promote(experiments, sessions, now),
         });
@@ -385,6 +428,8 @@ export const useCoachStore = create<CoachState>()(
         dayPlan: s.dayPlan,
         signals: s.signals,
         calibration: s.calibration,
+        advice: s.advice,
+        memory: s.memory,
         consolidatedAt: s.consolidatedAt,
         biometrics: s.biometrics,
         health: s.health,
