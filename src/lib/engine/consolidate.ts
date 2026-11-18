@@ -14,6 +14,8 @@ import type { DraftSession, MovementTarget, PlanDraft, SessionLog } from '../ada
 import { readinessV2 } from './readiness';
 import type { Biometrics } from './biometrics';
 import { adherence, painRecurrence, type Adherence, type PainRecurrence } from './survival';
+import { calibrate, type CalibrationSet } from './backtest';
+import { expertPanel, type LensId, type Stance } from './lenses';
 import {
   analyseTrial,
   createTrial,
@@ -34,6 +36,9 @@ export interface DayPlan {
   trimSets: boolean;
   /** One plain line shown in the session, or nothing on a normal day. */
   note?: string;
+  /** The perspective that decided the day (lenses.ts). */
+  lead?: LensId;
+  stance?: Stance;
 }
 
 export interface Signals {
@@ -58,6 +63,8 @@ export interface Consolidation {
   trials: Trial[];
   dayPlan: DayPlan | null;
   signals: Signals;
+  /** The engine's track record per forecast family. */
+  calibration: CalibrationSet;
   at: string;
 }
 
@@ -186,7 +193,16 @@ export function forecastDate(now: Date): Date {
   return d;
 }
 
-/** Readiness-based plan for one draft session at one moment. */
+/** Context the panel reads besides readiness. */
+export interface PanelContext {
+  adherence?: Adherence | null;
+  calibration?: CalibrationSet | null;
+}
+
+/** Pain is "now" for 3 days after it was marked (same rule as readiness). */
+const PAIN_NOW_MS = 3 * 86_400_000;
+
+/** The expert panel's plan for one draft session at one moment. */
 export function dayPlanAt(
   next: DraftSession,
   sessions: SessionLog[],
@@ -194,26 +210,34 @@ export function dayPlanAt(
   pain: PainRecurrence | null,
   when: Date,
   biometrics?: Biometrics | null,
+  ctx: PanelContext = {},
 ): DayPlan {
-  const r = readinessV2(sessions, checkins, when, {
-    biometrics,
-    nextMovements: next.movements.map((m) => m.movementId),
+  const nextMovements = next.movements.map((m) => m.movementId);
+  const r = readinessV2(sessions, checkins, when, { biometrics, nextMovements });
+  const t = when.getTime();
+  const painNow =
+    !!pain?.active || checkins.some((c) => c.pain && t - new Date(c.at).getTime() <= PAIN_NOW_MS);
+  const panel = expertPanel({
+    readiness: r,
+    sessions,
+    nextMovements,
+    adherence: ctx.adherence ?? null,
+    pain,
+    painNow,
+    calibration: ctx.calibration,
+    now: when,
   });
-  const pct = Math.round(r.probability * 100);
-  let note: string | undefined;
-  if (r.band === 'rest')
-    note = pain?.active
-      ? 'Has marcado dolor hace poco: hoy, solo movilidad o descanso.'
-      : `Mejor descansar: tu disposición estimada es ${pct} %. Si entrenas, versión ligera.`;
-  else if (r.band === 'easy')
-    note = `Versión ligera: una serie menos por ejercicio. Disposición estimada ${pct} %.`;
+  const p = panel.lenses.find((l) => l.id === 'physiology')?.forecast?.p ?? r.probability;
+  const { band, note, lead, stance } = panel.verdict;
   return {
     draftSessionId: next.id,
     forDate: when.toISOString(),
-    band: r.band,
-    probability: r.probability,
-    trimSets: r.band !== 'go',
+    band,
+    probability: painNow ? Math.min(p, 0.35) : p,
+    trimSets: band !== 'go',
     note,
+    lead,
+    stance,
   };
 }
 
@@ -224,9 +248,12 @@ function dayPlanFor(
   pain: PainRecurrence | null,
   now: Date,
   biometrics?: Biometrics | null,
+  ctx: PanelContext = {},
 ): DayPlan | null {
   const next = nextDraftSession(plan, sessions);
-  return next ? dayPlanAt(next, sessions, checkins, pain, forecastDate(now), biometrics) : null;
+  return next
+    ? dayPlanAt(next, sessions, checkins, pain, forecastDate(now), biometrics, ctx)
+    : null;
 }
 
 /** A pre-planned forecast is used only near the moment it was made for. */
@@ -245,6 +272,7 @@ export function sessionAdjustment(
   experiments: Experiment[],
   now: Date = new Date(),
   biometrics?: Biometrics | null,
+  ctx: PanelContext = {},
 ): DayPlan {
   if (
     dayPlan &&
@@ -259,6 +287,7 @@ export function sessionAdjustment(
     painRecurrence(checkins, experiments, now),
     now,
     biometrics,
+    ctx,
   );
 }
 
@@ -268,11 +297,25 @@ export function consolidate(input: ConsolidationInput): Consolidation {
   const stepped = stepTrials(input.plan, input.trials, sessions, checkins, now);
   const started = maybeStartTrial(stepped.plan, stepped.trials, sessions, experiments, now);
   const pain = painRecurrence(checkins, experiments, now);
+  const signals = { adherence: adherence(sessions, now, input.daysPerWeek ?? 3), pain };
+  // Every forecast family is judged against what happened before it is trusted today.
+  const calibration = calibrate({
+    sessions,
+    checkins,
+    experiments,
+    biometrics: input.biometrics,
+    daysPerWeek: input.daysPerWeek,
+    now,
+  });
   return {
     plan: started.plan,
     trials: started.trials,
-    dayPlan: dayPlanFor(started.plan, sessions, checkins, pain, now, input.biometrics),
-    signals: { adherence: adherence(sessions, now, input.daysPerWeek ?? 3), pain },
+    dayPlan: dayPlanFor(started.plan, sessions, checkins, pain, now, input.biometrics, {
+      adherence: signals.adherence,
+      calibration,
+    }),
+    signals,
+    calibration,
     at: now.toISOString(),
   };
 }

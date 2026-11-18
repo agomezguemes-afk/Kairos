@@ -85,7 +85,7 @@ export {
   sessionAdjustment,
   dayPlanAt,
 } from './consolidate';
-export type { Consolidation, DayPlan, Signals } from './consolidate';
+export type { Consolidation, DayPlan, PanelContext, Signals } from './consolidate';
 export {
   buildBioDays,
   mergeBioDays,
@@ -98,3 +98,34 @@ export {
 } from './biometrics';
 export type { BioDay, Biometrics, BioSignal, SleepSample, ValueSample } from './biometrics';
 export type { BrainNode, BrainSnapshot, BrainGroup, BrainOrigin } from './brain';
+export {
+  calibrationReport,
+  fitRecalibration,
+  intervalReport,
+  recalibrate,
+  reliability,
+  CALIBRATION_MIN,
+  IDENTITY,
+} from './calibration';
+export type {
+  CalibrationReport,
+  CalibrationVerdict,
+  Forecast,
+  IntervalForecast,
+  IntervalReport,
+  Recalibration,
+  ReliabilityBin,
+} from './calibration';
+export { calibrate, replayAdherence, replayLoads, replayPain, replayReadiness } from './backtest';
+export type { CalibrationSet, ForecastFamily } from './backtest';
+export { expertPanel, trackRecord, weeklySets, lowIntensityShare, LENS_TITLE } from './lenses';
+export type {
+  Finding,
+  Lens,
+  LensId,
+  Panel,
+  PanelInput,
+  PanelVerdict,
+  Stance,
+  TrackRecord,
+} from './lenses';

@@ -3,6 +3,7 @@
 
 import type { SetLog } from '../adaptive/types';
 import { normCdf } from './fitnessFatigue';
+import { recalibrate, type Recalibration } from './calibration';
 
 // ── Load decision ───────────────────────────────────────────────────
 
@@ -43,6 +44,8 @@ export function chooseLoad(opts: {
   rirTarget: number;
   /** Cost of a failed step vs a won one; rises with pain-recurrence risk. */
   lossRatio?: number;
+  /** Track record of these probabilities; corrects them before deciding. */
+  calibration?: Recalibration;
 }): LoadChoice {
   const { current, increment, lastSets, history = [], repsMin, rirTarget } = opts;
   const lossRatio = opts.lossRatio ?? LOSS_RATIO;
@@ -70,7 +73,7 @@ export function chooseLoad(opts: {
   const candidates = [0, 1, 2].map((delta) => {
     const load = current + delta * increment;
     const required = capacityOf(load, repsMin, rirTarget);
-    const probability = 1 - normCdf((required - mean) / sd);
+    const probability = recalibrate(1 - normCdf((required - mean) / sd), opts.calibration);
     const utility = delta === 0 ? 0 : delta * (probability - lossRatio * (1 - probability));
     return { load, probability, utility };
   });

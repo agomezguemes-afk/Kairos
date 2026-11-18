@@ -41,6 +41,7 @@ import {
 import { estimateHrMax, mergeWatchWorkouts } from '../lib/health/workoutImport';
 import type { HealthPull } from '../lib/health/appleHealth';
 import type { ArmContext } from '../lib/engine/decision';
+import type { CalibrationSet } from '../lib/engine/backtest';
 
 // Writes are tracked so a background task can wait for them before the OS
 // suspends the app; otherwise a night's consolidation could be lost.
@@ -74,6 +75,8 @@ interface CoachState {
   dayPlan: DayPlan | null;
   /** Adherence and pain-recurrence risk from the last consolidation. */
   signals: Signals | null;
+  /** How often each kind of forecast came true; corrects them before use. */
+  calibration: CalibrationSet | null;
   consolidatedAt: string | null;
   /** Watch-measured sleep, HRV and resting HR, one row per day. */
   biometrics: Biometrics | null;
@@ -123,6 +126,7 @@ const initial = {
   trials: [],
   dayPlan: null,
   signals: null,
+  calibration: null as CalibrationSet | null,
   consolidatedAt: null,
   biometrics: null,
   health: { connected: false, imported: 0 } as HealthLink,
@@ -184,6 +188,7 @@ export const useCoachStore = create<CoachState>()(
           experiments,
           context: contextNow(sessions, checkins, get().biometrics),
           painRisk: get().signals?.pain?.risk14,
+          loadCalibration: get().calibration?.load.fit,
         });
         // Re-running on the same session must not duplicate cards.
         const known = new Set(suggestions.map((s) => s.id));
@@ -315,6 +320,7 @@ export const useCoachStore = create<CoachState>()(
           trials: c.trials,
           dayPlan: c.dayPlan,
           signals: c.signals,
+          calibration: c.calibration,
           consolidatedAt: c.at,
           experiments: promote(experiments, sessions, now),
         });
@@ -378,6 +384,7 @@ export const useCoachStore = create<CoachState>()(
         trials: s.trials,
         dayPlan: s.dayPlan,
         signals: s.signals,
+        calibration: s.calibration,
         consolidatedAt: s.consolidatedAt,
         biometrics: s.biometrics,
         health: s.health,

@@ -20,6 +20,7 @@ import type {
   SuggestionKind,
 } from './types';
 import { affinityOf, isUnresponsive, responseProfile, type Experiment } from './experiments';
+import type { Recalibration } from '../engine/calibration';
 import { increments, isPlateau, progressionState } from '../engine/changepoint';
 import {
   capacityOf,
@@ -47,6 +48,8 @@ export interface EngineInput {
   context?: ArmContext;
   /** P(pain comes back within 14 days): makes load steps more cautious. */
   painRisk?: number;
+  /** The load decision's track record: corrects its success probabilities. */
+  loadCalibration?: Recalibration;
 }
 
 interface Occurrence {
@@ -143,7 +146,12 @@ type Draft = Omit<Suggestion, 'id' | 'createdAt' | 'status' | 'sessionId' | 'dra
   sets?: number;
 };
 
-function strengthRules(occ: Occurrence[], suppressIncrease: boolean, painRisk = 0): Draft[] {
+function strengthRules(
+  occ: Occurrence[],
+  suppressIncrease: boolean,
+  painRisk = 0,
+  calibration?: Recalibration,
+): Draft[] {
   const last = occ[occ.length - 1];
   const m = getMovement(last.log.movementId);
   if (!m || m.kind !== 'strength') return [];
@@ -198,6 +206,7 @@ function strengthRules(occ: Occurrence[], suppressIncrease: boolean, painRisk = 
             repsMin: last.log.target.repsMin ?? 6,
             rirTarget: last.log.target.rir ?? 2,
             lossRatio: lossRatioFor(painRisk),
+            calibration,
           })
         : null;
     const next = choice ? choice.load : roundTo(load + inc, inc > 1 ? inc / 2 : inc);
@@ -505,7 +514,7 @@ export function generateSuggestions(input: EngineInput): Suggestion[] {
 
   for (const ml of session.movements) {
     const occ = occurrences(ml.movementId, all);
-    drafts.push(...strengthRules(occ, suppress, input.painRisk));
+    drafts.push(...strengthRules(occ, suppress, input.painRisk, input.loadCalibration));
     drafts.push(...enduranceRules(occ, suppress));
   }
   if (!suppress) drafts.push(...qualityGapRule(input, now));

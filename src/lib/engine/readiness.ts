@@ -39,6 +39,10 @@ export type ReadinessBandV2 = 'go' | 'easy' | 'rest';
 
 export interface ReadinessV2 {
   probability: number;
+  /** Before the pain safety cap: the forecast that calibration scores. */
+  predictive: number;
+  /** Recent performance level (%), the reference the forecast is about. */
+  level: number;
   band: ReadinessBandV2;
   /** Fitness-fatigue only, before any other effect. */
   modelProbability: number;
@@ -73,7 +77,8 @@ const PRE_VALID_MS = 18 * 3_600_000;
 const DAY_MS = 86_400_000;
 const INFORMED_MIN = 3;
 /** SWC = 0.2 × between-day SD (Hopkins 2004). */
-const SWC = 0.2 * Math.sqrt(OBS_VAR);
+export const READINESS_SWC = 0.2 * Math.sqrt(OBS_VAR);
+const SWC = READINESS_SWC;
 const clampP = (p: number) => Math.min(0.9, Math.max(0.1, p));
 
 /** Foster 1998: monotony = mean/SD of daily load (rest days count as 0). */
@@ -232,6 +237,7 @@ export function readinessV2(
   const mean = ffMean + shift;
   const sd = Math.sqrt(ffVar + extraVar);
   let probability = clampP(1 - normCdf((level - SWC - mean) / sd));
+  const predictive = probability;
 
   const pain = checkins.some((c) => c.pain && t - new Date(c.at).getTime() <= 3 * DAY_MS);
   if (pain) {
@@ -246,6 +252,8 @@ export function readinessV2(
 
   return {
     probability,
+    predictive,
+    level,
     band: probability >= 0.65 ? 'go' : probability >= 0.4 ? 'easy' : 'rest',
     modelProbability,
     form: {

@@ -74,12 +74,17 @@ export default function LiveSessionScreen() {
   const checkins = useCoachStore((s) => s.checkins);
   const experiments = useCoachStore((s) => s.experiments);
   const biometrics = useCoachStore((s) => s.biometrics);
+  const calibration = useCoachStore((s) => s.calibration);
+  const adherenceSignal = useCoachStore((s) => s.signals?.adherence ?? null);
   const draft = plan?.sessions.find((s) => s.id === params.draftSessionId);
   // The engine pre-planned this session while you rested; a light day
   // arrives already trimmed, with one line saying why.
   const [adjust] = useState(() =>
     draft
-      ? sessionAdjustment(dayPlan, draft, history, checkins, experiments, new Date(), biometrics)
+      ? sessionAdjustment(dayPlan, draft, history, checkins, experiments, new Date(), biometrics, {
+          adherence: adherenceSignal,
+          calibration,
+        })
       : null,
   );
   const light = !!adjust?.trimSets;

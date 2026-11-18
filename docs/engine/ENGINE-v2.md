@@ -388,13 +388,62 @@ Es una app watchOS nativa en SwiftUI (`targets/watch`), generada con `@bacons/ap
    - El entreno libre o un plan que ya cambió también entran.
 4. La copia en Salud de un entreno del reloj no se importa dos veces: ni por UUID ni por bundle.
 
+## Calibración y panel de perspectivas
+
+El motor razona como un profesional con formación en biotecnología, fisioterapia y preparación física: mira el mismo día desde varios ángulos, decide en un orden fijo y solo se fía de cada ángulo tanto como haya acertado contigo.
+
+### Calibración prequencial (`src/lib/engine/calibration.ts`, `backtest.ts`)
+
+- **Repetición del pasado (Dawid 1984).** Cada predicción se vuelve a hacer con los datos que había en ese momento y se compara con lo que pasó. Siempre juzga el modelo actual y tiene historial desde el primer día; no hace falta un registro que tarde semanas en llenarse.
+- **Familias:**
+
+| Familia | Predicción | Resultado | Perspectiva |
+|---|---|---|---|
+| `readiness` | P(rendimiento ≥ nivel − SWC), sin el tope de dolor | Observación de fuerza de esa sesión | Fisiología |
+| `performance` | Rendimiento esperado ± SD | Rendimiento observado | Fisiología (intervalo) |
+| `load` | P(completar el objetivo con la carga usada), desde la exposición anterior | Alguna serie con reps + RIR ≥ objetivo | Preparación física |
+| `adherence` | P(volver a entrenar en 7 días) tras cada salida | Hubo sesión en 7 días (sin resolver hasta que pasa la semana) | Hábito |
+| `pain` | P(nuevo episodio de dolor en 14 días), una por semana | Empezó un episodio nuevo (> 7 días tras el anterior) | Fisioterapia |
+
+- **Puntuación.** Brier frente a la tasa base acumulada con Beta(1,1), que hace de «el que no sabe nada»; skill = 1 − Brier/Brier_ref. ECE y diagrama de fiabilidad en 5 tramos con intervalo de Wilson al 80 %.
+- **Corrección.** Recalibración logística bayesiana p' = σ(a + b·logit p), con priors a ~ N(0, 0,3²) y b ~ N(1, 0,3²); MAP por Newton y Laplace. Con pocos datos se queda cerca de la identidad. El Brier corregido también es prequencial: la corrección para la predicción i se ajusta solo con las anteriores.
+- **Veredicto.** Por debajo de 15 comprobaciones dice `learning`. Después necesita un 80 % de masa posterior más allá de un margen que importe: pendiente fuera de [0,8; 1,25] (`overconfident` / `underconfident`) o sesgo de más de ±0,25 logits (`optimistic` / `pessimistic`). Sin margen, con datos suficientes cualquier oscilación trivial saldría como hallazgo.
+- **Intervalos.** z = (y − μ)/σ: sesgo, dispersión, cobertura al 80 % y un factor de varianza con posterior inversa-gamma (α₀ = 3, β₀ = 2).
+- **Dónde se aplica.** La disposición y el riesgo de dolor y de abandono se corrigen antes de decidir. `chooseLoad` corrige su probabilidad de éxito antes de calcular la utilidad, así que una subida de carga necesita el umbral con la probabilidad ya corregida.
+
+### Panel de perspectivas (`src/lib/engine/lenses.ts`)
+
+| Perspectiva | Mira | Postura |
+|---|---|---|
+| Fisioterapia | Dolor reciente, riesgo de recaída a 14 días, recuperación de las regiones que carga la sesión, carga aguda:crónica (señal, no predictor: Impellizzeri 2020) | `rest` con dolor; `ease` si una región va < 50 % o hay pico de carga; `steady` (sin subir carga) si el riesgo de recaída ≥ 25 % |
+| Fisiología | Disposición (forma-fatiga, sueño, VFC, FC en reposo, monotonía), ya corregida | `push` ≥ 65 %, `ease` ≥ 40 %, `rest` por debajo |
+| Hábito | Supervivencia de los huecos entre sesiones, efecto de las sesiones muy duras | `ease` (sesión corta mejor que ninguna) con riesgo de abandono ≥ 40 % y ≥ 3 días sin entrenar |
+| Preparación física | Estancamiento por BOCPD, series semanales por región (6–25; agarre y core no se dosifican), proporción de cardio suave (Seiler 2010) | `steady` si la mitad o más de los ejercicios de fuerza están estancados |
+
+- **Decisión.** Manda la postura más prudente; en caso de empate, el orden es tejido → estado → hábito → progreso. `rest` → descanso, `ease` → una serie menos y `push`/`steady` → sesión normal. Si una perspectiva está dos niveles por encima del veredicto, se dice una vez («Fisiología te ve bien (82 %), pero manda fisioterapia»).
+- **Plan del día.** `DayPlan` guarda `lead` y `stance`, y `probability` es la disposición ya corregida (con tope de 0,35 si hay dolor).
+- **Qué ve el usuario.** En Hoy, «Cuatro miradas sobre hoy»: una línea por perspectiva y, al tocarla, sus hallazgos con fuentes, la previsión corregida y su fiabilidad («Cuando digo 70 %, pasa el 68 % · 24 comprobaciones»). El funcionamiento interno sigue oculto.
+
+### Tests de aceptación (calibración y panel)
+
+1. Unas previsiones honestas se ajustan a la identidad y salen `calibrated`, con skill > 0.
+2. Unas previsiones demasiado extremas salen `overconfident`, y la corrección baja el Brier.
+3. Unas previsiones altas salen `optimistic`, y 0,6 se corrige por debajo de 0,5.
+4. Con 4 previsiones el veredicto es `learning`, y la corrección mueve menos de 12 puntos.
+5. Una moneda al aire no tiene skill frente a la tasa base.
+6. Unos intervalos demasiado estrechos dan cobertura < 65 % y un factor de varianza > 3.
+7. La repetición nunca usa el futuro: cambiar la última sesión no cambia las previsiones anteriores.
+8. Las previsiones de constancia esperan a que pase la semana; las de dolor cuentan solo episodios nuevos, una por semana.
+9. Con dolor reciente decide fisioterapia y el día es de descanso. Tras un hueco largo, el hábito pide sesión corta. Con un estancamiento se mantiene la carga sin recortar series.
+10. Un historial de exceso de confianza acerca a 50 % la previsión de fisiología y lo dice.
+
 ## Fases siguientes
 
 | Fase | Contenido | Métodos |
 |---|---|---|
 | BG | Aviso adaptativo | Notificación local a la hora de mayor probabilidad de entrenar cuando sube el riesgo de *lapse* (requiere `expo-notifications`, que añade entitlement de push: comprobar con Personal Team) |
 | 6 | Segundo cerebro | Grafo de conocimiento (nodos = estados y parámetros); hipótesis de la capa neuronal validadas por factor de Bayes; consolidación nocturna; inspector interno, no visible |
-| Continuo | Calibración | Diagrama de fiabilidad: si dice 70 %, ¿acierta el 70 %? Se muestra al usuario |
+| Continuo | Calibración | Hecho (ver «Calibración y panel de perspectivas»). Pendiente: diagrama de fiabilidad completo en el inspector interno |
 
 ## Tests de aceptación (fase 2)
 
