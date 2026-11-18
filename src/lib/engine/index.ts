@@ -129,14 +129,24 @@ export type {
   Stance,
   TrackRecord,
 } from './lenses';
-export {
-  buildEpisodes,
-  completionOf,
-  decisionContext,
-  recall,
-  similarity,
-  MEMORY_MAX,
-} from './memory';
+export { buildEpisodes, completionOf, decisionContext, recall, similarity } from './memory';
 export type { Advice, DecisionContext, Episode, Recall } from './memory';
-export { replayStates } from './backtest';
-export type { ReplayState } from './backtest';
+export { replayCases, timelines, readinessForecasts, REPLAY_MAX } from './backtest';
+export type {
+  CaseRecord,
+  CachedForecast,
+  CalibrationRun,
+  ReplayContext,
+  Timelines,
+} from './backtest';
+export { Memo, Timeline, hash, fingerprint, decay, HALF_LIFE_DAYS, CACHE_VERSION } from './cache';
+export type { EngineCache } from './cache';
+export {
+  emptyArchive,
+  foldEpisodes,
+  foldForecasts,
+  archivedForecasts,
+  prototypeEpisodes,
+} from './archive';
+export type { Archive, FamilyArchive, Prototype } from './archive';
+export { PASS_BUDGET } from './consolidate';

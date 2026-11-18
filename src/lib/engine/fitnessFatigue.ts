@@ -43,6 +43,8 @@ export interface Observation {
   day: number;
   /** Strength index: % above the person's own per-exercise reference. */
   y: number;
+  /** The session it came from. */
+  sessionId?: string;
 }
 
 /**
@@ -71,7 +73,11 @@ export function strengthObservations(sessions: SessionLog[], dayOf: (iso: string
       if (hist.length > 3) idx.push(100 * (e / ref - 1));
     }
     if (idx.length)
-      out.push({ day: dayOf(s.endedAt), y: idx.reduce((a, b) => a + b, 0) / idx.length });
+      out.push({
+        day: dayOf(s.endedAt),
+        y: idx.reduce((a, b) => a + b, 0) / idx.length,
+        sessionId: s.id,
+      });
   }
   return out;
 }

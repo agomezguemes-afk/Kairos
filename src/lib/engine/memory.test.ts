@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CheckIn, SessionLog } from '../adaptive';
-import { replayStates } from './backtest';
+import { replayCases } from './backtest';
 import { consolidate } from './consolidate';
 import { expertPanel, type PanelInput } from './lenses';
 import {
@@ -94,15 +94,15 @@ describe('decision memory', () => {
   it('episodes wait 72 h for pain, and pain makes a session a bad case', () => {
     const sessions = Array.from({ length: 10 }, (_, i) => strength(30 - i * 3, 80 + i * 2.5));
     const pain: CheckIn[] = [{ id: 'p', at: ago(19), kind: 'weekly', pain: true }];
-    const states = replayStates(sessions, pain);
-    const eps = buildEpisodes(states, pain, [], NOW);
+    const cases = replayCases(sessions, pain);
+    const eps = buildEpisodes(cases, sessions, pain, [], NOW);
     // The last session (3 days ago minus a bit) is old enough; none are skipped
     // for lack of time except those within 72 h.
     expect(eps.length).toBeGreaterThan(0);
     const afterPain = eps.find((e) => e.sessionId === 's21');
     expect(afterPain?.pain).toBe(true);
     expect(afterPain?.bad).toBe(true);
-    const soon = buildEpisodes(states, [], [], new Date(NOW.getTime() - 2 * D));
+    const soon = buildEpisodes(cases, sessions, [], [], new Date(NOW.getTime() - 2 * D));
     expect(soon.some((e) => e.sessionId === 's3')).toBe(false);
   });
 

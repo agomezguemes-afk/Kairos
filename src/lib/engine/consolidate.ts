@@ -11,11 +11,27 @@ import type { CheckIn } from '../adaptive/checkins';
 import type { Experiment } from '../adaptive/experiments';
 import { getMovement } from '../adaptive/catalog';
 import type { DraftSession, MovementTarget, PlanDraft, SessionLog } from '../adaptive/types';
-import { readinessV2 } from './readiness';
+import { readinessV2 , READINESS_SWC } from './readiness';
 import type { Biometrics } from './biometrics';
 import { adherence, painRecurrence, type Adherence, type PainRecurrence } from './survival';
-import { calibrate, replayStates, type CalibrationSet } from './backtest';
+import {
+  calibrate,
+  REPLAY_MAX,
+  replayCases,
+  timelines,
+  type CachedForecast,
+  type CalibrationSet,
+  type CaseRecord,
+} from './backtest';
 import { buildEpisodes, type Advice, type Episode } from './memory';
+import { Memo, type EngineCache } from './cache';
+import {
+  emptyArchive,
+  foldEpisodes,
+  foldForecasts,
+  prototypeEpisodes,
+  type Archive,
+} from './archive';
 import { expertPanel, type LensId, type Stance } from './lenses';
 import {
   analyseTrial,
@@ -58,6 +74,14 @@ export interface ConsolidationInput {
   biometrics?: Biometrics | null;
   /** What the engine advised for each saved session (the decision journal). */
   advice?: Advice[];
+  /** Work done in earlier passes (cache.ts). */
+  cache?: EngineCache | null;
+  /** The compressed long-term past (archive.ts). */
+  archive?: Archive | null;
+  /** Fresh past-session computations allowed this pass. */
+  budget?: number;
+  /** Time allowed for fresh computations this pass (ms). */
+  budgetMs?: number;
   now?: Date;
 }
 
@@ -70,8 +94,18 @@ export interface Consolidation {
   calibration: CalibrationSet;
   /** Remembered sessions with context, action and outcome. */
   memory: Episode[];
+  cache: EngineCache;
+  archive: Archive;
+  /** True when part of the past is still to be distilled: run another pass soon. */
+  pending: boolean;
   at: string;
 }
+
+/**
+ * Fresh computations per pass. Enough for any normal day (one or two new
+ * sessions); a cold start spreads over a few passes instead of one long one.
+ */
+export const PASS_BUDGET = 24;
 
 /** Exposures a movement needs before a trial on it is worth running. */
 const TRIAL_MIN_HISTORY = 3;
@@ -301,15 +335,21 @@ export function sessionAdjustment(
 
 export function consolidate(input: ConsolidationInput): Consolidation {
   const now = input.now ?? new Date();
+  const t = now.getTime();
   const { sessions, checkins, experiments } = input;
   const stepped = stepTrials(input.plan, input.trials, sessions, checkins, now);
   const started = maybeStartTrial(stepped.plan, stepped.trials, sessions, experiments, now);
   const pain = painRecurrence(checkins, experiments, now);
   const signals = { adherence: adherence(sessions, now, input.daysPerWeek ?? 3), pain };
-  // One replay of the past feeds both the track record and the memory.
-  const states = replayStates(sessions, checkins, input.biometrics);
+
+  // The past is distilled once and reused; only what is new or changed is computed.
+  const ctx = {
+    memo: new Memo(input.cache, input.budget ?? PASS_BUDGET, input.budgetMs),
+    tl: timelines(sessions, checkins, experiments, input.biometrics),
+  };
+  const cases = replayCases(sessions, checkins, input.biometrics, ctx);
   // Every forecast family is judged against what happened before it is trusted today.
-  const calibration = calibrate(
+  const run = calibrate(
     {
       sessions,
       checkins,
@@ -318,21 +358,79 @@ export function consolidate(input: ConsolidationInput): Consolidation {
       daysPerWeek: input.daysPerWeek,
       now,
     },
-    states,
+    { cases, ctx, archive: input.archive },
   );
-  const memory = buildEpisodes(states, checkins, input.advice ?? [], now);
+  const archive = foldEvicted(input.archive ?? emptyArchive(), ctx.memo.evicted(), {
+    sessions,
+    checkins,
+    advice: input.advice ?? [],
+    now,
+  });
+  const recent = buildEpisodes(cases, sessions, checkins, input.advice ?? [], now);
+  const memory = [...prototypeEpisodes(archive.prototypes, t), ...recent];
   return {
     plan: started.plan,
     trials: started.trials,
     dayPlan: dayPlanFor(started.plan, sessions, checkins, pain, now, input.biometrics, {
       adherence: signals.adherence,
-      calibration,
+      calibration: run.set,
       memory,
     }),
     signals,
-    calibration,
+    calibration: run.set,
     memory,
+    cache: ctx.memo.snapshot(),
+    archive,
+    pending: ctx.memo.pending,
     at: now.toISOString(),
+  };
+}
+
+/**
+ * Entries the pass no longer used are either stale (their inputs changed:
+ * recomputed elsewhere, dropped here) or older than the detailed window:
+ * those are folded into the archive so they keep counting.
+ */
+function foldEvicted(
+  archive: Archive,
+  evicted: [string, unknown][],
+  data: { sessions: SessionLog[]; checkins: CheckIn[]; advice: Advice[]; now: Date },
+): Archive {
+  const sorted = [...data.sessions].sort(
+    (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+  );
+  if (sorted.length <= REPLAY_MAX) return archive;
+  const cutoff = new Date(sorted[sorted.length - REPLAY_MAX].startedAt).getTime();
+  const old = (at: string) => new Date(at).getTime() < cutoff;
+  const t = data.now.getTime();
+  const cases: CaseRecord[] = [];
+  const adh: CachedForecast[] = [];
+  const pains: CachedForecast[] = [];
+  for (const [key, value] of evicted) {
+    if (!value) continue;
+    const kind = key.slice(0, 2);
+    if (kind === 'r:' && old((value as CaseRecord).at)) cases.push(value as CaseRecord);
+    else if (kind === 'a:' && old((value as CachedForecast).at)) adh.push(value as CachedForecast);
+    else if (kind === 'p:' && old((value as CachedForecast).at))
+      pains.push(value as CachedForecast);
+  }
+  if (!cases.length && !adh.length && !pains.length) return archive;
+  const byAt = <T extends { at: string }>(xs: T[]) => xs.sort((a, b) => a.at.localeCompare(b.at));
+  const readiness = byAt(cases)
+    .filter((c) => c.y !== null && c.informed)
+    .map((c) => ({ at: c.at, p: c.p, outcome: c.y! - c.level >= -READINESS_SWC ? 1 : 0 }));
+  const folded = foldEpisodes(
+    archive.prototypes,
+    buildEpisodes(cases, data.sessions, data.checkins, data.advice, data.now),
+    archive.episodesUntil,
+    t,
+  );
+  return {
+    readiness: foldForecasts(archive.readiness, readiness, t),
+    adherence: foldForecasts(archive.adherence, byAt(adh), t),
+    pain: foldForecasts(archive.pain, byAt(pains), t),
+    prototypes: folded.prototypes,
+    episodesUntil: folded.until,
   };
 }
 

@@ -12,7 +12,10 @@ export interface Forecast {
   /** When the forecast was (re)made, ISO. */
   at: string;
   p: number;
-  outcome: 0 | 1;
+  /** 1 = it happened. A folded archive bin carries the observed share (0–1). */
+  outcome: number;
+  /** Weight, 1 by default: older forecasts count less, never nothing. */
+  w?: number;
 }
 
 /** A forecast with a predictive distribution and the observed value. */
@@ -119,7 +122,9 @@ export const IDENTITY: Recalibration = { a: 0, b: 1, sdA: PRIOR_SD_A, sdB: PRIOR
  * calibration slope): MAP by Newton–Raphson, Laplace approximation for the
  * uncertainty. With few forecasts the prior keeps it near the identity.
  */
-export function fitRecalibration(forecasts: Pick<Forecast, 'p' | 'outcome'>[]): Recalibration {
+export function fitRecalibration(
+  forecasts: Pick<Forecast, 'p' | 'outcome' | 'w'>[],
+): Recalibration {
   if (!forecasts.length) return IDENTITY;
   const xs = forecasts.map((f) => logit(f.p));
   let a = 0;
@@ -136,9 +141,10 @@ export function fitRecalibration(forecasts: Pick<Forecast, 'p' | 'outcome'>[]): 
     forecasts.forEach((f, i) => {
       const x = xs[i];
       const s = sigmoid(a + b * x);
-      const w = s * (1 - s);
-      g1 += f.outcome - s;
-      g2 += (f.outcome - s) * x;
+      const k = f.w ?? 1;
+      const w = k * s * (1 - s);
+      g1 += k * (f.outcome - s);
+      g2 += k * (f.outcome - s) * x;
       h11 += w;
       h12 += w * x;
       h22 += w * x * x;
@@ -157,7 +163,7 @@ export function fitRecalibration(forecasts: Pick<Forecast, 'p' | 'outcome'>[]): 
     b,
     sdA: Math.sqrt(h22 / det),
     sdB: Math.sqrt(h11 / det),
-    n: forecasts.length,
+    n: forecasts.reduce((a, f) => a + (f.w ?? 1), 0),
   };
 }
 
@@ -185,14 +191,15 @@ export function reliability(forecasts: Forecast[], bins = 5): ReliabilityBin[] {
     const lo = i / bins;
     const hi = (i + 1) / bins;
     const inBin = forecasts.filter((f) => f.p >= lo && (f.p < hi || (i === bins - 1 && f.p <= hi)));
-    const k = inBin.reduce((a, f) => a + f.outcome, 0);
-    const [observedLo, observedHi] = wilson(k, inBin.length);
+    const n = inBin.reduce((a, f) => a + (f.w ?? 1), 0);
+    const k = inBin.reduce((a, f) => a + (f.w ?? 1) * f.outcome, 0);
+    const [observedLo, observedHi] = wilson(k, n);
     out.push({
       lo,
       hi,
-      n: inBin.length,
-      forecast: inBin.length ? inBin.reduce((a, f) => a + f.p, 0) / inBin.length : (lo + hi) / 2,
-      observed: inBin.length ? k / inBin.length : 0,
+      n,
+      forecast: n ? inBin.reduce((a, f) => a + (f.w ?? 1) * f.p, 0) / n : (lo + hi) / 2,
+      observed: n ? k / n : 0,
       observedLo,
       observedHi,
     });
@@ -201,20 +208,24 @@ export function reliability(forecasts: Forecast[], bins = 5): ReliabilityBin[] {
 }
 
 export function calibrationReport(input: Forecast[]): CalibrationReport {
+  // Archived bins (at = '') sort first: they are the oldest evidence.
   const forecasts = [...input].sort((x, y) => x.at.localeCompare(y.at));
-  const n = forecasts.length;
+  const n = forecasts.reduce((a, f) => a + (f.w ?? 1), 0);
   let brier = 0;
   let brierRef = 0;
   let corrected = 0;
   let k = 0;
+  let seen = 0;
   forecasts.forEach((f, i) => {
-    brier += brierOf(f.p, f.outcome);
+    const w = f.w ?? 1;
+    brier += w * brierOf(f.p, f.outcome);
     // Running base rate with a Beta(1,1) prior: the forecaster who knows nothing.
-    brierRef += brierOf((1 + k) / (2 + i), f.outcome);
+    brierRef += w * brierOf((1 + k) / (2 + seen), f.outcome);
     // Correction fitted on the past only, applied to this forecast.
     const past = forecasts.slice(0, i);
-    corrected += brierOf(recalibrate(f.p, fitRecalibration(past)), f.outcome);
-    k += f.outcome;
+    corrected += w * brierOf(recalibrate(f.p, fitRecalibration(past)), f.outcome);
+    k += w * f.outcome;
+    seen += w;
   });
   const bins = reliability(forecasts);
   const fit = fitRecalibration(forecasts);

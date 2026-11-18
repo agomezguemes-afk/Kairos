@@ -490,6 +490,54 @@ Un entrenador con experiencia no razona solo con fórmulas: recuerda cómo te fu
 5. Si los días parecidos salieron mal, pide versión ligera.
 6. Si fisiología pide suave pero los días parecidos salieron bien, la sesión va completa y decide la experiencia; nunca por encima del dolor.
 
+## Aprendizaje incremental y memoria a largo plazo
+
+El motor funciona como un modelo ligero entrenado en local: cada sesión pasada se destila una vez en un caso compacto, se guarda y se reutiliza. Toda la información cuenta, pero lo reciente cuenta más, y el coste de cada pasada no crece con los años de historial.
+
+### Destilar una vez (`cache.ts`, `backtest.ts`)
+
+- **Caso** (`CaseRecord`): la previsión de disposición que habría tenido la sesión, su nivel, el intervalo esperado, la observación de rendimiento y el contexto de decisión.
+- **Huella.** Cada caso se guarda bajo una clave que es la huella exacta de lo que lo determina:
+  - la propia sesión;
+  - las sesiones terminadas hasta su final;
+  - los check-ins hasta su inicio;
+  - la biometría hasta ese día.
+  - Las previsiones de constancia y de dolor usan claves análogas.
+  - Las huellas son prefijos acumulados (FNV-1a) sobre cada flujo ordenado por tiempo, consultados en O(log n).
+- **Invalidación exacta.** Si cambia algo del pasado (un entreno antiguo importado de Salud, una sesión editada), cambian las huellas de lo que depende de ello y solo eso se recalcula.
+- **Presupuesto por pasada.** En primer plano, cada pasada calcula como mucho ~50 ms de casos nuevos, con al menos uno para garantizar progreso. Si queda trabajo (`pending`), programa otra pasada tras 400 ms. La tarea nocturna no tiene límite y termina de una vez. Lo más reciente se calcula primero.
+- **Fuera del gesto.** Guardar una sesión, un check-in o una decisión no espera al motor: la pasada se ejecuta tras la interacción (`InteractionManager`), agrupando cambios seguidos. Hoy lee el plan ya pensado (`dayPlan`) y solo recalcula si es de otro momento.
+- `CACHE_VERSION` invalida todo cuando un modelo cambia el significado de lo guardado.
+
+### Todo pesa, lo reciente más (`archive.ts`)
+
+- **Peso por antigüedad:** 2^(−edad/180 días). Un dato de hace un año pesa una cuarta parte; ninguno pesa cero. Se aplica a la recalibración (Newton ponderado), a los informes y al recuerdo de casos.
+- **Ventana de detalle:** las 120 sesiones más recientes.
+- **Compresión.** Lo que sale de la ventana no se tira, se comprime:
+  - Previsiones → 10 tramos de fiabilidad ponderados (Σw, Σw·p, Σw·resultado) por familia. Vuelven como pseudo-previsiones al principio de la serie prequencial.
+  - Días recordados → prototipos: centroides ponderados de días parecidos (similitud ≥ 0,6, misma acción) con su proporción de malos resultados. Hay como mucho 32; si se pasa, se fusionan los dos más parecidos. En el recuerdo cuentan como casos con su peso.
+  - El plegado es idempotente (`foldedUntil`, `episodesUntil`).
+- Los check-ins ya no se recortan a 120: se guardan hasta 2000.
+
+### Coste
+
+- **Recuperación muscular.** Cada informe de agujetas solo ve el daño de los últimos 30 días (más allá, < e⁻⁹ de su tamaño): de O(n²) a O(n).
+- **Medido en Node** (iPhone, unas 2–4× más lento):
+
+| Historial | Antes (pasada completa) | Ahora (pasada normal) | Puesta en marcha en frío |
+|---|---|---|---|
+| 200 sesiones + check-ins | 1,8 s | 10 ms | pasadas de ≤ ~50 ms + 400 ms de pausa |
+| 1000 sesiones + check-ins | 59 s | 57 ms | ídem; de noche, de una vez |
+
+### Tests de aceptación (incremental)
+
+1. Una pasada con caché reproduce exactamente la calibración, la memoria y el plan de una pasada desde cero.
+2. Un arranque en frío con presupuesto se reparte en varias pasadas y converge al resultado completo.
+3. Editar una sesión antigua recalcula solo los casos que dependen de ella.
+4. Las sesiones que salen de la ventana se pliegan en el archivo y los prototipos; repetir la pasada no suma nada.
+5. Con 1000 sesiones, una pasada con una sesión nueva tarda < 400 ms (en la práctica ~60 ms).
+6. Lo plegado vuelve como tramos ponderados, con lo antiguo más ligero; los días parecidos se funden y los distintos no.
+
 ## Fases siguientes
 
 | Fase | Contenido | Métodos |

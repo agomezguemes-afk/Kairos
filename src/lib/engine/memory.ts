@@ -9,7 +9,8 @@
 import type { CheckIn } from '../adaptive/checkins';
 import { loadTrend } from '../adaptive/metrics';
 import type { SessionLog } from '../adaptive/types';
-import type { ReplayState } from './backtest';
+import type { CaseRecord } from './backtest';
+import { decay } from './cache';
 import { DAY_MS } from './fitnessFatigue';
 import { READINESS_SWC, type ReadinessV2 } from './readiness';
 import { sessionRegions } from './recovery';
@@ -54,6 +55,10 @@ export interface Episode {
   /** Below level − SWC, or pain afterwards. */
   bad: boolean;
   advised?: Advice;
+  /** Recency weight (1 = today); archive prototypes carry their summed weight. */
+  weight?: number;
+  /** Share of bad outcomes, for a prototype standing for many days. */
+  badShare?: number;
 }
 
 export interface Recall {
@@ -83,8 +88,6 @@ const SCALE: Record<keyof DecisionContext, number> = {
 const FULL_COMPLETION = 0.9;
 const PAIN_WINDOW_MS = 3 * DAY_MS;
 const PRE_VALID_MS = 18 * 3_600_000;
-/** Most recent cases kept: older ones describe a different person. */
-export const MEMORY_MAX = 120;
 
 const ms = (iso: string) => new Date(iso).getTime();
 
@@ -129,42 +132,40 @@ export function completionOf(s: SessionLog): number {
  * says nothing about how the day went and is left out.
  */
 export function buildEpisodes(
-  states: ReplayState[],
+  cases: CaseRecord[],
+  sessions: SessionLog[],
   checkins: CheckIn[],
   advice: Advice[],
   now: Date,
 ): Episode[] {
+  const byId = new Map(sessions.map((x) => [x.id, x]));
   const advisedBy = new Map(advice.map((a) => [a.sessionId, a]));
   const pains = checkins.filter((c) => c.pain).map((c) => ms(c.at));
   const out: Episode[] = [];
-  for (const st of states) {
-    const s = st.session;
+  for (const c of cases) {
+    const s = byId.get(c.sessionId);
+    if (!s) continue;
     const end = ms(s.endedAt);
     const pain = pains.some((t) => t > end && t <= end + PAIN_WINDOW_MS);
     // Until 72 h have passed, "no pain" isn't known yet.
     if (!pain && now.getTime() - end < PAIN_WINDOW_MS) continue;
-    const perf = st.y === null ? null : st.y - st.r.level;
+    const perf = c.y === null ? null : c.y - c.level;
     if (perf === null && !pain) continue;
     const completion = completionOf(s);
     out.push({
       sessionId: s.id,
       at: s.startedAt,
-      context: decisionContext(
-        st.r,
-        st.before,
-        st.checkins,
-        s.movements.map((m) => m.movementId),
-        new Date(s.startedAt),
-      ),
+      context: c.context,
       action: completion >= FULL_COMPLETION ? 'full' : 'reduced',
       completion,
       perf,
       pain,
       bad: pain || (perf !== null && perf < -READINESS_SWC),
       advised: advisedBy.get(s.id),
+      weight: decay(now.getTime() - ms(s.startedAt)),
     });
   }
-  return out.slice(-MEMORY_MAX);
+  return out;
 }
 
 export function similarity(a: DecisionContext, b: DecisionContext): number {
@@ -185,20 +186,25 @@ export function recall(
   action: Episode['action'] = 'full',
 ): Recall | null {
   if (!episodes.length) return null;
-  const base = (1 + episodes.filter((e) => e.bad).length) / (2 + episodes.length);
+  const wOf = (e: Episode) => e.weight ?? 1;
+  const badOf = (e: Episode) => e.badShare ?? (e.bad ? 1 : 0);
+  const total = episodes.reduce((a, e) => a + wOf(e), 0);
+  const base = (1 + episodes.reduce((a, e) => a + wOf(e) * badOf(e), 0)) / (2 + total);
+  // Similar and recent count most; old days and prototypes still count.
   const weighted = episodes
     .filter((e) => e.action === action)
-    .map((e) => ({ e, w: similarity(ctx, e.context) }))
+    .map((e) => ({ e, w: similarity(ctx, e.context) * wOf(e) }))
     .filter((x) => x.w > 0.01);
   const sw = weighted.reduce((a, x) => a + x.w, 0);
   const sw2 = weighted.reduce((a, x) => a + x.w * x.w, 0);
-  const bad = weighted.reduce((a, x) => a + (x.e.bad ? x.w : 0), 0);
+  const bad = weighted.reduce((a, x) => a + badOf(x.e) * x.w, 0);
   const PRIOR = 2;
   return {
     pBad: (PRIOR * base + bad) / (PRIOR + sw),
     base,
     nEff: sw2 > 0 ? (sw * sw) / sw2 : 0,
     similar: weighted
+      .filter((x) => !x.e.sessionId.startsWith('proto-'))
       .sort((a, b) => b.w - a.w)
       .slice(0, 3)
       .map((x) => x.e),
