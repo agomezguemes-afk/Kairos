@@ -165,6 +165,14 @@ export interface ImportResult {
  *   session with its heart rate instead of counting twice;
  * - everything else becomes a new session; deleted HealthKit workouts go.
  */
+/**
+ * Kairos and its Watch app (bundle `<app>.watch`) write their own workouts;
+ * those sessions already arrive with full detail, so Health copies are skipped.
+ */
+function isOwn(bundle: string, own?: string): boolean {
+  return !!own && (bundle === own || bundle.startsWith(`${own}.`));
+}
+
 export function mergeWatchWorkouts(
   sessions: SessionLog[],
   workouts: WatchWorkout[],
@@ -173,11 +181,12 @@ export function mergeWatchWorkouts(
   const deleted = new Set((opts.deletedUuids ?? []).map((u) => `hk-${u}`));
   let out = sessions.filter((s) => !deleted.has(s.id));
   const known = new Set(out.map((s) => s.id));
+  const matched = new Set(out.map((s) => s.externalId).filter(Boolean));
   let added = 0;
   let enriched = 0;
   for (const w of workouts) {
-    if (opts.ownBundle && w.sourceBundle === opts.ownBundle) continue;
-    if (known.has(`hk-${w.uuid}`)) continue;
+    if (isOwn(w.sourceBundle, opts.ownBundle)) continue;
+    if (known.has(`hk-${w.uuid}`) || matched.has(w.uuid)) continue;
     const twin = out.find((s) => s.source !== 'watch' && overlapRatio(s, w) >= 0.5);
     if (twin) {
       if (!twin.sensors?.hrAvg && w.hrAvg) {

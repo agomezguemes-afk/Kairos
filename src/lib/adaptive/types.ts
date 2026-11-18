@@ -136,6 +136,8 @@ export interface SessionLog {
   sensors?: SensorSummary;
   /** 'watch' = recorded on the Apple Watch and imported from HealthKit. */
   source?: 'kairos' | 'watch';
+  /** Where a Kairos session was logged; the Watch app logs sets on the wrist. */
+  recordedOn?: 'phone' | 'watch';
   /** HealthKit workout UUID this session came from or was matched to. */
   externalId?: string;
   distanceKm?: number;

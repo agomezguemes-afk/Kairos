@@ -46,3 +46,4 @@ export type {
 } from './experiments';
 export { readiness, needsWeeklyCheckIn, weeklySuggestions } from './checkins';
 export type { CheckIn, WeekFeel, Readiness, ReadinessBand, WeeklyInput } from './checkins';
+export { initialLogs, previousLog } from './prefill';
