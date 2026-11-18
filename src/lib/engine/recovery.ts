@@ -94,10 +94,17 @@ export function regionHits(sessions: SessionLog[]): Hit[] {
 /** τ in hours: slower recovery after more volume; m is the personal rate. */
 const tauHours = (sets: number, m: number) => m * 24 * (1 + 0.25 * Math.log(1 + sets));
 
+/**
+ * Damage older than this is below e⁻⁹ of its size even at the slowest rate
+ * and largest volume (τ ≤ ~80 h): skipping it changes nothing measurable
+ * and keeps every lookup independent of how long the history is.
+ */
+export const RECOVERY_WINDOW_MS = 30 * 24 * HOUR_MS;
+
 export function recoveredAt(hits: Hit[], region: Region, t: number, m: number): number {
   let F = 0;
   for (const h of hits) {
-    if (h.region !== region || h.at > t) continue;
+    if (h.region !== region || h.at > t || t - h.at > RECOVERY_WINDOW_MS) continue;
     F += h.damage * Math.exp(-(t - h.at) / HOUR_MS / tauHours(h.sets, m));
   }
   return 1 - Math.min(1, F / F_REF);
@@ -123,16 +130,36 @@ export interface RatePosterior {
   reports: number;
 }
 
+/** First index with at ≥ t in hits sorted by time. */
+function lowerBound(hits: Hit[], t: number): number {
+  let lo = 0;
+  let hi = hits.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (hits[mid].at < t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 export function recoveryRate(sessions: SessionLog[], checkins: CheckIn[]): RatePosterior {
-  const hits = regionHits(sessions);
+  const hits = regionHits(sessions).sort((a, b) => a.at - b.at);
   const reports = checkins.filter((c) => c.kind === 'pre' && c.soreness !== undefined);
   const regions = Object.keys(REGION_LABEL) as Region[];
+  // Each report only sees the hits inside the window: O(reports × recent hits).
+  const windows = reports.map((c) => {
+    const t = new Date(c.at).getTime();
+    return {
+      t,
+      k: c.soreness!,
+      hits: hits.slice(lowerBound(hits, t - RECOVERY_WINDOW_MS), lowerBound(hits, t + 1)),
+    };
+  });
   const logPost = RATE_GRID.map((m) => {
     let lp = -((Math.log(m) / RATE_PRIOR_SD) ** 2) / 2;
-    for (const c of reports) {
-      const t = new Date(c.at).getTime();
-      const worst = Math.max(...regions.map((r) => 1 - recoveredAt(hits, r, t, m)));
-      lp += Math.log(sorenessLikelihood(c.soreness!, worst));
+    for (const w of windows) {
+      const worst = Math.max(...regions.map((r) => 1 - recoveredAt(w.hits, r, w.t, m)));
+      lp += Math.log(sorenessLikelihood(w.k, worst));
     }
     return lp;
   });
