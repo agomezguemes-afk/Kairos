@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,7 @@ import { useCoachStore } from '../../store/coachStore';
 import { QUALITY_LABEL, SPORT_LABEL } from '../../lib/adaptive';
 import { Brut, Spacing } from '../../theme/tokens';
 import { SHOW_ENGINE_DEBUG } from '../../config/constants';
-import { BBox, BPress, BScreen, BTag, BText } from '../../features/coach/ui/brut';
+import { BBox, BPress, BScreen, BText } from '../../features/coach/ui/brut';
 import { HealthCard } from '../../features/coach/HealthCard';
 
 export default function ProfileTab() {
@@ -22,24 +22,7 @@ export default function ProfileTab() {
   const notificationsEnabled = useWorkoutStore((s) => s.notificationsEnabled);
   const setNotificationsEnabled = useWorkoutStore((s) => s.setNotificationsEnabled);
   const goal = useCoachStore((s) => s.goal);
-  const sessions = useCoachStore((s) => s.sessions);
-  const suggestions = useCoachStore((s) => s.suggestions);
   const resetCoach = useCoachStore((s) => s.reset);
-
-  // "What Kairos knows about you": every number the coach reasons from,
-  // so the user can see the proposals are built on their own data.
-  const known = useMemo(() => {
-    const sets = sessions.reduce(
-      (n, s) => n + s.movements.reduce((m, mv) => m + mv.sets.filter((x) => x.completed).length, 0),
-      0,
-    );
-    const minutes = sessions.reduce((n, s) => n + s.durationMin, 0);
-    const withSensors = sessions.filter((s) => s.sensors?.hrAvg !== undefined).length;
-    const applied = suggestions.filter(
-      (s) => s.status === 'accepted' || s.status === 'adjusted',
-    ).length;
-    return { sets, minutes, withSensors, applied };
-  }, [sessions, suggestions]);
 
   const handleReset = () => {
     Alert.alert(
@@ -87,12 +70,9 @@ export default function ProfileTab() {
         )}
 
         <BBox style={{ marginTop: Spacing.lg }} contentStyle={styles.card}>
-          <View style={styles.rowBetween}>
-            <BText variant="monoBold" size={10}>
-              LO QUE KAIROS SABE DE TI
-            </BText>
-            <BTag>EN ESTE MÓVIL</BTag>
-          </View>
+          <BText variant="monoBold" size={10}>
+            TU OBJETIVO
+          </BText>
           {goal ? (
             <BText variant="bodySemi" size={15} style={{ marginTop: Spacing.sm }}>
               «{goal.summary ?? goal.raw}»
@@ -112,18 +92,6 @@ export default function ProfileTab() {
                 .toUpperCase()}
             </BText>
           )}
-          <View style={styles.grid}>
-            <Known index="01" label="SESIONES" value={sessions.length} />
-            <Known index="02" label="SERIES" value={known.sets} />
-            <Known index="03" label="MINUTOS" value={known.minutes} />
-            <Known index="04" label="CON PULSO" value={known.withSensors} />
-            <Known index="05" label="PROPUESTAS" value={suggestions.length} />
-            <Known index="06" label="APLICADAS" value={known.applied} />
-          </View>
-          <BText size={13} color={Brut.muted} style={{ marginTop: Spacing.sm }}>
-            Cada propuesta sale de estos datos. Nada se inventa ni sale de tu móvil sin que lo
-            decidas.
-          </BText>
           {SHOW_ENGINE_DEBUG && (
             <BPress
               onPress={() => navigation.navigate('Brain')}
@@ -207,27 +175,11 @@ export default function ProfileTab() {
   );
 }
 
-function Known({ index, label, value }: { index: string; label: string; value: number }) {
-  return (
-    <View style={styles.cell}>
-      <View style={styles.cellBox}>
-        <BText variant="monoBold" size={9} color={Brut.muted}>
-          {index} {label}
-        </BText>
-        <BText variant="display" size={26}>
-          {value}
-        </BText>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: { paddingHorizontal: Spacing.lg },
   title: { marginTop: Spacing.sm },
   card: { padding: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   iconBox: {
     width: 40,
     height: 40,
@@ -237,16 +189,6 @@ const styles = StyleSheet.create({
     backgroundColor: Brut.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: Spacing.md, marginHorizontal: -3 },
-  cell: { width: '33.33%', padding: 3 },
-  cellBox: {
-    borderWidth: Brut.border,
-    borderColor: Brut.ink,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    gap: 4,
   },
   actions: { gap: Spacing.sm, marginTop: Spacing.xl },
   action: {

@@ -17,19 +17,14 @@ import Animated, {
 import type { RootStackParamList } from '../../types/navigation';
 import KIcon from '../../components/icons/KIcon';
 import {
-  getMovement,
-  loadTrend,
   needsWeeklyCheckIn,
-  objectiveCheck,
   QUALITY_LABEL,
   SPORT_LABEL,
   type Experiment,
-  type LoadBand,
 } from '../../lib/adaptive';
 import {
   ExperimentResult,
   ExperimentReviewCard,
-  ExperimentRow,
   PreCheckInCard,
   WeeklyCheckInCard,
 } from './components/Loop';
@@ -39,19 +34,10 @@ import { useCoachStore } from '../../store/coachStore';
 import { Brut, Spacing } from '../../theme/tokens';
 import { SHOW_ENGINE_DEBUG } from '../../config/constants';
 import { feedback } from './feedback';
-import { BBox, BPress, BScreen, BTag, BText } from './ui/brut';
+import { BPress, BScreen, BText } from './ui/brut';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const BAND_COPY: Record<LoadBand, string> = {
-  baseline: 'Aprendiendo tu normal: en dos semanas comparo tu carga contigo mismo.',
-  lighter: 'Semana más suave que tu media.',
-  steady: 'Carga en tu rango habitual.',
-  higher: 'Semana por encima de tu media.',
-  spike: 'Carga muy por encima de lo habitual: escucha al cuerpo.',
-};
-
-const WEEK_MS = 7 * 24 * 3600 * 1000;
 const enter = (i: number) =>
   FadeInDown.delay(i * 60)
     .duration(Brut.motion.reveal)
@@ -66,42 +52,6 @@ function PulseSquare() {
   }, [reduce, v]);
   const style = useAnimatedStyle(() => ({ opacity: v.value }));
   return <Animated.View style={[styles.pulse, style]} />;
-}
-
-function Stat({
-  index,
-  label,
-  value,
-  unit,
-  hot,
-}: {
-  index: string;
-  label: string;
-  value: string;
-  unit?: string;
-  hot?: boolean;
-}) {
-  return (
-    <BBox
-      bg={hot ? Brut.accent : Brut.surface}
-      radius={Brut.radius.md}
-      style={{ flex: 1 }}
-      contentStyle={styles.stat}
-    >
-      <BText variant="monoBold" size={10} color={hot ? Brut.onAccent : Brut.muted}>
-        {index} {label}
-      </BText>
-      <BText variant="display" size={30}>
-        {value}
-        {unit ? (
-          <BText variant="mono" size={11} color={hot ? Brut.onAccent : Brut.muted}>
-            {' '}
-            {unit}
-          </BText>
-        ) : null}
-      </BText>
-    </BBox>
-  );
 }
 
 export default function CoachHomeScreen() {
@@ -125,18 +75,8 @@ export default function CoachHomeScreen() {
     () => plan?.sessions.filter((s) => s.status === 'pending').length ?? 0,
     [plan],
   );
-  const trend = useMemo(() => loadTrend(sessions), [sessions]);
   // Captured once per mount: the tab remounts often enough for a 7-day window.
   const [now] = useState(() => Date.now());
-  const stats = useMemo(() => {
-    const since = now - WEEK_MS;
-    const thisWeek = sessions.filter((s) => new Date(s.endedAt).getTime() >= since).length;
-    const sets = sessions.reduce(
-      (n, s) => n + s.movements.reduce((m, mv) => m + mv.sets.filter((x) => x.completed).length, 0),
-      0,
-    );
-    return { thisWeek, sets };
-  }, [now, sessions]);
   const { panel } = useTodayPanel(now);
   const preToday = useMemo(
     () =>
@@ -154,14 +94,11 @@ export default function CoachHomeScreen() {
     [checkins, now, plan, sessions.length],
   );
   const inReview = useMemo(() => experiments.filter((e) => e.status === 'review'), [experiments]);
-  const running = useMemo(() => experiments.filter((e) => e.status === 'running'), [experiments]);
 
   const onWeekly = (c: Parameters<typeof submitCheckIn>[0]) => {
     const fresh = submitCheckIn(c);
     if (fresh.length) navigation.navigate('SuggestionReveal');
   };
-
-  const doneCount = (id: string) => sessions.filter((s) => s.draftSessionId === id).length;
 
   return (
     <BScreen>
@@ -233,18 +170,6 @@ export default function CoachHomeScreen() {
                   .join(' · ')
                   .toUpperCase()}
               </BText>
-            </Animated.View>
-
-            <Animated.View entering={enter(1)} style={styles.stats}>
-              <Stat
-                index="01"
-                label="SEMANA"
-                value={`${stats.thisWeek}`}
-                unit={`/${plan.goal.daysPerWeek}`}
-                hot
-              />
-              <Stat index="02" label="CARGA" value={`${trend.acute}`} unit="UA" />
-              <Stat index="03" label="DATOS" value={`${stats.sets}`} unit="SERIES" />
             </Animated.View>
 
             {SHOW_ENGINE_DEBUG && (
@@ -370,7 +295,6 @@ export default function CoachHomeScreen() {
             ) : (
               <View style={styles.week}>
                 {week.map((s, i) => {
-                  const n = doneCount(s.id);
                   return (
                     <Animated.View key={s.id} entering={enter(3 + i)}>
                       <BPress
@@ -397,12 +321,7 @@ export default function CoachHomeScreen() {
                             {s.title}
                           </BText>
                           <BText variant="mono" size={10} color={Brut.muted} numberOfLines={1}>
-                            {s.durationMin} MIN{n ? ` · ${n}× HECHA` : ''} ·{' '}
-                            {s.movements
-                              .map((m) => getMovement(m.movementId)?.name)
-                              .filter(Boolean)
-                              .join(' · ')
-                              .toUpperCase()}
+                            {s.durationMin} MIN
                           </BText>
                         </View>
                         <View style={styles.play}>
@@ -415,48 +334,6 @@ export default function CoachHomeScreen() {
                   );
                 })}
               </View>
-            )}
-
-            {running.length > 0 && (
-              <BBox style={{ marginTop: Spacing.xl }} contentStyle={styles.load}>
-                <View style={styles.row}>
-                  <BText variant="monoBold" size={10}>
-                    EN PRUEBA
-                  </BText>
-                  <BTag>{`${running.length}`}</BTag>
-                </View>
-                <BText size={13} color={Brut.muted} style={{ marginTop: 4 }}>
-                  Cada cambio que aceptas se comprueba con tus sesiones antes de darlo por bueno.
-                </BText>
-                {running.map((e) => (
-                  <ExperimentRow
-                    key={e.id}
-                    e={e}
-                    exposures={objectiveCheck(e, sessions).exposures}
-                  />
-                ))}
-              </BBox>
-            )}
-
-            {sessions.length > 0 && (
-              <BBox style={{ marginTop: Spacing.xl }} contentStyle={styles.load}>
-                <View style={styles.row}>
-                  <BText variant="monoBold" size={10} color={Brut.muted}>
-                    CARGA 7 DÍAS
-                  </BText>
-                  {trend.ratio !== null && <BTag>{`${trend.ratio}× TU MEDIA`}</BTag>}
-                </View>
-                <BText variant="display" size={40} style={{ marginTop: 4 }}>
-                  {trend.acute}
-                  <BText variant="mono" size={12} color={Brut.muted}>
-                    {' '}
-                    UA
-                  </BText>
-                </BText>
-                <BText size={14} color={Brut.muted}>
-                  {BAND_COPY[trend.band]}
-                </BText>
-              </BBox>
             )}
           </>
         )}
@@ -478,8 +355,6 @@ const styles = StyleSheet.create({
   hero: { marginTop: Spacing.md },
   lede: { marginTop: Spacing.md, lineHeight: 22 },
   heroCta: { padding: Spacing.xl },
-  stats: { flexDirection: 'row', gap: 6, marginTop: Spacing.lg },
-  stat: { padding: 10, gap: 10 },
   unlock: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
   unlockIcon: {
     width: 46,
@@ -529,7 +404,6 @@ const styles = StyleSheet.create({
     paddingLeft: 2,
   },
   empty: { padding: Spacing.xl, gap: 4 },
-  load: { padding: Spacing.lg },
   brainLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
   brainDot: {
     width: 28,
