@@ -21,12 +21,14 @@ import type { RootStackParamList } from '../../types/navigation';
 import {
   getMovement,
   hrZone,
-  type DraftSession,
+  initialLogs,
+  previousLog,
   type MovementLog,
   type SessionLog,
   type SetLog,
 } from '../../lib/adaptive';
 import {
+  AppleWatchSource,
   SensorHub,
   SimulatedSource,
   defaultSources,
@@ -61,43 +63,6 @@ const RPE_LABEL = [
   'Máximo',
 ];
 
-function initialLogs(draft: DraftSession, previous?: SessionLog): MovementLog[] {
-  return draft.movements.map((pm) => {
-    const m = getMovement(pm.movementId);
-    const t = pm.target;
-    const prev = previous?.movements.find((x) => x.movementId === pm.movementId);
-    let sets: SetLog[];
-    switch (m?.kind) {
-      case 'strength': {
-        const n = t.sets ?? 3;
-        sets = Array.from({ length: n }, (_, i) => {
-          const p = prev?.sets[i];
-          return {
-            reps: p?.reps ?? t.repsMax ?? 8,
-            loadKg: t.loadKg ?? p?.loadKg ?? (m.defaults.loadKg === 0 ? 0 : 20),
-            rir: t.rir,
-            completed: false,
-          };
-        });
-        break;
-      }
-      case 'interval': {
-        const iv = t.intervals ?? { reps: 6, workSec: 30, restSec: 30 };
-        sets = Array.from({ length: iv.reps * (t.sets ?? 1) }, () => ({
-          durationSec: iv.workSec,
-          completed: false,
-        }));
-        break;
-      }
-      default:
-        sets = [
-          { durationSec: (t.durationMin ?? 20) * 60, distanceKm: t.distanceKm, completed: false },
-        ];
-    }
-    return { movementId: pm.movementId, target: { ...t }, sets };
-  });
-}
-
 export default function LiveSessionScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
@@ -120,7 +85,7 @@ export default function LiveSessionScreen() {
   const light = !!adjust?.trimSets;
 
   const previous = useMemo(
-    () => [...history].reverse().find((h) => h.draftSessionId === params.draftSessionId),
+    () => previousLog(history, params.draftSessionId),
     // Snapshot at mount: the session being logged must not chase store updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -139,7 +104,8 @@ export default function LiveSessionScreen() {
   // ── Sensors ──────────────────────────────────────────────────────
   const cycling = draft?.sport === 'cycling' || !!draft?.movements.some((m) => m.target.cadenceRpm);
   const [hub] = useState(() => new SensorHub(DEFAULT_HR_MAX));
-  const sources = useMemo(() => defaultSources({ cycling }), [cycling]);
+  const sport = draft?.sport;
+  const sources = useMemo(() => defaultSources({ cycling, sport }), [cycling, sport]);
   const simulator = useMemo(
     () => sources.find((s): s is SimulatedSource => s instanceof SimulatedSource),
     [sources],
@@ -263,9 +229,13 @@ export default function LiveSessionScreen() {
       sensors: connected.length ? hub.summary() : undefined,
       source: 'kairos',
     };
+    // The watch already writes this workout to Health, with its own HR samples.
+    const watch = sources.find((x): x is AppleWatchSource => x instanceof AppleWatchSource);
+    const onWrist = !!watch && connected.includes(watch.id);
+    if (onWrist) watch.keepInHealth();
     hub.stopAll();
     recordSession(log);
-    exportSession(log);
+    if (!onWrist) exportSession(log);
     feedback.success();
     navigation.replace('SuggestionReveal', { sessionId: log.id });
   };

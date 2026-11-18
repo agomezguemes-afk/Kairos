@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>WKApplication</key>
+	<true/>
+	<key>WKRunsIndependentlyOfCompanionApp</key>
+	<false/>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Kairos lee tu pulso, energía y distancia durante el entreno para medir la sesión.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Kairos guarda tus entrenos en Salud para que cuenten en tus anillos.</string>
+</dict>
+</plist>

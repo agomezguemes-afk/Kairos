@@ -13,6 +13,10 @@ import {
   type CrankSample,
 } from './bleParsers';
 import type { SensorAvailability, SensorKind, SensorReading, SensorSource } from './types';
+import type { Sport } from '../adaptive/types';
+import { ACTIVITY_BY_SPORT } from '../health/appleHealth';
+import { watchModule, watchState } from '../watch/native';
+import { WATCH_PROTOCOL_VERSION, parseWatchLive, type WatchCommand } from '../watch/protocol';
 
 // ── Simulator ───────────────────────────────────────────────────────
 
@@ -224,25 +228,72 @@ export class BleSource implements SensorSource {
  * workout mirroring (see docs/reports). Until that target exists this
  * source exists so the picker is honest about what's coming.
  */
+/**
+ * Heart rate from the wrist while the phone logs the session: the phone
+ * launches the Kairos watch app into a workout (startWatchApp) and the watch
+ * streams its reading every ~2 s. The watch also saves that workout to
+ * Health, so a session that used it must not be exported again.
+ */
 export class AppleWatchSource implements SensorSource {
   readonly id = 'apple-watch';
   readonly label = 'Apple Watch';
   readonly transport = 'healthkit' as const;
   readonly kinds: SensorKind[] = ['heart_rate'];
+  private keep = false;
+
+  constructor(private sport: Sport = 'general') {}
 
   async availability(): Promise<SensorAvailability> {
     if (Platform.OS !== 'ios') return { available: false, reason: 'Solo en iPhone' };
-    return { available: false, reason: 'Llega con la app de watchOS' };
+    const st = watchState();
+    if (!st?.supported) return { available: false, reason: 'Necesita la app nativa' };
+    if (!st.paired) return { available: false, reason: 'Empareja un Apple Watch' };
+    if (!st.installed) return { available: false, reason: 'Instala Kairos en el reloj' };
+    return { available: true };
   }
 
-  async start(): Promise<() => void> {
-    throw new Error('Apple Watch live streaming not implemented yet');
+  /** Call before stopping when the session is saved: the watch keeps its workout in Health. */
+  keepInHealth(): void {
+    this.keep = true;
+  }
+
+  async start(onReading: (r: SensorReading) => void): Promise<() => void> {
+    const m = watchModule();
+    if (!m) throw new Error('Esta versión no incluye la app del Apple Watch');
+    this.keep = false;
+    const sub = m.addListener('onLive', ({ json }) => {
+      const r = parseWatchLive(json);
+      if (!r.ok) {
+        console.warn('[watch] bad live sample', r.error);
+        return;
+      }
+      // Phone clock: watch and phone clocks can drift, and zones use gaps.
+      onReading({ kind: 'heart_rate', value: r.value.hr, at: Date.now(), sourceId: this.id });
+    });
+    try {
+      await m.startWatchWorkout(ACTIVITY_BY_SPORT[this.sport], OUTDOOR.has(this.sport));
+    } catch (e) {
+      sub.remove();
+      throw new Error(
+        e instanceof Error && e.message
+          ? `El reloj no respondió: ${e.message}`
+          : 'El reloj no respondió',
+      );
+    }
+    return () => {
+      sub.remove();
+      const cmd: WatchCommand = { v: WATCH_PROTOCOL_VERSION, kind: 'end', save: this.keep };
+      if (!m.sendCommand(JSON.stringify(cmd)))
+        console.warn('[watch] could not reach the watch to end its workout');
+    };
   }
 }
 
-export function defaultSources(opts: { cycling: boolean }): SensorSource[] {
+const OUTDOOR = new Set<Sport>(['running', 'cycling', 'hiking', 'football', 'tennis', 'padel']);
+
+export function defaultSources(opts: { cycling: boolean; sport?: Sport }): SensorSource[] {
   return [
-    new AppleWatchSource(),
+    new AppleWatchSource(opts.sport),
     new BleSource('heart_rate'),
     ...(opts.cycling ? [new BleSource('csc'), new BleSource('power')] : []),
     new SimulatedSource({ withCadence: opts.cycling }),

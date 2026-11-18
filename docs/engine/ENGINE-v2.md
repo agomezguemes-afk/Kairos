@@ -313,7 +313,7 @@ El Apple Watch no necesita app propia para alimentar al motor. Ya guarda en Salu
 
 - El único entitlement es `com.apple.developer.healthkit`. La entrega en segundo plano está desactivada (`background: false`); ese trabajo lo hace la tarea nocturna. Se cree que HealthKit básico firma con un Personal Team gratuito, pero **Apple no lo confirma**; hay que comprobarlo en el primer build desde el Mac.
 - iOS no dice si se denegó la lectura. Una sincronización vacía es la única señal.
-- Pendiente: app nativa de watchOS (SwiftUI con `HKWorkoutSession`, vía `@bacons/apple-targets`) para registrar series desde la muñeca y ver el pulso en directo en la sesión.
+- Las series desde la muñeca y el pulso en directo los aporta la app del Apple Watch (siguiente sección).
 
 ### Tests de aceptación (biometría)
 
@@ -332,6 +332,61 @@ El Apple Watch no necesita app propia para alimentar al motor. Ya guarda en Salu
    - Nada se importa dos veces, tampoco los entrenos del propio Kairos.
    - Un entreno solapado enriquece la sesión existente en vez de duplicarla.
    - Un entreno borrado en Salud desaparece.
+
+## App del Apple Watch
+
+Es una app watchOS nativa en SwiftUI (`targets/watch`), generada con `@bacons/apple-targets`. Va dentro de la app del iPhone y su bundle id es el del iPhone más `.watch`. Tiene dos modos.
+
+### Sesión en la muñeca
+
+- La app del reloj recibe la semana con la sesión de hoy primero. Cada sesión lleva el ajuste de la noche (una serie menos y una nota si el día es suave) y las series prerrellenadas igual que en el iPhone (`initialLogs`, `src/lib/adaptive/prefill.ts`).
+- Durante la sesión, un `HKWorkoutSession` con `HKLiveWorkoutBuilder` mantiene la app viva con la muñeca bajada y mide pulso, energía y distancia.
+- Las series se registran así:
+  - Con la corona se ajustan los kg (con el incremento del ejercicio) o las repeticiones.
+  - «Hecha» cierra la serie y arranca el descanso del plan, con vibración a 10 s del final y otra al terminar.
+  - Si cambias el peso o las repeticiones de una serie, las series siguientes heredan el cambio, para que registrar siga siendo un toque.
+- Al terminar se pide el RPE de sesión (1–10, con la corona). El entreno se guarda en Salud y la sesión vuelve al iPhone.
+- Hay entreno libre sin plan: solo métricas y RPE.
+- Tras un cierre inesperado, `handleActiveWorkoutRecovery` recupera el entreno, y una copia guardada tras cada serie recupera las series.
+
+### Pulso para el iPhone (modo sensor)
+
+- En la sesión en vivo del iPhone, la fuente «Apple Watch» llama a `HKHealthStore.startWatchApp`. El reloj se abre en un entreno y envía su pulso cada ~2 s mientras el iPhone está al alcance.
+- Si la sesión se guarda, el reloj conserva su entreno en Salud y el iPhone no exporta otro. Si se cancela, el reloj lo descarta.
+
+### Protocolo (`src/lib/watch/protocol.ts` ↔ `targets/watch/Protocol.swift`)
+
+- iPhone → reloj: `applicationContext["plan"]`. Solo guarda el último estado y se entrega aunque la app del reloj esté cerrada. El reloj lo guarda para funcionar sin el iPhone cerca. El plan se envía solo cuando cambia su contenido (`planKey`): tras cada consolidación, sesión o cambio de FCmáx, y también desde la tarea nocturna.
+- Reloj → iPhone: `transferUserInfo["session"]`. El sistema lo pone en cola y lo entrega aunque la app esté cerrada. Si falla, el reloj lo reenvía.
+  - El iPhone guarda cada sesión por id en `UserDefaults` hasta que JS la valida (valibot), la registra con `recordSession` y la confirma, así que nada se pierde ni entra dos veces.
+  - Una sesión de una versión de protocolo más nueva se queda en cola hasta que una actualización pueda leerla.
+- Una sesión registrada en el reloj entra como sesión normal de Kairos: `source: 'kairos'` y `recordedOn: 'watch'`, con los objetivos del borrador del que salió.
+  - Su copia en Salud no se importa otra vez. La filtra el `externalId` (UUID del `HKWorkout`) y, aunque la sesión aún no haya llegado, el bundle `<app>.watch`.
+- Zonas de pulso: mismos cortes que `hrZone()` y la FCmáx aprendida que envía el iPhone. Los huecos de más de 15 s no cuentan.
+
+### Construir
+
+- La app del iPhone usa el módulo nativo local `modules/kairos-watch` (Expo Modules, autolinking de `./modules`).
+- Necesita macOS con Xcode 16 o posterior: `npx expo prebuild -p ios --clean` no genera iOS en Windows.
+- Si existe `APPLE_TEAM_ID`, se firman con ese equipo el iPhone y el reloj. Si no, se elige el equipo en Xcode › Signing para los dos targets.
+- Con un Personal Team gratuito, HealthKit en el reloj tiene la misma duda que en el iPhone: hay que confirmarlo en el primer build.
+
+### Tests de aceptación (reloj)
+
+1. Plan para el reloj:
+   - La sesión de hoy va primero y, si el día es suave, recortada y con su nota.
+   - Las series salen prerrellenadas de la última vez.
+   - Solo van las sesiones aceptadas; sin plan, la lista va vacía.
+   - La clave no cambia si solo cambia la hora.
+2. Validación en la frontera:
+   - JSON roto, RPE fuera de rango, deporte desconocido o versión futura: no se aceptan.
+   - Un pulso de 0 no es una lectura.
+3. Una sesión del reloj se convierte en `SessionLog`:
+   - Con los objetivos del plan.
+   - Con el RPE redondeado a 0,5.
+   - Sin los ejercicios sin series.
+   - El entreno libre o un plan que ya cambió también entran.
+4. La copia en Salud de un entreno del reloj no se importa dos veces: ni por UUID ni por bundle.
 
 ## Fases siguientes
 

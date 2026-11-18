@@ -12,6 +12,7 @@ import * as TaskManager from 'expo-task-manager';
 
 import { flushCoachStorage, useCoachStore } from '../../store/coachStore';
 import { syncHealth } from './healthSync';
+import { ingestWatchSessions, pushPlanToWatch } from './watchSync';
 
 export const ENGINE_TASK = 'kairos-engine-consolidate';
 /** A minimum, not a schedule: the OS picks the window (minutes). */
@@ -26,6 +27,9 @@ export async function runConsolidation(now: Date = new Date()): Promise<void> {
   // runs on what is already stored and the morning open catches up.
   const synced = await syncHealth(now);
   if (synced.status !== 'synced') useCoachStore.getState().consolidate(now);
+  // Sessions logged on the wrist with the app closed; then the morning plan to the watch.
+  ingestWatchSessions();
+  pushPlanToWatch();
   await flushCoachStorage();
 }
 

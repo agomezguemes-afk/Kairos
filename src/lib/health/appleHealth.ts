@@ -191,7 +191,7 @@ export async function pull(
 }
 
 /** HKWorkoutActivityType for a Kairos session written back to Health. */
-const ACTIVITY_BY_SPORT: Record<SessionLog['sport'], number> = {
+export const ACTIVITY_BY_SPORT: Record<SessionLog['sport'], number> = {
   strength: 50,
   running: 37,
   cycling: 13,

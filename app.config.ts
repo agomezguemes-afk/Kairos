@@ -81,6 +81,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       supportsTablet: true,
       bundleIdentifier: variant.iosBundleId,
       jsEngine: 'hermes',
+      // Signs the phone app and the watch app with the same team. Optional:
+      // without it, pick the team for both targets in Xcode › Signing.
+      ...(process.env.APPLE_TEAM_ID ? { appleTeamId: process.env.APPLE_TEAM_ID } : {}),
     },
     android: {
       adaptiveIcon: {
@@ -113,6 +116,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             'Kairos guarda tus sesiones en Salud para que cuenten en tus anillos de actividad.',
         },
       ],
+      // Kairos on the Apple Watch (targets/watch): a SwiftUI watchOS app
+      // embedded in the phone app. Sets are logged on the wrist with live HR,
+      // and the phone can borrow the watch's HR during its own session.
+      '@bacons/apple-targets',
       // Standard BLE sensors (HR straps, cadence/RPM pods, power meters)
       // for live sessions. Foreground only: a workout is on screen.
       [
