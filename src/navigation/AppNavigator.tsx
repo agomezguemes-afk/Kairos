@@ -37,6 +37,7 @@ import PlanDraftScreen from '../features/coach/PlanDraftScreen';
 import LiveSessionScreen from '../features/coach/LiveSessionScreen';
 import SuggestionRevealScreen from '../features/coach/SuggestionRevealScreen';
 import BrainScreen from '../features/coach/BrainScreen';
+import AiLabScreen from '../features/coach/AiLabScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 
 import { useAuthStore } from '../store/useAuthStore';
@@ -99,6 +100,11 @@ function coachScreens() {
       <Stack.Screen
         name="Brain"
         component={BrainScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="AiLab"
+        component={AiLabScreen}
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen

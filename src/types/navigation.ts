@@ -45,4 +45,5 @@ export type RootStackParamList = {
   LiveSession: { draftSessionId: string };
   SuggestionReveal: { sessionId?: string } | undefined;
   Brain: undefined;
+  AiLab: undefined;
 };

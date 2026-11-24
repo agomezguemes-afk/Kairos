@@ -11,7 +11,7 @@ import { useWorkoutStore } from '../../store/workoutStore';
 import { useCoachStore } from '../../store/coachStore';
 import { QUALITY_LABEL, SPORT_LABEL } from '../../lib/adaptive';
 import { Brut, Spacing } from '../../theme/tokens';
-import { SHOW_ENGINE_DEBUG } from '../../config/constants';
+import { SHOW_AI_LAB, SHOW_ENGINE_DEBUG } from '../../config/constants';
 import { BBox, BPress, BScreen, BText } from '../../features/coach/ui/brut';
 import { HealthCard } from '../../features/coach/HealthCard';
 
@@ -103,6 +103,19 @@ export default function ProfileTab() {
             >
               <BText variant="bodyBold" size={15}>
                 Ver tu cerebro
+              </BText>
+            </BPress>
+          )}
+          {SHOW_AI_LAB && (
+            <BPress
+              onPress={() => navigation.navigate('AiLab')}
+              radius={12}
+              style={{ marginTop: Spacing.md }}
+              contentStyle={styles.action}
+              accessibilityRole="button"
+            >
+              <BText variant="bodyBold" size={15}>
+                Laboratorio IA
               </BText>
             </BPress>
           )}
