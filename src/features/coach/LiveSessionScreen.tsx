@@ -37,6 +37,7 @@ import {
 } from '../../lib/sensors';
 import { sessionAdjustment, shapeSession } from '../../lib/engine';
 import { exportSession } from './healthSync';
+import { estimateHrMax } from '../../lib/health/workoutImport';
 import { useCoachStore } from '../../store/coachStore';
 import { Brut, Coach, Colors, Spacing } from '../../theme/tokens';
 import { bt } from './ui/brut';
@@ -45,9 +46,6 @@ import { describeTarget, fmtClock, fmtSec, formatValue, stepFor } from './format
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Phase = { kind: 'idle' | 'work' | 'rest'; left: number };
-
-// No age in the profile yet; 190 is a neutral default until we read it from HealthKit.
-const DEFAULT_HR_MAX = 190;
 
 const RPE_LABEL = [
   'Reposo',
@@ -113,7 +111,10 @@ export default function LiveSessionScreen() {
 
   // ── Sensors ──────────────────────────────────────────────────────
   const cycling = draft?.sport === 'cycling' || !!draft?.movements.some((m) => m.target.cadenceRpm);
-  const [hub] = useState(() => new SensorHub(DEFAULT_HR_MAX));
+  // The same max the watch uses (learned from HealthKit, 190 until then), so a
+  // phone session and a wrist session put the same pulse in the same zone.
+  const [hrMax] = useState(() => estimateHrMax(biometrics?.hrMax));
+  const [hub] = useState(() => new SensorHub(hrMax));
   const sport = draft?.sport;
   const sources = useMemo(() => defaultSources({ cycling, sport }), [cycling, sport]);
   const simulator = useMemo(
@@ -122,19 +123,23 @@ export default function LiveSessionScreen() {
   );
   const [avail, setAvail] = useState<Record<string, SensorAvailability>>({});
   const [connected, setConnected] = useState<string[]>([]);
+  const [connecting, setConnecting] = useState<string[]>([]);
   const [sensorError, setSensorError] = useState<string | null>(null);
   const [live, setLive] = useState<{ hr?: number; cadence?: number; power?: number }>({});
 
   const connect = useCallback(
     async (src: SensorSource) => {
       setSensorError(null);
+      setConnecting((ids) => [...ids, src.id]);
       try {
         await hub.attach(src);
         setConnected(hub.attached);
-        feedback.success();
+        if (hub.attached.includes(src.id)) feedback.success();
       } catch (e) {
         setSensorError(e instanceof Error ? e.message : 'No se pudo conectar');
         feedback.warning();
+      } finally {
+        setConnecting((ids) => ids.filter((id) => id !== src.id));
       }
     },
     [hub],
@@ -261,7 +266,7 @@ export default function LiveSessionScreen() {
     );
   }
 
-  const zone = live.hr ? hrZone(live.hr, DEFAULT_HR_MAX) : null;
+  const zone = live.hr ? hrZone(live.hr, hrMax) : null;
   const doneSets = current.sets.filter((s) => s.completed).length;
   const isLast = index === logs.length - 1;
 
@@ -334,13 +339,15 @@ export default function LiveSessionScreen() {
             {sources.map((s) => {
               const a = avail[s.id];
               const on = connected.includes(s.id);
+              const busy = connecting.includes(s.id);
               return (
                 <Pressable
                   key={s.id}
-                  disabled={!a?.available || on}
+                  disabled={!a?.available || on || busy}
                   onPress={() => void connect(s)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${s.label}${a?.reason ? `, ${a.reason}` : ''}`}
+                  accessibilityState={{ disabled: !a?.available || on || busy, busy }}
+                  accessibilityLabel={`${s.label}${busy ? ', conectando' : ''}${a?.reason ? `, ${a.reason}` : ''}`}
                   style={[styles.source, on && styles.sourceOn, !a?.available && { opacity: 0.45 }]}
                 >
                   <View
