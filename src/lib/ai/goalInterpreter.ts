@@ -5,7 +5,7 @@
 
 import { parseGoal } from '../adaptive/goalParser';
 import type { ParsedGoal, Quality, Sport } from '../adaptive/types';
-import { chatCompletion, isGroqAvailable } from './client';
+import { availableProviders, currentRouteContext, planRoute, routeChat } from './providers';
 
 const SPORTS: readonly Sport[] = [
   'padel',
@@ -110,46 +110,55 @@ export function mergeAiGoal(base: ParsedGoal, raw: unknown): ParsedGoal {
   };
 }
 
+const goalRequest = (text: string) => ({
+  messages: [
+    { role: 'system' as const, content: GOAL_SYSTEM_PROMPT },
+    { role: 'user' as const, content: text.trim().slice(0, 600) },
+  ],
+  json: true,
+  temperature: 0.2,
+  maxTokens: 300,
+});
+
 export function isGoalAiAvailable(): boolean {
-  return isGroqAvailable();
+  return (
+    planRoute('goal', goalRequest(''), availableProviders(), currentRouteContext()).order.length > 0
+  );
 }
 
 /**
- * Rules parse refined by the LLM when available. Never throws and never
- * waits longer than `timeoutMs`: on any failure the caller gets the
- * rules parse, so drafting a plan works offline.
+ * Rules parse refined by a language model when one is available. Never
+ * throws and never waits longer than `timeoutMs` per model tried: on any
+ * failure the caller gets the rules parse, so drafting a plan works offline.
  */
 export async function interpretGoal(
   text: string,
   timeoutMs: number = GOAL_AI_TIMEOUT_MS,
 ): Promise<ParsedGoal> {
   const base: ParsedGoal = { ...parseGoal(text), source: 'rules' };
-  if (!isGroqAvailable() || text.trim().length < 3) return base;
+  if (text.trim().length < 3) return base;
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), timeoutMs);
-  });
-
-  try {
-    const choice = await Promise.race([
-      chatCompletion(
-        [
-          { role: 'system', content: GOAL_SYSTEM_PROMPT },
-          { role: 'user', content: text.trim().slice(0, 600) },
-        ],
-        { jsonMode: true, temperature: 0.2, maxTokens: 300 },
-      ),
-      timeout,
-    ]);
-    if (!choice || typeof choice.message.content !== 'string') return base;
-    return mergeAiGoal(base, JSON.parse(choice.message.content));
-  } catch (e) {
-    // Offline, rate-limited or malformed JSON: the rules parse is a
-    // complete answer, so degrade silently but leave a trace for debugging.
-    console.warn('[goalInterpreter] falling back to rules:', e instanceof Error ? e.message : e);
-    return base;
-  } finally {
-    clearTimeout(timer);
-  }
+  const attempts: { id: string; error: string }[] = [];
+  const routed = await routeChat(
+    'goal',
+    goalRequest(text),
+    availableProviders(),
+    currentRouteContext(),
+    {
+      timeoutMs,
+      accept: (r) => {
+        if (typeof r.content !== 'string') throw new Error('respuesta sin texto');
+        return mergeAiGoal(base, JSON.parse(r.content));
+      },
+    },
+    attempts,
+  );
+  // Offline, rate-limited or malformed JSON: the rules parse is a complete
+  // answer, so degrade silently but leave a trace for debugging.
+  if (!routed && attempts.length)
+    console.warn(
+      '[goalInterpreter] falling back to rules:',
+      attempts.map((a) => `${a.id}: ${a.error}`).join('; '),
+    );
+  return routed?.value ?? base;
 }
