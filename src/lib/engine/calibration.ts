@@ -111,6 +111,10 @@ const SLOPE_LOW = 0.8;
 const SLOPE_HIGH = 1.25;
 const BIAS = 0.25;
 
+/** Prequential refits: exact up to here, then whenever the past grows by 5 %. */
+const PREQ_EXACT = 50;
+const PREQ_GROWTH = 1.05;
+
 const clip = (p: number) => Math.min(1 - P_CLIP, Math.max(P_CLIP, p));
 const logit = (p: number) => Math.log(clip(p) / (1 - clip(p)));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
@@ -129,6 +133,8 @@ export const IDENTITY: Recalibration = { a: 0, b: 1, sdA: PRIOR_SD_A, sdB: PRIOR
  */
 export function fitRecalibration(
   forecasts: Pick<Forecast, 'p' | 'outcome' | 'w'>[],
+  /** Start Newton here (e.g. the fit on a slightly shorter past): same MAP, fewer steps. */
+  start?: Pick<Recalibration, 'a' | 'b'>,
 ): Recalibration {
   if (!forecasts.length) return IDENTITY;
   const xs = forecasts.map((f) => logit(f.p));
@@ -164,8 +170,8 @@ export function fitRecalibration(
     return { g1, g2, h11, h12, h22 };
   };
 
-  let a = 0;
-  let b = 1;
+  let a = start?.a ?? 0;
+  let b = Math.max(0, start?.b ?? 1);
   let lp = logPost(a, b);
   for (let iter = 0; iter < 100; iter++) {
     const { g1, g2, h11, h12, h22 } = curvature(a, b);
@@ -256,14 +262,24 @@ export function calibrationReport(input: Forecast[]): CalibrationReport {
   let corrected = 0;
   let k = 0;
   let seen = 0;
+  // Prequential correction: each forecast is corrected with a fit on the past
+  // only. Refitting at every step was O(n²) and blew the foreground budget
+  // (~0.6 s at 1.5k forecasts on desktop). Exact for the first PREQ_EXACT
+  // steps; after that the fit is refreshed whenever the past has grown by
+  // PREQ_GROWTH, warm-started from the previous one: still past-only, and a
+  // 5 % longer past barely moves a posterior built on dozens of points.
+  let fitPast: Recalibration = IDENTITY;
+  let fittedAt = 0;
   forecasts.forEach((f, i) => {
     const w = f.w ?? 1;
     brier += w * brierOf(f.p, f.outcome);
     // Running base rate with a Beta(1,1) prior: the forecaster who knows nothing.
     brierRef += w * brierOf((1 + k) / (2 + seen), f.outcome);
-    // Correction fitted on the past only, applied to this forecast.
-    const past = forecasts.slice(0, i);
-    corrected += w * brierOf(recalibrate(f.p, fitRecalibration(past)), f.outcome);
+    if (i > 0 && (i <= PREQ_EXACT || i >= fittedAt * PREQ_GROWTH)) {
+      fitPast = fitRecalibration(forecasts.slice(0, i), fitPast);
+      fittedAt = i;
+    }
+    corrected += w * brierOf(recalibrate(f.p, i > 0 ? fitPast : null), f.outcome);
     k += w * f.outcome;
     seen += w;
   });

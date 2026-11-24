@@ -318,3 +318,33 @@ describe('recalibration fit at the edges', () => {
     expect(Math.abs(-fit.a / 0.09 - n * s)).toBeLessThan(1e-4);
   });
 });
+
+describe('prequential correction stays honest when it refits less often', () => {
+  it('matches the refit-every-step score on a long history', () => {
+    const rng = seededRng('preq');
+    const fs: Forecast[] = Array.from({ length: 600 }, (_, i) => {
+      const p = 0.5 + 0.49 * rng();
+      return {
+        at: new Date(Date.UTC(2024, 0, 1) + i * D).toISOString(),
+        p,
+        outcome: rng() < p - 0.1 ? 1 : 0,
+      };
+    });
+    let exact = 0;
+    fs.forEach((f, i) => {
+      const fit = i ? fitRecalibration(fs.slice(0, i)) : null;
+      exact += (recalibrate(f.p, fit) - f.outcome) ** 2;
+    });
+    const report = calibrationReport(fs);
+    expect(report.correctedBrier).toBeCloseTo(exact / fs.length, 3);
+    expect(report.fit.b).toBeCloseTo(fitRecalibration(fs).b, 6);
+  });
+
+  it('a warm start reaches the same MAP as a cold one', () => {
+    const fs = synthetic(300, 0.3, 0.7);
+    const cold = fitRecalibration(fs);
+    const warm = fitRecalibration(fs, { a: 2, b: 3 });
+    expect(warm.a).toBeCloseTo(cold.a, 6);
+    expect(warm.b).toBeCloseTo(cold.b, 6);
+  });
+});
