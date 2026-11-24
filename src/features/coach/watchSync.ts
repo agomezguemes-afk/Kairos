@@ -13,14 +13,15 @@ import {
   planKey,
   sessionFromWatch,
 } from '../../lib/watch/protocol';
-import { useCoachStore } from '../../store/coachStore';
+import { flushCoachStorage, useCoachStore } from '../../store/coachStore';
 
 let lastKey: string | null = null;
 
 /** Sends the plan if it changed since the last push. Safe to call often. */
 export function pushPlanToWatch(force = false): void {
   const m = watchModule();
-  if (!m) return;
+  // Before hydration the store is empty: the wrist would get an empty plan.
+  if (!m || !useCoachStore.persist.hasHydrated()) return;
   const { plan, sessions, dayPlan, biometrics } = useCoachStore.getState();
   const payload = planForWatch(plan, sessions, dayPlan, estimateHrMax(biometrics?.hrMax));
   const key = planKey(payload);
@@ -41,7 +42,10 @@ export function pushPlanToWatch(force = false): void {
  */
 export function ingestWatchSessions(): number {
   const m = watchModule();
-  if (!m) return 0;
+  // Recording before hydration writes a one-session state to disk and the
+  // hydration merge then drops the new session. Left unacked, the watch keeps
+  // it queued and the post-hydration start() picks it up.
+  if (!m || !useCoachStore.persist.hasHydrated()) return 0;
   let pending: string[];
   try {
     pending = m.pendingSessions();
@@ -69,7 +73,11 @@ export function ingestWatchSessions(): number {
     }
     ack.push(r.id);
   }
-  if (ack.length) m.ackSessions(ack);
+  // Ack only once the sessions are on disk: the watch deletes what we ack.
+  if (ack.length)
+    flushCoachStorage()
+      .then(() => m.ackSessions(ack))
+      .catch((e) => console.warn('[watch] ack deferred to the next sync', e));
   return added;
 }
 

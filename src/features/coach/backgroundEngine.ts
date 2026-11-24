@@ -27,13 +27,15 @@ export async function runConsolidation(now: Date = new Date()): Promise<void> {
   if (!useCoachStore.persist.hasHydrated()) await useCoachStore.persist.rehydrate();
   // Health data is unreadable while the phone is locked; then the pass
   // runs on what is already stored and the morning open catches up.
+  // Sessions logged on the wrist with the app closed go in first: recordSession
+  // only schedules a deferred pass, which never runs in a headless task, so
+  // ingesting after the passes would push yesterday's session as today's plan.
+  ingestWatchSessions();
   const synced = await syncHealth(now);
   if (synced.status !== 'synced') useCoachStore.getState().consolidate(now, { background: true });
   // At night there is time: finish distilling the past (no time budget).
   for (let i = 0; i < MAX_NIGHT_PASSES && useCoachStore.getState().enginePending; i++)
     useCoachStore.getState().consolidate(now, { background: true });
-  // Sessions logged on the wrist with the app closed; then the morning plan to the watch.
-  ingestWatchSessions();
   pushPlanToWatch();
   await flushCoachStorage();
 }
