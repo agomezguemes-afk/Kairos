@@ -142,6 +142,9 @@ export function workoutToSession(w: WatchWorkout, hrMax: number): SessionLog | n
   };
 }
 
+/** Two imported workouts of the same sport overlapping this much are one workout. */
+const SAME_WORKOUT_OVERLAP = 0.8;
+
 function overlapRatio(a: SessionLog, w: WatchWorkout): number {
   const a0 = new Date(a.startedAt).getTime();
   const a1 = new Date(a.endedAt).getTime();
@@ -210,6 +213,41 @@ export function mergeWatchWorkouts(
     }
     const s = workoutToSession(w, opts.hrMax);
     if (!s) continue;
+    // The same run recorded by two apps (Apple Watch and Strava, say) is one
+    // workout: count it once and only fill in what the first copy lacked.
+    const copy = out.find(
+      (o) =>
+        o.source === 'watch' && o.sport === s.sport && overlapRatio(o, w) >= SAME_WORKOUT_OVERLAP,
+    );
+    if (copy) {
+      const fill = {
+        hrAvg: copy.sensors?.hrAvg ?? s.sensors?.hrAvg,
+        hrMax: copy.sensors?.hrMax ?? s.sensors?.hrMax,
+        distanceKm: copy.distanceKm ?? s.distanceKm,
+      };
+      if (
+        fill.hrAvg !== copy.sensors?.hrAvg ||
+        fill.hrMax !== copy.sensors?.hrMax ||
+        fill.distanceKm !== copy.distanceKm
+      ) {
+        out = out.map((o) =>
+          o.id === copy.id
+            ? {
+                ...o,
+                distanceKm: fill.distanceKm,
+                sensors: {
+                  ...o.sensors,
+                  sources: o.sensors?.sources ?? s.sensors?.sources ?? [],
+                  hrAvg: fill.hrAvg,
+                  hrMax: fill.hrMax,
+                },
+              }
+            : o,
+        );
+        enriched++;
+      }
+      continue;
+    }
     out.push(s);
     known.add(s.id);
     added++;

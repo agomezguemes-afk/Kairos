@@ -191,3 +191,43 @@ describe('sessions coming back from the watch', () => {
     expect(byBundle.sessions).toHaveLength(0);
   });
 });
+
+describe('the same workout from two apps', () => {
+  const run = (uuid: string, source: string, extra: Record<string, unknown> = {}) => ({
+    uuid,
+    activityType: 37, // running
+    start: '2026-11-17T07:00:00Z',
+    end: '2026-11-17T07:50:00Z',
+    distanceKm: 10,
+    sourceName: source,
+    sourceBundle: `com.${source.toLowerCase()}`,
+    ...extra,
+  });
+
+  it('counts once and fills in what the first copy lacked', () => {
+    const r = mergeWatchWorkouts(
+      [],
+      [
+        run('A', 'Strava'),
+        run('B', 'Watch', { start: '2026-11-17T07:01:00Z', hrAvg: 150, hrMax: 172 }),
+      ],
+      { hrMax: 190 },
+    );
+    expect(r.added).toBe(1);
+    expect(r.sessions).toHaveLength(1);
+    expect(r.sessions[0].distanceKm).toBe(10);
+    expect(r.sessions[0].sensors?.hrAvg).toBe(150);
+  });
+
+  it('a different workout later the same morning still lands', () => {
+    const r = mergeWatchWorkouts(
+      [],
+      [
+        run('A', 'Strava'),
+        run('C', 'Watch', { start: '2026-11-17T08:30:00Z', end: '2026-11-17T09:00:00Z' }),
+      ],
+      { hrMax: 190 },
+    );
+    expect(r.sessions).toHaveLength(2);
+  });
+});
