@@ -29,6 +29,8 @@ interface VariantConfig {
   iosBundleId: string;
   androidPackage: string;
   scheme: string;
+  /** EAS project for this slug; each variant is its own Expo project. */
+  easProjectId?: string;
 }
 
 const VARIANTS: Record<AppEnv, VariantConfig> = {
@@ -38,6 +40,7 @@ const VARIANTS: Record<AppEnv, VariantConfig> = {
     iosBundleId: 'com.alvaro.kairos.dev',
     androidPackage: 'com.kairos.app.dev',
     scheme: 'kairos-dev',
+    easProjectId: '6e36dddd-483d-4c57-9a22-98db49a49e7f',
   },
   staging: {
     name: 'Kairos β',
@@ -63,6 +66,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: variant.name,
     slug: variant.slug,
+    owner: 'alvarogg',
     scheme: variant.scheme,
     version: '1.0.0',
     orientation: 'portrait',
@@ -77,6 +81,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       supportsTablet: true,
       bundleIdentifier: variant.iosBundleId,
       jsEngine: 'hermes',
+      // Signs the phone app and the watch app with the same team. Optional:
+      // without it, pick the team for both targets in Xcode › Signing.
+      ...(process.env.APPLE_TEAM_ID ? { appleTeamId: process.env.APPLE_TEAM_ID } : {}),
     },
     android: {
       adaptiveIcon: {
@@ -89,11 +96,47 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     web: {
       favicon: './assets/favicon.png',
     },
-    plugins: ['expo-font'],
+    plugins: [
+      'expo-font',
+      // OS-scheduled background work (BGTaskScheduler): the engine
+      // consolidates overnight. Adds only Info.plist keys, no entitlement,
+      // so it signs with a free Personal Team.
+      'expo-background-task',
+      // Apple Watch via HealthKit: imports watch workouts (with HR), sleep,
+      // HRV and resting HR; writes Kairos sessions back. Background
+      // delivery is off: overnight reads happen in the task above, and it
+      // keeps the entitlement set to plain HealthKit.
+      [
+        '@kingstinct/react-native-healthkit',
+        {
+          background: false,
+          NSHealthShareUsageDescription:
+            'Kairos lee los entrenos de tu Apple Watch, tu sueño, tu variabilidad cardiaca y tu pulso en reposo para ajustar cada sesión a cómo estás.',
+          NSHealthUpdateUsageDescription:
+            'Kairos guarda tus sesiones en Salud para que cuenten en tus anillos de actividad.',
+        },
+      ],
+      // Kairos on the Apple Watch (targets/watch): a SwiftUI watchOS app
+      // embedded in the phone app. Sets are logged on the wrist with live HR,
+      // and the phone can borrow the watch's HR during its own session.
+      '@bacons/apple-targets',
+      // Standard BLE sensors (HR straps, cadence/RPM pods, power meters)
+      // for live sessions. Foreground only: a workout is on screen.
+      [
+        'react-native-ble-plx',
+        {
+          isBackgroundEnabled: false,
+          modes: [],
+          bluetoothAlwaysPermission:
+            'Kairos se conecta a tu banda de pulso, sensor de cadencia o potenciómetro para medir tu entreno en tiempo real.',
+        },
+      ],
+    ],
     // Surface the active variant to the JS bundle so the UI can render
     // a subtle environment chip in non-prod builds (next sprint).
     extra: {
       appEnv: env,
+      ...(variant.easProjectId ? { eas: { projectId: variant.easProjectId } } : {}),
     },
   };
 };

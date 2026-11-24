@@ -1,8 +1,8 @@
 module.exports = function (api) {
   api.cache(true);
   return {
-    // zustand's ESM middleware reads `import.meta.env`, which is a syntax
-    // error in Metro's non-module web bundle unless Babel polyfills it.
+    // zustand v5 middleware reads import.meta.env; web bundles are classic
+    // scripts, so it must be transformed or the app dies on load.
     presets: [['babel-preset-expo', { unstable_transformImportMeta: true }]],
     plugins: [
       // react-native-worklets/plugin must be last (Reanimated 4 delegates to worklets)

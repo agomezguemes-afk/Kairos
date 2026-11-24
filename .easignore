@@ -1,0 +1,37 @@
+# EAS uploads using this file INSTEAD of .gitignore, so it mirrors it.
+#
+# The extra /ios and /android entries make EAS run `expo prebuild` in the
+# cloud with the profile's APP_ENV. The committed native folders are a
+# snapshot of the production variant (com.alvaro.kairos); uploading them
+# would make every EAS profile ship the prod bundle ID.
+/ios
+/android
+
+node_modules/
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.DS_Store
+.env
+.env.local
+.env.development
+.env.staging
+.env.production
+.superpowers/
+
+.agents/
+.claude/
+.codex-work/
+.continue/
+.mcp.json
+skills-lock.json
+build/
+cspell.json

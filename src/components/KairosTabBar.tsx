@@ -1,234 +1,264 @@
-// KAIROS — Tab Bar v3 (floating capsule, simplified active state)
-// Spec: docs/superpowers/specs/2026-04-27-kairos-visual-refinement-design.md §4.1
+// KAIROS — Tab Bar v5 (direction "D · Bloque", 2026-11-09)
 //
-// Design:
-//   - Floating capsule with BlurView + warm overlay, hairline border, elevated shadow.
-//   - Single animated gold glow pill tracks the active tab (springs.indicator).
-//   - Icon-only. accessibilityLabel carries the human name for VoiceOver.
-//   - Active icon: strokeWidth 2, gold. Inactive: strokeWidth 1.6, ink.muted.
-//     Color and weight swap on focus change (no cross-fade — Apple-style snap).
-//   - Pop on focus: scale 1.0 → 1.12 → 1.0 in 240ms via spring (springs.tap).
-//   - Haptic on tab change: selectionAsync.
+// Left: a capsule with four groups. The active one grows into a gold pill
+// with its label; dragging a finger across the capsule walks the pill to
+// the neighbouring groups. Right: a round "start training" button of the
+// same height, so the bar reads as two symmetric pieces.
 
-import React, { useEffect, useRef, useCallback } from 'react';
-import { View, Pressable, StyleSheet, LayoutChangeEvent } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../types/navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import Animated, {
-  useSharedValue,
+  Easing,
+  interpolate,
+  interpolateColor,
   useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
   useReducedMotion,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import KIcon, { type KIconName } from './icons/KIcon';
-import { Colors, Radius, Shadows, Spacing } from '../theme/tokens';
-import { springs, timings } from '../theme/animations';
+import { Brut, Spacing } from '../theme/tokens';
+import { BPress, BText } from '../features/coach/ui/brut';
+import { useCoachStore } from '../store/coachStore';
 
-const BAR_HEIGHT = 56;
-const PILL_SIZE = 36;
+const BAR_HEIGHT = 58;
+const TAB_SIZE = 44;
+const ACTIVE_W = 104;
+/** Finger travel that moves the pill one group. */
+const SWIPE_STEP = 56;
+const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 
-const TAB_ICONS: Record<string, KIconName> = {
-  HomeTab: 'note',
-  WorkoutTab: 'zap',
-  ProgressTab: 'chart',
-  ProfileTab: 'settings',
-};
+// The bar shows four groups. HomeTab (legacy day log) stays routable but
+// is not a group of its own any more: the coach hub is "Hoy".
+const GROUPS: { route: string; icon: KIconName; label: string }[] = [
+  { route: 'CoachTab', icon: 'unlock', label: 'Hoy' },
+  { route: 'WorkoutTab', icon: 'grid', label: 'Bloques' },
+  { route: 'ProgressTab', icon: 'chart', label: 'Progreso' },
+  { route: 'ProfileTab', icon: 'settings', label: 'Tú' },
+];
 
-const TAB_LABELS: Record<string, string> = {
-  HomeTab: 'Hoy',
-  WorkoutTab: 'Bloques',
-  ProgressTab: 'Progreso',
-  ProfileTab: 'Perfil',
-};
-
-interface TabIconProps {
-  name: KIconName;
+interface TabProps {
+  icon: KIconName;
+  label: string;
   focused: boolean;
+  onPress: () => void;
 }
 
-/**
- * Tab icon with snap color/weight switch on focus and a subtle scale-pop
- * to reinforce the change. No cross-fade layer — the gold pill behind
- * the icon already carries the spatial motion; the icon itself reads as
- * a discrete state change, which is faster and matches iOS conventions.
- */
-const TabIcon = React.memo(function TabIcon({ name, focused }: TabIconProps) {
-  const reduceMotion = useReducedMotion();
-  const scale = useSharedValue(1);
+const Tab = React.memo(function Tab({ icon, label, focused, onPress }: TabProps) {
+  const reduce = useReducedMotion();
+  const t = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {
-    if (!focused || reduceMotion) return;
-    // Pop only when becoming focused. Inactive→inactive shouldn't fire.
-    scale.value = withSequence(
-      withSpring(1.12, { ...springs.tap, mass: 0.4 }),
-      withSpring(1.0, springs.tap),
-    );
-  }, [focused, reduceMotion, scale]);
+    const to = focused ? 1 : 0;
+    t.value = reduce ? to : withTiming(to, { duration: Brut.motion.tab, easing: EASE });
+  }, [focused, reduce, t]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+  const pill = useAnimatedStyle(() => ({
+    width: interpolate(t.value, [0, 1], [TAB_SIZE, ACTIVE_W]),
+    backgroundColor: interpolateColor(t.value, [0, 1], ['rgba(201,169,110,0)', Brut.accent]),
+    borderColor: interpolateColor(t.value, [0, 1], ['rgba(18,18,17,0)', Brut.ink]),
+  }));
+  // The label fades in after the pill has started opening, so it never
+  // renders squashed inside a pill that is still too narrow.
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(t.value, [0.45, 1], [0, 1], 'clamp'),
+    maxWidth: interpolate(t.value, [0, 1], [0, ACTIVE_W - 38]),
   }));
 
   return (
-    <Animated.View style={[iconStyles.wrapper, animatedStyle]}>
-      <KIcon
-        name={name}
-        size={22}
-        color={focused ? Colors.gold.base : Colors.ink.muted}
-        strokeWidth={focused ? 2 : 1.6}
-      />
-    </Animated.View>
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: focused }}
+      onPress={onPress}
+      hitSlop={4}
+    >
+      <Animated.View style={[styles.tab, pill]}>
+        <KIcon name={icon} size={20} color={Brut.ink} strokeWidth={focused ? 2.1 : 1.7} />
+        <Animated.View style={[styles.labelWrap, labelStyle]}>
+          <BText variant="bodyBold" size={13} numberOfLines={1}>
+            {label}
+          </BText>
+        </Animated.View>
+      </Animated.View>
+    </Pressable>
   );
-});
-
-const iconStyles = StyleSheet.create({
-  wrapper: {
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 });
 
 export default function KairosTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const plan = useCoachStore((s) => s.plan);
+  const sessions = useCoachStore((s) => s.sessions);
 
-  // Layout of the bar — needed to position the pill.
-  const tabWidthsRef = useRef<number[]>([]);
-  const tabXsRef = useRef<number[]>([]);
-  const pillX = useSharedValue(0);
-  const pillVisible = useSharedValue(0);
-
-  const updatePill = useCallback(
-    (index: number) => {
-      const x = tabXsRef.current[index];
-      const w = tabWidthsRef.current[index];
-      if (x === undefined || w === undefined) return;
-      // Center the pill within the tab.
-      pillX.value = withSpring(x + (w - PILL_SIZE) / 2, springs.indicator);
-    },
-    [pillX],
+  const groups = useMemo(
+    () =>
+      GROUPS.map((g) => ({ ...g, route: state.routes.find((r) => r.name === g.route) })).filter(
+        (g): g is typeof g & { route: NonNullable<typeof g.route> } => !!g.route,
+      ),
+    [state.routes],
   );
+  const activeKey = state.routes[state.index]?.key;
+  const activeIdx = groups.findIndex((g) => g.route.key === activeKey);
 
-  // When tabs are laid out, record positions and snap pill to initial active tab.
-  const handleTabLayout = useCallback(
-    (event: LayoutChangeEvent, index: number) => {
-      const { x, width } = event.nativeEvent.layout;
-      tabXsRef.current[index] = x;
-      tabWidthsRef.current[index] = width;
-
-      // Once we have all tab positions, position the pill.
-      if (tabXsRef.current.filter(Boolean).length === state.routes.length) {
-        pillVisible.value = withTiming(1, timings.fast);
-        updatePill(state.index);
+  const goTo = useCallback(
+    (i: number) => {
+      const g = groups[i];
+      if (!g) return;
+      const focused = g.route.key === activeKey;
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: g.route.key,
+        canPreventDefault: true,
+      });
+      if (!focused && !event.defaultPrevented) {
+        Haptics.selectionAsync().catch(() => {});
+        navigation.navigate(g.route.name as never);
       }
     },
-    [state.routes.length, state.index, pillVisible, updatePill],
+    [activeKey, groups, navigation],
   );
 
-  // Animate pill when active index changes.
-  useEffect(() => {
-    updatePill(state.index);
-  }, [state.index, updatePill]);
+  const swipeBy = useCallback(
+    (steps: number) => {
+      const from = activeIdx < 0 ? 0 : activeIdx;
+      const to = Math.max(0, Math.min(groups.length - 1, from + steps));
+      if (to !== from || activeIdx < 0) goTo(to);
+    },
+    [activeIdx, goTo, groups.length],
+  );
 
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pillX.value }],
-    opacity: pillVisible.value,
-  }));
+  // Horizontal drag on the capsule: the pill follows the finger direction.
+  // The responder is only claimed once the finger clearly moves sideways,
+  // so taps still land on the tabs. A ref keeps the latest swipeBy without
+  // rebuilding the responder each render.
+  const swipeRef = useRef(swipeBy);
+  useEffect(() => {
+    swipeRef.current = swipeBy;
+  }, [swipeBy]);
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) =>
+          Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy),
+        onPanResponderRelease: (_, g) => {
+          const steps = Math.round(g.dx / SWIPE_STEP);
+          if (steps !== 0) swipeRef.current(steps);
+        },
+        onPanResponderTerminationRequest: () => true,
+      }),
+    [],
+  );
+
+  // The next session to do: the accepted one done fewest times, earliest
+  // slot first. No plan → define a goal; no kept sessions → pick some.
+  const startTraining = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    // Coach screens live on the root stack, one level above the tabs.
+    const stack = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
+    if (!stack) return;
+    if (!plan) {
+      stack.navigate('CoachGoal');
+      return;
+    }
+    const kept = plan.sessions.filter((s) => s.status === 'accepted');
+    if (!kept.length) {
+      stack.navigate('CoachPlan');
+      return;
+    }
+    const done = (id: string) => sessions.filter((s) => s.draftSessionId === id).length;
+    const next = [...kept].sort((a, b) => done(a.id) - done(b.id) || a.slot - b.slot)[0];
+    stack.navigate('LiveSession', { draftSessionId: next.id });
+  }, [navigation, plan, sessions]);
 
   return (
     <View
-      style={[
-        styles.container,
-        {
-          bottom: insets.bottom + 16,
-        },
-      ]}
+      style={[styles.container, { bottom: insets.bottom + Spacing.md }]}
       pointerEvents="box-none"
     >
-      {/* Floating capsule */}
-      <View style={styles.capsule}>
-        {/* Blur layer */}
-        <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
-        {/* Warm overlay on top of blur */}
-        <View style={[StyleSheet.absoluteFill, styles.warmOverlay]} />
-
-        {/* Animated gold pill — sits below icons */}
-        <Animated.View style={[styles.pill, pillStyle]} pointerEvents="none" />
-
-        {/* Tabs */}
-        {state.routes.map((route, idx) => {
-          const focused = state.index === idx;
-          const icon = TAB_ICONS[route.name] ?? 'note';
-          const label = TAB_LABELS[route.name] ?? route.name;
-
-          return (
-            <Pressable
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              accessibilityState={focused ? { selected: true } : undefined}
-              hitSlop={8}
-              onLayout={(e) => handleTabLayout(e, idx)}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                const event = navigation.emit({
-                  type: 'tabPress',
-                  target: route.key,
-                  canPreventDefault: true,
-                });
-                if (!focused && !event.defaultPrevented) {
-                  navigation.navigate(route.name as never);
-                }
-              }}
-              style={styles.tab}
-            >
-              <TabIcon name={icon} focused={focused} />
-            </Pressable>
-          );
-        })}
+      <View style={styles.capsuleWrap} {...pan.panHandlers}>
+        <View style={styles.capsuleShadow} pointerEvents="none" />
+        <View style={styles.capsule} accessibilityRole="tablist">
+          {groups.map((g, i) => (
+            <Tab
+              key={g.route.key}
+              icon={g.icon}
+              label={g.label}
+              focused={i === activeIdx}
+              onPress={() => goTo(i)}
+            />
+          ))}
+        </View>
       </View>
+
+      <BPress
+        onPress={startTraining}
+        bg={Brut.accent}
+        radius={BAR_HEIGHT / 2}
+        shadow={Brut.shadow.sm}
+        contentStyle={styles.start}
+        accessibilityRole="button"
+        accessibilityLabel="Empezar entreno"
+      >
+        <Svg width={20} height={20} viewBox="0 0 24 24" style={{ marginLeft: 3 }}>
+          <Path d="M7 4.5v15l13-7.5z" fill={Brut.ink} />
+        </Svg>
+      </BPress>
     </View>
   );
 }
+
+const SH = Brut.shadow.sm;
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     left: Spacing.lg,
     right: Spacing.lg,
-    // bottom set inline using insets
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+  capsuleWrap: { flex: 1, marginRight: SH, marginBottom: SH },
+  capsuleShadow: {
+    position: 'absolute',
+    top: SH,
+    left: SH,
+    right: -SH,
+    bottom: -SH,
+    borderRadius: BAR_HEIGHT / 2,
+    backgroundColor: Brut.ink,
   },
   capsule: {
     height: BAR_HEIGHT,
-    borderRadius: Radius['3xl'],
+    borderRadius: BAR_HEIGHT / 2,
+    borderWidth: Brut.border,
+    borderColor: Brut.ink,
+    backgroundColor: Brut.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.hair.base,
-    ...Shadows.elevated,
-  },
-  warmOverlay: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    borderRadius: Radius['3xl'],
-  },
-  pill: {
-    position: 'absolute',
-    top: (BAR_HEIGHT - PILL_SIZE) / 2,
-    left: 0,
-    width: PILL_SIZE,
-    height: PILL_SIZE,
-    borderRadius: PILL_SIZE / 2,
-    backgroundColor: Colors.gold.glow,
+    justifyContent: 'space-between',
+    paddingHorizontal: 5,
   },
   tab: {
-    flex: 1,
+    height: TAB_SIZE,
+    borderRadius: TAB_SIZE / 2,
+    borderWidth: Brut.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    overflow: 'hidden',
+  },
+  labelWrap: { overflow: 'hidden' },
+  start: {
+    width: BAR_HEIGHT,
     height: BAR_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',

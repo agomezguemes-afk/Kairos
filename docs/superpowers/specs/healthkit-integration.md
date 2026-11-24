@@ -1,5 +1,7 @@
 # HealthKit Integration
 
+> **Superseded (2026-11-18).** The coach now uses `@kingstinct/react-native-healthkit` through `src/lib/health/appleHealth.ts`; see «Biometría — Apple Watch vía HealthKit» in `docs/engine/ENGINE-v2.md`. This file documents the legacy `workoutStore` path.
+
 **Status:** Abstraction layer shipped. Native module activation pending — single user-driven step.
 
 ## What's already done

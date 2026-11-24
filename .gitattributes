@@ -1,0 +1,8 @@
+# Force LF in the working tree on every OS. Without this, Git for Windows'
+# default core.autocrlf=true checks files out as CRLF and Prettier
+# (endOfLine: lf) flags the whole codebase.
+* text=auto eol=lf
+
+# Windows-only scripts must keep CRLF to run under cmd.exe.
+*.bat text eol=crlf
+*.cmd text eol=crlf
