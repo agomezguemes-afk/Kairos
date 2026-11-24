@@ -7,6 +7,8 @@ import { useMemo } from 'react';
 import {
   expertPanel,
   nextDraftSession,
+  painActiveAt,
+  planCoversNow,
   readinessV2,
   weekAt,
   weekNote,
@@ -15,8 +17,6 @@ import {
   type ReadinessV2,
 } from '../../lib/engine';
 import { useCoachStore } from '../../store/coachStore';
-
-const PAIN_NOW_MS = 3 * 86_400_000;
 
 export function useTodayPanel(now: number): { panel: Panel; readiness: ReadinessV2 } {
   const plan = useCoachStore((s) => s.plan);
@@ -48,9 +48,7 @@ export function useTodayPanel(now: number): { panel: Panel; readiness: Readiness
         nextMovements,
         adherence: signals?.adherence ?? null,
         pain: signals?.pain ?? null,
-        painNow:
-          !!signals?.pain?.active ||
-          checkins.some((c) => c.pain && now - new Date(c.at).getTime() <= PAIN_NOW_MS),
+        painNow: painActiveAt(signals?.pain, checkins, new Date(now)),
         calibration,
         memory,
         checkins,
@@ -61,9 +59,6 @@ export function useTodayPanel(now: number): { panel: Panel; readiness: Readiness
 
   return { panel, readiness };
 }
-
-/** A background plan is reused within this distance of the moment it was made for. */
-const PLAN_VALID_MS = 6 * 3_600_000;
 
 /**
  * Today's call for Home. The engine already decided it in its last pass
@@ -88,7 +83,7 @@ export function useTodayVerdict(now: number): Pick<PanelVerdict, 'band' | 'note'
     if (
       dayPlan &&
       dayPlan.draftSessionId === draft.id &&
-      Math.abs(now - new Date(dayPlan.forDate).getTime()) <= PLAN_VALID_MS
+      planCoversNow(dayPlan.forDate, new Date(now))
     )
       return { band: dayPlan.band, note: dayPlan.note };
     const nextMovements = draft.movements.map((m) => m.movementId);
@@ -102,9 +97,7 @@ export function useTodayVerdict(now: number): Pick<PanelVerdict, 'band' | 'note'
       nextMovements,
       adherence: signals?.adherence ?? null,
       pain: signals?.pain ?? null,
-      painNow:
-        !!signals?.pain?.active ||
-        checkins.some((c) => c.pain && now - new Date(c.at).getTime() <= PAIN_NOW_MS),
+      painNow: painActiveAt(signals?.pain, checkins, new Date(now)),
       calibration,
       memory,
       checkins,

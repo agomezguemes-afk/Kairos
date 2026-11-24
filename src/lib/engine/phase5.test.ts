@@ -12,7 +12,7 @@ import {
   survivalAt,
 } from './survival';
 import { abSchedule, analyseTrial, createTrial, trialPoints, type TrialPoint } from './trial';
-import { consolidate, trimTargets } from './consolidate';
+import { consolidate, forecastDate, planCoversNow, trimTargets } from './consolidate';
 
 const NOW = new Date('2026-11-17T12:00:00Z');
 const D = 86_400_000;
@@ -359,5 +359,27 @@ describe('painActiveAt', () => {
 
   it('an active episode is enough on its own', () => {
     expect(painActiveAt({ active: true }, [], at)).toBe(true);
+  });
+});
+
+describe('planCoversNow', () => {
+  // Local-time constructors: forecastDate works in the device's own clock.
+  const at = (h: number, m = 0, dayOffset = 0) => new Date(2026, 10, 17 + dayOffset, h, m);
+
+  it('in the evening the plan made for tomorrow morning is the current one', () => {
+    const planned = forecastDate(at(20, 30)).toISOString();
+    expect(new Date(planned).getTime()).toBe(at(9, 0, 1).getTime());
+    expect(planCoversNow(planned, at(20, 30))).toBe(true);
+    expect(planCoversNow(planned, at(23, 59))).toBe(true);
+  });
+
+  it('a plan for another day is not reused', () => {
+    expect(planCoversNow(at(9, 0, -1).toISOString(), at(20, 30))).toBe(false);
+    expect(planCoversNow(at(9, 0, 2).toISOString(), at(20, 30))).toBe(false);
+  });
+
+  it('during the day the 6 h window still applies', () => {
+    expect(planCoversNow(at(9).toISOString(), at(14))).toBe(true);
+    expect(planCoversNow(at(7).toISOString(), at(14))).toBe(false);
   });
 });

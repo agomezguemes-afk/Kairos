@@ -87,6 +87,8 @@ export {
   shapeSession,
   sessionAdjustment,
   dayPlanAt,
+  planCoversNow,
+  forecastDate,
 } from './consolidate';
 export type { Consolidation, DayPlan, PanelContext, Signals } from './consolidate';
 export {

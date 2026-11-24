@@ -310,6 +310,21 @@ export function dayPlanAt(
 const PLAN_VALID_MS = 6 * 3_600_000;
 
 /**
+ * Whether a background plan is the one to show on Home now. The pass plans
+ * for forecastDate(now): from 18:00 that is tomorrow 09:00, more than
+ * PLAN_VALID_MS away, so every evening Home redid readiness and the panel
+ * on the render path. A plan made for exactly the moment the engine would
+ * pick now is current. Starting a session is stricter (sessionAdjustment):
+ * tomorrow's plan never adjusts a session started tonight.
+ */
+export function planCoversNow(forDate: string, now: Date): boolean {
+  const planned = new Date(forDate).getTime();
+  return (
+    Math.abs(now.getTime() - planned) <= PLAN_VALID_MS || planned === forecastDate(now).getTime()
+  );
+}
+
+/**
  * The adjustment for a session starting now: the background plan when it
  * was made for this session and this moment, a fresh forecast otherwise
  * (an evening session after the engine already planned for tomorrow).
