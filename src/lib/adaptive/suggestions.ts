@@ -48,6 +48,12 @@ export interface EngineInput {
   context?: ArmContext;
   /** P(pain comes back within 14 days): makes load steps more cautious. */
   painRisk?: number;
+  /**
+   * Pain is active right now (engine/survival painActiveAt). Blocks every load
+   * step outright: right after an episode risk14 is low, so the asymmetric
+   * threshold alone would still let a step through.
+   */
+  painNow?: boolean;
   /** The load decision's track record: corrects its success probabilities. */
   loadCalibration?: Recalibration;
 }
@@ -510,7 +516,29 @@ export function generateSuggestions(input: EngineInput): Suggestion[] {
       rarity: 'common',
     });
   }
-  const suppress = fatigue.count >= 2;
+  if (input.painNow) {
+    const reason = 'marcaste dolor en los últimos 3 días';
+    // Card ids are session:kind:movement, so a second session-level hold
+    // would collide with the fatigue one: fold the reason into it instead.
+    const fatigueHold = drafts.find((d) => d.kind === 'hold' && !d.movementId);
+    if (fatigueHold) {
+      fatigueHold.evidence = [...(fatigueHold.evidence ?? []), reason];
+      fatigueHold.rationale +=
+        ' Además marcaste dolor hace poco: no subo nada hasta que pasen 3 días sin dolor.';
+    } else {
+      drafts.push({
+        kind: 'hold',
+        movementId: '',
+        title: 'Mantén mientras haya dolor',
+        rationale:
+          'Marcaste dolor hace poco. Hasta que pasen 3 días sin dolor repito cargas y no añado ejercicios nuevos.',
+        evidence: [reason],
+        confidence: confidenceFor(all.length),
+        rarity: 'common',
+      });
+    }
+  }
+  const suppress = fatigue.count >= 2 || !!input.painNow;
 
   for (const ml of session.movements) {
     const occ = occurrences(ml.movementId, all);
@@ -518,6 +546,9 @@ export function generateSuggestions(input: EngineInput): Suggestion[] {
     drafts.push(...enduranceRules(occ, suppress));
   }
   if (!suppress) drafts.push(...qualityGapRule(input, now));
+  // A plateau variant is still a new exercise: not while something hurts.
+  if (input.painNow)
+    drafts.splice(0, drafts.length, ...drafts.filter((d) => d.kind !== 'new_movement'));
 
   const profile = input.experiments ? responseProfile(input.experiments) : undefined;
   const ordered = personalise(drafts, input.experiments, input.context, session.id)

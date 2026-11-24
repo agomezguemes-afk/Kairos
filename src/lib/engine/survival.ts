@@ -262,3 +262,26 @@ export function painRecurrence(
     active: daysSince < 3,
   };
 }
+
+/** Pain counts as "now" for 3 days after it was last marked. */
+export const PAIN_NOW_MS = 3 * DAY_MS;
+
+/**
+ * One rule for "pain is active right now", shared by the expert panel and
+ * the load suggestions so the two can never disagree: the last episode is
+ * recent, or a check-in marked pain within PAIN_NOW_MS.
+ */
+export function painActiveAt(
+  pain: Pick<PainRecurrence, 'active'> | null | undefined,
+  checkins: CheckIn[],
+  at: Date,
+): boolean {
+  const t = at.getTime();
+  return (
+    !!pain?.active ||
+    checkins.some((c) => {
+      const age = t - new Date(c.at).getTime();
+      return !!c.pain && age >= 0 && age <= PAIN_NOW_MS;
+    })
+  );
+}

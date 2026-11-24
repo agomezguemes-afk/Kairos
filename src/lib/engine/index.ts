@@ -63,6 +63,8 @@ export {
   adherence,
   painRecurrence,
   painEpisodes,
+  painActiveAt,
+  PAIN_NOW_MS,
   LAPSE_DAYS,
 } from './survival';
 export type { Adherence, PainRecurrence, SurvivalObs, WeibullPosterior } from './survival';

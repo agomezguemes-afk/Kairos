@@ -33,6 +33,7 @@ import {
   consolidate as consolidatePass,
   dayIndex,
   mergeBioDays,
+  painActiveAt,
   readinessV2,
   sessionAdjustment,
   type Advice,
@@ -272,6 +273,7 @@ export const useCoachStore = create<CoachState>()(
           experiments,
           context: contextNow(sessions, checkins, get().biometrics),
           painRisk: get().signals?.pain?.risk14,
+          painNow: painActiveAt(get().signals?.pain, checkins, new Date()),
           loadCalibration: get().calibration?.load.fit,
         });
         // Re-running on the same session must not duplicate cards.

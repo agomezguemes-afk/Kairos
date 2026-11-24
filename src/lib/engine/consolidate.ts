@@ -22,7 +22,13 @@ import {
 } from './block';
 import { readinessV2, READINESS_SWC, type ReadinessV2 } from './readiness';
 import type { Biometrics } from './biometrics';
-import { adherence, painRecurrence, type Adherence, type PainRecurrence } from './survival';
+import {
+  adherence,
+  painActiveAt,
+  painRecurrence,
+  type Adherence,
+  type PainRecurrence,
+} from './survival';
 import {
   calibrate,
   REPLAY_MAX,
@@ -258,9 +264,6 @@ export interface PanelContext {
   readiness?: ReadinessV2;
 }
 
-/** Pain is "now" for 3 days after it was marked (same rule as readiness). */
-const PAIN_NOW_MS = 3 * 86_400_000;
-
 /** The expert panel's plan for one draft session at one moment. */
 export function dayPlanAt(
   next: DraftSession,
@@ -274,8 +277,7 @@ export function dayPlanAt(
   const nextMovements = next.movements.map((m) => m.movementId);
   const r = ctx.readiness ?? readinessV2(sessions, checkins, when, { biometrics, nextMovements });
   const t = when.getTime();
-  const painNow =
-    !!pain?.active || checkins.some((c) => c.pain && t - new Date(c.at).getTime() <= PAIN_NOW_MS);
+  const painNow = painActiveAt(pain, checkins, when);
   const panel = expertPanel({
     readiness: r,
     sessions,
@@ -396,9 +398,7 @@ export function consolidate(input: ConsolidationInput): Consolidation {
           readiness,
           cases,
           sessions,
-          painNow:
-            !!pain?.active ||
-            checkins.some((c) => c.pain && t - new Date(c.at).getTime() <= PAIN_NOW_MS),
+          painNow: painActiveAt(pain, checkins, now),
           painRisk: pain?.risk14 ?? null,
           plan: started.plan,
           now,

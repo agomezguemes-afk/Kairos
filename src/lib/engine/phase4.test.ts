@@ -217,3 +217,45 @@ describe('engine integration', () => {
     expect(volume / 40).toBeGreaterThan(0.7);
   });
 });
+
+describe('active pain blocks load steps', () => {
+  const NOW = new Date('2026-11-17T12:00:00Z');
+  const DAY = 86_400_000;
+  const squatAt = (daysAgo: number): SessionLog => ({
+    id: `pain-s${daysAgo}`,
+    draftSessionId: 'ds1',
+    title: 'F',
+    sport: 'strength',
+    startedAt: new Date(NOW.getTime() - daysAgo * DAY).toISOString(),
+    endedAt: new Date(NOW.getTime() - daysAgo * DAY + 3_000_000).toISOString(),
+    durationMin: 50,
+    rpe: 7,
+    movements: [
+      {
+        movementId: 'back_squat',
+        target: { sets: 3, repsMin: 6, repsMax: 8, rir: 2 },
+        sets: [1, 2, 3].map(() => ({ reps: 8, loadKg: 60, rir: 2, completed: true })),
+      },
+    ],
+  });
+  const input = {
+    session: squatAt(0.1),
+    history: [9, 6, 3].map(squatAt),
+    now: NOW,
+    // Right after an episode risk14 is ~0.11: on its own it still lets a step through.
+    painRisk: 0.11,
+  };
+
+  it('without active pain the top of the range earns a step', () => {
+    const kinds = generateSuggestions(input).map((s) => s.kind);
+    expect(kinds).toContain('increase_load');
+  });
+
+  it('with active pain nothing goes up and a hold explains why', () => {
+    const out = generateSuggestions({ ...input, painNow: true });
+    expect(out.map((s) => s.kind)).not.toContain('increase_load');
+    expect(out.map((s) => s.kind)).not.toContain('new_movement');
+    const hold = out.find((s) => s.kind === 'hold');
+    expect(hold?.evidence).toContain('marcaste dolor en los últimos 3 días');
+  });
+});

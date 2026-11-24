@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest';
 import type { CheckIn, PlanDraft, SessionLog } from '../adaptive';
 import { backdoorSet, dSeparated, PHYSIO_DAG, safeCovariates } from './dag';
 import { chooseLoad, lossRatioFor, seededRng } from './decision';
-import { adherence, fitWeibull, painRecurrence, riskWithin, survivalAt } from './survival';
+import {
+  adherence,
+  fitWeibull,
+  painActiveAt,
+  painRecurrence,
+  riskWithin,
+  survivalAt,
+} from './survival';
 import { abSchedule, analyseTrial, createTrial, trialPoints, type TrialPoint } from './trial';
 import { consolidate, trimTargets } from './consolidate';
 
@@ -328,5 +335,29 @@ describe('forecast moment', () => {
     expect([evening.getDate(), evening.getHours()]).toEqual([18, 9]);
     const night = forecastDate(at(3));
     expect([night.getDate(), night.getHours()]).toEqual([17, 9]);
+  });
+});
+
+describe('painActiveAt', () => {
+  const at = new Date('2026-11-17T12:00:00Z');
+  const mark = (hours: number): CheckIn => ({
+    id: `pain${hours}`,
+    at: new Date(at.getTime() + hours * 3_600_000).toISOString(),
+    kind: 'pre',
+    pain: true,
+  });
+
+  it('counts pain marked within the last 3 days', () => {
+    expect(painActiveAt(null, [mark(-2)], at)).toBe(true);
+    expect(painActiveAt(null, [mark(-71)], at)).toBe(true);
+    expect(painActiveAt(null, [mark(-73)], at)).toBe(false);
+  });
+
+  it('ignores pain marked after the moment being judged (no look-ahead in replays)', () => {
+    expect(painActiveAt(null, [mark(5)], at)).toBe(false);
+  });
+
+  it('an active episode is enough on its own', () => {
+    expect(painActiveAt({ active: true }, [], at)).toBe(true);
   });
 });
