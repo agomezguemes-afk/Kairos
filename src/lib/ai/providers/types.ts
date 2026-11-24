@@ -35,6 +35,13 @@ export interface ProviderCapabilities {
 export interface ChatRequest {
   messages: ChatMessage[];
   json?: boolean;
+  /**
+   * JSON Schema the answer must follow. On-device models turn it into a
+   * grammar, so they cannot emit anything else; JSON-mode-only back ends
+   * use it as `json`. The caller still validates: a grammar fixes syntax,
+   * not meaning.
+   */
+  schema?: Record<string, unknown>;
   tools?: ToolDefinition[];
   temperature?: number;
   maxTokens?: number;

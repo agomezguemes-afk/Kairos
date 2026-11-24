@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseGoal } from '../adaptive/goalParser';
-import { interpretGoal, mergeAiGoal } from './goalInterpreter';
+import {
+  GOAL_JSON_SCHEMA,
+  GOAL_SYSTEM_PROMPT,
+  interpretGoal,
+  mergeAiGoal,
+} from './goalInterpreter';
 
 const base = () => ({ ...parseGoal('quiero estar mejor'), source: 'rules' as const });
 
@@ -140,5 +145,23 @@ describe('interpretGoal', () => {
     const g = await interpretGoal('aguantar rutas de montaña', 20);
     expect(g.source).toBe('rules');
     expect(g.sports).toEqual(['hiking']);
+  });
+});
+
+describe('GOAL_JSON_SCHEMA', () => {
+  it('asks for exactly the fields the prompt describes', () => {
+    const promptKeys = [...GOAL_SYSTEM_PROMPT.matchAll(/^\s+"(\w+)":/gm)].map((m) => m[1]).sort();
+    const schemaKeys = Object.keys(GOAL_JSON_SCHEMA.properties as object).sort();
+    expect(schemaKeys).toEqual(promptKeys);
+    expect([...(GOAL_JSON_SCHEMA.required as string[])].sort()).toEqual(promptKeys);
+  });
+
+  it('only allows sports and qualities mergeAiGoal accepts', () => {
+    const props = GOAL_JSON_SCHEMA.properties as Record<string, { items: { enum: string[] } }>;
+    const base = { ...parseGoal('correr'), source: 'rules' as const };
+    for (const sport of props.sports.items.enum)
+      expect(mergeAiGoal(base, { sports: [sport] }).sports).toEqual([sport]);
+    for (const quality of props.qualities.items.enum)
+      expect(mergeAiGoal(base, { qualities: [quality] }).qualities).toEqual([quality]);
   });
 });

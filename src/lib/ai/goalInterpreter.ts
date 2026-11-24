@@ -110,19 +110,50 @@ export function mergeAiGoal(base: ParsedGoal, raw: unknown): ParsedGoal {
   };
 }
 
-const goalRequest = (text: string) => ({
+/**
+ * The same shape as GOAL_SYSTEM_PROMPT, as a JSON Schema. On-device models
+ * decode under it as a grammar, so a small model cannot return a sport or a
+ * quality outside the lists; mergeAiGoal still validates every field.
+ */
+const nullable = (schema: Record<string, unknown>) => ({ anyOf: [schema, { type: 'null' }] });
+export const GOAL_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    sports: { type: 'array', items: { enum: [...SPORTS] }, minItems: 1, maxItems: MAX_SPORTS },
+    qualities: { type: 'array', items: { enum: [...QUALITIES] }, maxItems: MAX_QUALITIES },
+    daysPerWeek: nullable({ type: 'integer', minimum: 1, maximum: 7 }),
+    horizonWeeks: nullable({ type: 'integer', minimum: 1, maximum: 104 }),
+    confidence: { type: 'number', minimum: 0, maximum: 1 },
+    summary: { type: 'string', maxLength: 90 },
+    question: nullable({ type: 'string', maxLength: 140 }),
+  },
+  required: [
+    'sports',
+    'qualities',
+    'daysPerWeek',
+    'horizonWeeks',
+    'confidence',
+    'summary',
+    'question',
+  ],
+  additionalProperties: false,
+};
+
+export const goalChatRequest = (text: string) => ({
   messages: [
     { role: 'system' as const, content: GOAL_SYSTEM_PROMPT },
     { role: 'user' as const, content: text.trim().slice(0, 600) },
   ],
   json: true,
+  schema: GOAL_JSON_SCHEMA,
   temperature: 0.2,
   maxTokens: 300,
 });
 
 export function isGoalAiAvailable(): boolean {
   return (
-    planRoute('goal', goalRequest(''), availableProviders(), currentRouteContext()).order.length > 0
+    planRoute('goal', goalChatRequest(''), availableProviders(), currentRouteContext()).order
+      .length > 0
   );
 }
 
@@ -141,7 +172,7 @@ export async function interpretGoal(
   const attempts: { id: string; error: string }[] = [];
   const routed = await routeChat(
     'goal',
-    goalRequest(text),
+    goalChatRequest(text),
     availableProviders(),
     currentRouteContext(),
     {

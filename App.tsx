@@ -13,6 +13,7 @@ import { ThemeProvider } from './src/theme/ThemeContext';
 import { useFonts } from 'expo-font';
 import { useBackgroundThinking } from './src/features/coach/useBackgroundThinking';
 import { useWatchSync } from './src/features/coach/watchSync';
+import { useLocalAi } from './src/lib/ai/local/install';
 // Side effect: defines the overnight engine task before anything renders.
 import './src/features/coach/backgroundEngine';
 import { Anton_400Regular } from '@expo-google-fonts/anton';
@@ -32,6 +33,7 @@ function AppContent() {
   const initialize = useAuthStore((s) => s.initialize);
   useBackgroundThinking();
   useWatchSync();
+  useLocalAi();
 
   useEffect(() => {
     // Restore existing Supabase session from AsyncStorage and load profile
