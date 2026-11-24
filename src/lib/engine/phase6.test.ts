@@ -280,3 +280,24 @@ describe('Apple Watch workouts', () => {
     expect(r.sessions.map((s) => s.id)).toEqual(['hk-B', 'hk-A']);
   });
 });
+
+describe('implausible sleep data', () => {
+  const sample = (start: string, end: string) => ({ start, end, value: 1 });
+
+  it('a stuck 20 h asleep sample is not a night', () => {
+    expect(sleepByNight([sample('2026-11-16T14:00:00Z', '2026-11-17T10:00:00Z')]).size).toBe(0);
+  });
+
+  it('merged samples over 14 h are left out instead of read as a great night', () => {
+    const night = sleepByNight([
+      sample('2026-11-16T15:00:00Z', '2026-11-17T00:00:00Z'),
+      sample('2026-11-17T00:00:00Z', '2026-11-17T08:00:00Z'),
+    ]);
+    expect(night.size).toBe(0);
+  });
+
+  it('a normal night still counts', () => {
+    const night = sleepByNight([sample('2026-11-16T23:00:00Z', '2026-11-17T07:00:00Z')]);
+    expect([...night.values()]).toEqual([8]);
+  });
+});

@@ -42,6 +42,10 @@ export interface Biometrics {
   updatedAt: string;
 }
 
+/** Longest single asleep sample and longest night accepted as real data. */
+const MAX_SAMPLE_MS = 16 * HOUR_MS;
+const MAX_NIGHT_MS = 14 * HOUR_MS;
+
 /**
  * A night belongs to the day you wake up: anything ending before 14:00
  * counts for that day. Shifting by 10 h keeps it on UTC day buckets,
@@ -61,7 +65,8 @@ export function sleepByNight(samples: SleepSample[]): Map<number, number> {
     if (!ASLEEP_VALUES.has(s.value)) continue;
     const a = new Date(s.start).getTime();
     const b = new Date(s.end).getTime();
-    if (!(b > a)) continue;
+    // A single "asleep" sample longer than any real sleep is a stuck sensor.
+    if (!(b > a) || b - a > MAX_SAMPLE_MS) continue;
     const k = nightOf(s.end);
     const list = byNight.get(k) ?? [];
     list.push([a, b]);
@@ -80,8 +85,10 @@ export function sleepByNight(samples: SleepSample[]): Map<number, number> {
       }
     }
     total += ce - cs;
-    // Under 2 h is a nap or a watch taken off mid-night: not a night.
-    if (total >= 2 * HOUR_MS) out.set(k, total / HOUR_MS);
+    // Under 2 h is a nap or a watch taken off mid-night: not a night. Over
+    // MAX_NIGHT_MS is implausible data, not a great night: leaving it out means
+    // "no measurement", instead of erasing debt and adding a sleep bonus.
+    if (total >= 2 * HOUR_MS && total <= MAX_NIGHT_MS) out.set(k, total / HOUR_MS);
   }
   return out;
 }
