@@ -276,7 +276,6 @@ export function dayPlanAt(
 ): DayPlan {
   const nextMovements = next.movements.map((m) => m.movementId);
   const r = ctx.readiness ?? readinessV2(sessions, checkins, when, { biometrics, nextMovements });
-  const t = when.getTime();
   const painNow = painActiveAt(pain, checkins, when);
   const panel = expertPanel({
     readiness: r,
