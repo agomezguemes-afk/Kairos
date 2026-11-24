@@ -259,7 +259,10 @@ export function readinessV2(
     modelProbability,
     form: {
       mean: todayState?.form ?? 0,
-      sd: Math.sqrt(Math.max(0, (todayState?.variance ?? OBS_VAR) - OBS_VAR)),
+      // States built before formVar existed fall back to the old upper bound.
+      sd: Math.sqrt(
+        Math.max(0, todayState?.formVar ?? (todayState?.variance ?? OBS_VAR) - OBS_VAR),
+      ),
     },
     expected: { mean: mean - level, sd },
     evidence,

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import type { CheckIn, MovementLog, SessionLog } from '../adaptive';
 import {
+  dailyImpulses,
   dayIndex,
+  fitTaus,
   learnSensitivity,
   readinessV2,
   recoveryRate,
@@ -12,6 +14,7 @@ import {
   SLEEP_SHAPE,
   SORENESS_SHAPE,
   sorenessLikelihood,
+  strengthObservations,
   type DayState,
 } from './index';
 
@@ -204,5 +207,22 @@ describe('corrupted timestamps', () => {
     const bad: CheckIn = { ...pre(0, 1, 5), id: 'bad', at: 'not a date' };
     const r = readinessV2(history, [pre(0, 4, 2), bad], NOW);
     expect(Number.isFinite(r.probability)).toBe(true);
+  });
+});
+
+describe('net form uncertainty', () => {
+  it('form.sd is the SD of k1·g − k2·h, without the baseline', () => {
+    const sessions = Array.from({ length: 10 }, (_, i) => session((10 - i) * 24, [squat(5)]));
+    const r = readinessV2(sessions, [], NOW);
+    const ff = fitTaus(
+      dailyImpulses(sessions, dayIndex),
+      strengthObservations(sessions, dayIndex),
+      TODAY,
+    );
+    const last = ff.days[ff.days.length - 1];
+    const v = [0, last.fitness, -last.fatigue];
+    const Pv = ff.cov.map((row) => row[0] * v[0] + row[1] * v[1] + row[2] * v[2]);
+    const expected = Math.sqrt(v[0] * Pv[0] + v[1] * Pv[1] + v[2] * Pv[2]);
+    expect(r.form.sd).toBeCloseTo(expected, 6);
   });
 });

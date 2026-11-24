@@ -113,6 +113,8 @@ export interface DayState {
   variance: number;
   /** Net form k1·g − k2·h (%), the part training controls. */
   form: number;
+  /** Variance of the net form from parameter uncertainty: vᵀPv, v = [0, g, −h]. */
+  formVar?: number;
   observed?: number;
   /** Prediction made before this day's observation (one step ahead). */
   predicted: number;
@@ -184,6 +186,10 @@ export function runFitnessFatigue(
     }
 
     const varTheta = dot(phi, matVec(P, phi));
+    // Net form leaves out the baseline p0, so its variance drops p0's own
+    // variance and its covariances with the gains.
+    const v: Vec3 = [0, g, -h];
+    const formVar = dot(v, matVec(P, v));
     days.push({
       day,
       fitness: g,
@@ -191,6 +197,7 @@ export function runFitnessFatigue(
       mean: dot(phi, theta),
       variance: varTheta + OBS_VAR,
       form: theta[1] * g - theta[2] * h,
+      formVar,
       observed: obsByDay.get(day)?.[0],
       predicted,
       predictedVar,
