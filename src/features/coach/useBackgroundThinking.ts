@@ -18,9 +18,14 @@ function runIfStale() {
   const { consolidatedAt, consolidate } = useCoachStore.getState();
   const stale = !consolidatedAt || Date.now() - new Date(consolidatedAt).getTime() > STALE_MS;
   // A sync that brings anything new consolidates on its own; otherwise think if stale.
-  syncHealth().then((r) => {
-    if (r.status !== 'synced' && stale) consolidate();
-  });
+  syncHealth()
+    .then((r) => {
+      if (r.status !== 'synced' && stale) consolidate();
+    })
+    .catch((e) => {
+      console.warn('[engine] health sync failed; thinking on stored data', e);
+      if (stale) consolidate();
+    });
 }
 
 export function useBackgroundThinking() {

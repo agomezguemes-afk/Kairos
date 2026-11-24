@@ -394,22 +394,32 @@ export const useCoachStore = create<CoachState>()(
 
       consolidate: (now = new Date(), opts = {}) => {
         const { plan, sessions, checkins, experiments, trials, goal } = get();
-        const c = consolidatePass({
-          plan,
-          sessions,
-          checkins,
-          experiments,
-          trials,
-          daysPerWeek: goal?.daysPerWeek,
-          biometrics: get().biometrics,
-          advice: get().advice,
-          cache: get().engineCache,
-          archive: get().archive,
-          block: get().block,
-          // In the foreground a pass never holds the UI for more than a frame or three.
-          ...(opts.background ? { budget: Infinity } : { budgetMs: FOREGROUND_BUDGET_MS }),
-          now,
-        });
+        let c: ReturnType<typeof consolidatePass>;
+        try {
+          c = consolidatePass({
+            plan,
+            sessions,
+            checkins,
+            experiments,
+            trials,
+            daysPerWeek: goal?.daysPerWeek,
+            biometrics: get().biometrics,
+            advice: get().advice,
+            cache: get().engineCache,
+            archive: get().archive,
+            block: get().block,
+            // In the foreground a pass never holds the UI for more than a frame or three.
+            ...(opts.background ? { budget: Infinity } : { budgetMs: FOREGROUND_BUDGET_MS }),
+            now,
+          });
+        } catch (e) {
+          // The pass is advisory: keep the last good plan and the person's data
+          // rather than crash on every launch because of one bad record.
+          // Pending is cleared so a deterministic failure does not loop.
+          console.warn('[engine] consolidation failed; keeping the previous plan', e);
+          set({ enginePending: false });
+          return;
+        }
         set({
           plan: c.plan,
           trials: c.trials,
