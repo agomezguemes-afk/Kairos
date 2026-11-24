@@ -59,35 +59,50 @@ interface Hit {
   sets: number;
 }
 
-/** Set-equivalents of one logged movement, so endurance work also counts. */
-function setEquivalents(m: MovementLog): { sets: number; intensity: number } {
+/**
+ * Set-equivalents of one logged movement and their summed intensity, so
+ * endurance work also counts. Intensity is summed set by set: i(RIR) has a
+ * kink at 3, so applying it to the average RIR undercounts mixed sessions.
+ */
+function setEquivalents(m: MovementLog): { sets: number; load: number } {
   const done = m.sets.filter((s) => s.completed);
-  if (!done.length) return { sets: 0, intensity: 0 };
+  if (!done.length) return { sets: 0, load: 0 };
   const strength = done.some((s) => s.reps !== undefined);
   if (strength) {
-    const avgRir = done.reduce((a, s) => a + (s.rir ?? 2), 0) / done.length;
-    return { sets: done.length, intensity: 1 + 0.15 * Math.max(0, 3 - avgRir) };
+    const load = done.reduce((a, s) => a + 1 + 0.15 * Math.max(0, 3 - (s.rir ?? 2)), 0);
+    return { sets: done.length, load };
   }
   // Steady/interval work: 20 min ≈ one moderate set.
   const minutes = done.reduce((a, s) => a + (s.durationSec ?? 0), 0) / 60;
-  return { sets: minutes / 20, intensity: 0.6 };
+  return { sets: minutes / 20, load: (minutes / 20) * 0.6 };
 }
 
+/**
+ * One hit per session and region. Damage is Σ sets · w · i(RIR); the sets
+ * that set τ are the region's whole volume in that session, so the same
+ * training logged as one entry or split in two recovers alike.
+ */
 export function regionHits(sessions: SessionLog[]): Hit[] {
   const hits: Hit[] = [];
   for (const s of sessions) {
     const at = new Date(s.endedAt).getTime();
     if (!Number.isFinite(at)) continue;
+    const byRegion = new Map<Region, { damage: number; sets: number }>();
     for (const m of s.movements) {
       const map = MOVEMENT_REGIONS[m.movementId];
       if (!map) continue;
-      const { sets, intensity } = setEquivalents(m);
+      const { sets, load } = setEquivalents(m);
+      if (sets <= 0) continue;
       const ecc = ECCENTRIC.has(m.movementId) ? 1.2 : 1;
       for (const [r, w] of Object.entries(map) as [Region, number][]) {
-        if (w > 0 && sets > 0)
-          hits.push({ at, region: r, damage: sets * w * intensity * ecc, sets });
+        if (w <= 0) continue;
+        const acc = byRegion.get(r) ?? { damage: 0, sets: 0 };
+        acc.damage += load * w * ecc;
+        acc.sets += sets;
+        byRegion.set(r, acc);
       }
     }
+    for (const [region, { damage, sets }] of byRegion) hits.push({ at, region, damage, sets });
   }
   return hits;
 }

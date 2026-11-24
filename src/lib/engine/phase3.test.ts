@@ -6,9 +6,11 @@ import {
   dayIndex,
   fitTaus,
   learnSensitivity,
+  MOVEMENT_REGIONS,
   readinessV2,
   recoveryRate,
   recoveryStatus,
+  regionHits,
   SENSITIVITY_PRIOR,
   sleepDebt,
   SLEEP_SHAPE,
@@ -224,5 +226,32 @@ describe('net form uncertainty', () => {
     const Pv = ff.cov.map((row) => row[0] * v[0] + row[1] * v[1] + row[2] * v[2]);
     const expected = Math.sqrt(v[0] * Pv[0] + v[1] * Pv[1] + v[2] * Pv[2]);
     expect(r.form.sd).toBeCloseTo(expected, 6);
+  });
+});
+
+describe('recovery follows the spec formula', () => {
+  const squatRirs = (rirs: number[]): MovementLog => ({
+    movementId: 'back_squat',
+    target: { sets: rirs.length, repsMin: 5, repsMax: 5 },
+    sets: rirs.map((rir) => ({ reps: 5, loadKg: 100, rir, completed: true })),
+  });
+
+  it('damage sums i(RIR) set by set', () => {
+    const legs = regionHits([session(1, [squatRirs([0, 0, 6, 6])])]).find(
+      (h) => h.region === 'legs',
+    )!;
+    // Spec: Σ i(RIR) = 1.45 + 1.45 + 1 + 1 = 4.9, times the region weight.
+    expect(legs.damage).toBeCloseTo(4.9 * MOVEMENT_REGIONS.back_squat.legs!, 9);
+  });
+
+  it('the same training logged as one entry or two recovers alike', () => {
+    const one = recoveryStatus([session(48, [squatRirs(Array(12).fill(1))])], NOW, 1);
+    const two = recoveryStatus(
+      [session(48, [squatRirs(Array(6).fill(1)), squatRirs(Array(6).fill(1))])],
+      NOW,
+      1,
+    );
+    const legs = (r: typeof one) => r.find((x) => x.region === 'legs')!.recovered;
+    expect(legs(two)).toBeCloseTo(legs(one), 9);
   });
 });
