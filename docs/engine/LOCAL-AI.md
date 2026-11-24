@@ -13,11 +13,11 @@ Una sola interfaz (`src/lib/ai/providers`) y un router que elige quién responde
 | Nivel | Motor | Dónde corre | Estado |
 |---|---|---|---|
 | 1 | Apple Foundation Models (~3B, ventana de 4K) | iPhone 15 Pro o posterior con Apple Intelligence, iOS 26+ | Pendiente (módulo nativo) |
-| 2 | Modelo descargado vía llama.rn (llama.cpp + Metal) | Cualquier iPhone con 6 GB o más, **incluido el 12 Pro** | Pendiente (módulo nativo) |
+| 2 | Modelo descargado vía llama.rn (llama.cpp + Metal) | Cualquier iPhone con GPU Apple7+ (A14 o posterior), **incluido el iPhone 13 de pruebas** | **Hecho**, a falta de medirlo en el dispositivo |
 | 3 | Nube: Groq hoy; Private Cloud Compute en iOS 27 | Con red y consentimiento | **Hecho** (detrás del router) |
 | 4 | Reglas deterministas | Siempre | Ya existía |
 
-El iPhone 12 Pro no admite Apple Intelligence, así que el nivel 2 es imprescindible.
+El iPhone 13 de pruebas no admite Apple Intelligence (hace falta un iPhone 15 Pro o posterior), así que el nivel 2 es imprescindible.
 
 ### Orden por tarea (`TASK_ORDER`)
 
@@ -36,44 +36,66 @@ El iPhone 12 Pro no admite Apple Intelligence, así que el nivel 2 es imprescind
 - Cada intento tiene su tiempo límite. Si un proveedor falla, o su respuesta no supera la validación de quien llama, se prueba el siguiente.
 - Si ninguno responde, el resultado es `null` y quien llama usa sus reglas. La persona nunca ve un error de IA.
 
-## Modelo local elegido
+## Modelos candidatos y dispositivo de pruebas
 
-**Qwen3-1.7B en Q4_K_M** (~1,1 GB, Apache-2.0), con el modo de razonamiento desactivado (`enable_thinking: false`; llama.rn lo activa por defecto).
+Pruebas en un **iPhone 13 (A15, 4 GB)** y **sin la cuenta de pago de Apple Developer** hasta el lanzamiento. Eso fija dos condiciones:
 
-Estimación en el A14: unos 20–25 tokens/s al generar. Es una extrapolación, hay que medirlo en tu 12 Pro.
+- **Sin entitlements de memoria.** El plugin de llama.rn está configurado con `enableEntitlements: false`; verificado con `expo config`, el único entitlement es HealthKit. La app sigue firmando con el Personal Team.
+- **Sin entitlements, iOS cierra la app hacia la mitad de la RAM.** Hay una medición de 2,1 GB en un iPhone 13. El modelo tiene que caber en ese margen junto a Kairos.
 
-Alternativas que evaluar con nuestro propio conjunto de pruebas en español:
-- **Qwen3.5-2B**: tiene un bloqueo abierto en iOS 27.2.1, llama.rn #439.
-- **Qwen3-4B**: solo para teléfonos con 8 GB, y solo para la revisión semanal.
+| Modelo | Archivo (Q4_K_M) | Licencia | iPhone 13 (estimado) | 6 GB (estimado) |
+|---|---|---|---|---|
+| Qwen3 0.6B | 397 MB | Apache-2.0 | Cabe | Cabe |
+| LFM2.5 1.2B | 731 MB | LFM Open 1.0 (gratis por debajo de 10 M$/año) | Cabe | Cabe |
+| Qwen3 1.7B | 1.107 MB | Apache-2.0 | Demasiado grande | Cabe |
+
+Los tamaños y las SHA-256 son los registros LFS de Hugging Face, leídos el 24 de noviembre de 2026; están en `src/lib/ai/local/catalog.ts`. Las estimaciones salen de `fitOnDevice` y **el laboratorio las sustituye por medidas**.
+
+## Laboratorio IA
+
+Pantalla interna (Perfil → Laboratorio IA). Solo aparece en las variantes "Kairos Dev" y "Kairos β"; en producción, nunca.
+
+Por cada modelo permite:
+- descargarlo, con confirmación del tamaño y aviso de datos móviles;
+- probarlo;
+- marcarlo como **el modelo del coach**;
+- borrarlo.
+
+La prueba (`src/lib/ai/local/lab.ts`) mide:
+- el tiempo de carga;
+- la velocidad de lectura y de escritura (`bench` de llama.cpp);
+- 4 objetivos reales en español: JSON válido y deporte correcto.
+
+El informe sale en texto seleccionable para pegarlo en el chat.
+
+Al marcar un modelo como el del coach, el intérprete de objetivos lo usa primero. Si falla, pasa a la nube o a las reglas.
+
+## Cómo está montado
+
+| Pieza | Archivo | Notas |
+|---|---|---|
+| Registro de proveedores y contexto vivo | `src/lib/ai/providers/index.ts` | Sin importaciones nativas: todo lo que lo usa se prueba en Node. |
+| Proveedor local | `src/lib/ai/local/llamaProvider.ts` | Una generación a la vez. Cancelar detiene la generación nativa. Si iOS borró el archivo, marca el modelo como ausente y el router pasa al siguiente. |
+| Traducción a llama.rn | `src/lib/ai/local/mapping.ts` | Razonamiento desactivado. Esquema JSON convertido en gramática. Contexto lleno o interrupción cuentan como fallo. |
+| Runtime nativo | `src/lib/ai/local/runtime.ios.ts` | `runtime.ts` es el sustituto fuera de iOS, así la web y los tests no cargan nada nativo. |
+| Ciclo de vida | `src/lib/ai/local/install.ts` | En segundo plano: detener. Ante un aviso de memoria: liberar el modelo. Al volver: comprobar los archivos. |
+
+Decisiones técnicas:
+- **Modelos en `Library/Caches/models`**, como piden las normas de iOS para lo que se puede volver a descargar. `Documents` se copia a iCloud: 1 GB en la copia de cada persona es motivo de rechazo.
+- **Contexto de 2.048 tokens** con caché de claves y valores en q8.
+- **llama.rn fijado en `0.13.0-rc.12`**: la 0.12.9 pierde memoria de Metal al liberar el modelo (#398).
 
 ## Lo que falta, en orden
 
-1. **Medir en tu iPhone 12 Pro.** Ejecutar el benchmark de llama.rn con Qwen3-1.7B y anotar tokens/s, memoria máxima y temperatura. Ningún dato público cubre este chip con modelos de este tamaño.
-2. **Módulo llama.rn.**
-   - Fijar una versión exacta. 0.12.9 pierde memoria de Metal al liberar el modelo (#398); desde 0.13.0-rc.3 está corregido.
-   - Prueba de carga y descarga repetida en el 12 Pro.
-   - Comprobar la memoria disponible antes de cargar el modelo.
-3. **Descarga del modelo.**
-   - Después de instalar, nunca incluido en la app.
-   - Reanudable y con verificación SHA-256.
-   - En `Application Support`, excluido de la copia de iCloud.
-   - Pedir permiso antes de descargar 1,1 GB por datos móviles.
-   - Manifiesto remoto para poder cambiar de modelo sin publicar una versión nueva.
-4. **Conjunto de pruebas en español.** De 150 a 300 casos:
-   - Objetivos, incluidas expresiones de Latinoamérica.
-   - Ediciones de bloques con las llamadas a herramientas esperadas.
-   - Resúmenes, con una regla clave: ninguna cifra que no esté en los datos de entrada.
-   - Se ejecutan contra la nube en CI y en el dispositivo desde una pantalla interna.
-5. **Apple Foundation Models**, vía `@react-native-ai/apple` o un módulo Expo propio.
-6. **Pantalla de consentimiento para la nube** (App Review 5.1.2(i), noviembre de 2025). Hasta entonces `currentRouteContext()` mantiene el comportamiento actual: nube permitida.
-7. **Agente con herramientas por intención.** Primero se clasifica qué quiere hacer la persona y luego se ofrecen 3–6 herramientas, no las ~36 actuales.
+1. **Medir en el iPhone 13** con el laboratorio. Con las cifras se elige el modelo por defecto para 4 GB y para 6 GB o más.
+2. **Comprobar la integridad completa del archivo.** Hoy se comprueban el tamaño exacto, la cabecera GGUF y que el modelo cargue. Para producción falta verificar la SHA-256 con CryptoKit (un módulo nativo pequeño) y servir los modelos desde un CDN propio con manifiesto remoto, no desde Hugging Face.
+3. **Conjunto de pruebas en español** (150–300 casos), en CI contra la nube y en el dispositivo desde el laboratorio.
+4. **Llevar el coach y el agente de bloques al router.** El agente necesita elegir herramientas según la intención: 3–6 por petición, no ~36.
+5. **Apple Foundation Models** para iPhone 15 Pro y posteriores.
+6. **Pantalla de consentimiento para la nube** (App Review 5.1.2(i)).
 
 ## Decisiones tuyas
 
-- **Cuenta de Apple Developer de pago.**
-  - El plugin de llama.rn añade dos entitlements de memoria (`increased-memory-limit`, `extended-virtual-addressing`). Hoy Kairos firma a propósito con un Personal Team gratuito, sin entitlements especiales.
-  - Hay que comprobar si con el Personal Team compila. Si no, hace falta el programa de pago, que de todos modos exige TestFlight.
-- **Dónde alojar el modelo.**
-  - Un CDN propio, como Cloudflare R2.
-  - O los paquetes de recursos que aloja Apple (iOS 26+), más integrados pero solo para iOS 26 o posterior.
-- **Actualizar Expo.** Kairos está en el SDK 54. ExecuTorch y Core AI ya exigen versiones más nuevas. No bloquea llama.rn, pero el desfase irá creciendo.
+- **Cuenta de pago:** pospuesta hasta el lanzamiento. Los modelos se eligen para funcionar sin ella.
+- **Dónde alojar los modelos en producción:** un CDN propio, como Cloudflare R2, o los paquetes de recursos que aloja Apple (solo iOS 26+).
+- **Actualizar Expo.** El SDK 54 se va quedando atrás: ExecuTorch y Core AI ya exigen versiones más nuevas.
