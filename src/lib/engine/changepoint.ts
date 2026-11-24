@@ -103,34 +103,63 @@ export interface ProgressionState {
   increments: number;
 }
 
-export function progressionState(increments: number[], prior: NIG = RATE_PRIOR): ProgressionState {
+/**
+ * Run lengths below this posterior mass are dropped (Adams & MacKay 2007,
+ * §2.3): without pruning every exposure adds a hypothesis and the filter is
+ * O(n²) per exercise, which made years of history slow on the brain screen.
+ */
+export const RUN_PRUNE = 1e-9;
+
+export function progressionState(
+  increments: number[],
+  prior: NIG = RATE_PRIOR,
+  prune: number = RUN_PRUNE,
+): ProgressionState {
+  // Parallel arrays over the surviving run lengths (runs[i] = length).
   let probs = [1];
   let params: NIG[] = [prior];
+  let runs = [0];
   let change = 0;
   for (const x of increments) {
     const pred = params.map((p) => Math.exp(logPredictive(x, p)));
-    const growth = probs.map((pr, r) => pr * pred[r] * (1 - HAZARD));
-    const cp = probs.reduce((a, pr, r) => a + pr * pred[r] * HAZARD, 0);
-    const next = [cp, ...growth];
-    const z = next.reduce((a, b) => a + b, 0);
-    probs = next.map((v) => v / z);
-    params = [prior, ...params.map((p) => update(p, x))];
-    change = probs[0] + (probs[1] ?? 0);
+    const growth = probs.map((pr, i) => pr * pred[i] * (1 - HAZARD));
+    const cp = probs.reduce((a, pr, i) => a + pr * pred[i] * HAZARD, 0);
+    let nextP = [cp, ...growth];
+    let nextParams = [prior, ...params.map((p) => update(p, x))];
+    let nextRuns = [0, ...runs.map((r) => r + 1)];
+    let z = nextP.reduce((a, b) => a + b, 0);
+    nextP = nextP.map((v) => v / z);
+    // Short runs are kept whatever their mass: changeProbability reads them.
+    const keep = nextP.map((v, i) => nextRuns[i] <= 1 || v >= prune);
+    if (keep.some((k) => !k)) {
+      nextP = nextP.filter((_, i) => keep[i]);
+      nextParams = nextParams.filter((_, i) => keep[i]);
+      nextRuns = nextRuns.filter((_, i) => keep[i]);
+      z = nextP.reduce((a, b) => a + b, 0);
+      nextP = nextP.map((v) => v / z);
+    }
+    probs = nextP;
+    params = nextParams;
+    runs = nextRuns;
+    change = probs.reduce((a, pr, i) => a + (runs[i] <= 1 ? pr : 0), 0);
   }
   // Mixture over regimes for the current rate.
   let plateau = 0;
   let rate = 0;
   let expectedRun = 0;
-  probs.forEach((pr, r) => {
-    const p = params[r];
+  probs.forEach((pr, i) => {
+    const p = params[i];
     const nu = 2 * p.alpha;
     const sdMu = Math.sqrt(p.beta / (p.alpha * p.kappa));
     plateau += pr * tCdf((PLATEAU_RATE - p.mu) / sdMu, nu);
     rate += pr * p.mu;
-    expectedRun += pr * r;
+    expectedRun += pr * runs[i];
   });
+  // Dense run-length distribution, indexed by length as before.
+  const runLength = new Array<number>(Math.max(...runs) + 1).fill(0);
+  probs.forEach((pr, i) => (runLength[runs[i]] = pr));
   return {
-    runLength: probs,
+    runLength,
     changeProbability: increments.length >= 2 ? change : 0,
     plateauProbability: plateau,
     expectedRun,

@@ -243,7 +243,10 @@ export function brainSnapshot(
   for (const s of [...sessions].sort((a, b) => +new Date(a.endedAt) - +new Date(b.endedAt))) {
     for (const m of s.movements) {
       const e = bestSetE1rm(m.sets.filter((x) => (x.reps ?? 99) <= 10));
-      if (e) byMovement.set(m.movementId, [...(byMovement.get(m.movementId) ?? []), e]);
+      if (!e) continue;
+      const series = byMovement.get(m.movementId);
+      if (series) series.push(e);
+      else byMovement.set(m.movementId, [e]);
     }
   }
   for (const [id, series] of byMovement) {

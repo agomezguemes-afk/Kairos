@@ -259,3 +259,35 @@ describe('active pain blocks load steps', () => {
     expect(hold?.evidence).toContain('marcaste dolor en los últimos 3 días');
   });
 });
+
+describe('BOCPD pruning', () => {
+  // Progress, stall, progress again: long runs and real changepoints.
+  const series = (n: number, seed: string) => {
+    const rng = seededRng(seed);
+    return Array.from({ length: n }, (_, i) => {
+      const regime = Math.floor(i / 60) % 3;
+      const mean = regime === 1 ? 0 : 1.5;
+      return mean + (rng() - 0.5) * 3;
+    });
+  };
+
+  it('matches the unpruned filter on long histories', () => {
+    for (const seed of ['a', 'b', 'c']) {
+      const xs = series(300, seed);
+      const pruned = progressionState(xs);
+      const exact = progressionState(xs, undefined, 0);
+      expect(pruned.rate).toBeCloseTo(exact.rate, 6);
+      expect(pruned.plateauProbability).toBeCloseTo(exact.plateauProbability, 6);
+      expect(pruned.changeProbability).toBeCloseTo(exact.changeProbability, 6);
+      expect(pruned.expectedRun).toBeCloseTo(exact.expectedRun, 4);
+      expect(isPlateau(pruned)).toBe(isPlateau(exact));
+    }
+  });
+
+  it('keeps the hypothesis count bounded as history grows', () => {
+    const xs = series(1500, 'long');
+    const s = progressionState(xs);
+    expect(s.runLength.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+    expect(s.runLength.filter((p) => p > 0).length).toBeLessThan(400);
+  });
+});
