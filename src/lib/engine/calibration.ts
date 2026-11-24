@@ -119,25 +119,37 @@ export const IDENTITY: Recalibration = { a: 0, b: 1, sdA: PRIOR_SD_A, sdB: PRIOR
 
 /**
  * Bayesian logistic recalibration (Platt 1999 with a prior; Cox 1958 for the
- * calibration slope): MAP by Newton–Raphson, Laplace approximation for the
+ * calibration slope): MAP by damped Newton, Laplace approximation for the
  * uncertainty. With few forecasts the prior keeps it near the identity.
+ *
+ * Damping matters: forecasts cluster near the clip bounds (load choices sit
+ * above 0.97), where a plain Newton step overshoots the saturated sigmoid and
+ * stops wherever iteration 30 lands. The slope is projected to b ≥ 0 because
+ * a negative slope would reverse the order of the forecasts.
  */
 export function fitRecalibration(
   forecasts: Pick<Forecast, 'p' | 'outcome' | 'w'>[],
 ): Recalibration {
   if (!forecasts.length) return IDENTITY;
   const xs = forecasts.map((f) => logit(f.p));
-  let a = 0;
-  let b = 1;
-  let h11 = 0;
-  let h12 = 0;
-  let h22 = 0;
-  for (let iter = 0; iter < 30; iter++) {
+
+  // log(1 + e^η) without overflow.
+  const softplus = (eta: number) =>
+    eta > 0 ? eta + Math.log1p(Math.exp(-eta)) : Math.log1p(Math.exp(eta));
+  const logPost = (a: number, b: number) => {
+    let lp = -0.5 * (a / PRIOR_SD_A) ** 2 - 0.5 * ((b - 1) / PRIOR_SD_B) ** 2;
+    forecasts.forEach((f, i) => {
+      const eta = a + b * xs[i];
+      lp += (f.w ?? 1) * (f.outcome * eta - softplus(eta));
+    });
+    return lp;
+  };
+  const curvature = (a: number, b: number) => {
     let g1 = -a / PRIOR_SD_A ** 2;
     let g2 = -(b - 1) / PRIOR_SD_B ** 2;
-    h11 = 1 / PRIOR_SD_A ** 2;
-    h12 = 0;
-    h22 = 1 / PRIOR_SD_B ** 2;
+    let h11 = 1 / PRIOR_SD_A ** 2;
+    let h12 = 0;
+    let h22 = 1 / PRIOR_SD_B ** 2;
     forecasts.forEach((f, i) => {
       const x = xs[i];
       const s = sigmoid(a + b * x);
@@ -149,14 +161,42 @@ export function fitRecalibration(
       h12 += w * x;
       h22 += w * x * x;
     });
-    // Newton step with the (positive-definite) negative Hessian.
+    return { g1, g2, h11, h12, h22 };
+  };
+
+  let a = 0;
+  let b = 1;
+  let lp = logPost(a, b);
+  for (let iter = 0; iter < 100; iter++) {
+    const { g1, g2, h11, h12, h22 } = curvature(a, b);
     const det = h11 * h22 - h12 * h12;
-    const da = (h22 * g1 - h12 * g2) / det;
-    const db = (h11 * g2 - h12 * g1) / det;
-    a += da;
-    b += db;
-    if (Math.abs(da) + Math.abs(db) < 1e-8) break;
+    let da = (h22 * g1 - h12 * g2) / det;
+    let db = (h11 * g2 - h12 * g1) / det;
+    // On the b = 0 boundary with the slope pushing further down, the constrained
+    // optimum is a 1-D problem in a; a projected 2-D step would stall short of it.
+    if (b === 0 && db < 0) {
+      da = g1 / h11;
+      db = 0;
+    }
+    let t = 1;
+    let accepted = false;
+    while (t > 1e-8) {
+      const na = a + t * da;
+      const nb = Math.max(0, b + t * db);
+      const nlp = logPost(na, nb);
+      if (Number.isFinite(nlp) && nlp >= lp) {
+        const moved = Math.abs(na - a) + Math.abs(nb - b);
+        a = na;
+        b = nb;
+        lp = nlp;
+        accepted = moved > 1e-10;
+        break;
+      }
+      t /= 2;
+    }
+    if (!accepted) break;
   }
+  const { h11, h12, h22 } = curvature(a, b);
   const det = h11 * h22 - h12 * h12;
   return {
     a,

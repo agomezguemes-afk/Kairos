@@ -280,3 +280,41 @@ describe('expert panel', () => {
     expect(c.dayPlan?.lead).toBeDefined();
   });
 });
+
+describe('recalibration fit at the edges', () => {
+  const at = (i: number) => new Date(Date.UTC(2026, 0, 1) + i * D).toISOString();
+
+  it('confident forecasts that all failed pull the correction down', () => {
+    // Plain Newton used to stop at the identity here and call it calibrated.
+    const fit = fitRecalibration(Array.from({ length: 100 }, () => ({ p: 0.97, outcome: 0 })));
+    expect(recalibrate(0.97, fit)).toBeLessThan(0.5);
+  });
+
+  it('saturated forecasts that hit 60 % are corrected towards 60 %', () => {
+    const rng = seededRng('sat');
+    const fs: Forecast[] = Array.from({ length: 120 }, (_, i) => ({
+      at: at(i),
+      p: 0.97 + 0.03 * rng(),
+      outcome: rng() < 0.6 ? 1 : 0,
+    }));
+    const report = calibrationReport(fs);
+    expect(report.verdict).not.toBe('underconfident');
+    const corrected = recalibrate(0.99, fitRecalibration(fs));
+    expect(corrected).toBeGreaterThan(0.4);
+    expect(corrected).toBeLessThan(0.8);
+  });
+
+  it('never reverses the order of forecasts', () => {
+    const fit = fitRecalibration(Array.from({ length: 200 }, () => ({ p: 0.9, outcome: 0 })));
+    expect(fit.b).toBeGreaterThanOrEqual(0);
+    expect(recalibrate(0.9, fit)).toBeGreaterThanOrEqual(recalibrate(0.3, fit));
+  });
+
+  it('reaches the constrained optimum when the slope sits on its bound', () => {
+    const n = 200;
+    const fit = fitRecalibration(Array.from({ length: n }, () => ({ p: 0.9, outcome: 0 })));
+    const s = sigmoid(fit.a + fit.b * logit(0.9));
+    // ∂ log-posterior / ∂a = −a/σa² + Σ(y − s) must vanish at the MAP.
+    expect(Math.abs(-fit.a / 0.09 - n * s)).toBeLessThan(1e-4);
+  });
+});
