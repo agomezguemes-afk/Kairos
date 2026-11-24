@@ -37,6 +37,7 @@ export function preByDay(checkins: CheckIn[]): Map<number, CheckIn> {
   for (const c of checkins) {
     if (c.kind !== 'pre') continue;
     const d = dayIndex(c.at);
+    if (!Number.isFinite(d)) continue;
     const prev = out.get(d);
     if (!prev || new Date(c.at) > new Date(prev.at)) out.set(d, c);
   }

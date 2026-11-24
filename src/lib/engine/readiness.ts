@@ -87,6 +87,7 @@ export function loadPattern(sessions: SessionLog[], now: Date): LoadPattern {
   const daily = new Map<number, number>();
   for (const s of sessions) {
     const d = dayIndex(s.endedAt);
+    if (!Number.isFinite(d)) continue;
     daily.set(d, (daily.get(d) ?? 0) + sessionLoad(s));
   }
   const week = (endDay: number) => Array.from({ length: 7 }, (_, i) => daily.get(endDay - i) ?? 0);

@@ -77,6 +77,7 @@ export function regionHits(sessions: SessionLog[]): Hit[] {
   const hits: Hit[] = [];
   for (const s of sessions) {
     const at = new Date(s.endedAt).getTime();
+    if (!Number.isFinite(at)) continue;
     for (const m of s.movements) {
       const map = MOVEMENT_REGIONS[m.movementId];
       if (!map) continue;

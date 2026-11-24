@@ -175,3 +175,34 @@ describe('readiness v2.1', () => {
     expect(r.band).toBe('rest');
   });
 });
+
+describe('corrupted timestamps', () => {
+  const progressing = (daysAgo: number, kg: number): SessionLog => ({
+    ...session(daysAgo * 24, []),
+    id: `prog${daysAgo}`,
+    movements: [
+      {
+        movementId: 'back_squat',
+        target: { sets: 3, repsMin: 5, repsMax: 5 },
+        sets: Array.from({ length: 3 }, () => ({ reps: 5, loadKg: kg, rir: 2, completed: true })),
+      },
+    ],
+  });
+  const history = Array.from({ length: 12 }, (_, i) => progressing(30 - 2 * i, 100 + 2 * i));
+
+  it('one unparseable session is skipped instead of turning readiness into NaN', () => {
+    const clean = readinessV2(history, [], NOW, { nextMovements: ['back_squat'] });
+    const broken = { ...progressing(1, 130), id: 'broken', endedAt: '' };
+    const r = readinessV2([...history, broken], [], NOW, { nextMovements: ['back_squat'] });
+    expect(Number.isFinite(r.probability)).toBe(true);
+    expect(r.probability).toBeCloseTo(clean.probability, 6);
+    expect(r.observations).toBe(clean.observations);
+    for (const region of r.recovery.regions) expect(Number.isFinite(region.recovered)).toBe(true);
+  });
+
+  it('an unparseable check-in does not poison the day it would have landed on', () => {
+    const bad: CheckIn = { ...pre(0, 1, 5), id: 'bad', at: 'not a date' };
+    const r = readinessV2(history, [pre(0, 4, 2), bad], NOW);
+    expect(Number.isFinite(r.probability)).toBe(true);
+  });
+});

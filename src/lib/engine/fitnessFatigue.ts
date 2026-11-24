@@ -53,9 +53,11 @@ export interface Observation {
  * scale. Sessions without usable strength sets give no observation.
  */
 export function strengthObservations(sessions: SessionLog[], dayOf: (iso: string) => number) {
-  const sorted = [...sessions].sort(
-    (a, b) => new Date(a.endedAt).getTime() - new Date(b.endedAt).getTime(),
-  );
+  // An unparseable endedAt would make the start day NaN and silently drop
+  // the whole history from the filter; skip that one session instead.
+  const sorted = sessions
+    .filter((s) => Number.isFinite(dayOf(s.endedAt)))
+    .sort((a, b) => new Date(a.endedAt).getTime() - new Date(b.endedAt).getTime());
   const seen = new Map<string, number[]>();
   const out: Observation[] = [];
   for (const s of sorted) {
@@ -87,6 +89,7 @@ export function dailyImpulses(sessions: SessionLog[], dayOf: (iso: string) => nu
   const w = new Map<number, number>();
   for (const s of sessions) {
     const d = dayOf(s.endedAt);
+    if (!Number.isFinite(d)) continue;
     w.set(d, (w.get(d) ?? 0) + sessionLoad(s) / 100);
   }
   return w;
