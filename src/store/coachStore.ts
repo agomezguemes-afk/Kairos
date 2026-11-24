@@ -45,6 +45,7 @@ import {
 } from '../lib/engine';
 import { estimateHrMax, mergeWatchWorkouts } from '../lib/health/workoutImport';
 import type { HealthPull } from '../lib/health/appleHealth';
+import { migrateCoachState } from './coachMigrate';
 import type { ArmContext } from '../lib/engine/decision';
 import type { CalibrationSet } from '../lib/engine/backtest';
 import type { EngineCache } from '../lib/engine/cache';
@@ -159,8 +160,6 @@ const initial = {
   health: { connected: false, imported: 0 } as HealthLink,
 };
 
-/** Check-ins kept: years of daily use; the models weigh old ones less. */
-const CHECKINS_MAX = 2000;
 const PENDING_DELAY_MS = 400;
 const FOREGROUND_BUDGET_MS = 50;
 
@@ -339,7 +338,9 @@ export const useCoachStore = create<CoachState>()(
         const known = new Set(suggestions.map((s) => s.id));
         set({
           // Every check-in keeps counting (the models weigh old ones less).
-          checkins: [...checkins, c].slice(-CHECKINS_MAX),
+          // Never trimmed: the models already weigh old check-ins less, and
+          // dropping the oldest also re-keyed every cached replay case.
+          checkins: [...checkins, c],
           suggestions: [...suggestions, ...fresh.filter((s) => !known.has(s.id))],
           // Time alone can open a review window; a check-in is a good moment.
           experiments: promote(experiments, sessions, now),
@@ -476,6 +477,9 @@ export const useCoachStore = create<CoachState>()(
       name: 'kairos-coach-v1',
       storage: createJSONStorage(() => trackedStorage),
       version: 1,
+      // Without a migrate, zustand hydrates `undefined` on any version bump
+      // and the next write saves an empty state over the person's history.
+      migrate: migrateCoachState,
       partialize: (s) => ({
         goal: s.goal,
         plan: s.plan,
