@@ -132,3 +132,70 @@ describe('SensorHub', () => {
     expect(stopped).toBe(1);
   });
 });
+
+describe('SensorHub attach races', () => {
+  /** A source whose start() resolves only when the test says so. */
+  function slowSource(id = 'apple-watch') {
+    let starts = 0;
+    let running = 0;
+    let release: () => void = () => {};
+    const source = {
+      id,
+      label: id,
+      transport: 'healthkit' as const,
+      kinds: ['heart_rate' as const],
+      availability: async () => ({ available: true }),
+      start: () => {
+        starts++;
+        return new Promise<() => void>((resolve) => {
+          release = () => {
+            running++;
+            resolve(() => running--);
+          };
+        });
+      },
+    };
+    return {
+      source,
+      release: () => release(),
+      get starts() {
+        return starts;
+      },
+      get running() {
+        return running;
+      },
+    };
+  }
+
+  it('leaving the screen while connecting stops the late source', async () => {
+    const hub = new SensorHub(190);
+    const s = slowSource();
+    const pending = hub.attach(s.source as never);
+    hub.stopAll();
+    s.release();
+    await pending;
+    expect(s.running).toBe(0);
+    expect(hub.attached).toEqual([]);
+  });
+
+  it('a double tap starts the source once', async () => {
+    const hub = new SensorHub(190);
+    const s = slowSource();
+    const a = hub.attach(s.source as never);
+    const b = hub.attach(s.source as never);
+    expect(hub.isStarting('apple-watch')).toBe(true);
+    s.release();
+    await Promise.all([a, b]);
+    expect(s.starts).toBe(1);
+    hub.stopAll();
+    expect(s.running).toBe(0);
+  });
+
+  it('watch heart rate relayed every ~5 s keeps its zone time', () => {
+    const hub = new SensorHub(200);
+    const t0 = 1_000_000;
+    for (let i = 0; i < 13; i++)
+      hub.ingest({ kind: 'heart_rate', value: 130, at: t0 + i * 5_500, sourceId: 'apple-watch' });
+    expect(hub.summary().zoneSeconds?.[1]).toBe(66);
+  });
+});
