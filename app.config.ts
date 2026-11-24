@@ -131,6 +131,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             'Kairos se conecta a tu banda de pulso, sensor de cadencia o potenciómetro para medir tu entreno en tiempo real.',
         },
       ],
+      // On-device language models (llama.cpp + Metal). Its memory
+      // entitlements (increased-memory-limit, extended-virtual-addressing)
+      // are off: they need the paid developer program, and the app keeps
+      // signing with a free Personal Team until launch. Model sizes are
+      // chosen to fit without them (src/lib/ai/local/catalog.ts).
+      ['llama.rn', { enableEntitlements: false, enableOpenCLAndHexagon: false }],
     ],
     // Surface the active variant to the JS bundle so the UI can render
     // a subtle environment chip in non-prod builds (next sprint).
