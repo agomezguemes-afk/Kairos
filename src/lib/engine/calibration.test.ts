@@ -9,7 +9,8 @@ import {
   reliability,
   type Forecast,
 } from './calibration';
-import { replayAdherence, replayLoads, replayPain, replayReadiness } from './backtest';
+import { replayAdherence, replayCases, replayLoads, replayPain, replayReadiness } from './backtest';
+import { buildBioDays } from './biometrics';
 import { seededRng } from './decision';
 import { expertPanel, weeklySets, type PanelInput } from './lenses';
 import { readinessV2 } from './readiness';
@@ -346,5 +347,42 @@ describe('prequential correction stays honest when it refits less often', () => 
     const warm = fitRecalibration(fs, { a: 2, b: 3 });
     expect(warm.a).toBeCloseTo(cold.a, 6);
     expect(warm.b).toBeCloseTo(cold.b, 6);
+  });
+});
+
+describe('replays never read the future', () => {
+  it("a heart-rate-variability sample taken after the session leaves that session's forecast alone", () => {
+    const H = 3_600_000;
+    const T0 = Date.UTC(2026, 9, 1, 7);
+    const sq = () => ({
+      movementId: 'back_squat',
+      target: { sets: 3, repsMin: 5, repsMax: 5 },
+      sets: Array.from({ length: 3 }, () => ({ reps: 5, loadKg: 100, rir: 2, completed: true })),
+    });
+    const sessions: SessionLog[] = Array.from({ length: 20 }, (_, i) => {
+      const t = new Date(T0 + i * 2 * D);
+      return {
+        id: `s${i}`,
+        title: 'F',
+        sport: 'strength',
+        startedAt: t.toISOString(),
+        endedAt: new Date(t.getTime() + H).toISOString(),
+        durationMin: 60,
+        rpe: 7,
+        movements: [sq()],
+      };
+    });
+    const last = sessions[sessions.length - 1];
+    const lastStart = new Date(last.startedAt).getTime();
+    const hrv = Array.from({ length: 30 }, (_, k) => ({
+      at: new Date(lastStart - (30 - k) * D - 4 * H).toISOString(),
+      value: 60 + ((30 - k) % 5),
+    }));
+    const late = [...hrv, { at: new Date(lastStart + 14 * H).toISOString(), value: 25 }];
+    const caseFor = (samples: typeof hrv) =>
+      replayCases(sessions, [], { days: buildBioDays([], samples, []), updatedAt: '' }).find(
+        (c) => c.sessionId === last.id,
+      )!;
+    expect(caseFor(late).p).toBeCloseTo(caseFor(hrv).p, 9);
   });
 });

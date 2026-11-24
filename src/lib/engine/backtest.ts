@@ -53,9 +53,21 @@ const byStart = (a: SessionLog, b: SessionLog) =>
   new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
 const ms = (iso: string) => new Date(iso).getTime();
 
+/**
+ * What the live path could have known on `day`. HRV and resting HR are
+ * stored as whole-day means, so the session day's values include samples
+ * taken after the session (look-ahead). They are dropped for that day;
+ * the night's sleep ended before the session and stays. A replay may then
+ * know a little less than the live app did, never more.
+ */
 function biometricsUntil(b: Biometrics | null | undefined, day: number): Biometrics | null {
   if (!b) return null;
-  return { ...b, days: b.days.filter((d) => d.day <= day) };
+  return {
+    ...b,
+    days: b.days
+      .filter((d) => d.day <= day)
+      .map((d) => (d.day === day ? { day: d.day, sleepHours: d.sleepHours } : d)),
+  };
 }
 
 /** One past session distilled: what was forecast, what happened, from where. */
