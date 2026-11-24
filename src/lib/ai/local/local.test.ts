@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fitOnDevice, LOCAL_MODELS, type LocalModel } from './catalog';
+import { fitOnDevice, formatBytes, LOCAL_MODELS, type LocalModel } from './catalog';
 import { formatLabReport, LAB_GOALS, runLab } from './lab';
 import { createLocalProvider } from './llamaProvider';
 import { fromCompletionResult, toCompletionParams, type LlamaCompletionResult } from './mapping';
@@ -229,5 +229,12 @@ describe('AI lab run', () => {
     const r = await runLab(runtime, large);
     expect(r.error).toBe('memoria insuficiente');
     expect(formatLabReport(r, large)).toContain('Se detuvo: memoria insuficiente');
+  });
+});
+
+describe('formatBytes', () => {
+  it('uses the decimal units iOS shows', () => {
+    expect(formatBytes(396_705_472)).toBe('397 MB');
+    expect(formatBytes(1_107_409_472)).toBe('1,1 GB');
   });
 });

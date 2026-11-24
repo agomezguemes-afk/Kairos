@@ -83,7 +83,8 @@ export function fitOnDevice(model: LocalModel, totalMemoryBytes: number | null):
   return 'too-big';
 }
 
+/** Decimal units, as iOS shows storage in Settings: 397 MB, not 378 MiB. */
 export function formatBytes(bytes: number): string {
-  if (bytes >= GB) return `${(bytes / GB).toFixed(1).replace('.', ',')} GB`;
-  return `${Math.round(bytes / 1024 ** 2)} MB`;
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1).replace('.', ',')} GB`;
+  return `${Math.round(bytes / 1e6)} MB`;
 }
