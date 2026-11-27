@@ -319,3 +319,22 @@ describe('plan mutation', () => {
     ).toBe(61);
   });
 });
+
+describe('goal parser: Spanish and Latin American phrasing', () => {
+  it('reads named weekdays, weekends and every day as days per week', () => {
+    expect(parseGoal('juego martes y jueves').daysPerWeek).toBe(2);
+    expect(parseGoal('entreno lunes, miércoles y viernes').daysPerWeek).toBe(3);
+    expect(parseGoal('salgo los findes').daysPerWeek).toBe(2);
+    expect(parseGoal('trotar todos los días').daysPerWeek).toBe(7);
+    expect(parseGoal('4 días a la semana, martes').daysPerWeek).toBe(4);
+  });
+
+  it('the sport mentioned first leads', () => {
+    expect(parseGoal('correr y algo de bici').sports).toEqual(['running', 'cycling']);
+    expect(parseGoal('bici y un poco de correr').sports).toEqual(['cycling', 'running']);
+  });
+
+  it('"bloque" is not read as climbing: in Kairos it is a training block', () => {
+    expect(parseGoal('un bloque de fuerza').sports).toEqual(['general']);
+  });
+});

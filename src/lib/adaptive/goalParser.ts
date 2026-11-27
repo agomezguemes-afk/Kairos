@@ -15,24 +15,114 @@ export function normalize(text: string): string {
 }
 
 // Order matters only for display; every match is collected.
+// Spain and Latin America ("trotar", "básquet", "cascarita"). "bloque" is
+// left out on purpose: in Kairos it means a training block.
 const SPORT_TERMS: [Sport, string[]][] = [
-  ['padel', ['padel']],
+  ['padel', ['padel', 'pickleball']],
   ['tennis', ['tenis', 'tennis']],
   [
     'climbing',
-    ['escalada', 'escalar', 'escalo', 'climbing', 'climb', 'boulder', 'bulder', 'rocodromo'],
+    [
+      'escalada',
+      'escalar',
+      'escalo',
+      'escalador',
+      'escaladora',
+      'encadenar',
+      'climbing',
+      'climb',
+      'boulder',
+      'bulder',
+      'rocodromo',
+    ],
   ],
-  ['hiking', ['hiking', 'senderismo', 'trekking', 'montana', 'montanismo', 'monte', 'hike']],
+  [
+    'hiking',
+    [
+      'hiking',
+      'senderismo',
+      'trekking',
+      'montana',
+      'montanismo',
+      'monte',
+      'hike',
+      'caminar',
+      'caminata',
+      'andando',
+      'alpinismo',
+    ],
+  ],
   [
     'running',
-    ['correr', 'corro', 'running', 'run', 'carrera', '10k', '5k', '21k', 'maraton', 'trail'],
+    [
+      'correr',
+      'corro',
+      'corriendo',
+      'trotar',
+      'trote',
+      'running',
+      'runner',
+      'run',
+      'carrera',
+      '10k',
+      '5k',
+      '21k',
+      'maraton',
+      'trail',
+      'san silvestre',
+    ],
   ],
-  ['cycling', ['bici', 'bicicleta', 'ciclismo', 'cycling', 'spinning', 'rodillo', 'mtb']],
-  ['football', ['futbol', 'football', 'soccer', 'futbito', 'futsal']],
-  ['basketball', ['baloncesto', 'basket', 'basketball']],
-  ['swimming', ['nadar', 'natacion', 'swim', 'swimming', 'piscina']],
-  ['strength', ['gimnasio', 'gym', 'pesas', 'powerlifting', 'halterofilia', 'musculacion']],
+  [
+    'cycling',
+    [
+      'bici',
+      'bicicleta',
+      'ciclismo',
+      'ciclista',
+      'cycling',
+      'spinning',
+      'rodillo',
+      'mtb',
+      'btt',
+      'pedalear',
+    ],
+  ],
+  [
+    'football',
+    ['futbol', 'football', 'soccer', 'futbito', 'futbolito', 'futsal', 'cascarita', 'pachanga'],
+  ],
+  ['basketball', ['baloncesto', 'basket', 'basketball', 'basquet', 'basquetbol', 'basketbol']],
+  ['swimming', ['nadar', 'natacion', 'swim', 'swimming', 'piscina', 'crol', 'waterpolo']],
+  [
+    'strength',
+    [
+      'gimnasio',
+      'gym',
+      'pesas',
+      'powerlifting',
+      'halterofilia',
+      'musculacion',
+      'hipertrofia',
+      'calistenia',
+      'dominadas',
+      'sentadilla',
+      'press banca',
+      'peso muerto',
+      'crossfit',
+      'mamado',
+    ],
+  ],
 ];
+
+const WEEKDAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+const EVERY_DAY = ['todos los dias', 'a diario', 'cada dia', 'every day', 'daily'];
+const WEEKENDS = ['findes', 'finde', 'fines de semana', 'fin de semana', 'weekends'];
+
+/** Position of a term in the normalised text, to order sports as written. */
+function termIndex(text: string, term: string): number {
+  const m = new RegExp(`\\b${term}\\b`).exec(text);
+  return m ? m.index : Number.MAX_SAFE_INTEGER;
+}
 
 const QUALITY_TERMS: [Quality, string[]][] = [
   [
@@ -113,14 +203,18 @@ export function parseGoal(raw: string): ParsedGoal {
   const words = new Set(text.split(' ').filter(Boolean));
   const matched: string[] = [];
 
-  const sports: Sport[] = [];
+  // The sport mentioned first is the main one ("correr y algo de bici").
+  const found: { sport: Sport; hit: string; at: number }[] = [];
   for (const [sport, terms] of SPORT_TERMS) {
-    const hit = terms.find((t) => hasTerm(words, text, t));
-    if (hit) {
-      sports.push(sport);
-      matched.push(hit);
+    const hits = terms.filter((t) => hasTerm(words, text, t));
+    if (hits.length) {
+      const first = hits.reduce((a, b) => (termIndex(text, a) <= termIndex(text, b) ? a : b));
+      found.push({ sport, hit: first, at: termIndex(text, first) });
     }
   }
+  found.sort((a, b) => a.at - b.at);
+  const sports: Sport[] = found.map((f) => f.sport);
+  matched.push(...found.map((f) => f.hit));
 
   const qualities: Quality[] = [];
   for (const [quality, terms] of QUALITY_TERMS) {
@@ -139,13 +233,29 @@ export function parseGoal(raw: string): ParsedGoal {
   }
 
   let daysPerWeek = 3;
+  let daysStated = false;
   const days = text.match(/\b(\w+) (?:dias|veces|sesiones|days|times|sessions)\b/);
-  if (days) {
-    const n = toNumber(days[1]);
-    if (n !== null) {
-      daysPerWeek = clamp(Math.round(n), 1, 7);
-      matched.push(days[0]);
-    }
+  const n = days ? toNumber(days[1]) : null;
+  const namedDays = WEEKDAYS.filter((d) => words.has(d));
+  const everyDay = EVERY_DAY.find((t) => hasTerm(words, text, t));
+  const weekend = WEEKENDS.find((t) => hasTerm(words, text, t));
+  if (days && n !== null) {
+    daysPerWeek = clamp(Math.round(n), 1, 7);
+    matched.push(days[0]);
+    daysStated = true;
+  } else if (everyDay) {
+    daysPerWeek = 7;
+    matched.push(everyDay);
+    daysStated = true;
+  } else if (namedDays.length) {
+    // "lunes, miércoles y viernes" is three days a week.
+    daysPerWeek = clamp(namedDays.length + (weekend ? 2 : 0), 1, 7);
+    matched.push(...namedDays);
+    daysStated = true;
+  } else if (weekend) {
+    daysPerWeek = 2;
+    matched.push(weekend);
+    daysStated = true;
   }
 
   let horizonWeeks = 8;
@@ -164,7 +274,7 @@ export function parseGoal(raw: string): ParsedGoal {
   let confidence = 0.15;
   if (sports.length) confidence += 0.4;
   if (explicitQualities) confidence += 0.35;
-  if (days || horizon) confidence += 0.1;
+  if (daysStated || horizon) confidence += 0.1;
 
   return {
     raw,
