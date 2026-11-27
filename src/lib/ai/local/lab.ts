@@ -2,26 +2,33 @@
 // Kairos's first task on this phone. Pure over the runtime, so it is
 // tested off-device; AiLabScreen only displays it.
 
-import type { Sport } from '../../adaptive/types';
-import { goalChatRequest, mergeAiGoal } from '../goalInterpreter';
 import { parseGoal } from '../../adaptive/goalParser';
+import { GOAL_CASES, GOAL_HOLDOUT, scoreGoal, type GoalCase } from '../eval/goalCases';
+import { goalChatRequest, mergeAiGoal } from '../goalInterpreter';
 import type { LocalModel } from './catalog';
 import { fromCompletionResult, toCompletionParams } from './mapping';
 import type { DeviceInfo, LocalRuntime } from './runtimeTypes';
 
-/** Real goals in the words people use, Latin American phrasing included. */
-export const LAB_GOALS: { text: string; sport: Sport }[] = [
-  { text: 'Quiero aguantar más en pádel, juego martes y jueves', sport: 'padel' },
-  { text: 'ganar fuerza para escalar en 3 meses', sport: 'climbing' },
-  { text: 'me ahogo en el tercer set y no llego a las bolas en el tenis', sport: 'tennis' },
-  { text: 'quiero bajar de peso y empezar a correr, puedo 3 veces por semana', sport: 'running' },
+/**
+ * Quick run: four held-out goals the rules parser was never tuned on
+ * (slang, an unlisted sport, Latin American phrasing). The full run scores
+ * every case in both sets.
+ */
+export const LAB_QUICK: readonly GoalCase[] = [
+  GOAL_HOLDOUT[4], // "salir a rodar con la grupeta los domingos"
+  GOAL_HOLDOUT[2], // "jugar mejor al squash"
+  GOAL_HOLDOUT[11], // "agarrar fuerza en el gym para no lastimarme jugando fut"
+  GOAL_HOLDOUT[9], // "correr un maratón en 16 semanas"
 ];
+export const LAB_FULL: readonly GoalCase[] = [...GOAL_CASES, ...GOAL_HOLDOUT];
 
 export interface GoalCheck {
   text: string;
   ms: number;
-  /** The answer parsed as JSON and named the expected sport first. */
+  /** The answer parsed as JSON and every checked field was right. */
   ok: boolean;
+  /** The rules parser on the same case, for comparison. */
+  rulesOk: boolean;
   validJson: boolean;
   sports: string[];
   error?: string;
@@ -42,6 +49,7 @@ export async function runLab(
   runtime: LocalRuntime,
   model: LocalModel,
   onStep: (label: string) => void = () => {},
+  cases: readonly GoalCase[] = LAB_QUICK,
 ): Promise<LabResult> {
   const result: LabResult = {
     modelId: model.id,
@@ -58,8 +66,8 @@ export async function runLab(
     const bench = await runtime.bench();
     result.promptPerSecond = bench.promptPerSecond;
     result.generatePerSecond = bench.generatePerSecond;
-    for (const [i, goal] of LAB_GOALS.entries()) {
-      onStep(`Objetivo ${i + 1} de ${LAB_GOALS.length}…`);
+    for (const [i, goal] of cases.entries()) {
+      onStep(`Objetivo ${i + 1} de ${cases.length}…`);
       result.goals.push(await checkGoal(runtime, goal));
     }
   } catch (e) {
@@ -68,10 +76,12 @@ export async function runLab(
   return result;
 }
 
-async function checkGoal(
-  runtime: LocalRuntime,
-  goal: (typeof LAB_GOALS)[number],
-): Promise<GoalCheck> {
+const passed = (s: ReturnType<typeof scoreGoal>) =>
+  s.sportOk && s.daysOk !== false && s.weeksOk !== false;
+
+async function checkGoal(runtime: LocalRuntime, goal: GoalCase): Promise<GoalCheck> {
+  const rules = { ...parseGoal(goal.text), source: 'rules' as const };
+  const rulesOk = passed(scoreGoal(goal, rules));
   const started = Date.now();
   try {
     const answer = fromCompletionResult(
@@ -82,13 +92,14 @@ async function checkGoal(
     try {
       raw = JSON.parse(answer.content ?? '');
     } catch {
-      return { text: goal.text, ms, ok: false, validJson: false, sports: [] };
+      return { text: goal.text, ms, ok: false, rulesOk, validJson: false, sports: [] };
     }
-    const merged = mergeAiGoal({ ...parseGoal(goal.text), source: 'rules' }, raw);
+    const merged = mergeAiGoal(rules, raw);
     return {
       text: goal.text,
       ms,
-      ok: merged.source === 'ai' && merged.sports[0] === goal.sport,
+      ok: merged.source === 'ai' && passed(scoreGoal(goal, merged)),
+      rulesOk,
       validJson: true,
       sports: merged.sports,
     };
@@ -97,6 +108,7 @@ async function checkGoal(
       text: goal.text,
       ms: Date.now() - started,
       ok: false,
+      rulesOk,
       validJson: false,
       sports: [],
       error: e instanceof Error ? e.message : String(e),
@@ -112,16 +124,17 @@ export function formatLabReport(r: LabResult, model: LocalModel): string {
     ? `${n1(r.device.totalMemoryBytes / 1024 ** 3)} GB`
     : 'RAM desconocida';
   const okCount = r.goals.filter((g) => g.ok).length;
+  const rulesCount = r.goals.filter((g) => g.rulesOk).length;
   const avgMs = r.goals.length ? r.goals.reduce((a, g) => a + g.ms, 0) / r.goals.length : 0;
   const lines = [
     `Kairos · Laboratorio IA`,
     `${model.name} (${model.file}) en ${r.device.modelName ?? 'iPhone'} · ${mem}`,
     `Carga: ${n1(r.loadMs / 1000)} s`,
     `Lectura: ${Math.round(r.promptPerSecond)} tok/s · Escritura: ${n1(r.generatePerSecond)} tok/s`,
-    `Objetivos: ${okCount}/${r.goals.length} correctos · ${n1(avgMs / 1000)} s de media`,
+    `Objetivos: modelo ${okCount}/${r.goals.length} · reglas ${rulesCount}/${r.goals.length} · ${n1(avgMs / 1000)} s de media`,
     ...r.goals.map(
       (g) =>
-        `  ${g.ok ? '✓' : '✗'} ${n1(g.ms / 1000)} s · ${g.validJson ? g.sports.join(', ') || '—' : 'JSON no válido'} · «${g.text}»${g.error ? ` (${g.error})` : ''}`,
+        `  ${g.ok ? '✓' : '✗'}${g.rulesOk ? '' : ' (reglas ✗)'} ${n1(g.ms / 1000)} s · ${g.validJson ? g.sports.join(', ') || '—' : 'JSON no válido'} · «${g.text}»${g.error ? ` (${g.error})` : ''}`,
     ),
   ];
   if (r.error) lines.push(`Se detuvo: ${r.error}`);

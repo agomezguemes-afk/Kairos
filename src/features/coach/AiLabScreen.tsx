@@ -14,7 +14,8 @@ import {
   type FitVerdict,
   type LocalModel,
 } from '../../lib/ai/local/catalog';
-import { formatLabReport, runLab } from '../../lib/ai/local/lab';
+import { formatLabReport, LAB_FULL, LAB_QUICK, runLab } from '../../lib/ai/local/lab';
+import type { GoalCase } from '../../lib/ai/eval/goalCases';
 import { localRuntime } from '../../lib/ai/local/runtime';
 import { useLocalAiStore } from '../../lib/ai/local/store';
 import { Brut, Spacing } from '../../theme/tokens';
@@ -153,16 +154,24 @@ function ModelCard({ model, fit }: { model: LocalModel; fit: FitVerdict }) {
     }
   }, [model, setDownloaded]);
 
-  const test = useCallback(async () => {
-    if (!localRuntime) return;
-    setError(null);
-    setReport(null);
-    const result = await runLab(localRuntime, model, (step) => setPhase({ kind: 'testing', step }));
-    setReport(formatLabReport(result, model));
-    setPhase({ kind: 'idle' });
-    if (result.error) feedback.warning();
-    else feedback.success();
-  }, [model]);
+  const test = useCallback(
+    async (cases: readonly GoalCase[]) => {
+      if (!localRuntime) return;
+      setError(null);
+      setReport(null);
+      const result = await runLab(
+        localRuntime,
+        model,
+        (step) => setPhase({ kind: 'testing', step }),
+        cases,
+      );
+      setReport(formatLabReport(result, model));
+      setPhase({ kind: 'idle' });
+      if (result.error) feedback.warning();
+      else feedback.success();
+    },
+    [model],
+  );
 
   const remove = useCallback(async () => {
     if (!localRuntime) return;
@@ -242,7 +251,11 @@ function ModelCard({ model, fit }: { model: LocalModel; fit: FitVerdict }) {
 
       {downloaded && !busy && phase.kind !== 'confirm-delete' && (
         <View style={styles.actions}>
-          <Action label="Probar" primary onPress={test} />
+          <Action label="Prueba rápida" primary onPress={() => test(LAB_QUICK)} />
+          <Action
+            label={`Evaluación completa (${LAB_FULL.length}, unos minutos)`}
+            onPress={() => test(LAB_FULL)}
+          />
           <Action
             label={active ? 'En uso en el coach' : 'Usar en el coach'}
             onPress={() => setActive(active ? null : model.id)}

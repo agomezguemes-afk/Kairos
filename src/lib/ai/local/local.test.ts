@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { fitOnDevice, formatBytes, LOCAL_MODELS, type LocalModel } from './catalog';
-import { formatLabReport, LAB_GOALS, runLab } from './lab';
+import { formatLabReport, LAB_FULL, LAB_QUICK, runLab } from './lab';
 import { createLocalProvider } from './llamaProvider';
 import { fromCompletionResult, toCompletionParams, type LlamaCompletionResult } from './mapping';
 import type { LocalRuntime } from './runtimeTypes';
@@ -191,12 +191,12 @@ describe('AI lab run', () => {
 
   it('scores a model that answers every goal right', async () => {
     const runtime = answering((text) => {
-      const sport = LAB_GOALS.find((g) => g.text === text)!.sport;
+      const c = LAB_FULL.find((g) => g.text === text)!;
       return JSON.stringify({
-        sports: [sport],
+        sports: [c.sport[0]],
         qualities: ['endurance'],
-        daysPerWeek: null,
-        horizonWeeks: null,
+        daysPerWeek: c.days ?? null,
+        horizonWeeks: c.weeks ?? null,
         confidence: 0.8,
         summary: 'Quieres mejorar.',
         question: null,
@@ -207,7 +207,7 @@ describe('AI lab run', () => {
     expect(r.generatePerSecond).toBe(22.5);
     expect(r.goals.every((g) => g.ok)).toBe(true);
     const report = formatLabReport(r, small);
-    expect(report).toContain('4/4 correctos');
+    expect(report).toMatch(/modelo 4\/4 · reglas \d\/4/);
     expect(report).toContain('Escritura: 22,5 tok/s');
   });
 
@@ -216,7 +216,7 @@ describe('AI lab run', () => {
       answering(() => '{"sports": ["padel"'),
       small,
     );
-    expect(r.goals).toHaveLength(LAB_GOALS.length);
+    expect(r.goals).toHaveLength(LAB_QUICK.length);
     expect(r.goals.every((g) => !g.validJson && !g.ok)).toBe(true);
     expect(formatLabReport(r, small)).toContain('JSON no válido');
   });
@@ -253,5 +253,17 @@ describe('local provider task fit', () => {
     expect(withModel(small).suits?.('coach')).toBe(false);
     expect(withModel(mid).suits?.('coach')).toBe(true);
     for (const m of LOCAL_MODELS) expect(withModel(m).suits?.('agent')).toBe(false);
+  });
+});
+
+describe('AI lab full run', () => {
+  it('covers both the tuned and the held-out goals', async () => {
+    expect(LAB_FULL.length).toBeGreaterThanOrEqual(50);
+    const { runtime } = fakeRuntime();
+    runtime.complete = async () => ({ text: 'no json' });
+    const r = await runLab(runtime, small, () => {}, LAB_FULL);
+    expect(r.goals).toHaveLength(LAB_FULL.length);
+    // The rules column is filled even when the model fails.
+    expect(r.goals.filter((g) => g.rulesOk).length).toBeGreaterThan(LAB_FULL.length / 2);
   });
 });
