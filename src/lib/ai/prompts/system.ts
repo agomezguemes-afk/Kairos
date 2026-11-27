@@ -79,7 +79,9 @@ ${TRAINING_SCIENCE}`;
 
 // ======================== INSIGHT/PLATEAU COACH ========================
 
-export const PLATEAU_COACH_SYSTEM = `Eres Kairos Coach. Responde en español, en máximo 3 frases, con tono amable y científico. Da una sugerencia concreta y accionable.`;
+// The engine decides loads and deloads; the model explains. Any number it
+// writes must already be in the user message (lib/ai/grounding.ts checks).
+export const PLATEAU_COACH_SYSTEM = `Eres Kairos Coach. Responde en español, en máximo 3 frases, con tono amable y científico. Da una sugerencia concreta sobre cómo variar el estímulo (técnica, variante, ritmo, descanso), sin prescribir cargas, series ni porcentajes: eso lo calcula Kairos. Usa solo cifras que aparezcan en el mensaje del usuario.`;
 
 // ======================== FREE-CHAT COACH (text-only, with history) ========================
 
