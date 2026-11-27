@@ -238,3 +238,20 @@ describe('formatBytes', () => {
     expect(formatBytes(1_107_409_472)).toBe('1,1 GB');
   });
 });
+
+describe('local provider task fit', () => {
+  it('only takes the tasks its active model is trusted with', () => {
+    const { runtime } = fakeRuntime();
+    const withModel = (m: LocalModel) =>
+      createLocalProvider({
+        runtime,
+        activeModel: () => m,
+        isDownloaded: () => true,
+        markMissing: () => {},
+      });
+    expect(withModel(small).suits?.('goal')).toBe(true);
+    expect(withModel(small).suits?.('coach')).toBe(false);
+    expect(withModel(mid).suits?.('coach')).toBe(true);
+    for (const m of LOCAL_MODELS) expect(withModel(m).suits?.('agent')).toBe(false);
+  });
+});

@@ -1,7 +1,7 @@
 // The downloaded model as a provider. No native imports: the runtime and
 // the persisted selection are injected, so the policy is testable.
 
-import type { LocalModel } from './catalog';
+import { LOCAL_CONTEXT_TOKENS, type LocalModel } from './catalog';
 import { fromCompletionResult, toCompletionParams } from './mapping';
 import type { LocalRuntime } from './runtimeTypes';
 import type { ChatRequest, ChatResult, LlmProvider } from '../providers/types';
@@ -44,7 +44,8 @@ export function createLocalProvider(deps: LocalProviderDeps): LlmProvider {
   return {
     id: LOCAL_PROVIDER_ID,
     kind: 'local',
-    capabilities: { json: true, tools: true, contextTokens: 2048 },
+    capabilities: { json: true, tools: true, contextTokens: LOCAL_CONTEXT_TOKENS },
+    suits: (task) => !!deps.activeModel()?.tasks.includes(task),
     status() {
       if (!deps.runtime) return { available: false, reason: 'Solo en la app de iPhone.' };
       const model = deps.activeModel();

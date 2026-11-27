@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { planRoute, routeChat } from './router';
+import { estimateTokens, planRoute, routeChat } from './router';
 import type { ChatResult, LlmProvider, ProviderKind, RouteContext } from './types';
 
 const ctx: RouteContext = {
@@ -133,5 +133,24 @@ describe('routeChat', () => {
     });
     expect(r).toBeNull();
     expect(cloud.calls).toBe(0);
+  });
+});
+
+describe('fit for the task and the context', () => {
+  it('skips a provider that does not suit the task', () => {
+    const goalsOnly = { ...fake('tiny', 'local', ok('t')), suits: (t: string) => t === 'goal' };
+    expect(planRoute('coach', req, [goalsOnly], ctx).skipped).toEqual([
+      { id: 'tiny', reason: 'not-suited' },
+    ]);
+    expect(planRoute('goal', req, [goalsOnly], ctx).order.map((p) => p.id)).toEqual(['tiny']);
+  });
+
+  it('skips a provider whose context cannot hold the request', () => {
+    const small = fake('tiny', 'local', ok('t')); // 4096 tokens
+    const long = { messages: [{ role: 'user' as const, content: 'x'.repeat(20_000) }] };
+    expect(planRoute('goal', long, [small], ctx).skipped).toEqual([
+      { id: 'tiny', reason: 'too-long' },
+    ]);
+    expect(estimateTokens(long)).toBeGreaterThan(4096);
   });
 });

@@ -4,6 +4,8 @@
 // 2026-11-24). Which one becomes the default is decided by measuring on
 // real phones in the AI lab; until then all three are candidates.
 
+import type { AiTask } from '../providers/types';
+
 export interface LocalModel {
   id: string;
   name: string;
@@ -16,6 +18,13 @@ export interface LocalModel {
   licence: string;
   /** One line on why it is a candidate. */
   note: string;
+  /**
+   * Tasks it is trusted with. None take the block agent yet: its prompt
+   * (profile, block, catalogue, ~22 tool schemas) runs to several thousand
+   * tokens, beyond a 2K on-device context; a compact, intent-routed agent
+   * comes first. Revised with the lab's measurements and the eval set.
+   */
+  tasks: readonly AiTask[];
 }
 
 const hf = (repo: string, file: string) => `https://huggingface.co/${repo}/resolve/main/${file}`;
@@ -30,7 +39,8 @@ export const LOCAL_MODELS: readonly LocalModel[] = [
     sizeBytes: 396_705_472,
     sha256: 'ac2d97712095a558e31573f62f466a3f9d93990898b0ec79d7c974c1780d524a',
     licence: 'Apache-2.0',
-    note: 'El más ligero: cabe en cualquier iPhone, para objetivos y frases cortas.',
+    note: 'El más ligero: cabe en cualquier iPhone; para entender objetivos.',
+    tasks: ['goal'],
   },
   {
     id: 'lfm2.5-1.2b-q4km',
@@ -41,7 +51,8 @@ export const LOCAL_MODELS: readonly LocalModel[] = [
     sizeBytes: 730_895_168,
     sha256: 'b1b3de114215d9507409a662a501a631095a479a419584e8a2ded6304b19b4f5',
     licence: 'LFM Open 1.0 (gratis por debajo de 10 M$ de ingresos/año)',
-    note: 'Muy rápido y entrenado para herramientas; el término medio para 4 GB.',
+    note: 'Muy rápido; objetivos y textos cortos del coach. El término medio para 4 GB.',
+    tasks: ['goal', 'coach'],
   },
   {
     id: 'qwen3-1.7b-q4km',
@@ -52,7 +63,8 @@ export const LOCAL_MODELS: readonly LocalModel[] = [
     sizeBytes: 1_107_409_472,
     sha256: 'b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897',
     licence: 'Apache-2.0',
-    note: 'El mejor español y uso de herramientas de los tres; pensado para 6 GB o más.',
+    note: 'El mejor español de los tres; también la revisión semanal. Pensado para 6 GB o más.',
+    tasks: ['goal', 'coach', 'review'],
   },
 ];
 

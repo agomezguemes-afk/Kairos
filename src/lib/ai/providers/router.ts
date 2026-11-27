@@ -34,15 +34,37 @@ export type SkipReason =
   | 'background'
   | 'too-hot'
   | 'no-json'
-  | 'no-tools';
+  | 'no-tools'
+  | 'not-suited'
+  | 'too-long';
 
 export interface RoutePlan {
   order: LlmProvider[];
   skipped: { id: string; reason: SkipReason }[];
 }
 
-function skipReason(p: LlmProvider, req: ChatRequest, ctx: RouteContext): SkipReason | null {
+/**
+ * Tokens a request occupies: prompt (messages and tool schemas) plus the
+ * answer it may produce. Errs high (~3 characters per token; Spanish runs
+ * at 3.5–4 in these tokenizers) so a request never overflows a small
+ * on-device context mid-answer.
+ */
+export function estimateTokens(req: ChatRequest): number {
+  const prompt =
+    JSON.stringify(req.messages).length +
+    (req.tools ? JSON.stringify(req.tools).length : 0) +
+    (req.schema ? JSON.stringify(req.schema).length : 0);
+  return Math.ceil(prompt / 3) + (req.maxTokens ?? 512);
+}
+
+function skipReason(
+  task: AiTask,
+  p: LlmProvider,
+  req: ChatRequest,
+  ctx: RouteContext,
+): SkipReason | null {
   if (!p.status().available) return 'unavailable';
+  if (p.suits && !p.suits(task)) return 'not-suited';
   if (p.kind === 'cloud') {
     if (!ctx.cloudConsent) return 'no-consent';
     if (!ctx.online) return 'offline';
@@ -52,6 +74,7 @@ function skipReason(p: LlmProvider, req: ChatRequest, ctx: RouteContext): SkipRe
   }
   if (req.json && !p.capabilities.json) return 'no-json';
   if (req.tools?.length && !p.capabilities.tools) return 'no-tools';
+  if (estimateTokens(req) > p.capabilities.contextTokens) return 'too-long';
   return null;
 }
 
@@ -65,7 +88,7 @@ export function planRoute(
   const skipped: RoutePlan['skipped'] = [];
   for (const kind of TASK_ORDER[task]) {
     for (const p of providers.filter((x) => x.kind === kind)) {
-      const reason = skipReason(p, req, ctx);
+      const reason = skipReason(task, p, req, ctx);
       if (reason) skipped.push({ id: p.id, reason });
       else order.push(p);
     }

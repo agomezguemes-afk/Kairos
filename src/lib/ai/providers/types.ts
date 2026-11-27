@@ -59,6 +59,12 @@ export interface LlmProvider {
   capabilities: ProviderCapabilities;
   /** Cheap and synchronous: called on every routing decision. */
   status(): ProviderStatus;
+  /**
+   * Whether this back end does the task well enough to be tried. Absent
+   * means every task: a small on-device model answers a goal well but
+   * would botch a multi-step tool agent, so it opts out of that.
+   */
+  suits?(task: AiTask): boolean;
   complete(req: ChatRequest): Promise<ChatResult>;
 }
 
